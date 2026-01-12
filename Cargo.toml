@@ -1,0 +1,39 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/horizon-lattice",
+    "crates/horizon-lattice-core",
+    "crates/horizon-lattice-macros",
+    "crates/horizon-lattice-render",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/horizon-analytic-studios/horizon-lattice"
+authors = ["Horizon Analytic Studios, LLC"]
+
+[workspace.dependencies]
+# Core dependencies
+winit = "0.30"
+parking_lot = "0.12"
+slotmap = "1.0"
+tracing = "0.1"
+thiserror = "2.0"
+
+# Graphics dependencies
+wgpu = "24"
+bytemuck = { version = "1.14", features = ["derive"] }
+glam = "0.29"
+pollster = "0.4"
+
+# Proc-macro dependencies
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+
+# Internal crates
+horizon-lattice-core = { path = "crates/horizon-lattice-core" }
+horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }
+horizon-lattice-render = { path = "crates/horizon-lattice-render" }

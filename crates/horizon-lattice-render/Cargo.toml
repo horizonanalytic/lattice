@@ -1,0 +1,28 @@
+[package]
+name = "horizon-lattice-render"
+description = "Graphics rendering backend for Horizon Lattice using wgpu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+# Graphics
+wgpu = { workspace = true }
+bytemuck = { workspace = true }
+glam = { workspace = true }
+
+# Platform integration
+winit = { workspace = true }
+
+# Utilities
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+# Async (for device request)
+pollster = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }

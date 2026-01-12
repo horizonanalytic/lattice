@@ -1,0 +1,13 @@
+[package]
+name = "horizon-lattice"
+description = "A Rust-native GUI framework inspired by Qt6"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+horizon-lattice-core = { workspace = true }
+horizon-lattice-macros = { workspace = true }
+horizon-lattice-render = { workspace = true }

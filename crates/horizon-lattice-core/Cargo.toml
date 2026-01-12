@@ -1,0 +1,17 @@
+[package]
+name = "horizon-lattice-core"
+description = "Core systems for Horizon Lattice: event loop, signals, properties"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+winit = { workspace = true }
+parking_lot = { workspace = true }
+slotmap = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+horizon-lattice-macros = { path = "../horizon-lattice-macros" }

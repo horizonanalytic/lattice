@@ -26,3 +26,8 @@ pollster = { workspace = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
+tracing-subscriber = "0.3"
+
+[[example]]
+name = "simple_shapes"
+path = "examples/simple_shapes.rs"

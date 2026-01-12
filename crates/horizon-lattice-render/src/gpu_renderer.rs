@@ -15,29 +15,49 @@ use crate::surface::RenderSurface;
 use crate::transform::Transform2D;
 use crate::types::{Color, CornerRadii, Point, Rect, RoundedRect, Size};
 
-/// Vertex data for rectangles.
+/// Paint type constants for shader.
+const PAINT_TYPE_SOLID: u32 = 0;
+const PAINT_TYPE_LINEAR_GRADIENT: u32 = 1;
+const PAINT_TYPE_RADIAL_GRADIENT: u32 = 2;
+
+/// Vertex data for rectangles with gradient support.
+///
+/// Supports solid colors, linear gradients, and radial gradients with 2 color stops.
+/// For gradients, coordinates are in normalized local space (0-1 within the rect).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 struct RectVertex {
     /// Position in pixels.
     position: [f32; 2],
-    /// RGBA color (premultiplied alpha).
-    color: [f32; 4],
+    /// RGBA color for stop 0 (premultiplied alpha).
+    color0: [f32; 4],
     /// Rectangle top-left position.
     rect_pos: [f32; 2],
     /// Rectangle size.
     rect_size: [f32; 2],
     /// Corner radii (TL, TR, BR, BL).
     corner_radii: [f32; 4],
+    /// Gradient info: [paint_type, gradient_start_x, gradient_start_y, gradient_end_x]
+    /// paint_type: 0=solid, 1=linear, 2=radial
+    /// For linear: start/end are normalized local coords (0-1)
+    /// For radial: start is center, end.x is radius (in normalized coords)
+    gradient_info: [f32; 4],
+    /// Gradient end and stops: [gradient_end_y, stop0_offset, stop1_offset, _unused]
+    gradient_end_stops: [f32; 4],
+    /// RGBA color for stop 1 (premultiplied alpha).
+    color1: [f32; 4],
 }
 
 impl RectVertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![
+    const ATTRIBS: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_array![
         0 => Float32x2, // position
-        1 => Float32x4, // color
+        1 => Float32x4, // color0
         2 => Float32x2, // rect_pos
         3 => Float32x2, // rect_size
         4 => Float32x4, // corner_radii
+        5 => Float32x4, // gradient_info
+        6 => Float32x4, // gradient_end_stops
+        7 => Float32x4, // color1
     ];
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
@@ -45,6 +65,70 @@ impl RectVertex {
             array_stride: std::mem::size_of::<RectVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
+        }
+    }
+
+    /// Create a vertex for solid color rendering.
+    fn solid(position: [f32; 2], color: Color, rect_pos: [f32; 2], rect_size: [f32; 2], corner_radii: [f32; 4]) -> Self {
+        Self {
+            position,
+            color0: color.to_array(),
+            rect_pos,
+            rect_size,
+            corner_radii,
+            gradient_info: [PAINT_TYPE_SOLID as f32, 0.0, 0.0, 0.0],
+            gradient_end_stops: [0.0, 0.0, 1.0, 0.0],
+            color1: [0.0; 4],
+        }
+    }
+
+    /// Create a vertex for linear gradient rendering.
+    fn linear_gradient(
+        position: [f32; 2],
+        rect_pos: [f32; 2],
+        rect_size: [f32; 2],
+        corner_radii: [f32; 4],
+        start: [f32; 2],
+        end: [f32; 2],
+        stop0_offset: f32,
+        stop0_color: Color,
+        stop1_offset: f32,
+        stop1_color: Color,
+    ) -> Self {
+        Self {
+            position,
+            color0: stop0_color.to_array(),
+            rect_pos,
+            rect_size,
+            corner_radii,
+            gradient_info: [PAINT_TYPE_LINEAR_GRADIENT as f32, start[0], start[1], end[0]],
+            gradient_end_stops: [end[1], stop0_offset, stop1_offset, 0.0],
+            color1: stop1_color.to_array(),
+        }
+    }
+
+    /// Create a vertex for radial gradient rendering.
+    fn radial_gradient(
+        position: [f32; 2],
+        rect_pos: [f32; 2],
+        rect_size: [f32; 2],
+        corner_radii: [f32; 4],
+        center: [f32; 2],
+        radius: f32,
+        stop0_offset: f32,
+        stop0_color: Color,
+        stop1_offset: f32,
+        stop1_color: Color,
+    ) -> Self {
+        Self {
+            position,
+            color0: stop0_color.to_array(),
+            rect_pos,
+            rect_size,
+            corner_radii,
+            gradient_info: [PAINT_TYPE_RADIAL_GRADIENT as f32, center[0], center[1], radius],
+            gradient_end_stops: [0.0, stop0_offset, stop1_offset, 0.0],
+            color1: stop1_color.to_array(),
         }
     }
 }
@@ -445,7 +529,7 @@ impl GpuRenderer {
         Ok(stats)
     }
 
-    /// Add a filled quad to the batch.
+    /// Add a filled quad to the batch with solid color.
     fn add_filled_quad(&mut self, rect: Rect, radii: CornerRadii, color: Color) {
         let base_index = self.vertices.len() as u32;
 
@@ -456,40 +540,21 @@ impl GpuRenderer {
             color
         };
 
-        let color_arr = color.to_array();
         let rect_pos = [rect.left(), rect.top()];
         let rect_size = [rect.width(), rect.height()];
         let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
 
         // Add four vertices for the quad
-        self.vertices.push(RectVertex {
-            position: [rect.left(), rect.top()],
-            color: color_arr,
-            rect_pos,
-            rect_size,
-            corner_radii,
-        });
-        self.vertices.push(RectVertex {
-            position: [rect.right(), rect.top()],
-            color: color_arr,
-            rect_pos,
-            rect_size,
-            corner_radii,
-        });
-        self.vertices.push(RectVertex {
-            position: [rect.right(), rect.bottom()],
-            color: color_arr,
-            rect_pos,
-            rect_size,
-            corner_radii,
-        });
-        self.vertices.push(RectVertex {
-            position: [rect.left(), rect.bottom()],
-            color: color_arr,
-            rect_pos,
-            rect_size,
-            corner_radii,
-        });
+        let positions = [
+            [rect.left(), rect.top()],
+            [rect.right(), rect.top()],
+            [rect.right(), rect.bottom()],
+            [rect.left(), rect.bottom()],
+        ];
+
+        for pos in positions {
+            self.vertices.push(RectVertex::solid(pos, color, rect_pos, rect_size, corner_radii));
+        }
 
         // Add indices for two triangles
         self.indices.extend_from_slice(&[
@@ -502,6 +567,216 @@ impl GpuRenderer {
         ]);
 
         self.vertex_count += 4;
+    }
+
+    /// Add a filled quad with a paint (solid, linear gradient, or radial gradient).
+    fn add_filled_quad_paint(&mut self, rect: Rect, radii: CornerRadii, paint: &Paint) {
+        match paint {
+            Paint::Solid(color) => {
+                self.add_filled_quad(rect, radii, *color);
+            }
+            Paint::LinearGradient(gradient) => {
+                self.add_linear_gradient_quad(rect, radii, gradient);
+            }
+            Paint::RadialGradient(gradient) => {
+                self.add_radial_gradient_quad(rect, radii, gradient);
+            }
+        }
+    }
+
+    /// Add a filled quad with a linear gradient.
+    fn add_linear_gradient_quad(&mut self, rect: Rect, radii: CornerRadii, gradient: &crate::paint::LinearGradient) {
+        let base_index = self.vertices.len() as u32;
+
+        let rect_pos = [rect.left(), rect.top()];
+        let rect_size = [rect.width(), rect.height()];
+        let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
+
+        // Convert gradient start/end from absolute coords to normalized local coords (0-1)
+        let start = [
+            (gradient.start.x - rect.left()) / rect.width(),
+            (gradient.start.y - rect.top()) / rect.height(),
+        ];
+        let end = [
+            (gradient.end.x - rect.left()) / rect.width(),
+            (gradient.end.y - rect.top()) / rect.height(),
+        ];
+
+        // Get the first two stops (we support 2 stops in the current implementation)
+        let (stop0_offset, stop0_color, stop1_offset, stop1_color) = self.extract_two_stops(&gradient.stops);
+
+        // Apply opacity to colors
+        let stop0_color = self.apply_opacity(stop0_color);
+        let stop1_color = self.apply_opacity(stop1_color);
+
+        // Add four vertices for the quad
+        let positions = [
+            [rect.left(), rect.top()],
+            [rect.right(), rect.top()],
+            [rect.right(), rect.bottom()],
+            [rect.left(), rect.bottom()],
+        ];
+
+        for pos in positions {
+            self.vertices.push(RectVertex::linear_gradient(
+                pos,
+                rect_pos,
+                rect_size,
+                corner_radii,
+                start,
+                end,
+                stop0_offset,
+                stop0_color,
+                stop1_offset,
+                stop1_color,
+            ));
+        }
+
+        // Add indices for two triangles
+        self.indices.extend_from_slice(&[
+            base_index,
+            base_index + 1,
+            base_index + 2,
+            base_index,
+            base_index + 2,
+            base_index + 3,
+        ]);
+
+        self.vertex_count += 4;
+    }
+
+    /// Add a filled quad with a radial gradient.
+    fn add_radial_gradient_quad(&mut self, rect: Rect, radii: CornerRadii, gradient: &crate::paint::RadialGradient) {
+        let base_index = self.vertices.len() as u32;
+
+        let rect_pos = [rect.left(), rect.top()];
+        let rect_size = [rect.width(), rect.height()];
+        let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
+
+        // Convert gradient center from absolute coords to normalized local coords (0-1)
+        let center = [
+            (gradient.center.x - rect.left()) / rect.width(),
+            (gradient.center.y - rect.top()) / rect.height(),
+        ];
+
+        // Normalize radius relative to the rect size (use average of width/height)
+        let avg_size = (rect.width() + rect.height()) / 2.0;
+        let normalized_radius = gradient.radius / avg_size;
+
+        // Get the first two stops
+        let (stop0_offset, stop0_color, stop1_offset, stop1_color) = self.extract_two_stops(&gradient.stops);
+
+        // Apply opacity to colors
+        let stop0_color = self.apply_opacity(stop0_color);
+        let stop1_color = self.apply_opacity(stop1_color);
+
+        // Add four vertices for the quad
+        let positions = [
+            [rect.left(), rect.top()],
+            [rect.right(), rect.top()],
+            [rect.right(), rect.bottom()],
+            [rect.left(), rect.bottom()],
+        ];
+
+        for pos in positions {
+            self.vertices.push(RectVertex::radial_gradient(
+                pos,
+                rect_pos,
+                rect_size,
+                corner_radii,
+                center,
+                normalized_radius,
+                stop0_offset,
+                stop0_color,
+                stop1_offset,
+                stop1_color,
+            ));
+        }
+
+        // Add indices for two triangles
+        self.indices.extend_from_slice(&[
+            base_index,
+            base_index + 1,
+            base_index + 2,
+            base_index,
+            base_index + 2,
+            base_index + 3,
+        ]);
+
+        self.vertex_count += 4;
+    }
+
+    /// Extract the first two stops from a gradient stop list.
+    /// If there's only one stop, duplicates it. If there are more than two,
+    /// uses the first and last.
+    fn extract_two_stops(&self, stops: &[crate::paint::GradientStop]) -> (f32, Color, f32, Color) {
+        match stops.len() {
+            0 => (0.0, Color::BLACK, 1.0, Color::BLACK),
+            1 => (stops[0].offset, stops[0].color, stops[0].offset, stops[0].color),
+            2 => (stops[0].offset, stops[0].color, stops[1].offset, stops[1].color),
+            _ => {
+                // For more than 2 stops, use first and last
+                // TODO: Support more stops with multi-pass or texture-based approach
+                let first = &stops[0];
+                let last = &stops[stops.len() - 1];
+                (first.offset, first.color, last.offset, last.color)
+            }
+        }
+    }
+
+    /// Apply current opacity to a color.
+    fn apply_opacity(&self, color: Color) -> Color {
+        if self.current_opacity < 1.0 {
+            color.with_alpha(color.a * self.current_opacity)
+        } else {
+            color
+        }
+    }
+
+    /// Transform a paint's gradient coordinates from original rect space to transformed rect space.
+    fn transform_paint(&self, paint: Paint, original_rect: &Rect, transformed_rect: &Rect) -> Paint {
+        match paint {
+            Paint::Solid(_) => paint, // No transformation needed for solid colors
+            Paint::LinearGradient(mut gradient) => {
+                // Transform gradient start/end points
+                gradient.start = self.transform_gradient_point(
+                    gradient.start,
+                    original_rect,
+                    transformed_rect,
+                );
+                gradient.end = self.transform_gradient_point(
+                    gradient.end,
+                    original_rect,
+                    transformed_rect,
+                );
+                Paint::LinearGradient(gradient)
+            }
+            Paint::RadialGradient(mut gradient) => {
+                // Transform gradient center
+                gradient.center = self.transform_gradient_point(
+                    gradient.center,
+                    original_rect,
+                    transformed_rect,
+                );
+                // Scale radius proportionally (use average scale factor)
+                let scale_x = transformed_rect.width() / original_rect.width();
+                let scale_y = transformed_rect.height() / original_rect.height();
+                gradient.radius *= (scale_x + scale_y) / 2.0;
+                Paint::RadialGradient(gradient)
+            }
+        }
+    }
+
+    /// Transform a point from original rect space to transformed rect space.
+    fn transform_gradient_point(&self, point: Point, original_rect: &Rect, transformed_rect: &Rect) -> Point {
+        // Calculate normalized position within original rect
+        let norm_x = (point.x - original_rect.left()) / original_rect.width();
+        let norm_y = (point.y - original_rect.top()) / original_rect.height();
+        // Apply to transformed rect
+        Point::new(
+            transformed_rect.left() + norm_x * transformed_rect.width(),
+            transformed_rect.top() + norm_y * transformed_rect.height(),
+        )
     }
 
     /// Add a stroked quad to the batch (as four separate quads for each edge).
@@ -654,20 +929,24 @@ impl Renderer for GpuRenderer {
 
     fn fill_rect(&mut self, rect: Rect, paint: impl Into<Paint>) {
         let paint = paint.into();
-        let color = paint.as_solid().unwrap_or(Color::BLACK);
 
         // Transform the rectangle
         let transformed_rect = self.state.transform().transform_rect(&rect);
-        self.add_filled_quad(transformed_rect, CornerRadii::ZERO, color);
+
+        // For gradients, we need to transform the gradient coordinates too
+        let paint = self.transform_paint(paint, &rect, &transformed_rect);
+        self.add_filled_quad_paint(transformed_rect, CornerRadii::ZERO, &paint);
     }
 
     fn fill_rounded_rect(&mut self, rrect: RoundedRect, paint: impl Into<Paint>) {
         let paint = paint.into();
-        let color = paint.as_solid().unwrap_or(Color::BLACK);
 
         // Transform the rectangle
         let transformed_rect = self.state.transform().transform_rect(&rrect.rect);
-        self.add_filled_quad(transformed_rect, rrect.radii, color);
+
+        // For gradients, we need to transform the gradient coordinates too
+        let paint = self.transform_paint(paint, &rrect.rect, &transformed_rect);
+        self.add_filled_quad_paint(transformed_rect, rrect.radii, &paint);
     }
 
     fn stroke_rect(&mut self, rect: Rect, stroke: &Stroke) {
@@ -699,40 +978,26 @@ impl Renderer for GpuRenderer {
         let ny = dx / length;
 
         let half_width = stroke.width / 2.0;
-        let color = stroke.paint.as_solid().unwrap_or(Color::BLACK);
-        let color_arr = color.to_array();
+        let color = self.apply_opacity(stroke.paint.as_solid().unwrap_or(Color::BLACK));
 
         let base_index = self.vertices.len() as u32;
 
+        // For lines, we use a minimal rect that doesn't affect SDF calculations
+        let rect_pos = [0.0, 0.0];
+        let rect_size = [1.0, 1.0];
+        let corner_radii = [0.0; 4];
+
         // Four corners of the line quad
-        self.vertices.push(RectVertex {
-            position: [from.x + nx * half_width, from.y + ny * half_width],
-            color: color_arr,
-            rect_pos: [0.0, 0.0],
-            rect_size: [1.0, 1.0],
-            corner_radii: [0.0; 4],
-        });
-        self.vertices.push(RectVertex {
-            position: [from.x - nx * half_width, from.y - ny * half_width],
-            color: color_arr,
-            rect_pos: [0.0, 0.0],
-            rect_size: [1.0, 1.0],
-            corner_radii: [0.0; 4],
-        });
-        self.vertices.push(RectVertex {
-            position: [to.x - nx * half_width, to.y - ny * half_width],
-            color: color_arr,
-            rect_pos: [0.0, 0.0],
-            rect_size: [1.0, 1.0],
-            corner_radii: [0.0; 4],
-        });
-        self.vertices.push(RectVertex {
-            position: [to.x + nx * half_width, to.y + ny * half_width],
-            color: color_arr,
-            rect_pos: [0.0, 0.0],
-            rect_size: [1.0, 1.0],
-            corner_radii: [0.0; 4],
-        });
+        let positions = [
+            [from.x + nx * half_width, from.y + ny * half_width],
+            [from.x - nx * half_width, from.y - ny * half_width],
+            [to.x - nx * half_width, to.y - ny * half_width],
+            [to.x + nx * half_width, to.y + ny * half_width],
+        ];
+
+        for pos in positions {
+            self.vertices.push(RectVertex::solid(pos, color, rect_pos, rect_size, corner_radii));
+        }
 
         self.indices.extend_from_slice(&[
             base_index,
@@ -800,12 +1065,60 @@ mod tests {
     #[test]
     fn test_rect_vertex_size() {
         // Ensure vertex is properly sized for GPU
-        assert_eq!(std::mem::size_of::<RectVertex>(), 56); // 14 floats * 4 bytes
+        // New size: position(2) + color0(4) + rect_pos(2) + rect_size(2) + corner_radii(4)
+        //         + gradient_info(4) + gradient_end_stops(4) + color1(4) = 26 floats * 4 = 104 bytes
+        assert_eq!(std::mem::size_of::<RectVertex>(), 104);
     }
 
     #[test]
     fn test_uniforms_size() {
         // Ensure uniforms are properly aligned
         assert_eq!(std::mem::size_of::<Uniforms>(), 80); // 4x4 mat + 2 vec2s
+    }
+
+    #[test]
+    fn test_solid_vertex_creation() {
+        let vertex = RectVertex::solid(
+            [10.0, 20.0],
+            Color::RED,
+            [0.0, 0.0],
+            [100.0, 100.0],
+            [5.0, 5.0, 5.0, 5.0],
+        );
+        assert_eq!(vertex.gradient_info[0], PAINT_TYPE_SOLID as f32);
+    }
+
+    #[test]
+    fn test_linear_gradient_vertex_creation() {
+        let vertex = RectVertex::linear_gradient(
+            [10.0, 20.0],
+            [0.0, 0.0],
+            [100.0, 100.0],
+            [0.0; 4],
+            [0.0, 0.0],   // start
+            [1.0, 0.0],   // end
+            0.0,          // stop0 offset
+            Color::RED,
+            1.0,          // stop1 offset
+            Color::BLUE,
+        );
+        assert_eq!(vertex.gradient_info[0], PAINT_TYPE_LINEAR_GRADIENT as f32);
+    }
+
+    #[test]
+    fn test_radial_gradient_vertex_creation() {
+        let vertex = RectVertex::radial_gradient(
+            [10.0, 20.0],
+            [0.0, 0.0],
+            [100.0, 100.0],
+            [0.0; 4],
+            [0.5, 0.5],   // center
+            0.5,          // radius
+            0.0,          // stop0 offset
+            Color::WHITE,
+            1.0,          // stop1 offset
+            Color::BLACK,
+        );
+        assert_eq!(vertex.gradient_info[0], PAINT_TYPE_RADIAL_GRADIENT as f32);
     }
 }

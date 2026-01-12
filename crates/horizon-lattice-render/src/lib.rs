@@ -100,9 +100,13 @@ mod surface;
 mod transform;
 mod types;
 
+pub mod capture;
+mod offscreen;
+
 // Core infrastructure
 pub use context::{GraphicsConfig, GraphicsContext, GpuResources};
 pub use error::{RenderError, RenderResult};
+pub use offscreen::{OffscreenConfig, OffscreenSurface};
 pub use surface::{PresentMode, RenderSurface, SurfaceConfig, SurfaceFrame};
 
 // Renderer API

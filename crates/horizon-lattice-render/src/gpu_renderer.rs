@@ -8,6 +8,7 @@ use tracing::debug;
 
 use crate::context::GraphicsContext;
 use crate::error::RenderResult;
+use crate::offscreen::OffscreenSurface;
 use crate::paint::{BlendMode, Paint, Stroke};
 use crate::renderer::{FrameStats, RenderStateStack, Renderer};
 use crate::surface::RenderSurface;
@@ -121,9 +122,18 @@ pub struct GpuRenderer {
 impl GpuRenderer {
     /// Create a new GPU renderer for the given surface.
     pub fn new(surface: &RenderSurface) -> RenderResult<Self> {
+        Self::new_with_format(surface.format())
+    }
+
+    /// Create a new GPU renderer for offscreen rendering.
+    pub fn new_offscreen(surface: &OffscreenSurface) -> RenderResult<Self> {
+        Self::new_with_format(surface.format())
+    }
+
+    /// Create a new GPU renderer with the specified texture format.
+    fn new_with_format(format: wgpu::TextureFormat) -> RenderResult<Self> {
         let ctx = GraphicsContext::get();
         let device = ctx.device();
-        let format = surface.format();
 
         // Create shader module
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -331,6 +341,92 @@ impl GpuRenderer {
         // Submit
         queue.submit(std::iter::once(encoder.finish()));
         frame.present();
+
+        let stats = FrameStats {
+            draw_calls: self.draw_calls,
+            vertices: self.vertex_count,
+            state_changes: self.state_changes,
+        };
+
+        // Reset for next frame
+        self.vertices.clear();
+        self.indices.clear();
+        self.draw_calls = 0;
+        self.vertex_count = 0;
+        self.state_changes = 0;
+        self.in_frame = false;
+
+        Ok(stats)
+    }
+
+    /// Render to an offscreen surface.
+    ///
+    /// This should be called after `end_frame()` to actually submit the
+    /// rendered content to the offscreen texture.
+    pub fn render_to_offscreen(&mut self, surface: &OffscreenSurface) -> RenderResult<FrameStats> {
+        let ctx = GraphicsContext::get();
+        let device = ctx.device();
+        let queue = ctx.queue();
+
+        // Update uniform buffer
+        let uniforms = Uniforms {
+            transform: self.state.transform().to_mat4().to_cols_array_2d(),
+            viewport_size: [self.viewport_size.width, self.viewport_size.height],
+            _padding: [0.0; 2],
+        };
+        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+
+        // Upload vertex and index data
+        if !self.vertices.is_empty() {
+            queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+            queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.indices));
+        }
+
+        // Create command encoder
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("offscreen_render_encoder"),
+        });
+
+        // Begin render pass
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("offscreen_render_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: surface.view(),
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(self.clear_color.to_wgpu()),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            if !self.indices.is_empty() {
+                render_pass.set_pipeline(&self.rect_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
+                // Apply scissor if set
+                if let Some(scissor) = &self.scissor_rect {
+                    render_pass.set_scissor_rect(
+                        scissor.left().max(0.0) as u32,
+                        scissor.top().max(0.0) as u32,
+                        scissor.width().max(0.0) as u32,
+                        scissor.height().max(0.0) as u32,
+                    );
+                }
+
+                render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
+                self.draw_calls += 1;
+            }
+        }
+
+        // Submit (no present for offscreen)
+        queue.submit(std::iter::once(encoder.finish()));
 
         let stats = FrameStats {
             draw_calls: self.draw_calls,

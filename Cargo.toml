@@ -27,6 +27,7 @@ wgpu = "24"
 bytemuck = { version = "1.14", features = ["derive"] }
 glam = "0.29"
 pollster = "0.4"
+image = "0.25"
 
 # Proc-macro dependencies
 syn = { version = "2.0", features = ["full"] }

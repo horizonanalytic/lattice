@@ -24,6 +24,9 @@ thiserror = { workspace = true }
 # Async (for device request)
 pollster = { workspace = true }
 
+# Image handling
+image = { workspace = true }
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
 tracing-subscriber = "0.3"
@@ -31,3 +34,11 @@ tracing-subscriber = "0.3"
 [[example]]
 name = "simple_shapes"
 path = "examples/simple_shapes.rs"
+
+[[example]]
+name = "multi_window"
+path = "examples/multi_window.rs"
+
+[[example]]
+name = "offscreen_capture"
+path = "examples/offscreen_capture.rs"

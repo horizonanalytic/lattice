@@ -32,6 +32,10 @@ pub enum RenderError {
     /// The graphics context has not been initialized.
     #[error("graphics context not initialized")]
     NotInitialized,
+
+    /// Failed to save an image to file.
+    #[error("failed to save image: {0}")]
+    ImageSaveError(String),
 }
 
 /// Result type for render operations.

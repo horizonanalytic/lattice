@@ -4,6 +4,7 @@
 //! for 2D drawing operations. Implementations can use immediate or retained-mode
 //! rendering backends.
 
+use crate::image::{Image, ImageScaleMode, NinePatch};
 use crate::paint::{BlendMode, Paint, Stroke};
 use crate::transform::{Transform2D, TransformStack};
 use crate::types::{Color, Point, Rect, RoundedRect, Size};
@@ -156,6 +157,43 @@ pub trait Renderer {
     fn stroke_circle(&mut self, center: Point, radius: f32, stroke: &Stroke) {
         self.stroke_ellipse(center, radius, radius, stroke);
     }
+
+    // =========================================================================
+    // Drawing - Images
+    // =========================================================================
+
+    /// Draw an image at the specified destination rectangle.
+    ///
+    /// The image will be scaled according to the specified scale mode.
+    ///
+    /// # Arguments
+    ///
+    /// * `image` - The image to draw.
+    /// * `dest` - The destination rectangle where the image will be drawn.
+    /// * `scale_mode` - How to scale the image to fit the destination.
+    fn draw_image(&mut self, image: &Image, dest: Rect, scale_mode: ImageScaleMode);
+
+    /// Draw a portion of an image (source rectangle) to a destination rectangle.
+    ///
+    /// This allows drawing sprites from a sprite sheet or cropping images.
+    ///
+    /// # Arguments
+    ///
+    /// * `image` - The image to draw from.
+    /// * `src` - The source rectangle within the image (in pixels).
+    /// * `dest` - The destination rectangle where the portion will be drawn.
+    fn draw_image_rect(&mut self, image: &Image, src: Rect, dest: Rect);
+
+    /// Draw a nine-patch image at the specified destination rectangle.
+    ///
+    /// Nine-patch images maintain their corner sizes while scaling the
+    /// center and edges to fill the destination rectangle.
+    ///
+    /// # Arguments
+    ///
+    /// * `nine_patch` - The nine-patch definition including source image and borders.
+    /// * `dest` - The destination rectangle to fill.
+    fn draw_nine_patch(&mut self, nine_patch: &NinePatch, dest: Rect);
 
     // =========================================================================
     // Blend Mode

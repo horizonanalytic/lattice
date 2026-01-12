@@ -91,9 +91,13 @@
 //! # }
 //! ```
 
+mod atlas;
 mod context;
+pub mod damage;
 mod error;
 mod gpu_renderer;
+mod image;
+pub mod layer;
 mod paint;
 mod renderer;
 mod surface;
@@ -120,6 +124,16 @@ pub use paint::{
 };
 pub use transform::{Transform2D, TransformStack};
 pub use types::{Color, CornerRadii, Point, Rect, RoundedRect, Size};
+
+// Image types
+pub use atlas::{ImageManager, TextureAtlas};
+pub use image::{Image, ImageLoader, ImageScaleMode, NinePatch};
+
+// Damage tracking
+pub use damage::DamageTracker;
+
+// Layer compositing
+pub use layer::{Compositor, Layer, LayerConfig, LayerId};
 
 // Re-export wgpu types that users commonly need
 pub use wgpu;

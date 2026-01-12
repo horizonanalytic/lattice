@@ -36,6 +36,10 @@ pub enum RenderError {
     /// Failed to save an image to file.
     #[error("failed to save image: {0}")]
     ImageSaveError(String),
+
+    /// Failed to load an image.
+    #[error("failed to load image: {0}")]
+    ImageLoad(String),
 }
 
 /// Result type for render operations.

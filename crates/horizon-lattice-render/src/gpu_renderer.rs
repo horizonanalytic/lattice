@@ -3,11 +3,17 @@
 //! This module provides the [`GpuRenderer`] which implements the [`Renderer`] trait
 //! using wgpu for hardware-accelerated 2D rendering.
 
+use std::sync::Arc;
+
 use bytemuck::{Pod, Zeroable};
 use tracing::debug;
 
+use crate::atlas::TextureAtlas;
 use crate::context::GraphicsContext;
+use crate::damage::DamageTracker;
 use crate::error::RenderResult;
+use crate::image::{Image, ImageScaleMode, NinePatch};
+use crate::layer::Layer;
 use crate::offscreen::OffscreenSurface;
 use crate::paint::{BlendMode, Paint, Stroke};
 use crate::renderer::{FrameStats, RenderStateStack, Renderer};
@@ -133,6 +139,43 @@ impl RectVertex {
     }
 }
 
+/// Vertex data for textured quads (images).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+struct ImageVertex {
+    /// Position in pixels.
+    position: [f32; 2],
+    /// Texture coordinates.
+    uv: [f32; 2],
+    /// Tint color (premultiplied alpha).
+    tint: [f32; 4],
+}
+
+impl ImageVertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 3] = wgpu::vertex_attr_array![
+        0 => Float32x2, // position
+        1 => Float32x2, // uv
+        2 => Float32x4, // tint
+    ];
+
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<ImageVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+
+    /// Create a vertex with position, UV, and tint.
+    fn new(position: [f32; 2], uv: [f32; 2], tint: Color) -> Self {
+        Self {
+            position,
+            uv,
+            tint: tint.to_array(),
+        }
+    }
+}
+
 /// Uniform buffer data.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -143,6 +186,16 @@ struct Uniforms {
     viewport_size: [f32; 2],
     /// Padding for alignment.
     _padding: [f32; 2],
+}
+
+/// A batch of image draw commands for a single atlas.
+struct ImageBatch {
+    /// The atlas this batch uses.
+    atlas: Arc<TextureAtlas>,
+    /// Vertices for this batch.
+    vertices: Vec<ImageVertex>,
+    /// Indices for this batch.
+    indices: Vec<u32>,
 }
 
 /// Maximum number of vertices per batch.
@@ -201,6 +254,22 @@ pub struct GpuRenderer {
 
     /// The surface format this renderer was created for.
     surface_format: wgpu::TextureFormat,
+
+    // Image rendering resources
+    /// Render pipeline for images.
+    image_pipeline: wgpu::RenderPipeline,
+    /// Vertex buffer for images.
+    image_vertex_buffer: wgpu::Buffer,
+    /// Index buffer for images.
+    image_index_buffer: wgpu::Buffer,
+    /// Bind group layout for image textures.
+    image_bind_group_layout: wgpu::BindGroupLayout,
+
+    /// Image batches (one per atlas used this frame).
+    image_batches: Vec<ImageBatch>,
+
+    /// Damage tracker for dirty region optimization.
+    damage_tracker: DamageTracker,
 }
 
 impl GpuRenderer {
@@ -316,6 +385,75 @@ impl GpuRenderer {
             mapped_at_creation: false,
         });
 
+        // === Image pipeline setup ===
+
+        // Create image shader module
+        let image_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("image_shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/image.wgsl").into()),
+        });
+
+        // Create image texture bind group layout
+        let image_bind_group_layout = TextureAtlas::bind_group_layout(device);
+
+        // Create image pipeline layout
+        let image_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("image_pipeline_layout"),
+            bind_group_layouts: &[&bind_group_layout, &image_bind_group_layout],
+            push_constant_ranges: &[],
+        });
+
+        // Create image render pipeline
+        let image_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("image_pipeline"),
+            layout: Some(&image_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &image_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[ImageVertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &image_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
+        // Create image vertex buffer
+        let image_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("image_vertex_buffer"),
+            size: (MAX_VERTICES * std::mem::size_of::<ImageVertex>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Create image index buffer
+        let image_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("image_index_buffer"),
+            size: (MAX_INDICES * std::mem::size_of::<u32>()) as u64,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         debug!(
             target: "horizon_lattice_render::gpu_renderer",
             format = ?format,
@@ -348,6 +486,14 @@ impl GpuRenderer {
             current_opacity: 1.0,
 
             surface_format: format,
+
+            image_pipeline,
+            image_vertex_buffer,
+            image_index_buffer,
+            image_bind_group_layout,
+            image_batches: Vec::new(),
+
+            damage_tracker: DamageTracker::new(),
         })
     }
 
@@ -401,24 +547,46 @@ impl GpuRenderer {
                 occlusion_query_set: None,
             });
 
+            // Apply scissor if set
+            if let Some(scissor) = &self.scissor_rect {
+                render_pass.set_scissor_rect(
+                    scissor.left().max(0.0) as u32,
+                    scissor.top().max(0.0) as u32,
+                    scissor.width().max(0.0) as u32,
+                    scissor.height().max(0.0) as u32,
+                );
+            }
+
+            // Render rectangles
             if !self.indices.is_empty() {
                 render_pass.set_pipeline(&self.rect_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-
-                // Apply scissor if set
-                if let Some(scissor) = &self.scissor_rect {
-                    render_pass.set_scissor_rect(
-                        scissor.left().max(0.0) as u32,
-                        scissor.top().max(0.0) as u32,
-                        scissor.width().max(0.0) as u32,
-                        scissor.height().max(0.0) as u32,
-                    );
-                }
-
                 render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
                 self.draw_calls += 1;
+            }
+
+            // Render images (one draw call per atlas)
+            if !self.image_batches.is_empty() {
+                render_pass.set_pipeline(&self.image_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+
+                for batch in &self.image_batches {
+                    if batch.indices.is_empty() {
+                        continue;
+                    }
+
+                    // Upload batch vertices and indices
+                    queue.write_buffer(&self.image_vertex_buffer, 0, bytemuck::cast_slice(&batch.vertices));
+                    queue.write_buffer(&self.image_index_buffer, 0, bytemuck::cast_slice(&batch.indices));
+
+                    render_pass.set_bind_group(1, batch.atlas.bind_group(), &[]);
+                    render_pass.set_vertex_buffer(0, self.image_vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(self.image_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.draw_indexed(0..batch.indices.len() as u32, 0, 0..1);
+                    self.draw_calls += 1;
+                }
             }
         }
 
@@ -435,6 +603,7 @@ impl GpuRenderer {
         // Reset for next frame
         self.vertices.clear();
         self.indices.clear();
+        self.image_batches.clear();
         self.draw_calls = 0;
         self.vertex_count = 0;
         self.state_changes = 0;
@@ -488,24 +657,46 @@ impl GpuRenderer {
                 occlusion_query_set: None,
             });
 
+            // Apply scissor if set
+            if let Some(scissor) = &self.scissor_rect {
+                render_pass.set_scissor_rect(
+                    scissor.left().max(0.0) as u32,
+                    scissor.top().max(0.0) as u32,
+                    scissor.width().max(0.0) as u32,
+                    scissor.height().max(0.0) as u32,
+                );
+            }
+
+            // Render rectangles
             if !self.indices.is_empty() {
                 render_pass.set_pipeline(&self.rect_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-
-                // Apply scissor if set
-                if let Some(scissor) = &self.scissor_rect {
-                    render_pass.set_scissor_rect(
-                        scissor.left().max(0.0) as u32,
-                        scissor.top().max(0.0) as u32,
-                        scissor.width().max(0.0) as u32,
-                        scissor.height().max(0.0) as u32,
-                    );
-                }
-
                 render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
                 self.draw_calls += 1;
+            }
+
+            // Render images (one draw call per atlas)
+            if !self.image_batches.is_empty() {
+                render_pass.set_pipeline(&self.image_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+
+                for batch in &self.image_batches {
+                    if batch.indices.is_empty() {
+                        continue;
+                    }
+
+                    // Upload batch vertices and indices
+                    queue.write_buffer(&self.image_vertex_buffer, 0, bytemuck::cast_slice(&batch.vertices));
+                    queue.write_buffer(&self.image_index_buffer, 0, bytemuck::cast_slice(&batch.indices));
+
+                    render_pass.set_bind_group(1, batch.atlas.bind_group(), &[]);
+                    render_pass.set_vertex_buffer(0, self.image_vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(self.image_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.draw_indexed(0..batch.indices.len() as u32, 0, 0..1);
+                    self.draw_calls += 1;
+                }
             }
         }
 
@@ -521,6 +712,7 @@ impl GpuRenderer {
         // Reset for next frame
         self.vertices.clear();
         self.indices.clear();
+        self.image_batches.clear();
         self.draw_calls = 0;
         self.vertex_count = 0;
         self.state_changes = 0;
@@ -856,6 +1048,264 @@ impl GpuRenderer {
     pub fn surface_format(&self) -> wgpu::TextureFormat {
         self.surface_format
     }
+
+    // =========================================================================
+    // Damage Tracking
+    // =========================================================================
+
+    /// Get a reference to the damage tracker.
+    pub fn damage_tracker(&self) -> &DamageTracker {
+        &self.damage_tracker
+    }
+
+    /// Get a mutable reference to the damage tracker.
+    pub fn damage_tracker_mut(&mut self) -> &mut DamageTracker {
+        &mut self.damage_tracker
+    }
+
+    /// Mark a region as damaged (needs repainting).
+    ///
+    /// Call this when content in the specified region has changed.
+    /// The damage will be used to optimize rendering by only updating
+    /// the affected areas.
+    pub fn add_damage(&mut self, rect: Rect) {
+        self.damage_tracker.add_damage(rect);
+    }
+
+    /// Request a full repaint of the entire viewport.
+    pub fn invalidate_all(&mut self) {
+        self.damage_tracker.invalidate_all();
+    }
+
+    /// Clear all recorded damage.
+    ///
+    /// Should be called after rendering the damaged regions.
+    pub fn clear_damage(&mut self) {
+        self.damage_tracker.clear();
+    }
+
+    /// Check if there is any damage that needs rendering.
+    pub fn has_damage(&self) -> bool {
+        self.damage_tracker.has_damage()
+    }
+
+    /// Get the current damage region.
+    ///
+    /// Returns `None` if no damage has been recorded.
+    pub fn damage_region(&self) -> Option<Rect> {
+        self.damage_tracker.damage_region()
+    }
+
+    // =========================================================================
+    // Layer Rendering
+    // =========================================================================
+
+    /// Render to a layer.
+    ///
+    /// This should be called after `end_frame()` to submit the
+    /// rendered content to the layer's texture.
+    pub fn render_to_layer(&mut self, layer: &Layer) -> RenderResult<FrameStats> {
+        let ctx = GraphicsContext::get();
+        let device = ctx.device();
+        let queue = ctx.queue();
+
+        // Update uniform buffer
+        let uniforms = Uniforms {
+            transform: self.state.transform().to_mat4().to_cols_array_2d(),
+            viewport_size: [self.viewport_size.width, self.viewport_size.height],
+            _padding: [0.0; 2],
+        };
+        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+
+        // Upload vertex and index data
+        if !self.vertices.is_empty() {
+            queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+            queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.indices));
+        }
+
+        // Create command encoder
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("layer_render_encoder"),
+        });
+
+        // Begin render pass
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("layer_render_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: layer.view(),
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(layer.clear_color().to_wgpu()),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            // Apply scissor if set
+            if let Some(scissor) = &self.scissor_rect {
+                render_pass.set_scissor_rect(
+                    scissor.left().max(0.0) as u32,
+                    scissor.top().max(0.0) as u32,
+                    scissor.width().max(0.0) as u32,
+                    scissor.height().max(0.0) as u32,
+                );
+            }
+
+            // Render rectangles
+            if !self.indices.is_empty() {
+                render_pass.set_pipeline(&self.rect_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
+                self.draw_calls += 1;
+            }
+
+            // Render images (one draw call per atlas)
+            if !self.image_batches.is_empty() {
+                render_pass.set_pipeline(&self.image_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+
+                for batch in &self.image_batches {
+                    if batch.indices.is_empty() {
+                        continue;
+                    }
+
+                    // Upload batch vertices and indices
+                    queue.write_buffer(&self.image_vertex_buffer, 0, bytemuck::cast_slice(&batch.vertices));
+                    queue.write_buffer(&self.image_index_buffer, 0, bytemuck::cast_slice(&batch.indices));
+
+                    render_pass.set_bind_group(1, batch.atlas.bind_group(), &[]);
+                    render_pass.set_vertex_buffer(0, self.image_vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(self.image_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.draw_indexed(0..batch.indices.len() as u32, 0, 0..1);
+                    self.draw_calls += 1;
+                }
+            }
+        }
+
+        // Submit (no present for layer)
+        queue.submit(std::iter::once(encoder.finish()));
+
+        let stats = FrameStats {
+            draw_calls: self.draw_calls,
+            vertices: self.vertex_count,
+            state_changes: self.state_changes,
+        };
+
+        // Reset for next frame
+        self.vertices.clear();
+        self.indices.clear();
+        self.image_batches.clear();
+        self.draw_calls = 0;
+        self.vertex_count = 0;
+        self.state_changes = 0;
+        self.in_frame = false;
+
+        Ok(stats)
+    }
+
+    /// Calculate the destination rectangle based on scale mode.
+    fn calculate_scaled_dest(&self, image_size: Size, dest: Rect, scale_mode: ImageScaleMode) -> Rect {
+        match scale_mode {
+            ImageScaleMode::Stretch => dest,
+            ImageScaleMode::Fit => {
+                let scale_x = dest.width() / image_size.width;
+                let scale_y = dest.height() / image_size.height;
+                let scale = scale_x.min(scale_y);
+
+                let new_width = image_size.width * scale;
+                let new_height = image_size.height * scale;
+
+                // Center the image
+                let offset_x = (dest.width() - new_width) / 2.0;
+                let offset_y = (dest.height() - new_height) / 2.0;
+
+                Rect::new(
+                    dest.left() + offset_x,
+                    dest.top() + offset_y,
+                    new_width,
+                    new_height,
+                )
+            }
+            ImageScaleMode::Fill => {
+                let scale_x = dest.width() / image_size.width;
+                let scale_y = dest.height() / image_size.height;
+                let scale = scale_x.max(scale_y);
+
+                let new_width = image_size.width * scale;
+                let new_height = image_size.height * scale;
+
+                // Center the image (it will be cropped by the clip rect)
+                let offset_x = (dest.width() - new_width) / 2.0;
+                let offset_y = (dest.height() - new_height) / 2.0;
+
+                Rect::new(
+                    dest.left() + offset_x,
+                    dest.top() + offset_y,
+                    new_width,
+                    new_height,
+                )
+            }
+            ImageScaleMode::Tile => {
+                // For tiling, we just use the original dest and handle tiling in the shader
+                // For now, just stretch
+                dest
+            }
+        }
+    }
+
+    /// Add an image quad to the appropriate batch.
+    fn add_image_quad(
+        &mut self,
+        atlas: &Arc<TextureAtlas>,
+        dest: Rect,
+        uvs: [f32; 4], // [u_min, v_min, u_max, v_max]
+        tint: Color,
+    ) {
+        // Find or create batch for this atlas
+        let batch_idx = self
+            .image_batches
+            .iter()
+            .position(|b| Arc::ptr_eq(&b.atlas, atlas));
+
+        let batch_idx = batch_idx.unwrap_or_else(|| {
+            self.image_batches.push(ImageBatch {
+                atlas: atlas.clone(),
+                vertices: Vec::new(),
+                indices: Vec::new(),
+            });
+            self.image_batches.len() - 1
+        });
+
+        let batch = &mut self.image_batches[batch_idx];
+        let base_index = batch.vertices.len() as u32;
+
+        // Unpack UVs
+        let [u_min, v_min, u_max, v_max] = uvs;
+
+        // Add four vertices for the quad
+        batch.vertices.push(ImageVertex::new([dest.left(), dest.top()], [u_min, v_min], tint));
+        batch.vertices.push(ImageVertex::new([dest.right(), dest.top()], [u_max, v_min], tint));
+        batch.vertices.push(ImageVertex::new([dest.right(), dest.bottom()], [u_max, v_max], tint));
+        batch.vertices.push(ImageVertex::new([dest.left(), dest.bottom()], [u_min, v_max], tint));
+
+        // Add indices for two triangles
+        batch.indices.extend_from_slice(&[
+            base_index,
+            base_index + 1,
+            base_index + 2,
+            base_index,
+            base_index + 2,
+            base_index + 3,
+        ]);
+
+        self.vertex_count += 4;
+    }
 }
 
 impl Renderer for GpuRenderer {
@@ -866,7 +1316,16 @@ impl Renderer for GpuRenderer {
         self.state.reset();
         self.vertices.clear();
         self.indices.clear();
+        self.image_batches.clear();
         self.scissor_rect = None;
+
+        // Update damage tracker viewport
+        self.damage_tracker.set_viewport(Rect::new(
+            0.0,
+            0.0,
+            viewport_size.width,
+            viewport_size.height,
+        ));
     }
 
     fn end_frame(&mut self) -> FrameStats {
@@ -1056,6 +1515,85 @@ impl Renderer for GpuRenderer {
     fn opacity(&self) -> f32 {
         self.current_opacity
     }
+
+    fn draw_image(&mut self, image: &Image, dest: Rect, scale_mode: ImageScaleMode) {
+        // Calculate source rect (entire image)
+        let src = Rect::new(0.0, 0.0, image.width() as f32, image.height() as f32);
+
+        // Calculate actual destination based on scale mode
+        let actual_dest = self.calculate_scaled_dest(image.size(), dest, scale_mode);
+
+        self.draw_image_rect(image, src, actual_dest);
+    }
+
+    fn draw_image_rect(&mut self, image: &Image, src: Rect, dest: Rect) {
+        // Transform the destination rectangle
+        let transformed_dest = self.state.transform().transform_rect(&dest);
+
+        // Get UV coordinates from the atlas allocation
+        let (u_min, v_min, u_max, v_max) = image.uv_rect();
+
+        // Calculate UV coordinates for the source sub-rectangle
+        let img_w = image.width() as f32;
+        let img_h = image.height() as f32;
+
+        // Map source rect to UV coordinates within the atlas allocation
+        let u_range = u_max - u_min;
+        let v_range = v_max - v_min;
+
+        let src_u_min = u_min + (src.left() / img_w) * u_range;
+        let src_v_min = v_min + (src.top() / img_h) * v_range;
+        let src_u_max = u_min + (src.right() / img_w) * u_range;
+        let src_v_max = v_min + (src.bottom() / img_h) * v_range;
+
+        // Apply opacity as tint alpha
+        let tint = Color::WHITE.with_alpha(self.current_opacity);
+
+        // Add to appropriate batch
+        self.add_image_quad(
+            image.atlas(),
+            transformed_dest,
+            [src_u_min, src_v_min, src_u_max, src_v_max],
+            tint,
+        );
+    }
+
+    fn draw_nine_patch(&mut self, nine_patch: &NinePatch, dest: Rect) {
+        let patches = nine_patch.calculate_patches(dest);
+        let image = &nine_patch.image;
+
+        let (u_min, v_min, u_max, v_max) = image.uv_rect();
+        let img_w = image.width() as f32;
+        let img_h = image.height() as f32;
+
+        let u_range = u_max - u_min;
+        let v_range = v_max - v_min;
+
+        let tint = Color::WHITE.with_alpha(self.current_opacity);
+
+        for (src, dest) in patches {
+            // Skip patches with zero area
+            if src.width() <= 0.0 || src.height() <= 0.0 || dest.width() <= 0.0 || dest.height() <= 0.0 {
+                continue;
+            }
+
+            // Transform destination
+            let transformed_dest = self.state.transform().transform_rect(&dest);
+
+            // Calculate UVs for this patch
+            let patch_u_min = u_min + (src.left() / img_w) * u_range;
+            let patch_v_min = v_min + (src.top() / img_h) * v_range;
+            let patch_u_max = u_min + (src.right() / img_w) * u_range;
+            let patch_v_max = v_min + (src.bottom() / img_h) * v_range;
+
+            self.add_image_quad(
+                image.atlas(),
+                transformed_dest,
+                [patch_u_min, patch_v_min, patch_u_max, patch_v_max],
+                tint,
+            );
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1120,5 +1658,19 @@ mod tests {
             Color::BLACK,
         );
         assert_eq!(vertex.gradient_info[0], PAINT_TYPE_RADIAL_GRADIENT as f32);
+    }
+
+    #[test]
+    fn test_image_vertex_size() {
+        // ImageVertex: position(2) + uv(2) + tint(4) = 8 floats * 4 = 32 bytes
+        assert_eq!(std::mem::size_of::<ImageVertex>(), 32);
+    }
+
+    #[test]
+    fn test_image_vertex_creation() {
+        let vertex = ImageVertex::new([10.0, 20.0], [0.5, 0.5], Color::WHITE);
+        assert_eq!(vertex.position, [10.0, 20.0]);
+        assert_eq!(vertex.uv, [0.5, 0.5]);
+        assert_eq!(vertex.tint, Color::WHITE.to_array());
     }
 }

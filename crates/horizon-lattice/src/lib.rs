@@ -13,6 +13,31 @@
 //!     Ok(app.run()?)
 //! }
 //! ```
+//!
+//! # Widgets
+//!
+//! The widget system provides the foundation for building user interfaces:
+//!
+//! ```ignore
+//! use horizon_lattice::widget::{Widget, WidgetBase, SizeHint, PaintContext};
+//!
+//! struct MyWidget {
+//!     base: WidgetBase,
+//! }
+//!
+//! impl Widget for MyWidget {
+//!     fn widget_base(&self) -> &WidgetBase { &self.base }
+//!     fn widget_base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
+//!
+//!     fn size_hint(&self) -> SizeHint {
+//!         SizeHint::from_dimensions(100.0, 100.0)
+//!     }
+//!
+//!     fn paint(&self, ctx: &mut PaintContext<'_>) {
+//!         // Draw the widget...
+//!     }
+//! }
+//! ```
 
 pub use horizon_lattice_core::*;
 pub use horizon_lattice_macros::*;
@@ -21,3 +46,6 @@ pub use horizon_lattice_macros::*;
 pub mod render {
     pub use horizon_lattice_render::*;
 }
+
+/// Widget system module.
+pub mod widget;

@@ -1,0 +1,135 @@
+//! Widget system for Horizon Lattice.
+//!
+//! This module provides the foundational widget architecture including:
+//!
+//! - [`Widget`] trait: The base trait for all UI elements
+//! - [`WidgetBase`]: Common implementation for widget functionality
+//! - Size hints and policies for layout negotiation
+//! - Widget events for input handling and lifecycle
+//!
+//! # Overview
+//!
+//! The widget system follows Qt's design philosophy while being idiomatic Rust.
+//! Each widget implements the [`Widget`] trait and typically contains a
+//! [`WidgetBase`] that handles common functionality.
+//!
+//! # Creating a Widget
+//!
+//! To create a custom widget:
+//!
+//! 1. Define a struct with a `WidgetBase` field
+//! 2. Implement the `Widget` trait
+//! 3. Provide `size_hint()` for layout
+//! 4. Implement `paint()` for rendering
+//!
+//! ```ignore
+//! use horizon_lattice::widget::*;
+//! use horizon_lattice::render::{Color, Rect};
+//!
+//! struct MyButton {
+//!     base: WidgetBase,
+//!     label: String,
+//! }
+//!
+//! impl MyButton {
+//!     pub fn new(label: impl Into<String>) -> Self {
+//!         let mut widget = Self {
+//!             base: WidgetBase::new::<Self>(),
+//!             label: label.into(),
+//!         };
+//!         widget.base.set_focusable(true);
+//!         widget
+//!     }
+//! }
+//!
+//! impl Widget for MyButton {
+//!     fn widget_base(&self) -> &WidgetBase { &self.base }
+//!     fn widget_base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
+//!
+//!     fn size_hint(&self) -> SizeHint {
+//!         SizeHint::from_dimensions(80.0, 30.0)
+//!             .with_minimum_dimensions(40.0, 24.0)
+//!     }
+//!
+//!     fn paint(&self, ctx: &mut PaintContext<'_>) {
+//!         let color = if self.base.is_hovered() {
+//!             Color::from_rgb8(70, 130, 180)  // Steel blue
+//!         } else {
+//!             Color::from_rgb8(65, 105, 225)  // Royal blue
+//!         };
+//!         ctx.renderer().fill_rect(ctx.rect(), color);
+//!     }
+//!
+//!     fn event(&mut self, event: &mut WidgetEvent) -> bool {
+//!         match event {
+//!             WidgetEvent::MousePress(_) => {
+//!                 println!("Button clicked: {}", self.label);
+//!                 event.accept();
+//!                 true
+//!             }
+//!             _ => false,
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! # Widget Tree
+//!
+//! Widgets form a tree structure through parent-child relationships.
+//! This is managed by the object system from `horizon-lattice-core`.
+//!
+//! ```ignore
+//! let mut parent = Container::new();
+//! let child = Button::new("Click me");
+//!
+//! // Set up parent-child relationship
+//! child.widget_base().set_parent(Some(parent.object_id()))?;
+//! ```
+//!
+//! # Coordinate Systems
+//!
+//! Widgets use multiple coordinate systems:
+//!
+//! - **Local coordinates**: Origin at widget's top-left corner
+//! - **Parent coordinates**: Relative to parent widget's top-left
+//! - **Window coordinates**: Relative to window's top-left
+//! - **Global coordinates**: Screen coordinates
+//!
+//! Use the coordinate mapping methods to convert between systems:
+//!
+//! ```ignore
+//! let local_point = Point::new(10.0, 20.0);
+//! let parent_point = widget.map_to_parent(local_point);
+//! ```
+//!
+//! # Size Policies
+//!
+//! Size policies control how widgets behave during layout:
+//!
+//! - [`SizePolicy::Fixed`]: Cannot grow or shrink
+//! - [`SizePolicy::Preferred`]: Can grow/shrink but has a preferred size
+//! - [`SizePolicy::Expanding`]: Actively wants more space
+//!
+//! ```ignore
+//! widget.set_size_policy(SizePolicyPair::new(
+//!     SizePolicy::Expanding,
+//!     SizePolicy::Fixed,
+//! ));
+//! ```
+
+mod base;
+mod events;
+mod geometry;
+mod traits;
+
+#[cfg(test)]
+mod tests;
+
+pub use base::WidgetBase;
+pub use events::{
+    EnterEvent, EventBase, FocusInEvent, FocusOutEvent, FocusReason, HideEvent, KeyboardModifiers,
+    LeaveEvent, MouseButton, MouseMoveEvent, MousePressEvent, MouseReleaseEvent, MoveEvent,
+    PaintEvent, ResizeEvent, ShowEvent, WheelEvent, WidgetEvent,
+};
+pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
+pub use traits::{AsWidget, PaintContext, Widget};

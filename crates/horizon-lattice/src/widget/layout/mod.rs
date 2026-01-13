@@ -56,12 +56,14 @@ mod traits;
 mod base;
 mod invalidation;
 mod box_layout;
+mod grid_layout;
 
 pub use item::{LayoutItem, SpacerItem, SpacerType};
 pub use traits::Layout;
 pub use base::LayoutBase;
 pub use invalidation::{LayoutInvalidator, InvalidationScope};
 pub use box_layout::{BoxLayout, HBoxLayout, VBoxLayout, Orientation, Alignment};
+pub use grid_layout::{GridLayout, CellAlignment};
 
 use horizon_lattice_render::Size;
 

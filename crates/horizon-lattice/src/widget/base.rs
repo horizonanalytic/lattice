@@ -17,9 +17,27 @@ use super::geometry::{SizePolicy, SizePolicyPair};
 /// - Size hints and policies for layout
 /// - Visibility and enabled state
 /// - Coordinate mapping
+/// - Event filtering
 ///
 /// Widget implementations typically include this as a field and delegate
 /// common operations to it.
+///
+/// # Event Filters
+///
+/// Event filters allow an object to intercept events destined for another widget.
+/// This is useful for:
+/// - Implementing global keyboard shortcuts
+/// - Debugging/logging events
+/// - Creating invisible widgets that modify events
+///
+/// ```ignore
+/// // Install an event filter
+/// target_widget.widget_base_mut().install_event_filter(filter_widget.object_id());
+///
+/// // The filter widget's event_filter() method will be called before
+/// // any event reaches target_widget. If event_filter() returns true,
+/// // the event is consumed and won't reach the target.
+/// ```
 ///
 /// # Example
 ///
@@ -73,6 +91,14 @@ pub struct WidgetBase {
     /// Whether the widget needs to be repainted.
     needs_repaint: bool,
 
+    /// Event filters installed on this widget.
+    ///
+    /// When an event is sent to this widget, it first goes through all
+    /// event filters (in reverse order - most recently installed first).
+    /// If any filter returns `true`, the event is consumed and doesn't
+    /// reach this widget.
+    event_filters: Vec<ObjectId>,
+
     /// Signal emitted when the geometry changes.
     pub geometry_changed: Signal<Rect>,
 
@@ -117,6 +143,7 @@ impl WidgetBase {
             hovered: false,
             pressed: false,
             needs_repaint: true,
+            event_filters: Vec::new(),
             geometry_changed: Signal::new(),
             pressed_changed: Signal::new(),
             visible_changed: Signal::new(),
@@ -671,6 +698,64 @@ impl WidgetBase {
     #[inline]
     pub fn contains_point(&self, point: Point) -> bool {
         self.rect().contains(point)
+    }
+
+    // =========================================================================
+    // Event Filters
+    // =========================================================================
+
+    /// Install an event filter on this widget.
+    ///
+    /// The filter object's `event_filter()` method will be called for every
+    /// event sent to this widget. If the filter returns `true`, the event
+    /// is consumed and won't reach this widget.
+    ///
+    /// Multiple event filters can be installed. They are called in reverse
+    /// order of installation (most recently installed first).
+    ///
+    /// # Arguments
+    ///
+    /// * `filter_id` - The ObjectId of the widget to use as an event filter.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Install filter_widget as an event filter on target_widget
+    /// target.widget_base_mut().install_event_filter(filter.object_id());
+    ///
+    /// // Now filter.event_filter(&mut event, target.object_id()) will be called
+    /// // for every event sent to target_widget.
+    /// ```
+    pub fn install_event_filter(&mut self, filter_id: ObjectId) {
+        // Don't add duplicates
+        if !self.event_filters.contains(&filter_id) {
+            self.event_filters.push(filter_id);
+        }
+    }
+
+    /// Remove an event filter from this widget.
+    ///
+    /// If the filter was not installed, this does nothing.
+    pub fn remove_event_filter(&mut self, filter_id: ObjectId) {
+        self.event_filters.retain(|&id| id != filter_id);
+    }
+
+    /// Get the list of event filters installed on this widget.
+    ///
+    /// Returns the filters in the order they were installed (oldest first).
+    /// Note that filters are *called* in reverse order (newest first).
+    pub fn event_filters(&self) -> &[ObjectId] {
+        &self.event_filters
+    }
+
+    /// Check if an event filter is installed on this widget.
+    pub fn has_event_filter(&self, filter_id: ObjectId) -> bool {
+        self.event_filters.contains(&filter_id)
+    }
+
+    /// Clear all event filters from this widget.
+    pub fn clear_event_filters(&mut self) {
+        self.event_filters.clear();
     }
 }
 

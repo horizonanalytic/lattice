@@ -3,7 +3,7 @@
 //! This module defines the `Widget` trait which is the foundation for all
 //! UI elements in Horizon Lattice.
 
-use horizon_lattice_core::Object;
+use horizon_lattice_core::{Object, ObjectId};
 use horizon_lattice_render::{GpuRenderer, Point, Rect, Size};
 
 use super::base::WidgetBase;
@@ -344,6 +344,46 @@ pub trait Widget: Object + Send + Sync {
     ///
     /// Return `true` if the event was handled and should not propagate further.
     fn event(&mut self, _event: &mut WidgetEvent) -> bool {
+        false
+    }
+
+    /// Filter an event destined for another widget.
+    ///
+    /// This method is called when this widget is installed as an event filter
+    /// on another widget. It allows this widget to intercept and optionally
+    /// consume events before they reach their target.
+    ///
+    /// # Arguments
+    ///
+    /// * `event` - The event to filter.
+    /// * `target` - The ObjectId of the widget the event was originally sent to.
+    ///
+    /// # Returns
+    ///
+    /// * `true` if the event was handled and should not reach the target widget.
+    /// * `false` if the event should continue to the target widget.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// impl Widget for MyFilter {
+    ///     fn event_filter(&mut self, event: &mut WidgetEvent, target: ObjectId) -> bool {
+    ///         // Log all events
+    ///         println!("Event {:?} for widget {:?}", event, target);
+    ///
+    ///         // Block Escape key
+    ///         if let WidgetEvent::KeyPress(e) = event {
+    ///             if e.key == Key::Escape {
+    ///                 return true; // Consume the event
+    ///             }
+    ///         }
+    ///
+    ///         false // Let other events through
+    ///     }
+    ///     // ... other methods
+    /// }
+    /// ```
+    fn event_filter(&mut self, _event: &mut WidgetEvent, _target: ObjectId) -> bool {
         false
     }
 

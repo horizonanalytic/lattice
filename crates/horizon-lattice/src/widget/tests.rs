@@ -423,4 +423,534 @@ mod tests {
             .unwrap();
         assert!(child.is_effectively_visible()); // Visible again
     }
+
+    // =========================================================================
+    // Event Propagation Tests
+    // =========================================================================
+
+    use crate::widget::{
+        DispatchResult, EventDispatcher, Key, KeyPressEvent, KeyboardModifiers, MouseButton,
+        MousePressEvent, WidgetAccess, WidgetEvent,
+    };
+    use horizon_lattice_render::Point;
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    /// A widget that tracks events it receives.
+    struct EventTrackingWidget {
+        base: WidgetBase,
+        events_received: Arc<Mutex<Vec<String>>>,
+        accept_events: bool,
+    }
+
+    impl EventTrackingWidget {
+        fn new(name: &str, events: Arc<Mutex<Vec<String>>>, accept_events: bool) -> Self {
+            let base = WidgetBase::new::<Self>();
+            base.set_name(name);
+            Self {
+                base,
+                events_received: events,
+                accept_events,
+            }
+        }
+    }
+
+    impl Object for EventTrackingWidget {
+        fn object_id(&self) -> ObjectId {
+            self.base.object_id()
+        }
+    }
+
+    impl Widget for EventTrackingWidget {
+        fn widget_base(&self) -> &WidgetBase {
+            &self.base
+        }
+
+        fn widget_base_mut(&mut self) -> &mut WidgetBase {
+            &mut self.base
+        }
+
+        fn size_hint(&self) -> SizeHint {
+            SizeHint::from_dimensions(100.0, 50.0)
+        }
+
+        fn paint(&self, _ctx: &mut PaintContext<'_>) {}
+
+        fn event(&mut self, event: &mut WidgetEvent) -> bool {
+            let name = self.base.name();
+            let event_type = match event {
+                WidgetEvent::MousePress(_) => "MousePress",
+                WidgetEvent::MouseRelease(_) => "MouseRelease",
+                WidgetEvent::KeyPress(_) => "KeyPress",
+                WidgetEvent::KeyRelease(_) => "KeyRelease",
+                _ => "Other",
+            };
+            self.events_received
+                .lock()
+                .unwrap()
+                .push(format!("{}:{}", name, event_type));
+
+            if self.accept_events {
+                event.accept();
+                true
+            } else {
+                false
+            }
+        }
+
+        fn event_filter(&mut self, event: &mut WidgetEvent, _target: ObjectId) -> bool {
+            let name = self.base.name();
+            let event_type = match event {
+                WidgetEvent::MousePress(_) => "MousePress",
+                WidgetEvent::KeyPress(_) => "KeyPress",
+                _ => "Other",
+            };
+            self.events_received
+                .lock()
+                .unwrap()
+                .push(format!("{}:filter:{}", name, event_type));
+
+            // Filter blocks the event if this widget accepts events
+            self.accept_events
+        }
+    }
+
+    /// Simple widget storage for testing
+    struct TestWidgetStorage {
+        widgets: HashMap<ObjectId, Box<dyn Widget>>,
+        children: HashMap<ObjectId, Vec<ObjectId>>,
+    }
+
+    impl TestWidgetStorage {
+        fn new() -> Self {
+            Self {
+                widgets: HashMap::new(),
+                children: HashMap::new(),
+            }
+        }
+
+        fn add(&mut self, widget: impl Widget + 'static) -> ObjectId {
+            let id = widget.object_id();
+            self.widgets.insert(id, Box::new(widget));
+            id
+        }
+
+        fn set_children(&mut self, parent: ObjectId, children: Vec<ObjectId>) {
+            self.children.insert(parent, children);
+        }
+    }
+
+    impl WidgetAccess for TestWidgetStorage {
+        fn get_widget(&self, id: ObjectId) -> Option<&dyn Widget> {
+            self.widgets.get(&id).map(|w| w.as_ref())
+        }
+
+        fn get_widget_mut(&mut self, id: ObjectId) -> Option<&mut dyn Widget> {
+            self.widgets.get_mut(&id).map(|w| w.as_mut())
+        }
+
+        fn get_children(&self, id: ObjectId) -> Vec<ObjectId> {
+            self.children.get(&id).cloned().unwrap_or_default()
+        }
+    }
+
+    #[test]
+    fn test_event_dispatch_direct() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let widget = EventTrackingWidget::new("button", events.clone(), true);
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        let mut event = WidgetEvent::MousePress(MousePressEvent::new(
+            MouseButton::Left,
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            KeyboardModifiers::NONE,
+        ));
+
+        let result = EventDispatcher::send_event(&mut storage, widget_id, &mut event);
+
+        assert_eq!(result, DispatchResult::Accepted);
+        assert_eq!(events.lock().unwrap().as_slice(), &["button:MousePress"]);
+    }
+
+    #[test]
+    fn test_event_bubble_up() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        // Create parent (accepts events) and child (doesn't accept)
+        let parent = EventTrackingWidget::new("parent", events.clone(), true);
+        let child = EventTrackingWidget::new("child", events.clone(), false);
+
+        let parent_id = parent.object_id();
+        let child_id = child.object_id();
+
+        // Set up parent-child relationship
+        child
+            .widget_base()
+            .set_parent(Some(parent_id))
+            .unwrap();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(parent);
+        storage.add(child);
+
+        let mut event = WidgetEvent::MousePress(MousePressEvent::new(
+            MouseButton::Left,
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            KeyboardModifiers::NONE,
+        ));
+
+        // Send to child - should bubble up to parent
+        let result = EventDispatcher::send_event(&mut storage, child_id, &mut event);
+
+        assert_eq!(result, DispatchResult::Accepted);
+        // Child receives first, then parent (bubble up)
+        assert_eq!(
+            events.lock().unwrap().as_slice(),
+            &["child:MousePress", "parent:MousePress"]
+        );
+    }
+
+    #[test]
+    fn test_event_accepted_stops_propagation() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        // Child accepts events, so parent should NOT receive
+        let parent = EventTrackingWidget::new("parent", events.clone(), true);
+        let child = EventTrackingWidget::new("child", events.clone(), true); // Accepts!
+
+        let parent_id = parent.object_id();
+        let child_id = child.object_id();
+
+        child
+            .widget_base()
+            .set_parent(Some(parent_id))
+            .unwrap();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(parent);
+        storage.add(child);
+
+        let mut event = WidgetEvent::MousePress(MousePressEvent::new(
+            MouseButton::Left,
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            KeyboardModifiers::NONE,
+        ));
+
+        let result = EventDispatcher::send_event(&mut storage, child_id, &mut event);
+
+        assert_eq!(result, DispatchResult::Accepted);
+        // Only child receives (accepts event, stops propagation)
+        assert_eq!(events.lock().unwrap().as_slice(), &["child:MousePress"]);
+    }
+
+    #[test]
+    fn test_event_filter_blocks_event() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        let filter = EventTrackingWidget::new("filter", events.clone(), true); // Will block
+        let mut target = EventTrackingWidget::new("target", events.clone(), true);
+
+        let filter_id = filter.object_id();
+        let target_id = target.object_id();
+
+        // Install filter on target
+        target
+            .widget_base_mut()
+            .install_event_filter(filter_id);
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(filter);
+        storage.add(target);
+
+        let mut event = WidgetEvent::MousePress(MousePressEvent::new(
+            MouseButton::Left,
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            KeyboardModifiers::NONE,
+        ));
+
+        let result = EventDispatcher::send_event(&mut storage, target_id, &mut event);
+
+        // Filter blocked the event
+        assert_eq!(result, DispatchResult::Filtered);
+        // Only filter received (target never got the event)
+        assert_eq!(events.lock().unwrap().as_slice(), &["filter:filter:MousePress"]);
+    }
+
+    #[test]
+    fn test_event_filter_passes_event() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        let filter = EventTrackingWidget::new("filter", events.clone(), false); // Won't block
+        let mut target = EventTrackingWidget::new("target", events.clone(), true);
+
+        let filter_id = filter.object_id();
+        let target_id = target.object_id();
+
+        // Install filter on target
+        target
+            .widget_base_mut()
+            .install_event_filter(filter_id);
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(filter);
+        storage.add(target);
+
+        let mut event = WidgetEvent::MousePress(MousePressEvent::new(
+            MouseButton::Left,
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            KeyboardModifiers::NONE,
+        ));
+
+        let result = EventDispatcher::send_event(&mut storage, target_id, &mut event);
+
+        assert_eq!(result, DispatchResult::Accepted);
+        // Filter saw it, then target handled it
+        assert_eq!(
+            events.lock().unwrap().as_slice(),
+            &["filter:filter:MousePress", "target:MousePress"]
+        );
+    }
+
+    #[test]
+    fn test_keyboard_event_creation() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let widget = EventTrackingWidget::new("editor", events.clone(), true);
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        let mut event = WidgetEvent::KeyPress(KeyPressEvent::new(
+            Key::A,
+            KeyboardModifiers::NONE,
+            "a",
+            false,
+        ));
+
+        let result = EventDispatcher::send_event(&mut storage, widget_id, &mut event);
+
+        assert_eq!(result, DispatchResult::Accepted);
+        assert_eq!(events.lock().unwrap().as_slice(), &["editor:KeyPress"]);
+    }
+
+    #[test]
+    fn test_keyboard_event_bubble_up() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        // Child doesn't handle key events, parent does
+        let parent = EventTrackingWidget::new("parent", events.clone(), true);
+        let child = EventTrackingWidget::new("child", events.clone(), false);
+
+        let parent_id = parent.object_id();
+        let child_id = child.object_id();
+
+        child
+            .widget_base()
+            .set_parent(Some(parent_id))
+            .unwrap();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(parent);
+        storage.add(child);
+
+        let mut event = WidgetEvent::KeyPress(KeyPressEvent::new(
+            Key::Escape,
+            KeyboardModifiers::NONE,
+            "",
+            false,
+        ));
+
+        let result = EventDispatcher::send_event(&mut storage, child_id, &mut event);
+
+        assert_eq!(result, DispatchResult::Accepted);
+        // Bubbled from child to parent
+        assert_eq!(
+            events.lock().unwrap().as_slice(),
+            &["child:KeyPress", "parent:KeyPress"]
+        );
+    }
+
+    #[test]
+    fn test_event_filter_install_remove() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        let filter1 = TestWidget::new(Color::GREEN);
+        let filter2 = TestWidget::new(Color::BLUE);
+
+        let filter1_id = filter1.object_id();
+        let filter2_id = filter2.object_id();
+
+        // No filters initially
+        assert!(widget.widget_base().event_filters().is_empty());
+
+        // Install filters
+        widget.widget_base_mut().install_event_filter(filter1_id);
+        widget.widget_base_mut().install_event_filter(filter2_id);
+
+        assert_eq!(widget.widget_base().event_filters().len(), 2);
+        assert!(widget.widget_base().has_event_filter(filter1_id));
+        assert!(widget.widget_base().has_event_filter(filter2_id));
+
+        // Remove one filter
+        widget.widget_base_mut().remove_event_filter(filter1_id);
+
+        assert_eq!(widget.widget_base().event_filters().len(), 1);
+        assert!(!widget.widget_base().has_event_filter(filter1_id));
+        assert!(widget.widget_base().has_event_filter(filter2_id));
+
+        // Clear all filters
+        widget.widget_base_mut().clear_event_filters();
+        assert!(widget.widget_base().event_filters().is_empty());
+    }
+
+    #[test]
+    fn test_event_filter_no_duplicates() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        let filter = TestWidget::new(Color::GREEN);
+        let filter_id = filter.object_id();
+
+        widget.widget_base_mut().install_event_filter(filter_id);
+        widget.widget_base_mut().install_event_filter(filter_id); // Duplicate
+        widget.widget_base_mut().install_event_filter(filter_id); // Duplicate
+
+        // Should only have one
+        assert_eq!(widget.widget_base().event_filters().len(), 1);
+    }
+
+    #[test]
+    fn test_ancestor_chain() {
+        setup();
+
+        let grandparent = TestWidget::new(Color::RED);
+        let parent = TestWidget::new(Color::GREEN);
+        let child = TestWidget::new(Color::BLUE);
+
+        let grandparent_id = grandparent.object_id();
+        let parent_id = parent.object_id();
+        let child_id = child.object_id();
+
+        parent
+            .widget_base()
+            .set_parent(Some(grandparent_id))
+            .unwrap();
+        child
+            .widget_base()
+            .set_parent(Some(parent_id))
+            .unwrap();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(grandparent);
+        storage.add(parent);
+        storage.add(child);
+
+        let ancestors = EventDispatcher::get_ancestor_chain(&storage, child_id);
+
+        assert_eq!(ancestors.len(), 2);
+        assert_eq!(ancestors[0], parent_id); // Immediate parent first
+        assert_eq!(ancestors[1], grandparent_id); // Then grandparent
+    }
+
+    #[test]
+    fn test_hit_test_basic() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        widget.set_geometry(Rect::new(10.0, 10.0, 100.0, 50.0));
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        // Point inside widget
+        let hit = EventDispatcher::hit_test(&storage, widget_id, Point::new(50.0, 30.0));
+        assert_eq!(hit, Some(widget_id));
+
+        // Point outside widget
+        let hit = EventDispatcher::hit_test(&storage, widget_id, Point::new(5.0, 5.0));
+        assert_eq!(hit, None);
+    }
+
+    #[test]
+    fn test_hit_test_nested() {
+        setup();
+
+        // Parent at (10, 10), size 200x100
+        let mut parent = TestWidget::new(Color::RED);
+        parent.set_geometry(Rect::new(10.0, 10.0, 200.0, 100.0));
+        let parent_id = parent.object_id();
+
+        // Child at (20, 20) relative to parent, size 50x30
+        let mut child = TestWidget::new(Color::BLUE);
+        child.set_geometry(Rect::new(20.0, 20.0, 50.0, 30.0));
+        let child_id = child.object_id();
+
+        child
+            .widget_base()
+            .set_parent(Some(parent_id))
+            .unwrap();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(parent);
+        storage.add(child);
+        storage.set_children(parent_id, vec![child_id]);
+
+        // Point in child (window coords: 10+20+10=40, 10+20+10=40)
+        let hit = EventDispatcher::hit_test(&storage, parent_id, Point::new(40.0, 40.0));
+        assert_eq!(hit, Some(child_id));
+
+        // Point in parent but outside child
+        let hit = EventDispatcher::hit_test(&storage, parent_id, Point::new(150.0, 50.0));
+        assert_eq!(hit, Some(parent_id));
+
+        // Point completely outside
+        let hit = EventDispatcher::hit_test(&storage, parent_id, Point::new(5.0, 5.0));
+        assert_eq!(hit, None);
+    }
+
+    #[test]
+    fn test_hit_test_hidden_widget() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        widget.set_geometry(Rect::new(0.0, 0.0, 100.0, 100.0));
+        widget.hide(); // Hidden!
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        // Point would be inside, but widget is hidden
+        let hit = EventDispatcher::hit_test(&storage, widget_id, Point::new(50.0, 50.0));
+        assert_eq!(hit, None);
+    }
 }

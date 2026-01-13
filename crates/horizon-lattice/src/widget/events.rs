@@ -447,6 +447,221 @@ pub enum FocusReason {
     Other,
 }
 
+/// Keyboard key codes.
+///
+/// This enum represents the physical/logical keys on a keyboard.
+/// It follows a similar structure to web KeyboardEvent.code values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u16)]
+pub enum Key {
+    // Letters
+    A, B, C, D, E, F, G, H, I, J, K, L, M,
+    N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+
+    // Numbers (main keyboard)
+    Digit0, Digit1, Digit2, Digit3, Digit4,
+    Digit5, Digit6, Digit7, Digit8, Digit9,
+
+    // Function keys
+    F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+
+    // Navigation
+    ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
+    Home, End, PageUp, PageDown,
+
+    // Editing
+    Backspace, Delete, Insert,
+    Enter, Tab,
+
+    // Whitespace
+    Space,
+
+    // Modifiers (also tracked via KeyboardModifiers, but useful as key events)
+    ShiftLeft, ShiftRight,
+    ControlLeft, ControlRight,
+    AltLeft, AltRight,
+    MetaLeft, MetaRight,
+
+    // Punctuation and symbols
+    Minus, Equal,
+    BracketLeft, BracketRight, Backslash,
+    Semicolon, Quote,
+    Comma, Period, Slash,
+    Grave,
+
+    // Control
+    Escape,
+    CapsLock, NumLock, ScrollLock,
+    PrintScreen, Pause,
+
+    // Numpad
+    Numpad0, Numpad1, Numpad2, Numpad3, Numpad4,
+    Numpad5, Numpad6, Numpad7, Numpad8, Numpad9,
+    NumpadAdd, NumpadSubtract, NumpadMultiply, NumpadDivide,
+    NumpadDecimal, NumpadEnter,
+
+    // Media keys
+    MediaPlayPause, MediaStop, MediaNext, MediaPrevious,
+    AudioVolumeUp, AudioVolumeDown, AudioVolumeMute,
+
+    // Unknown/unmapped key
+    Unknown(u16),
+}
+
+impl Key {
+    /// Check if this is a modifier key.
+    pub fn is_modifier(&self) -> bool {
+        matches!(
+            self,
+            Key::ShiftLeft
+                | Key::ShiftRight
+                | Key::ControlLeft
+                | Key::ControlRight
+                | Key::AltLeft
+                | Key::AltRight
+                | Key::MetaLeft
+                | Key::MetaRight
+        )
+    }
+
+    /// Check if this is a navigation key.
+    pub fn is_navigation(&self) -> bool {
+        matches!(
+            self,
+            Key::ArrowUp
+                | Key::ArrowDown
+                | Key::ArrowLeft
+                | Key::ArrowRight
+                | Key::Home
+                | Key::End
+                | Key::PageUp
+                | Key::PageDown
+        )
+    }
+
+    /// Check if this is a function key.
+    pub fn is_function_key(&self) -> bool {
+        matches!(
+            self,
+            Key::F1
+                | Key::F2
+                | Key::F3
+                | Key::F4
+                | Key::F5
+                | Key::F6
+                | Key::F7
+                | Key::F8
+                | Key::F9
+                | Key::F10
+                | Key::F11
+                | Key::F12
+        )
+    }
+
+    /// Check if this is a letter key.
+    pub fn is_letter(&self) -> bool {
+        matches!(
+            self,
+            Key::A
+                | Key::B
+                | Key::C
+                | Key::D
+                | Key::E
+                | Key::F
+                | Key::G
+                | Key::H
+                | Key::I
+                | Key::J
+                | Key::K
+                | Key::L
+                | Key::M
+                | Key::N
+                | Key::O
+                | Key::P
+                | Key::Q
+                | Key::R
+                | Key::S
+                | Key::T
+                | Key::U
+                | Key::V
+                | Key::W
+                | Key::X
+                | Key::Y
+                | Key::Z
+        )
+    }
+
+    /// Check if this is a digit key (main keyboard, not numpad).
+    pub fn is_digit(&self) -> bool {
+        matches!(
+            self,
+            Key::Digit0
+                | Key::Digit1
+                | Key::Digit2
+                | Key::Digit3
+                | Key::Digit4
+                | Key::Digit5
+                | Key::Digit6
+                | Key::Digit7
+                | Key::Digit8
+                | Key::Digit9
+        )
+    }
+}
+
+/// Key press event, sent when a key is pressed.
+#[derive(Debug, Clone)]
+pub struct KeyPressEvent {
+    /// Base event data.
+    pub base: EventBase,
+    /// The key that was pressed.
+    pub key: Key,
+    /// Keyboard modifiers held during the event.
+    pub modifiers: KeyboardModifiers,
+    /// The text input from this key press (if any).
+    ///
+    /// For printable keys, this contains the character that would be typed.
+    /// For non-printable keys (modifiers, function keys, etc.), this is empty.
+    pub text: String,
+    /// Whether this is a key repeat event (key held down).
+    pub is_repeat: bool,
+}
+
+impl KeyPressEvent {
+    /// Create a new key press event.
+    pub fn new(key: Key, modifiers: KeyboardModifiers, text: impl Into<String>, is_repeat: bool) -> Self {
+        Self {
+            base: EventBase::new(),
+            key,
+            modifiers,
+            text: text.into(),
+            is_repeat,
+        }
+    }
+}
+
+/// Key release event, sent when a key is released.
+#[derive(Debug, Clone)]
+pub struct KeyReleaseEvent {
+    /// Base event data.
+    pub base: EventBase,
+    /// The key that was released.
+    pub key: Key,
+    /// Keyboard modifiers held during the event.
+    pub modifiers: KeyboardModifiers,
+}
+
+impl KeyReleaseEvent {
+    /// Create a new key release event.
+    pub fn new(key: Key, modifiers: KeyboardModifiers) -> Self {
+        Self {
+            base: EventBase::new(),
+            key,
+            modifiers,
+        }
+    }
+}
+
 /// Enumeration of all widget event types.
 ///
 /// This allows passing events through a unified interface while preserving
@@ -479,6 +694,10 @@ pub enum WidgetEvent {
     FocusIn(FocusInEvent),
     /// Focus out event.
     FocusOut(FocusOutEvent),
+    /// Key press event.
+    KeyPress(KeyPressEvent),
+    /// Key release event.
+    KeyRelease(KeyReleaseEvent),
 }
 
 impl WidgetEvent {
@@ -498,6 +717,8 @@ impl WidgetEvent {
             Self::Leave(e) => e.base.is_accepted(),
             Self::FocusIn(e) => e.base.is_accepted(),
             Self::FocusOut(e) => e.base.is_accepted(),
+            Self::KeyPress(e) => e.base.is_accepted(),
+            Self::KeyRelease(e) => e.base.is_accepted(),
         }
     }
 
@@ -517,6 +738,8 @@ impl WidgetEvent {
             Self::Leave(e) => e.base.accept(),
             Self::FocusIn(e) => e.base.accept(),
             Self::FocusOut(e) => e.base.accept(),
+            Self::KeyPress(e) => e.base.accept(),
+            Self::KeyRelease(e) => e.base.accept(),
         }
     }
 
@@ -536,6 +759,32 @@ impl WidgetEvent {
             Self::Leave(e) => e.base.ignore(),
             Self::FocusIn(e) => e.base.ignore(),
             Self::FocusOut(e) => e.base.ignore(),
+            Self::KeyPress(e) => e.base.ignore(),
+            Self::KeyRelease(e) => e.base.ignore(),
+        }
+    }
+
+    /// Check if this event should propagate to parent widgets.
+    ///
+    /// Some events (like paint, resize, show, hide) are specific to a widget
+    /// and should not propagate. Input events typically propagate if not accepted.
+    pub fn should_propagate(&self) -> bool {
+        match self {
+            // These events are widget-specific and don't propagate
+            Self::Paint(_) | Self::Resize(_) | Self::Move(_) | Self::Show(_) | Self::Hide(_) => {
+                false
+            }
+            // Input events propagate if not accepted
+            Self::MousePress(_)
+            | Self::MouseRelease(_)
+            | Self::MouseMove(_)
+            | Self::Wheel(_)
+            | Self::KeyPress(_)
+            | Self::KeyRelease(_) => !self.is_accepted(),
+            // Focus events don't propagate
+            Self::FocusIn(_) | Self::FocusOut(_) => false,
+            // Enter/Leave are about the specific widget and don't propagate
+            Self::Enter(_) | Self::Leave(_) => false,
         }
     }
 }

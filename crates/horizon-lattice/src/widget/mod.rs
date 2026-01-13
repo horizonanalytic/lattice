@@ -118,6 +118,7 @@
 //! ```
 
 mod base;
+mod dispatcher;
 mod events;
 mod geometry;
 mod traits;
@@ -126,10 +127,12 @@ mod traits;
 mod tests;
 
 pub use base::WidgetBase;
+pub use dispatcher::{DispatchResult, EventDispatcher, WidgetAccess};
 pub use events::{
-    EnterEvent, EventBase, FocusInEvent, FocusOutEvent, FocusReason, HideEvent, KeyboardModifiers,
-    LeaveEvent, MouseButton, MouseMoveEvent, MousePressEvent, MouseReleaseEvent, MoveEvent,
-    PaintEvent, ResizeEvent, ShowEvent, WheelEvent, WidgetEvent,
+    EnterEvent, EventBase, FocusInEvent, FocusOutEvent, FocusReason, HideEvent, Key,
+    KeyPressEvent, KeyReleaseEvent, KeyboardModifiers, LeaveEvent, MouseButton, MouseMoveEvent,
+    MousePressEvent, MouseReleaseEvent, MoveEvent, PaintEvent, ResizeEvent, ShowEvent, WheelEvent,
+    WidgetEvent,
 };
 pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
 pub use traits::{AsWidget, PaintContext, Widget};

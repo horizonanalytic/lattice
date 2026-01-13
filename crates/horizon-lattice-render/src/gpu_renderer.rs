@@ -3,6 +3,7 @@
 //! This module provides the [`GpuRenderer`] which implements the [`Renderer`] trait
 //! using wgpu for hardware-accelerated 2D rendering.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
@@ -26,6 +27,224 @@ use crate::types::{Color, CornerRadii, Point, Rect, RoundedRect, Size};
 const PAINT_TYPE_SOLID: u32 = 0;
 const PAINT_TYPE_LINEAR_GRADIENT: u32 = 1;
 const PAINT_TYPE_RADIAL_GRADIENT: u32 = 2;
+
+/// Blend modes that can be implemented with hardware blending.
+/// Returns the wgpu BlendState for the given blend mode.
+/// Complex blend modes (Overlay, SoftLight, etc.) that require shader-based
+/// blending return the same state as Normal with a warning logged.
+fn blend_state_for_mode(mode: BlendMode) -> wgpu::BlendState {
+    use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState};
+
+    match mode {
+        // Normal: src_over blending (premultiplied alpha)
+        BlendMode::Normal => BlendState::PREMULTIPLIED_ALPHA_BLENDING,
+
+        // Multiply: dst * src (darkens the image)
+        // Result = Src * Dst
+        // For premultiplied alpha: out.rgb = src.rgb * dst.rgb, out.a = src.a * (1 - dst.a) + dst.a
+        BlendMode::Multiply => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::Dst,
+                dst_factor: BlendFactor::Zero,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Screen: 1 - (1-src) * (1-dst) = src + dst - src*dst
+        // For premultiplied: out = src + dst * (1 - src)
+        BlendMode::Screen => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::OneMinusSrc,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Add: src + dst (clamped to 1)
+        BlendMode::Add => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Darken: min(src, dst)
+        BlendMode::Darken => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Min,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Lighten: max(src, dst)
+        BlendMode::Lighten => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Max,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Source: replace destination completely
+        BlendMode::Source => BlendState::REPLACE,
+
+        // Destination: keep destination, ignore source
+        BlendMode::Destination => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Source In: source where destination has alpha
+        BlendMode::SourceIn => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::DstAlpha,
+                dst_factor: BlendFactor::Zero,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::DstAlpha,
+                dst_factor: BlendFactor::Zero,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Destination In: destination where source has alpha
+        BlendMode::DestinationIn => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::SrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::SrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Source Out: source where destination is transparent
+        BlendMode::SourceOut => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::Zero,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::Zero,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Destination Out: destination where source is transparent
+        BlendMode::DestinationOut => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Source Atop: source over destination, only where destination exists
+        BlendMode::SourceAtop => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::DstAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::DstAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Destination Atop: destination over source, only where source exists
+        BlendMode::DestinationAtop => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::SrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::SrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Xor: source or destination but not both
+        BlendMode::Xor => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Complex blend modes that require shader-based implementation.
+        // For now, fall back to Normal blending.
+        // TODO: Implement shader-based blending for these modes.
+        BlendMode::Overlay
+        | BlendMode::ColorDodge
+        | BlendMode::ColorBurn
+        | BlendMode::HardLight
+        | BlendMode::SoftLight
+        | BlendMode::Difference
+        | BlendMode::Exclusion => {
+            tracing::debug!(
+                mode = ?mode,
+                "Complex blend mode not yet implemented, falling back to Normal"
+            );
+            BlendState::PREMULTIPLIED_ALPHA_BLENDING
+        }
+    }
+}
 
 /// Vertex data for rectangles with gradient support.
 ///
@@ -263,6 +482,92 @@ const MAX_VERTICES: usize = 65536;
 /// Maximum number of indices per batch.
 const MAX_INDICES: usize = MAX_VERTICES * 6 / 4; // 6 indices per 4 vertices (quad)
 
+/// Create a rect pipeline for a specific blend mode.
+fn create_rect_pipeline(
+    device: &wgpu::Device,
+    shader: &wgpu::ShaderModule,
+    layout: &wgpu::PipelineLayout,
+    format: wgpu::TextureFormat,
+    blend_mode: BlendMode,
+) -> wgpu::RenderPipeline {
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some(&format!("rect_pipeline_{:?}", blend_mode)),
+        layout: Some(layout),
+        vertex: wgpu::VertexState {
+            module: shader,
+            entry_point: Some("vs_main"),
+            buffers: &[RectVertex::desc()],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: Some(blend_state_for_mode(blend_mode)),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: Default::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: None,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            unclipped_depth: false,
+            conservative: false,
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    })
+}
+
+/// Create an image pipeline for a specific blend mode.
+fn create_image_pipeline(
+    device: &wgpu::Device,
+    shader: &wgpu::ShaderModule,
+    layout: &wgpu::PipelineLayout,
+    format: wgpu::TextureFormat,
+    blend_mode: BlendMode,
+) -> wgpu::RenderPipeline {
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some(&format!("image_pipeline_{:?}", blend_mode)),
+        layout: Some(layout),
+        vertex: wgpu::VertexState {
+            module: shader,
+            entry_point: Some("vs_main"),
+            buffers: &[ImageVertex::desc()],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: Some(blend_state_for_mode(blend_mode)),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: Default::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: None,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            unclipped_depth: false,
+            conservative: false,
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    })
+}
+
 /// GPU-accelerated 2D renderer.
 ///
 /// This renderer batches drawing operations and submits them to the GPU
@@ -278,8 +583,12 @@ pub struct GpuRenderer {
     in_frame: bool,
 
     // GPU resources
-    /// Render pipeline for rectangles.
-    rect_pipeline: wgpu::RenderPipeline,
+    /// Rect pipeline cache by blend mode.
+    rect_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
+    /// Pipeline layout for rect pipelines.
+    rect_pipeline_layout: wgpu::PipelineLayout,
+    /// Rect shader module.
+    rect_shader: wgpu::ShaderModule,
     /// Vertex buffer.
     vertex_buffer: wgpu::Buffer,
     /// Index buffer.
@@ -294,6 +603,8 @@ pub struct GpuRenderer {
     vertices: Vec<RectVertex>,
     /// Indices waiting to be rendered.
     indices: Vec<u32>,
+    /// Blend mode of the current batch.
+    batch_blend_mode: BlendMode,
 
     // Frame statistics
     /// Draw calls this frame.
@@ -315,8 +626,12 @@ pub struct GpuRenderer {
     surface_format: wgpu::TextureFormat,
 
     // Image rendering resources
-    /// Render pipeline for images.
-    image_pipeline: wgpu::RenderPipeline,
+    /// Image pipeline cache by blend mode.
+    image_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
+    /// Pipeline layout for image pipelines.
+    image_pipeline_layout: wgpu::PipelineLayout,
+    /// Image shader module.
+    image_shader: wgpu::ShaderModule,
     /// Vertex buffer for images.
     image_vertex_buffer: wgpu::Buffer,
     /// Index buffer for images.
@@ -419,40 +734,18 @@ impl GpuRenderer {
             push_constant_ranges: &[],
         });
 
-        // Create render pipeline
-        let rect_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("rect_pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[RectVertex::desc()],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
+        // Create initial rect pipeline for Normal blend mode
+        let rect_pipeline_normal = create_rect_pipeline(
+            device,
+            &shader,
+            &pipeline_layout,
+            format,
+            BlendMode::Normal,
+        );
+
+        // Initialize rect pipeline cache with Normal blend mode
+        let mut rect_pipelines = HashMap::new();
+        rect_pipelines.insert(BlendMode::Normal, rect_pipeline_normal);
 
         // Create vertex buffer
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -488,40 +781,18 @@ impl GpuRenderer {
             push_constant_ranges: &[],
         });
 
-        // Create image render pipeline
-        let image_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("image_pipeline"),
-            layout: Some(&image_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &image_shader,
-                entry_point: Some("vs_main"),
-                buffers: &[ImageVertex::desc()],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &image_shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
+        // Create initial image pipeline for Normal blend mode
+        let image_pipeline_normal = create_image_pipeline(
+            device,
+            &image_shader,
+            &image_pipeline_layout,
+            format,
+            BlendMode::Normal,
+        );
+
+        // Initialize image pipeline cache with Normal blend mode
+        let mut image_pipelines = HashMap::new();
+        image_pipelines.insert(BlendMode::Normal, image_pipeline_normal);
 
         // Create image vertex buffer
         let image_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -719,7 +990,9 @@ impl GpuRenderer {
             clear_color: Color::BLACK,
             in_frame: false,
 
-            rect_pipeline,
+            rect_pipelines,
+            rect_pipeline_layout: pipeline_layout,
+            rect_shader: shader,
             vertex_buffer,
             index_buffer,
             uniform_buffer,
@@ -727,6 +1000,7 @@ impl GpuRenderer {
 
             vertices: Vec::with_capacity(MAX_VERTICES),
             indices: Vec::with_capacity(MAX_INDICES),
+            batch_blend_mode: BlendMode::Normal,
 
             draw_calls: 0,
             vertex_count: 0,
@@ -738,7 +1012,9 @@ impl GpuRenderer {
 
             surface_format: format,
 
-            image_pipeline,
+            image_pipelines,
+            image_pipeline_layout,
+            image_shader,
             image_vertex_buffer,
             image_index_buffer,
             image_bind_group_layout,
@@ -761,6 +1037,50 @@ impl GpuRenderer {
             shadow_vertices: Vec::with_capacity(MAX_VERTICES),
             shadow_indices: Vec::with_capacity(MAX_INDICES),
         })
+    }
+
+    /// Get or create a rect pipeline for the given blend mode.
+    fn get_rect_pipeline(&mut self, blend_mode: BlendMode) -> &wgpu::RenderPipeline {
+        // Check if we already have this pipeline
+        if !self.rect_pipelines.contains_key(&blend_mode) {
+            let ctx = GraphicsContext::get();
+            let pipeline = create_rect_pipeline(
+                ctx.device(),
+                &self.rect_shader,
+                &self.rect_pipeline_layout,
+                self.surface_format,
+                blend_mode,
+            );
+            self.rect_pipelines.insert(blend_mode, pipeline);
+            debug!(
+                target: "horizon_lattice_render::gpu_renderer",
+                ?blend_mode,
+                "created rect pipeline for blend mode"
+            );
+        }
+        self.rect_pipelines.get(&blend_mode).unwrap()
+    }
+
+    /// Get or create an image pipeline for the given blend mode.
+    fn get_image_pipeline(&mut self, blend_mode: BlendMode) -> &wgpu::RenderPipeline {
+        // Check if we already have this pipeline
+        if !self.image_pipelines.contains_key(&blend_mode) {
+            let ctx = GraphicsContext::get();
+            let pipeline = create_image_pipeline(
+                ctx.device(),
+                &self.image_shader,
+                &self.image_pipeline_layout,
+                self.surface_format,
+                blend_mode,
+            );
+            self.image_pipelines.insert(blend_mode, pipeline);
+            debug!(
+                target: "horizon_lattice_render::gpu_renderer",
+                ?blend_mode,
+                "created image pipeline for blend mode"
+            );
+        }
+        self.image_pipelines.get(&blend_mode).unwrap()
     }
 
     /// Render to a surface frame.
@@ -806,6 +1126,11 @@ impl GpuRenderer {
             queue.write_buffer(&self.shadow_vertex_buffer, 0, bytemuck::cast_slice(&self.shadow_vertices));
             queue.write_buffer(&self.shadow_index_buffer, 0, bytemuck::cast_slice(&self.shadow_indices));
         }
+
+        // Ensure we have the rect pipeline for the current blend mode
+        let batch_blend_mode = self.batch_blend_mode;
+        let _ = self.get_rect_pipeline(batch_blend_mode);
+        let _ = self.get_image_pipeline(batch_blend_mode);
 
         // Create command encoder
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -913,7 +1238,9 @@ impl GpuRenderer {
                     render_pass.set_pipeline(&self.stencil_rect_pipeline);
                     render_pass.set_stencil_reference(self.clip_stack.depth());
                 } else {
-                    render_pass.set_pipeline(&self.rect_pipeline);
+                    // Get pipeline for current blend mode (already ensured to exist)
+                    let rect_pipeline = self.rect_pipelines.get(&batch_blend_mode).unwrap();
+                    render_pass.set_pipeline(rect_pipeline);
                 }
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
@@ -924,7 +1251,9 @@ impl GpuRenderer {
 
             // Render images (one draw call per atlas)
             if !self.image_batches.is_empty() {
-                render_pass.set_pipeline(&self.image_pipeline);
+                // Get pipeline for current blend mode (already ensured to exist)
+                let image_pipeline = self.image_pipelines.get(&batch_blend_mode).unwrap();
+                render_pass.set_pipeline(image_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
 
                 for batch in &self.image_batches {
@@ -996,6 +1325,11 @@ impl GpuRenderer {
             queue.write_buffer(&self.shadow_index_buffer, 0, bytemuck::cast_slice(&self.shadow_indices));
         }
 
+        // Ensure we have the pipelines for the current blend mode
+        let batch_blend_mode = self.batch_blend_mode;
+        let _ = self.get_rect_pipeline(batch_blend_mode);
+        let _ = self.get_image_pipeline(batch_blend_mode);
+
         // Create command encoder
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("offscreen_render_encoder"),
@@ -1040,7 +1374,8 @@ impl GpuRenderer {
 
             // Render rectangles
             if !self.indices.is_empty() {
-                render_pass.set_pipeline(&self.rect_pipeline);
+                let rect_pipeline = self.rect_pipelines.get(&batch_blend_mode).unwrap();
+                render_pass.set_pipeline(rect_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -1050,7 +1385,8 @@ impl GpuRenderer {
 
             // Render images (one draw call per atlas)
             if !self.image_batches.is_empty() {
-                render_pass.set_pipeline(&self.image_pipeline);
+                let image_pipeline = self.image_pipelines.get(&batch_blend_mode).unwrap();
+                render_pass.set_pipeline(image_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
 
                 for batch in &self.image_batches {
@@ -1436,41 +1772,95 @@ impl GpuRenderer {
 
     /// Generate vertices for a clip shape.
     fn clip_shape_to_vertices(&self, shape: &ClipShape) -> (Vec<RectVertex>, Vec<u32>) {
-        let (rect, radii) = match shape {
-            ClipShape::RoundedRect(rr) => (rr.rect, rr.radii),
-            ClipShape::Rect(r) => (*r, CornerRadii::ZERO),
-        };
-
-        let base_index = 0u32;
-        let rect_pos = [rect.left(), rect.top()];
-        let rect_size = [rect.width(), rect.height()];
-        let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
-
         // White color for stencil mask (color doesn't matter, we're not writing to color buffer)
         let color = Color::WHITE;
 
-        let positions = [
-            [rect.left(), rect.top()],
-            [rect.right(), rect.top()],
-            [rect.right(), rect.bottom()],
-            [rect.left(), rect.bottom()],
-        ];
+        match shape {
+            ClipShape::RoundedRect(rr) => {
+                let (rect, radii) = (rr.rect, rr.radii);
+                let base_index = 0u32;
+                let rect_pos = [rect.left(), rect.top()];
+                let rect_size = [rect.width(), rect.height()];
+                let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
 
-        let vertices: Vec<RectVertex> = positions
-            .iter()
-            .map(|&pos| RectVertex::solid(pos, color, rect_pos, rect_size, corner_radii))
-            .collect();
+                let positions = [
+                    [rect.left(), rect.top()],
+                    [rect.right(), rect.top()],
+                    [rect.right(), rect.bottom()],
+                    [rect.left(), rect.bottom()],
+                ];
 
-        let indices = vec![
-            base_index,
-            base_index + 1,
-            base_index + 2,
-            base_index,
-            base_index + 2,
-            base_index + 3,
-        ];
+                let vertices: Vec<RectVertex> = positions
+                    .iter()
+                    .map(|&pos| RectVertex::solid(pos, color, rect_pos, rect_size, corner_radii))
+                    .collect();
 
-        (vertices, indices)
+                let indices = vec![
+                    base_index,
+                    base_index + 1,
+                    base_index + 2,
+                    base_index,
+                    base_index + 2,
+                    base_index + 3,
+                ];
+
+                (vertices, indices)
+            }
+            ClipShape::Rect(r) => {
+                let rect = *r;
+                let base_index = 0u32;
+                let rect_pos = [rect.left(), rect.top()];
+                let rect_size = [rect.width(), rect.height()];
+                let corner_radii = [0.0; 4];
+
+                let positions = [
+                    [rect.left(), rect.top()],
+                    [rect.right(), rect.top()],
+                    [rect.right(), rect.bottom()],
+                    [rect.left(), rect.bottom()],
+                ];
+
+                let vertices: Vec<RectVertex> = positions
+                    .iter()
+                    .map(|&pos| RectVertex::solid(pos, color, rect_pos, rect_size, corner_radii))
+                    .collect();
+
+                let indices = vec![
+                    base_index,
+                    base_index + 1,
+                    base_index + 2,
+                    base_index,
+                    base_index + 2,
+                    base_index + 3,
+                ];
+
+                (vertices, indices)
+            }
+            ClipShape::Path(path) => {
+                // Tessellate the path for stencil clipping
+                let tessellated = crate::path::tessellate_fill(
+                    path,
+                    crate::paint::FillRule::NonZero,
+                    crate::path::DEFAULT_TOLERANCE,
+                );
+
+                if tessellated.is_empty() {
+                    return (Vec::new(), Vec::new());
+                }
+
+                // Use minimal rect data that won't affect stencil
+                let rect_pos = [0.0, 0.0];
+                let rect_size = [1.0, 1.0];
+                let corner_radii = [0.0; 4];
+
+                let vertices: Vec<RectVertex> = tessellated.vertices
+                    .iter()
+                    .map(|pos| RectVertex::solid(*pos, color, rect_pos, rect_size, corner_radii))
+                    .collect();
+
+                (vertices, tessellated.indices)
+            }
+        }
     }
 
     // =========================================================================
@@ -1553,6 +1943,11 @@ impl GpuRenderer {
             queue.write_buffer(&self.shadow_index_buffer, 0, bytemuck::cast_slice(&self.shadow_indices));
         }
 
+        // Ensure we have the pipelines for the current blend mode
+        let batch_blend_mode = self.batch_blend_mode;
+        let _ = self.get_rect_pipeline(batch_blend_mode);
+        let _ = self.get_image_pipeline(batch_blend_mode);
+
         // Create command encoder
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("layer_render_encoder"),
@@ -1597,7 +1992,8 @@ impl GpuRenderer {
 
             // Render rectangles
             if !self.indices.is_empty() {
-                render_pass.set_pipeline(&self.rect_pipeline);
+                let rect_pipeline = self.rect_pipelines.get(&batch_blend_mode).unwrap();
+                render_pass.set_pipeline(rect_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -1607,7 +2003,8 @@ impl GpuRenderer {
 
             // Render images (one draw call per atlas)
             if !self.image_batches.is_empty() {
-                render_pass.set_pipeline(&self.image_pipeline);
+                let image_pipeline = self.image_pipelines.get(&batch_blend_mode).unwrap();
+                render_pass.set_pipeline(image_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
 
                 for batch in &self.image_batches {
@@ -1761,6 +2158,10 @@ impl Renderer for GpuRenderer {
         self.image_batches.clear();
         self.scissor_rect = None;
 
+        // Reset blend mode tracking
+        self.current_blend_mode = BlendMode::Normal;
+        self.batch_blend_mode = BlendMode::Normal;
+
         // Reset shadow buffers
         self.shadow_vertices.clear();
         self.shadow_indices.clear();
@@ -1845,6 +2246,21 @@ impl Renderer for GpuRenderer {
             rect: transformed_rect,
             radii: rrect.radii,
         });
+
+        // Push to clip stack and record for rendering
+        if let Some(_depth) = self.clip_stack.push(shape.clone()) {
+            self.pending_clips.push((shape, true)); // true = push
+        }
+    }
+
+    fn clip_path(&mut self, path: &crate::types::Path) {
+        if path.is_empty() {
+            return;
+        }
+
+        // Transform the path
+        let transformed_path = path.transformed(self.state.transform());
+        let shape = ClipShape::Path(transformed_path);
 
         // Push to clip stack and record for rendering
         if let Some(_depth) = self.clip_stack.push(shape.clone()) {
@@ -2068,11 +2484,140 @@ impl Renderer for GpuRenderer {
         self.stroke_rounded_rect(rrect, stroke);
     }
 
+    fn fill_path(&mut self, path: &crate::types::Path, paint: impl Into<Paint>, fill_rule: crate::paint::FillRule) {
+        if path.is_empty() {
+            return;
+        }
+
+        let paint = paint.into();
+
+        // Tessellate the path
+        let tessellated = crate::path::tessellate_fill(path, fill_rule, crate::path::DEFAULT_TOLERANCE);
+
+        if tessellated.is_empty() {
+            return;
+        }
+
+        // Get color from paint (for now, only solid colors supported for paths)
+        let color = match &paint {
+            Paint::Solid(c) => self.apply_opacity(*c),
+            Paint::LinearGradient(g) => {
+                // Use first stop color as fallback
+                if let Some(stop) = g.stops.first() {
+                    self.apply_opacity(stop.color)
+                } else {
+                    Color::BLACK
+                }
+            }
+            Paint::RadialGradient(g) => {
+                if let Some(stop) = g.stops.first() {
+                    self.apply_opacity(stop.color)
+                } else {
+                    Color::BLACK
+                }
+            }
+        };
+
+        let base_index = self.vertices.len() as u32;
+
+        // For paths, we use a minimal rect that doesn't affect SDF calculations
+        let rect_pos = [0.0, 0.0];
+        let rect_size = [1.0, 1.0];
+        let corner_radii = [0.0; 4];
+
+        // Add vertices
+        for pos in &tessellated.vertices {
+            // Apply transform to each vertex
+            let p = self.state.transform().transform_point(Point::new(pos[0], pos[1]));
+            self.vertices.push(RectVertex::solid(
+                [p.x, p.y],
+                color,
+                rect_pos,
+                rect_size,
+                corner_radii,
+            ));
+        }
+
+        // Add indices (offset by base_index)
+        for idx in &tessellated.indices {
+            self.indices.push(base_index + idx);
+        }
+
+        self.vertex_count += tessellated.vertices.len() as u32;
+    }
+
+    fn stroke_path(&mut self, path: &crate::types::Path, stroke: &Stroke) {
+        if path.is_empty() {
+            return;
+        }
+
+        // Tessellate the stroke
+        let tessellated = crate::path::tessellate_stroke(path, stroke, crate::path::DEFAULT_TOLERANCE);
+
+        if tessellated.is_empty() {
+            return;
+        }
+
+        // Get color from stroke paint
+        let color = match &stroke.paint {
+            Paint::Solid(c) => self.apply_opacity(*c),
+            Paint::LinearGradient(g) => {
+                if let Some(stop) = g.stops.first() {
+                    self.apply_opacity(stop.color)
+                } else {
+                    Color::BLACK
+                }
+            }
+            Paint::RadialGradient(g) => {
+                if let Some(stop) = g.stops.first() {
+                    self.apply_opacity(stop.color)
+                } else {
+                    Color::BLACK
+                }
+            }
+        };
+
+        let base_index = self.vertices.len() as u32;
+
+        // For paths, we use a minimal rect that doesn't affect SDF calculations
+        let rect_pos = [0.0, 0.0];
+        let rect_size = [1.0, 1.0];
+        let corner_radii = [0.0; 4];
+
+        // Add vertices
+        for pos in &tessellated.vertices {
+            // Apply transform to each vertex
+            let p = self.state.transform().transform_point(Point::new(pos[0], pos[1]));
+            self.vertices.push(RectVertex::solid(
+                [p.x, p.y],
+                color,
+                rect_pos,
+                rect_size,
+                corner_radii,
+            ));
+        }
+
+        // Add indices (offset by base_index)
+        for idx in &tessellated.indices {
+            self.indices.push(base_index + idx);
+        }
+
+        self.vertex_count += tessellated.vertices.len() as u32;
+    }
+
     fn set_blend_mode(&mut self, mode: BlendMode) {
         if self.current_blend_mode != mode {
             self.current_blend_mode = mode;
             self.state_changes += 1;
-            // Note: Would need to flush and change pipeline for different blend modes
+
+            // If we haven't started drawing yet, update the batch blend mode
+            // Otherwise, subsequent draws will use the current blend mode
+            // Note: For proper multi-blend-mode support within a frame,
+            // we would need to flush and render the current batch before switching.
+            // For now, the batch uses the blend mode set before the first draw.
+            if self.vertices.is_empty() && self.shadow_vertices.is_empty() {
+                self.batch_blend_mode = mode;
+            }
         }
     }
 
@@ -2244,5 +2789,65 @@ mod tests {
         assert_eq!(vertex.position, [10.0, 20.0]);
         assert_eq!(vertex.uv, [0.5, 0.5]);
         assert_eq!(vertex.tint, Color::WHITE.to_array());
+    }
+
+    #[test]
+    fn test_blend_state_for_mode_normal() {
+        let state = blend_state_for_mode(BlendMode::Normal);
+        assert_eq!(state, wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+    }
+
+    #[test]
+    fn test_blend_state_for_mode_source() {
+        let state = blend_state_for_mode(BlendMode::Source);
+        assert_eq!(state, wgpu::BlendState::REPLACE);
+    }
+
+    #[test]
+    fn test_blend_state_for_mode_multiply() {
+        let state = blend_state_for_mode(BlendMode::Multiply);
+        // Multiply uses Dst factor for src_factor
+        assert_eq!(state.color.src_factor, wgpu::BlendFactor::Dst);
+        assert_eq!(state.color.dst_factor, wgpu::BlendFactor::Zero);
+        assert_eq!(state.color.operation, wgpu::BlendOperation::Add);
+    }
+
+    #[test]
+    fn test_blend_state_for_mode_screen() {
+        let state = blend_state_for_mode(BlendMode::Screen);
+        // Screen: src + dst * (1 - src)
+        assert_eq!(state.color.src_factor, wgpu::BlendFactor::One);
+        assert_eq!(state.color.dst_factor, wgpu::BlendFactor::OneMinusSrc);
+        assert_eq!(state.color.operation, wgpu::BlendOperation::Add);
+    }
+
+    #[test]
+    fn test_blend_state_for_mode_add() {
+        let state = blend_state_for_mode(BlendMode::Add);
+        // Add: src + dst
+        assert_eq!(state.color.src_factor, wgpu::BlendFactor::One);
+        assert_eq!(state.color.dst_factor, wgpu::BlendFactor::One);
+        assert_eq!(state.color.operation, wgpu::BlendOperation::Add);
+    }
+
+    #[test]
+    fn test_blend_state_for_mode_darken() {
+        let state = blend_state_for_mode(BlendMode::Darken);
+        // Darken uses min operation
+        assert_eq!(state.color.operation, wgpu::BlendOperation::Min);
+    }
+
+    #[test]
+    fn test_blend_state_for_mode_lighten() {
+        let state = blend_state_for_mode(BlendMode::Lighten);
+        // Lighten uses max operation
+        assert_eq!(state.color.operation, wgpu::BlendOperation::Max);
+    }
+
+    #[test]
+    fn test_blend_state_for_mode_overlay_fallback() {
+        // Overlay is a complex mode that falls back to Normal
+        let state = blend_state_for_mode(BlendMode::Overlay);
+        assert_eq!(state, wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING);
     }
 }

@@ -99,6 +99,7 @@ mod gpu_renderer;
 mod image;
 pub mod layer;
 mod paint;
+mod path;
 mod renderer;
 pub mod stencil;
 mod surface;
@@ -120,9 +121,10 @@ pub use renderer::{FrameStats, RenderState, RenderStateStack, Renderer};
 
 // Drawing types
 pub use paint::{
-    BlendMode, BoxShadow, BoxShadowParams, DashPattern, GradientStop, LineCap, LineJoin,
+    BlendMode, BoxShadow, BoxShadowParams, DashPattern, FillRule, GradientStop, LineCap, LineJoin,
     LinearGradient, Paint, RadialGradient, Stroke,
 };
+pub use path::{tessellate_fill, tessellate_stroke, TessellatedPath, DEFAULT_TOLERANCE};
 pub use transform::{Transform2D, TransformStack};
 pub use types::{Color, CornerRadii, Path, PathCommand, Point, Rect, RoundedRect, Size};
 

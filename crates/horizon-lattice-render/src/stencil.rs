@@ -3,7 +3,7 @@
 //! This module provides stencil buffer management for advanced clipping operations
 //! including rounded rectangle clips and arbitrary path clips.
 
-use crate::types::{Rect, RoundedRect, Size};
+use crate::types::{Path, Rect, RoundedRect, Size};
 
 /// Depth/stencil texture format used for clipping.
 pub const DEPTH_STENCIL_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24PlusStencil8;
@@ -70,6 +70,8 @@ pub enum ClipShape {
     RoundedRect(RoundedRect),
     /// A regular rectangle clip (optimized path).
     Rect(Rect),
+    /// An arbitrary path clip (uses tessellation).
+    Path(Path),
 }
 
 impl ClipShape {
@@ -78,6 +80,11 @@ impl ClipShape {
         match self {
             ClipShape::RoundedRect(rr) => rr.rect,
             ClipShape::Rect(r) => *r,
+            ClipShape::Path(p) => {
+                // Clone and calculate bounds
+                let mut path = p.clone();
+                path.bounds().unwrap_or(Rect::ZERO)
+            }
         }
     }
 
@@ -86,7 +93,13 @@ impl ClipShape {
         match self {
             ClipShape::RoundedRect(rr) => rr.radii.is_zero(),
             ClipShape::Rect(_) => true,
+            ClipShape::Path(_) => false,
         }
+    }
+
+    /// Check if this is a path clip.
+    pub fn is_path(&self) -> bool {
+        matches!(self, ClipShape::Path(_))
     }
 }
 
@@ -103,6 +116,12 @@ impl From<RoundedRect> for ClipShape {
 impl From<Rect> for ClipShape {
     fn from(r: Rect) -> Self {
         ClipShape::Rect(r)
+    }
+}
+
+impl From<Path> for ClipShape {
+    fn from(p: Path) -> Self {
+        ClipShape::Path(p)
     }
 }
 

@@ -510,14 +510,28 @@ impl Color {
     pub const LIGHT_GRAY: Self = Self::from_rgb(0.75, 0.75, 0.75);
 }
 
-/// A 2D path for complex shapes (placeholder for future path rendering).
+/// A 2D path for complex vector shapes.
 ///
-/// This is a placeholder type that will be fully implemented when
-/// the path rendering system is built.
+/// Paths are constructed using a series of commands that describe how to
+/// draw lines and curves. They can be filled, stroked, or used as clip regions.
+///
+/// # Example
+///
+/// ```ignore
+/// let mut path = Path::new();
+/// path.move_to(Point::new(0.0, 0.0))
+///     .line_to(Point::new(100.0, 0.0))
+///     .line_to(Point::new(50.0, 100.0))
+///     .close();
+///
+/// renderer.fill_path(&path, Color::RED, FillRule::NonZero);
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct Path {
-    /// Path commands (to be implemented).
+    /// Path commands.
     commands: Vec<PathCommand>,
+    /// Cached bounding box (computed lazily).
+    bounds: Option<Rect>,
 }
 
 /// Commands that make up a path.
@@ -531,6 +545,19 @@ pub enum PathCommand {
     QuadTo { control: Point, end: Point },
     /// Draw a cubic bezier curve.
     CubicTo { control1: Point, control2: Point, end: Point },
+    /// Draw an arc.
+    ArcTo {
+        /// Radii of the ellipse.
+        radii: Point,
+        /// X-axis rotation in radians.
+        x_rotation: f32,
+        /// Whether to use the large arc.
+        large_arc: bool,
+        /// Whether to sweep clockwise.
+        sweep: bool,
+        /// End point of the arc.
+        end: Point,
+    },
     /// Close the current subpath.
     Close,
 }
@@ -540,30 +567,64 @@ impl Path {
     pub fn new() -> Self {
         Self {
             commands: Vec::new(),
+            bounds: None,
+        }
+    }
+
+    /// Create a new path with pre-allocated capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            commands: Vec::with_capacity(capacity),
+            bounds: None,
         }
     }
 
     /// Move to a point without drawing.
     pub fn move_to(&mut self, p: Point) -> &mut Self {
         self.commands.push(PathCommand::MoveTo(p));
+        self.bounds = None; // Invalidate cache
         self
     }
 
     /// Draw a line to a point.
     pub fn line_to(&mut self, p: Point) -> &mut Self {
         self.commands.push(PathCommand::LineTo(p));
+        self.bounds = None;
         self
     }
 
     /// Draw a quadratic bezier curve.
     pub fn quad_to(&mut self, control: Point, end: Point) -> &mut Self {
         self.commands.push(PathCommand::QuadTo { control, end });
+        self.bounds = None;
         self
     }
 
     /// Draw a cubic bezier curve.
     pub fn cubic_to(&mut self, control1: Point, control2: Point, end: Point) -> &mut Self {
         self.commands.push(PathCommand::CubicTo { control1, control2, end });
+        self.bounds = None;
+        self
+    }
+
+    /// Draw an arc.
+    ///
+    /// # Arguments
+    ///
+    /// * `radii` - The x and y radii of the ellipse
+    /// * `x_rotation` - Rotation of the ellipse in radians
+    /// * `large_arc` - If true, use the larger of the two possible arcs
+    /// * `sweep` - If true, sweep in the positive angle direction
+    /// * `end` - The endpoint of the arc
+    pub fn arc_to(&mut self, radii: Point, x_rotation: f32, large_arc: bool, sweep: bool, end: Point) -> &mut Self {
+        self.commands.push(PathCommand::ArcTo {
+            radii,
+            x_rotation,
+            large_arc,
+            sweep,
+            end,
+        });
+        self.bounds = None;
         self
     }
 
@@ -583,9 +644,141 @@ impl Path {
         self.commands.is_empty()
     }
 
+    /// Clear all commands from the path.
+    pub fn clear(&mut self) {
+        self.commands.clear();
+        self.bounds = None;
+    }
+
+    /// Get the bounding box of the path.
+    ///
+    /// Returns `None` if the path is empty or contains only MoveTo commands.
+    pub fn bounds(&mut self) -> Option<Rect> {
+        if self.bounds.is_some() {
+            return self.bounds;
+        }
+
+        let mut min_x = f32::MAX;
+        let mut min_y = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut max_y = f32::MIN;
+        let mut has_points = false;
+
+        let mut extend_bounds = |p: Point| {
+            min_x = min_x.min(p.x);
+            min_y = min_y.min(p.y);
+            max_x = max_x.max(p.x);
+            max_y = max_y.max(p.y);
+            has_points = true;
+        };
+
+        for cmd in &self.commands {
+            match cmd {
+                PathCommand::MoveTo(p) | PathCommand::LineTo(p) => {
+                    extend_bounds(*p);
+                }
+                PathCommand::QuadTo { control, end } => {
+                    extend_bounds(*control);
+                    extend_bounds(*end);
+                }
+                PathCommand::CubicTo { control1, control2, end } => {
+                    extend_bounds(*control1);
+                    extend_bounds(*control2);
+                    extend_bounds(*end);
+                }
+                PathCommand::ArcTo { end, radii, .. } => {
+                    // Conservative bounds: include endpoint and extend by radii
+                    extend_bounds(*end);
+                    extend_bounds(Point::new(end.x - radii.x, end.y - radii.y));
+                    extend_bounds(Point::new(end.x + radii.x, end.y + radii.y));
+                }
+                PathCommand::Close => {}
+            }
+        }
+
+        if has_points {
+            let bounds = Rect::new(min_x, min_y, max_x - min_x, max_y - min_y);
+            self.bounds = Some(bounds);
+            Some(bounds)
+        } else {
+            None
+        }
+    }
+
+    /// Create a rectangle path.
+    pub fn rect(rect: Rect) -> Self {
+        let mut path = Self::with_capacity(5);
+        path.move_to(Point::new(rect.left(), rect.top()))
+            .line_to(Point::new(rect.right(), rect.top()))
+            .line_to(Point::new(rect.right(), rect.bottom()))
+            .line_to(Point::new(rect.left(), rect.bottom()))
+            .close();
+        path
+    }
+
+    /// Create a circle path.
+    ///
+    /// Uses cubic bezier curves to approximate the circle with high accuracy.
+    pub fn circle(center: Point, radius: f32) -> Self {
+        Self::ellipse(center, radius, radius)
+    }
+
+    /// Create an ellipse path.
+    ///
+    /// Uses cubic bezier curves to approximate the ellipse.
+    pub fn ellipse(center: Point, radius_x: f32, radius_y: f32) -> Self {
+        // Approximation constant for bezier control points
+        // https://spencermortensen.com/articles/bezier-circle/
+        const C: f32 = 0.5519150244935105707435627;
+
+        let mut path = Self::with_capacity(6);
+
+        let cx = radius_x * C;
+        let cy = radius_y * C;
+
+        // Start at the rightmost point
+        path.move_to(Point::new(center.x + radius_x, center.y));
+
+        // Bottom-right quadrant
+        path.cubic_to(
+            Point::new(center.x + radius_x, center.y + cy),
+            Point::new(center.x + cx, center.y + radius_y),
+            Point::new(center.x, center.y + radius_y),
+        );
+
+        // Bottom-left quadrant
+        path.cubic_to(
+            Point::new(center.x - cx, center.y + radius_y),
+            Point::new(center.x - radius_x, center.y + cy),
+            Point::new(center.x - radius_x, center.y),
+        );
+
+        // Top-left quadrant
+        path.cubic_to(
+            Point::new(center.x - radius_x, center.y - cy),
+            Point::new(center.x - cx, center.y - radius_y),
+            Point::new(center.x, center.y - radius_y),
+        );
+
+        // Top-right quadrant
+        path.cubic_to(
+            Point::new(center.x + cx, center.y - radius_y),
+            Point::new(center.x + radius_x, center.y - cy),
+            Point::new(center.x + radius_x, center.y),
+        );
+
+        path.close();
+        path
+    }
+
     /// Create a rounded rectangle path.
     pub fn rounded_rect(rect: Rect, radii: CornerRadii) -> Self {
-        let mut path = Self::new();
+        // If no rounding, return simple rect
+        if radii.is_zero() {
+            return Self::rect(rect);
+        }
+
+        let mut path = Self::with_capacity(13);
 
         let tl = radii.top_left;
         let tr = radii.top_right;
@@ -598,7 +791,7 @@ impl Path {
         // Top edge
         path.line_to(Point::new(rect.right() - tr, rect.top()));
 
-        // Top-right corner (approximation using quadratic bezier)
+        // Top-right corner
         if tr > 0.0 {
             path.quad_to(
                 Point::new(rect.right(), rect.top()),
@@ -640,6 +833,105 @@ impl Path {
         }
 
         path.close();
+        path
+    }
+
+    /// Create a line path (a single line segment).
+    pub fn line(from: Point, to: Point) -> Self {
+        let mut path = Self::with_capacity(2);
+        path.move_to(from).line_to(to);
+        path
+    }
+
+    /// Create a polygon path from a list of points.
+    pub fn polygon(points: &[Point]) -> Self {
+        if points.is_empty() {
+            return Self::new();
+        }
+
+        let mut path = Self::with_capacity(points.len() + 1);
+        path.move_to(points[0]);
+        for p in &points[1..] {
+            path.line_to(*p);
+        }
+        path.close();
+        path
+    }
+
+    /// Create a polyline path from a list of points (not closed).
+    pub fn polyline(points: &[Point]) -> Self {
+        if points.is_empty() {
+            return Self::new();
+        }
+
+        let mut path = Self::with_capacity(points.len());
+        path.move_to(points[0]);
+        for p in &points[1..] {
+            path.line_to(*p);
+        }
+        path
+    }
+
+    /// Create a star path.
+    pub fn star(center: Point, outer_radius: f32, inner_radius: f32, points: usize) -> Self {
+        if points < 2 {
+            return Self::new();
+        }
+
+        let mut path = Self::with_capacity(points * 2 + 1);
+        let angle_step = std::f32::consts::PI / points as f32;
+        let start_angle = -std::f32::consts::FRAC_PI_2; // Start at top
+
+        for i in 0..points * 2 {
+            let radius = if i % 2 == 0 { outer_radius } else { inner_radius };
+            let angle = start_angle + i as f32 * angle_step;
+            let p = Point::new(
+                center.x + radius * angle.cos(),
+                center.y + radius * angle.sin(),
+            );
+
+            if i == 0 {
+                path.move_to(p);
+            } else {
+                path.line_to(p);
+            }
+        }
+
+        path.close();
+        path
+    }
+
+    /// Transform the path by the given transform.
+    pub fn transform(&mut self, transform: &crate::transform::Transform2D) {
+        for cmd in &mut self.commands {
+            match cmd {
+                PathCommand::MoveTo(p) | PathCommand::LineTo(p) => {
+                    *p = transform.transform_point(*p);
+                }
+                PathCommand::QuadTo { control, end } => {
+                    *control = transform.transform_point(*control);
+                    *end = transform.transform_point(*end);
+                }
+                PathCommand::CubicTo { control1, control2, end } => {
+                    *control1 = transform.transform_point(*control1);
+                    *control2 = transform.transform_point(*control2);
+                    *end = transform.transform_point(*end);
+                }
+                PathCommand::ArcTo { end, .. } => {
+                    // For arcs, we only transform the endpoint
+                    // Full arc transformation would require decomposition
+                    *end = transform.transform_point(*end);
+                }
+                PathCommand::Close => {}
+            }
+        }
+        self.bounds = None;
+    }
+
+    /// Create a transformed copy of the path.
+    pub fn transformed(&self, transform: &crate::transform::Transform2D) -> Self {
+        let mut path = self.clone();
+        path.transform(transform);
         path
     }
 }

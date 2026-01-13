@@ -5,7 +5,7 @@
 //! rendering backends.
 
 use crate::image::{Image, ImageScaleMode, NinePatch};
-use crate::paint::{BlendMode, BoxShadow, Paint, Stroke};
+use crate::paint::{BlendMode, BoxShadow, FillRule, Paint, Stroke};
 use crate::transform::{Transform2D, TransformStack};
 use crate::types::{Color, Path, Point, Rect, RoundedRect, Size};
 
@@ -133,17 +133,30 @@ pub trait Renderer {
 
     /// Set an arbitrary path clip region using stencil buffer.
     ///
-    /// This is a placeholder for future arbitrary path clipping.
-    /// Currently unimplemented - will panic if called.
+    /// This enables clipping to any path shape using the stencil buffer.
+    /// Clips are nested - each call pushes a new clip level. Use `restore()`
+    /// to pop clips along with other state.
     ///
     /// # Performance Note
     ///
-    /// Path clips are the most expensive clip type. Use `clip_rect` or
-    /// `clip_rounded_rect` when possible.
-    fn clip_path(&mut self, path: &Path) {
-        let _ = path;
-        unimplemented!("Arbitrary path clipping not yet implemented. Use clip_rounded_rect instead.")
-    }
+    /// Path clips are the most expensive clip type because they require
+    /// tessellation. Use `clip_rect` or `clip_rounded_rect` when possible.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut path = Path::new();
+    /// path.move_to(Point::new(100.0, 0.0))
+    ///     .line_to(Point::new(200.0, 100.0))
+    ///     .line_to(Point::new(0.0, 100.0))
+    ///     .close();
+    ///
+    /// renderer.clip_path(&path);
+    /// // Drawing will now be clipped to the triangle
+    /// renderer.fill_rect(Rect::new(0.0, 0.0, 200.0, 200.0), Color::RED);
+    /// renderer.restore_clip();
+    /// ```
+    fn clip_path(&mut self, path: &Path);
 
     // =========================================================================
     // Drawing - Rectangles
@@ -217,6 +230,59 @@ pub trait Renderer {
     fn stroke_circle(&mut self, center: Point, radius: f32, stroke: &Stroke) {
         self.stroke_ellipse(center, radius, radius, stroke);
     }
+
+    // =========================================================================
+    // Drawing - Paths
+    // =========================================================================
+
+    /// Fill a path with the specified paint.
+    ///
+    /// The path is tessellated into triangles using the specified fill rule.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to fill.
+    /// * `paint` - The paint to use for filling (color or gradient).
+    /// * `fill_rule` - The fill rule to determine inside/outside (NonZero or EvenOdd).
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut path = Path::new();
+    /// path.move_to(Point::new(0.0, 0.0))
+    ///     .line_to(Point::new(100.0, 0.0))
+    ///     .line_to(Point::new(50.0, 100.0))
+    ///     .close();
+    ///
+    /// renderer.fill_path(&path, Color::RED, FillRule::NonZero);
+    /// ```
+    fn fill_path(&mut self, path: &Path, paint: impl Into<Paint>, fill_rule: FillRule);
+
+    /// Stroke a path with the specified stroke options.
+    ///
+    /// The path is tessellated into a stroke outline using the stroke width,
+    /// line cap, and line join settings.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to stroke.
+    /// * `stroke` - The stroke options (width, color, cap, join, etc.).
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut path = Path::new();
+    /// path.move_to(Point::new(0.0, 0.0))
+    ///     .line_to(Point::new(100.0, 0.0))
+    ///     .line_to(Point::new(50.0, 100.0))
+    ///     .close();
+    ///
+    /// let stroke = Stroke::new(Color::BLACK, 2.0)
+    ///     .with_cap(LineCap::Round)
+    ///     .with_join(LineJoin::Round);
+    /// renderer.stroke_path(&path, &stroke);
+    /// ```
+    fn stroke_path(&mut self, path: &Path, stroke: &Stroke);
 
     // =========================================================================
     // Drawing - Images

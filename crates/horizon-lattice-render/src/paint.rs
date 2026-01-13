@@ -195,6 +195,27 @@ pub enum LineCap {
     Square,
 }
 
+/// Fill rule for determining the interior of a path.
+///
+/// When a path has multiple subpaths or self-intersecting curves,
+/// the fill rule determines which points are considered "inside" the path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FillRule {
+    /// Non-zero winding rule.
+    ///
+    /// A point is inside if drawing a ray from it to infinity crosses
+    /// more path segments going one direction than the other.
+    /// This is the default and most commonly used fill rule.
+    #[default]
+    NonZero,
+    /// Even-odd (alternating) rule.
+    ///
+    /// A point is inside if drawing a ray from it to infinity crosses
+    /// an odd number of path segments. This creates a checkerboard
+    /// pattern for overlapping shapes.
+    EvenOdd,
+}
+
 /// Line join style.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LineJoin {
@@ -234,7 +255,7 @@ impl DashPattern {
 }
 
 /// Blend mode for compositing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum BlendMode {
     /// Normal (source-over) blending.
     #[default]
@@ -578,5 +599,42 @@ mod tests {
         let params = BoxShadowParams::rounded(rect, radii, shadow);
 
         assert_eq!(params.radii.top_left, 10.0);
+    }
+
+    #[test]
+    fn test_blend_mode_default() {
+        let mode = BlendMode::default();
+        assert_eq!(mode, BlendMode::Normal);
+    }
+
+    #[test]
+    fn test_blend_mode_hash() {
+        use std::collections::HashMap;
+
+        let mut map: HashMap<BlendMode, &str> = HashMap::new();
+        map.insert(BlendMode::Normal, "normal");
+        map.insert(BlendMode::Multiply, "multiply");
+        map.insert(BlendMode::Screen, "screen");
+        map.insert(BlendMode::Add, "add");
+
+        assert_eq!(map.get(&BlendMode::Normal), Some(&"normal"));
+        assert_eq!(map.get(&BlendMode::Multiply), Some(&"multiply"));
+        assert_eq!(map.get(&BlendMode::Screen), Some(&"screen"));
+        assert_eq!(map.get(&BlendMode::Add), Some(&"add"));
+    }
+
+    #[test]
+    fn test_blend_mode_equality() {
+        assert_eq!(BlendMode::Normal, BlendMode::Normal);
+        assert_eq!(BlendMode::Multiply, BlendMode::Multiply);
+        assert_ne!(BlendMode::Normal, BlendMode::Multiply);
+        assert_ne!(BlendMode::Screen, BlendMode::Overlay);
+    }
+
+    #[test]
+    fn test_blend_mode_copy() {
+        let mode = BlendMode::Multiply;
+        let copied = mode;
+        assert_eq!(mode, copied);
     }
 }

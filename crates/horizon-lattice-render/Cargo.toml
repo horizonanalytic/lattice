@@ -12,6 +12,7 @@ authors.workspace = true
 wgpu = { workspace = true }
 bytemuck = { workspace = true }
 glam = { workspace = true }
+lyon = { workspace = true }
 
 # Platform integration
 winit = { workspace = true }

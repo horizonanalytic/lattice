@@ -779,6 +779,12 @@ impl Compositor {
                     continue;
                 }
 
+                // TODO: Support per-layer blend modes in compositing.
+                // Currently, all layers use Normal (source-over) blending.
+                // The layer.blend_mode value is stored but not yet applied.
+                // To implement: create a HashMap<BlendMode, RenderPipeline> and
+                // select the appropriate pipeline based on layer.blend_mode.
+
                 // Update uniforms for this layer
                 let uniforms = CompositeUniforms {
                     viewport_size: [self.output_width as f32, self.output_height as f32],
@@ -838,6 +844,8 @@ impl Compositor {
                 if layer.opacity <= 0.0 {
                     continue;
                 }
+
+                // TODO: Support per-layer blend modes (see composite_to)
 
                 let uniforms = CompositeUniforms {
                     viewport_size: [self.output_width as f32, self.output_height as f32],

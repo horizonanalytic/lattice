@@ -510,6 +510,140 @@ impl Color {
     pub const LIGHT_GRAY: Self = Self::from_rgb(0.75, 0.75, 0.75);
 }
 
+/// A 2D path for complex shapes (placeholder for future path rendering).
+///
+/// This is a placeholder type that will be fully implemented when
+/// the path rendering system is built.
+#[derive(Debug, Clone, Default)]
+pub struct Path {
+    /// Path commands (to be implemented).
+    commands: Vec<PathCommand>,
+}
+
+/// Commands that make up a path.
+#[derive(Debug, Clone, Copy)]
+pub enum PathCommand {
+    /// Move to a point without drawing.
+    MoveTo(Point),
+    /// Draw a line to a point.
+    LineTo(Point),
+    /// Draw a quadratic bezier curve.
+    QuadTo { control: Point, end: Point },
+    /// Draw a cubic bezier curve.
+    CubicTo { control1: Point, control2: Point, end: Point },
+    /// Close the current subpath.
+    Close,
+}
+
+impl Path {
+    /// Create a new empty path.
+    pub fn new() -> Self {
+        Self {
+            commands: Vec::new(),
+        }
+    }
+
+    /// Move to a point without drawing.
+    pub fn move_to(&mut self, p: Point) -> &mut Self {
+        self.commands.push(PathCommand::MoveTo(p));
+        self
+    }
+
+    /// Draw a line to a point.
+    pub fn line_to(&mut self, p: Point) -> &mut Self {
+        self.commands.push(PathCommand::LineTo(p));
+        self
+    }
+
+    /// Draw a quadratic bezier curve.
+    pub fn quad_to(&mut self, control: Point, end: Point) -> &mut Self {
+        self.commands.push(PathCommand::QuadTo { control, end });
+        self
+    }
+
+    /// Draw a cubic bezier curve.
+    pub fn cubic_to(&mut self, control1: Point, control2: Point, end: Point) -> &mut Self {
+        self.commands.push(PathCommand::CubicTo { control1, control2, end });
+        self
+    }
+
+    /// Close the current subpath.
+    pub fn close(&mut self) -> &mut Self {
+        self.commands.push(PathCommand::Close);
+        self
+    }
+
+    /// Get the path commands.
+    pub fn commands(&self) -> &[PathCommand] {
+        &self.commands
+    }
+
+    /// Check if the path is empty.
+    pub fn is_empty(&self) -> bool {
+        self.commands.is_empty()
+    }
+
+    /// Create a rounded rectangle path.
+    pub fn rounded_rect(rect: Rect, radii: CornerRadii) -> Self {
+        let mut path = Self::new();
+
+        let tl = radii.top_left;
+        let tr = radii.top_right;
+        let br = radii.bottom_right;
+        let bl = radii.bottom_left;
+
+        // Start at top-left corner, after the rounded part
+        path.move_to(Point::new(rect.left() + tl, rect.top()));
+
+        // Top edge
+        path.line_to(Point::new(rect.right() - tr, rect.top()));
+
+        // Top-right corner (approximation using quadratic bezier)
+        if tr > 0.0 {
+            path.quad_to(
+                Point::new(rect.right(), rect.top()),
+                Point::new(rect.right(), rect.top() + tr),
+            );
+        }
+
+        // Right edge
+        path.line_to(Point::new(rect.right(), rect.bottom() - br));
+
+        // Bottom-right corner
+        if br > 0.0 {
+            path.quad_to(
+                Point::new(rect.right(), rect.bottom()),
+                Point::new(rect.right() - br, rect.bottom()),
+            );
+        }
+
+        // Bottom edge
+        path.line_to(Point::new(rect.left() + bl, rect.bottom()));
+
+        // Bottom-left corner
+        if bl > 0.0 {
+            path.quad_to(
+                Point::new(rect.left(), rect.bottom()),
+                Point::new(rect.left(), rect.bottom() - bl),
+            );
+        }
+
+        // Left edge
+        path.line_to(Point::new(rect.left(), rect.top() + tl));
+
+        // Top-left corner
+        if tl > 0.0 {
+            path.quad_to(
+                Point::new(rect.left(), rect.top()),
+                Point::new(rect.left() + tl, rect.top()),
+            );
+        }
+
+        path.close();
+        path
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -590,5 +724,46 @@ mod tests {
 
         let rr2 = RoundedRect::new(Rect::new(0.0, 0.0, 100.0, 100.0), 0.0);
         assert!(rr2.is_rect());
+    }
+
+    #[test]
+    fn test_path_creation() {
+        let path = Path::new();
+        assert!(path.is_empty());
+        assert_eq!(path.commands().len(), 0);
+    }
+
+    #[test]
+    fn test_path_commands() {
+        let mut path = Path::new();
+        path.move_to(Point::new(0.0, 0.0))
+            .line_to(Point::new(100.0, 0.0))
+            .line_to(Point::new(100.0, 100.0))
+            .close();
+
+        assert!(!path.is_empty());
+        assert_eq!(path.commands().len(), 4);
+
+        // Check command types
+        assert!(matches!(path.commands()[0], PathCommand::MoveTo(_)));
+        assert!(matches!(path.commands()[1], PathCommand::LineTo(_)));
+        assert!(matches!(path.commands()[2], PathCommand::LineTo(_)));
+        assert!(matches!(path.commands()[3], PathCommand::Close));
+    }
+
+    #[test]
+    fn test_path_rounded_rect() {
+        let rect = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let radii = CornerRadii::uniform(10.0);
+        let path = Path::rounded_rect(rect, radii);
+
+        // Should have: move + 4 sides + 4 corners + close
+        assert!(!path.is_empty());
+
+        // First command should be MoveTo
+        assert!(matches!(path.commands()[0], PathCommand::MoveTo(_)));
+
+        // Last command should be Close
+        assert!(matches!(path.commands().last(), Some(PathCommand::Close)));
     }
 }

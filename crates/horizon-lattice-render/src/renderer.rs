@@ -7,7 +7,7 @@
 use crate::image::{Image, ImageScaleMode, NinePatch};
 use crate::paint::{BlendMode, Paint, Stroke};
 use crate::transform::{Transform2D, TransformStack};
-use crate::types::{Color, Point, Rect, RoundedRect, Size};
+use crate::types::{Color, Path, Point, Rect, RoundedRect, Size};
 
 /// Statistics from a frame render.
 #[derive(Debug, Clone, Default)]
@@ -104,11 +104,46 @@ pub trait Renderer {
     /// Set a rectangular clip region.
     ///
     /// Drawing will be clipped to this rectangle (intersected with any
-    /// existing clip).
+    /// existing clip). Uses scissor for simple rectangles.
     fn clip_rect(&mut self, rect: Rect);
+
+    /// Set a rounded rectangle clip region using stencil buffer.
+    ///
+    /// This enables clipping to non-rectangular shapes like rounded corners.
+    /// Clips are nested - each call pushes a new clip level. Use `restore()`
+    /// to pop clips along with other state.
+    ///
+    /// # Performance Note
+    ///
+    /// Rounded clips use the stencil buffer and are more expensive than
+    /// rectangular clips. Use `clip_rect` when possible.
+    fn clip_rounded_rect(&mut self, rect: RoundedRect);
+
+    /// Restore the last pushed rounded rectangle clip.
+    ///
+    /// This is called internally by `restore()` but can also be called
+    /// explicitly to pop just the clip without restoring other state.
+    fn restore_clip(&mut self);
 
     /// Get the current clip bounds, if any.
     fn clip_bounds(&self) -> Option<Rect>;
+
+    /// Check if there are any active stencil clips.
+    fn has_stencil_clips(&self) -> bool;
+
+    /// Set an arbitrary path clip region using stencil buffer.
+    ///
+    /// This is a placeholder for future arbitrary path clipping.
+    /// Currently unimplemented - will panic if called.
+    ///
+    /// # Performance Note
+    ///
+    /// Path clips are the most expensive clip type. Use `clip_rect` or
+    /// `clip_rounded_rect` when possible.
+    fn clip_path(&mut self, path: &Path) {
+        let _ = path;
+        unimplemented!("Arbitrary path clipping not yet implemented. Use clip_rounded_rect instead.")
+    }
 
     // =========================================================================
     // Drawing - Rectangles

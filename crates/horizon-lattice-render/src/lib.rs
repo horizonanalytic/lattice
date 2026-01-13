@@ -100,6 +100,7 @@ mod image;
 pub mod layer;
 mod paint;
 mod renderer;
+pub mod stencil;
 mod surface;
 mod transform;
 mod types;
@@ -123,7 +124,7 @@ pub use paint::{
     RadialGradient, Stroke,
 };
 pub use transform::{Transform2D, TransformStack};
-pub use types::{Color, CornerRadii, Point, Rect, RoundedRect, Size};
+pub use types::{Color, CornerRadii, Path, PathCommand, Point, Rect, RoundedRect, Size};
 
 // Image types
 pub use atlas::{ImageManager, TextureAtlas};
@@ -134,6 +135,9 @@ pub use damage::DamageTracker;
 
 // Layer compositing
 pub use layer::{Compositor, Layer, LayerConfig, LayerId};
+
+// Stencil clipping
+pub use stencil::{ClipShape, ClipStack};
 
 // Re-export wgpu types that users commonly need
 pub use wgpu;

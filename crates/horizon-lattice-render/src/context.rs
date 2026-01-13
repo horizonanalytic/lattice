@@ -33,6 +33,7 @@ impl Default for GraphicsConfig {
         Self {
             backends: wgpu::Backends::PRIMARY,
             power_preference: wgpu::PowerPreference::HighPerformance,
+            // Depth24PlusStencil8 is widely supported and doesn't require special features
             required_features: wgpu::Features::empty(),
             required_limits: if cfg!(target_arch = "wasm32") {
                 wgpu::Limits::downlevel_webgl2_defaults()

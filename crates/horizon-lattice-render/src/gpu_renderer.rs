@@ -17,6 +17,7 @@ use crate::layer::Layer;
 use crate::offscreen::OffscreenSurface;
 use crate::paint::{BlendMode, Paint, Stroke};
 use crate::renderer::{FrameStats, RenderStateStack, Renderer};
+use crate::stencil::{ClipShape, ClipStack, StencilTexture};
 use crate::surface::RenderSurface;
 use crate::transform::Transform2D;
 use crate::types::{Color, CornerRadii, Point, Rect, RoundedRect, Size};
@@ -270,6 +271,20 @@ pub struct GpuRenderer {
 
     /// Damage tracker for dirty region optimization.
     damage_tracker: DamageTracker,
+
+    // === Stencil clipping support ===
+    /// Stencil texture for advanced clipping.
+    stencil_texture: Option<StencilTexture>,
+    /// Pipeline for pushing clips (incrementing stencil).
+    push_clip_pipeline: wgpu::RenderPipeline,
+    /// Pipeline for popping clips (decrementing stencil).
+    pop_clip_pipeline: wgpu::RenderPipeline,
+    /// Pipeline for rendering content with stencil testing.
+    stencil_rect_pipeline: wgpu::RenderPipeline,
+    /// Clip stack for managing nested stencil clips.
+    clip_stack: ClipStack,
+    /// Pending clip shapes to be rendered this frame.
+    pending_clips: Vec<(ClipShape, bool)>, // (shape, is_push)
 }
 
 impl GpuRenderer {
@@ -454,12 +469,119 @@ impl GpuRenderer {
             mapped_at_creation: false,
         });
 
+        // === Stencil clipping pipelines ===
+
+        // Pipeline for pushing clips (increments stencil)
+        let push_clip_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("push_clip_pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[RectVertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: None, // Don't write to color buffer when pushing clips
+                    write_mask: wgpu::ColorWrites::empty(),
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(crate::stencil::push_clip_depth_stencil_state()),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
+        // Pipeline for popping clips (decrements stencil)
+        let pop_clip_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("pop_clip_pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[RectVertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: None, // Don't write to color buffer when popping clips
+                    write_mask: wgpu::ColorWrites::empty(),
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(crate::stencil::pop_clip_depth_stencil_state()),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
+        // Pipeline for rendering content with stencil testing
+        let stencil_rect_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("stencil_rect_pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[RectVertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(crate::stencil::content_depth_stencil_state()),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
         debug!(
             target: "horizon_lattice_render::gpu_renderer",
             format = ?format,
             max_vertices = MAX_VERTICES,
             max_indices = MAX_INDICES,
-            "created GPU renderer"
+            "created GPU renderer with stencil clipping support"
         );
 
         Ok(Self {
@@ -494,6 +616,14 @@ impl GpuRenderer {
             image_batches: Vec::new(),
 
             damage_tracker: DamageTracker::new(),
+
+            // Stencil clipping
+            stencil_texture: None, // Created lazily when needed
+            push_clip_pipeline,
+            pop_clip_pipeline,
+            stencil_rect_pipeline,
+            clip_stack: ClipStack::new(),
+            pending_clips: Vec::new(),
         })
     }
 
@@ -510,6 +640,16 @@ impl GpuRenderer {
         let ctx = GraphicsContext::get();
         let device = ctx.device();
         let queue = ctx.queue();
+
+        // Check if we need stencil clipping
+        let use_stencil = self.clip_stack.has_clips() || !self.pending_clips.is_empty();
+
+        // Ensure stencil texture if needed
+        if use_stencil {
+            let width = self.viewport_size.width as u32;
+            let height = self.viewport_size.height as u32;
+            self.ensure_stencil_texture(device, width, height);
+        }
 
         // Update uniform buffer
         let uniforms = Uniforms {
@@ -530,6 +670,25 @@ impl GpuRenderer {
             label: Some("render_encoder"),
         });
 
+        // Get stencil attachment if needed
+        let depth_stencil_attachment = if use_stencil {
+            self.stencil_texture.as_ref().map(|tex| {
+                wgpu::RenderPassDepthStencilAttachment {
+                    view: tex.view(),
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                }
+            })
+        } else {
+            None
+        };
+
         // Begin render pass
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -542,7 +701,7 @@ impl GpuRenderer {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment,
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
@@ -557,9 +716,53 @@ impl GpuRenderer {
                 );
             }
 
+            // Process pending clip operations
+            if !self.pending_clips.is_empty() {
+                let clips: Vec<_> = self.pending_clips.drain(..).collect();
+                let mut current_stencil_ref = 0u32;
+
+                for (shape, is_push) in clips {
+                    let (clip_vertices, clip_indices) = self.clip_shape_to_vertices(&shape);
+
+                    // Upload clip geometry
+                    queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&clip_vertices));
+                    queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&clip_indices));
+
+                    if is_push {
+                        // Push clip: increment stencil where shape is drawn
+                        render_pass.set_pipeline(&self.push_clip_pipeline);
+                        render_pass.set_stencil_reference(current_stencil_ref);
+                        current_stencil_ref += 1;
+                    } else {
+                        // Pop clip: decrement stencil where shape is drawn
+                        render_pass.set_pipeline(&self.pop_clip_pipeline);
+                        render_pass.set_stencil_reference(current_stencil_ref);
+                        current_stencil_ref = current_stencil_ref.saturating_sub(1);
+                    }
+
+                    render_pass.set_bind_group(0, &self.bind_group, &[]);
+                    render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.draw_indexed(0..clip_indices.len() as u32, 0, 0..1);
+                    self.draw_calls += 1;
+                }
+
+                // Re-upload content geometry after clip operations
+                if !self.vertices.is_empty() {
+                    queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+                    queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.indices));
+                }
+            }
+
             // Render rectangles
             if !self.indices.is_empty() {
-                render_pass.set_pipeline(&self.rect_pipeline);
+                // Use stencil pipeline if we have active clips
+                if self.clip_stack.has_clips() {
+                    render_pass.set_pipeline(&self.stencil_rect_pipeline);
+                    render_pass.set_stencil_reference(self.clip_stack.depth());
+                } else {
+                    render_pass.set_pipeline(&self.rect_pipeline);
+                }
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -1049,6 +1252,57 @@ impl GpuRenderer {
         self.surface_format
     }
 
+    /// Ensure stencil texture exists and is the correct size.
+    fn ensure_stencil_texture(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+        let needs_creation = match &self.stencil_texture {
+            None => true,
+            Some(tex) => tex.size().width as u32 != width || tex.size().height as u32 != height,
+        };
+
+        if needs_creation {
+            self.stencil_texture = Some(StencilTexture::new(device, width, height));
+        }
+    }
+
+    /// Generate vertices for a clip shape.
+    fn clip_shape_to_vertices(&self, shape: &ClipShape) -> (Vec<RectVertex>, Vec<u32>) {
+        let (rect, radii) = match shape {
+            ClipShape::RoundedRect(rr) => (rr.rect, rr.radii),
+            ClipShape::Rect(r) => (*r, CornerRadii::ZERO),
+        };
+
+        let base_index = 0u32;
+        let rect_pos = [rect.left(), rect.top()];
+        let rect_size = [rect.width(), rect.height()];
+        let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
+
+        // White color for stencil mask (color doesn't matter, we're not writing to color buffer)
+        let color = Color::WHITE;
+
+        let positions = [
+            [rect.left(), rect.top()],
+            [rect.right(), rect.top()],
+            [rect.right(), rect.bottom()],
+            [rect.left(), rect.bottom()],
+        ];
+
+        let vertices: Vec<RectVertex> = positions
+            .iter()
+            .map(|&pos| RectVertex::solid(pos, color, rect_pos, rect_size, corner_radii))
+            .collect();
+
+        let indices = vec![
+            base_index,
+            base_index + 1,
+            base_index + 2,
+            base_index,
+            base_index + 2,
+            base_index + 3,
+        ];
+
+        (vertices, indices)
+    }
+
     // =========================================================================
     // Damage Tracking
     // =========================================================================
@@ -1319,6 +1573,10 @@ impl Renderer for GpuRenderer {
         self.image_batches.clear();
         self.scissor_rect = None;
 
+        // Reset stencil clipping state
+        self.clip_stack.reset();
+        self.pending_clips.clear();
+
         // Update damage tracker viewport
         self.damage_tracker.set_viewport(Rect::new(
             0.0,
@@ -1382,8 +1640,38 @@ impl Renderer for GpuRenderer {
         self.scissor_rect = self.state.clip_bounds();
     }
 
+    fn clip_rounded_rect(&mut self, rrect: RoundedRect) {
+        // If no rounding, use simple scissor clip
+        if rrect.radii.is_zero() {
+            self.clip_rect(rrect.rect);
+            return;
+        }
+
+        // Transform the clip rectangle
+        let transformed_rect = self.state.transform().transform_rect(&rrect.rect);
+        let shape = ClipShape::RoundedRect(RoundedRect {
+            rect: transformed_rect,
+            radii: rrect.radii,
+        });
+
+        // Push to clip stack and record for rendering
+        if let Some(_depth) = self.clip_stack.push(shape.clone()) {
+            self.pending_clips.push((shape, true)); // true = push
+        }
+    }
+
+    fn restore_clip(&mut self) {
+        if let Some((shape, _depth)) = self.clip_stack.pop() {
+            self.pending_clips.push((shape, false)); // false = pop
+        }
+    }
+
     fn clip_bounds(&self) -> Option<Rect> {
         self.state.clip_bounds()
+    }
+
+    fn has_stencil_clips(&self) -> bool {
+        self.clip_stack.has_clips()
     }
 
     fn fill_rect(&mut self, rect: Rect, paint: impl Into<Paint>) {

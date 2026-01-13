@@ -55,11 +55,13 @@ mod item;
 mod traits;
 mod base;
 mod invalidation;
+mod box_layout;
 
 pub use item::{LayoutItem, SpacerItem, SpacerType};
 pub use traits::Layout;
 pub use base::LayoutBase;
 pub use invalidation::{LayoutInvalidator, InvalidationScope};
+pub use box_layout::{BoxLayout, HBoxLayout, VBoxLayout, Orientation, Alignment};
 
 use horizon_lattice_render::Size;
 

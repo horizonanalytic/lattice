@@ -121,6 +121,7 @@ mod base;
 mod dispatcher;
 mod events;
 mod geometry;
+mod painting;
 mod traits;
 
 #[cfg(test)]
@@ -135,4 +136,5 @@ pub use events::{
     WidgetEvent,
 };
 pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
+pub use painting::{FrameRenderer, FrameStats, RepaintManager};
 pub use traits::{AsWidget, PaintContext, Widget};

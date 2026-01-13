@@ -91,6 +91,16 @@ pub struct WidgetBase {
     /// Whether the widget needs to be repainted.
     needs_repaint: bool,
 
+    /// The dirty region that needs repainting (in widget-local coordinates).
+    /// If `Some`, only this region needs repainting. If `None`, no repaint needed.
+    /// A full repaint sets this to the widget's rect().
+    dirty_region: Option<Rect>,
+
+    /// Whether this widget is opaque (paints all its pixels).
+    /// Opaque widgets allow the painting system to skip painting parent regions
+    /// that would be completely covered by this widget.
+    opaque: bool,
+
     /// Event filters installed on this widget.
     ///
     /// When an event is sent to this widget, it first goes through all
@@ -143,6 +153,8 @@ impl WidgetBase {
             hovered: false,
             pressed: false,
             needs_repaint: true,
+            dirty_region: None, // Will be set when geometry is set
+            opaque: false,
             event_filters: Vec::new(),
             geometry_changed: Signal::new(),
             pressed_changed: Signal::new(),
@@ -635,7 +647,35 @@ impl WidgetBase {
     }
 
     // =========================================================================
-    // Repaint
+    // Opaque Widget
+    // =========================================================================
+
+    /// Check if this widget is opaque.
+    ///
+    /// Opaque widgets paint all their pixels, allowing the painting system
+    /// to skip painting parent regions that would be completely covered.
+    /// This is an optimization hint.
+    #[inline]
+    pub fn is_opaque(&self) -> bool {
+        self.opaque
+    }
+
+    /// Set whether this widget is opaque.
+    ///
+    /// Set to `true` if this widget always paints all its pixels with opaque
+    /// colors. This allows the painting system to skip painting parent regions
+    /// underneath this widget.
+    ///
+    /// # Note
+    ///
+    /// If you set this to `true` but don't actually paint all pixels, you may
+    /// see visual artifacts (uninitialized or stale pixels showing through).
+    pub fn set_opaque(&mut self, opaque: bool) {
+        self.opaque = opaque;
+    }
+
+    // =========================================================================
+    // Repaint / Dirty Regions
     // =========================================================================
 
     /// Check if the widget needs to be repainted.
@@ -644,14 +684,99 @@ impl WidgetBase {
         self.needs_repaint
     }
 
-    /// Request a repaint of the widget.
-    pub fn update(&mut self) {
-        self.needs_repaint = true;
+    /// Get the dirty region that needs repainting.
+    ///
+    /// Returns `None` if no repaint is needed, or `Some(rect)` with the
+    /// region in widget-local coordinates that needs repainting.
+    #[inline]
+    pub fn dirty_region(&self) -> Option<Rect> {
+        self.dirty_region
     }
 
-    /// Clear the repaint flag (called after painting).
+    /// Request a full repaint of the widget.
+    ///
+    /// This schedules a repaint of the entire widget for the next frame.
+    /// Multiple calls to `update()` before the next paint are coalesced.
+    pub fn update(&mut self) {
+        self.needs_repaint = true;
+        // Set dirty region to full widget rect
+        self.dirty_region = Some(self.rect());
+    }
+
+    /// Request a partial repaint of a specific region.
+    ///
+    /// This schedules a repaint of only the specified region for the next frame.
+    /// The region is in widget-local coordinates.
+    ///
+    /// Multiple calls are coalesced by computing the union of all dirty regions.
+    ///
+    /// # Arguments
+    ///
+    /// * `rect` - The region to repaint, in widget-local coordinates.
+    pub fn update_rect(&mut self, rect: Rect) {
+        // Skip empty rects
+        if rect.width() <= 0.0 || rect.height() <= 0.0 {
+            return;
+        }
+
+        // Clip to widget bounds
+        let widget_rect = self.rect();
+        let clipped = match rect.intersect(&widget_rect) {
+            Some(r) => r,
+            None => return, // Outside widget bounds
+        };
+
+        self.needs_repaint = true;
+        self.dirty_region = Some(match self.dirty_region {
+            Some(existing) => existing.union(&clipped),
+            None => clipped,
+        });
+    }
+
+    /// Clear the repaint flag and dirty region (called after painting).
     pub(crate) fn clear_repaint_flag(&mut self) {
         self.needs_repaint = false;
+        self.dirty_region = None;
+    }
+
+    /// Request an immediate repaint of the widget.
+    ///
+    /// Unlike `update()` which schedules a repaint for the next frame,
+    /// this signals that the widget should be repainted immediately.
+    /// This is useful for time-critical updates like video playback.
+    ///
+    /// Returns the dirty region for the immediate repaint.
+    pub fn repaint(&mut self) -> Rect {
+        let region = self.dirty_region.unwrap_or_else(|| self.rect());
+        self.needs_repaint = true;
+        self.dirty_region = Some(region);
+        region
+    }
+
+    /// Request an immediate repaint of a specific region.
+    ///
+    /// Like `repaint()` but for a specific region of the widget.
+    ///
+    /// # Arguments
+    ///
+    /// * `rect` - The region to repaint immediately, in widget-local coordinates.
+    pub fn repaint_rect(&mut self, rect: Rect) -> Option<Rect> {
+        // Skip empty rects
+        if rect.width() <= 0.0 || rect.height() <= 0.0 {
+            return None;
+        }
+
+        // Clip to widget bounds
+        let widget_rect = self.rect();
+        let clipped = rect.intersect(&widget_rect)?;
+
+        self.needs_repaint = true;
+        let region = match self.dirty_region {
+            Some(existing) => existing.union(&clipped),
+            None => clipped,
+        };
+        self.dirty_region = Some(region);
+        Some(region)
     }
 
     // =========================================================================

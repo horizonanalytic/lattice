@@ -407,17 +407,69 @@ pub trait Widget: Object + Send + Sync {
     }
 
     // =========================================================================
-    // Update
+    // Opaque Widget
     // =========================================================================
 
-    /// Request a repaint of the widget.
+    /// Check if this widget is opaque.
+    ///
+    /// Opaque widgets paint all their pixels, allowing the painting system
+    /// to skip painting parent regions that would be completely covered.
+    fn is_opaque(&self) -> bool {
+        self.widget_base().is_opaque()
+    }
+
+    /// Set whether this widget is opaque.
+    ///
+    /// Set to `true` if this widget always paints all its pixels with opaque
+    /// colors.
+    fn set_opaque(&mut self, opaque: bool) {
+        self.widget_base_mut().set_opaque(opaque);
+    }
+
+    // =========================================================================
+    // Update / Repaint
+    // =========================================================================
+
+    /// Request a full repaint of the widget.
+    ///
+    /// This schedules a repaint for the next frame. Multiple calls before
+    /// the next paint are coalesced.
     fn update(&mut self) {
         self.widget_base_mut().update();
+    }
+
+    /// Request a partial repaint of a specific region.
+    ///
+    /// This schedules a repaint of only the specified region for the next frame.
+    /// The region is in widget-local coordinates.
+    fn update_rect(&mut self, rect: Rect) {
+        self.widget_base_mut().update_rect(rect);
     }
 
     /// Check if the widget needs to be repainted.
     fn needs_repaint(&self) -> bool {
         self.widget_base().needs_repaint()
+    }
+
+    /// Get the dirty region that needs repainting.
+    ///
+    /// Returns `None` if no repaint is needed, or `Some(rect)` with the
+    /// region in widget-local coordinates that needs repainting.
+    fn dirty_region(&self) -> Option<Rect> {
+        self.widget_base().dirty_region()
+    }
+
+    /// Request an immediate repaint of the widget.
+    ///
+    /// Unlike `update()` which schedules a repaint for the next frame,
+    /// this signals that the widget should be repainted immediately.
+    fn repaint(&mut self) -> Rect {
+        self.widget_base_mut().repaint()
+    }
+
+    /// Request an immediate repaint of a specific region.
+    fn repaint_rect(&mut self, rect: Rect) -> Option<Rect> {
+        self.widget_base_mut().repaint_rect(rect)
     }
 }
 

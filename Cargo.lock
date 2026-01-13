@@ -880,6 +880,7 @@ dependencies = [
  "horizon-lattice-core",
  "horizon-lattice-macros",
  "horizon-lattice-render",
+ "slotmap",
 ]
 
 [[package]]

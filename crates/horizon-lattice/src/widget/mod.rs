@@ -122,6 +122,7 @@ mod dispatcher;
 mod events;
 mod focus;
 mod geometry;
+pub mod layout;
 mod painting;
 mod traits;
 
@@ -138,5 +139,6 @@ pub use events::{
     WidgetEvent,
 };
 pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
+pub use layout::{ContentMargins, Layout, LayoutBase, LayoutInvalidator, LayoutItem, SpacerItem};
 pub use painting::{FrameRenderer, FrameStats, RepaintManager};
 pub use traits::{AsWidget, PaintContext, Widget};

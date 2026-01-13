@@ -58,6 +58,7 @@ mod invalidation;
 mod box_layout;
 mod grid_layout;
 mod form_layout;
+mod stack_layout;
 
 pub use item::{LayoutItem, SpacerItem, SpacerType};
 pub use traits::Layout;
@@ -66,6 +67,7 @@ pub use invalidation::{LayoutInvalidator, InvalidationScope};
 pub use box_layout::{BoxLayout, HBoxLayout, VBoxLayout, Orientation, Alignment};
 pub use grid_layout::{GridLayout, CellAlignment};
 pub use form_layout::{FormLayout, FormRow, FormItemRole, RowWrapPolicy, FieldGrowthPolicy};
+pub use stack_layout::{StackLayout, StackSizeMode};
 
 use horizon_lattice_render::Size;
 

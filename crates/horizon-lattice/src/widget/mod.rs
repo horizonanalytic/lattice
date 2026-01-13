@@ -117,6 +117,7 @@
 //! ));
 //! ```
 
+pub mod animation;
 mod base;
 mod dispatcher;
 mod events;

@@ -396,6 +396,284 @@ impl ObjectRegistry {
             .map(|(id, _)| id)
     }
 
+    // =========================================================================
+    // Z-Order / Sibling Ordering
+    // =========================================================================
+
+    /// Get the index of an object among its siblings.
+    ///
+    /// Returns `None` if the object has no parent (is a root object).
+    /// Index 0 is the back/bottom, higher indices are front/top.
+    pub fn sibling_index(&self, id: ObjectId) -> ObjectResult<Option<usize>> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+
+        if let Some(parent_id) = data.parent {
+            let parent_data = self
+                .objects
+                .get(parent_id)
+                .ok_or(ObjectError::InvalidObjectId)?;
+            Ok(parent_data.children.iter().position(|&child| child == id))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get the next sibling (higher z-order / closer to front).
+    pub fn next_sibling(&self, id: ObjectId) -> ObjectResult<Option<ObjectId>> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+
+        if let Some(parent_id) = data.parent {
+            let parent_data = self
+                .objects
+                .get(parent_id)
+                .ok_or(ObjectError::InvalidObjectId)?;
+
+            if let Some(pos) = parent_data.children.iter().position(|&child| child == id) {
+                if pos + 1 < parent_data.children.len() {
+                    return Ok(Some(parent_data.children[pos + 1]));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Get the previous sibling (lower z-order / closer to back).
+    pub fn previous_sibling(&self, id: ObjectId) -> ObjectResult<Option<ObjectId>> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+
+        if let Some(parent_id) = data.parent {
+            let parent_data = self
+                .objects
+                .get(parent_id)
+                .ok_or(ObjectError::InvalidObjectId)?;
+
+            if let Some(pos) = parent_data.children.iter().position(|&child| child == id) {
+                if pos > 0 {
+                    return Ok(Some(parent_data.children[pos - 1]));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Raise an object to the front (highest z-order among siblings).
+    ///
+    /// Moves the object to the end of its parent's children list.
+    pub fn raise(&mut self, id: ObjectId) -> ObjectResult<()> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+
+        if let Some(parent_id) = data.parent {
+            let parent_data = self
+                .objects
+                .get_mut(parent_id)
+                .ok_or(ObjectError::InvalidObjectId)?;
+
+            // Remove from current position and add at end
+            parent_data.children.retain(|&child| child != id);
+            parent_data.children.push(id);
+        }
+        Ok(())
+    }
+
+    /// Lower an object to the back (lowest z-order among siblings).
+    ///
+    /// Moves the object to the start of its parent's children list.
+    pub fn lower(&mut self, id: ObjectId) -> ObjectResult<()> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+
+        if let Some(parent_id) = data.parent {
+            let parent_data = self
+                .objects
+                .get_mut(parent_id)
+                .ok_or(ObjectError::InvalidObjectId)?;
+
+            // Remove from current position and insert at beginning
+            parent_data.children.retain(|&child| child != id);
+            parent_data.children.insert(0, id);
+        }
+        Ok(())
+    }
+
+    /// Stack an object under (behind) a sibling.
+    ///
+    /// The object will be positioned just before the sibling in the children list.
+    /// Returns an error if the sibling is not actually a sibling.
+    pub fn stack_under(&mut self, id: ObjectId, sibling: ObjectId) -> ObjectResult<()> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+        let sibling_data = self
+            .objects
+            .get(sibling)
+            .ok_or(ObjectError::InvalidObjectId)?;
+
+        // Check they share the same parent
+        if data.parent != sibling_data.parent || data.parent.is_none() {
+            return Err(ObjectError::InvalidObjectId); // Not siblings
+        }
+
+        let parent_id = data.parent.unwrap();
+        let parent_data = self
+            .objects
+            .get_mut(parent_id)
+            .ok_or(ObjectError::InvalidObjectId)?;
+
+        // Remove both, find sibling position, insert id before sibling
+        parent_data.children.retain(|&child| child != id);
+
+        if let Some(sibling_pos) = parent_data.children.iter().position(|&c| c == sibling) {
+            parent_data.children.insert(sibling_pos, id);
+        }
+
+        Ok(())
+    }
+
+    /// Stack an object above (in front of) a sibling.
+    ///
+    /// The object will be positioned just after the sibling in the children list.
+    /// Returns an error if the sibling is not actually a sibling.
+    pub fn stack_above(&mut self, id: ObjectId, sibling: ObjectId) -> ObjectResult<()> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+        let sibling_data = self
+            .objects
+            .get(sibling)
+            .ok_or(ObjectError::InvalidObjectId)?;
+
+        // Check they share the same parent
+        if data.parent != sibling_data.parent || data.parent.is_none() {
+            return Err(ObjectError::InvalidObjectId); // Not siblings
+        }
+
+        let parent_id = data.parent.unwrap();
+        let parent_data = self
+            .objects
+            .get_mut(parent_id)
+            .ok_or(ObjectError::InvalidObjectId)?;
+
+        // Remove id, find sibling position, insert id after sibling
+        parent_data.children.retain(|&child| child != id);
+
+        if let Some(sibling_pos) = parent_data.children.iter().position(|&c| c == sibling) {
+            parent_data.children.insert(sibling_pos + 1, id);
+        }
+
+        Ok(())
+    }
+
+    /// Get all siblings of an object (excluding the object itself).
+    pub fn siblings(&self, id: ObjectId) -> ObjectResult<Vec<ObjectId>> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+
+        if let Some(parent_id) = data.parent {
+            let parent_data = self
+                .objects
+                .get(parent_id)
+                .ok_or(ObjectError::InvalidObjectId)?;
+
+            Ok(parent_data
+                .children
+                .iter()
+                .filter(|&&child| child != id)
+                .copied()
+                .collect())
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    // =========================================================================
+    // Tree Traversal
+    // =========================================================================
+
+    /// Get all ancestors of an object from immediate parent to root.
+    pub fn ancestors(&self, id: ObjectId) -> ObjectResult<Vec<ObjectId>> {
+        if !self.objects.contains_key(id) {
+            return Err(ObjectError::InvalidObjectId);
+        }
+
+        let mut result = Vec::new();
+        let mut current = self.objects.get(id).and_then(|d| d.parent);
+
+        while let Some(current_id) = current {
+            result.push(current_id);
+            current = self.objects.get(current_id).and_then(|d| d.parent);
+        }
+
+        Ok(result)
+    }
+
+    /// Perform a depth-first pre-order traversal starting from an object.
+    ///
+    /// Visits the node first, then its children recursively.
+    /// Returns objects in the order: root, child1, grandchild1, grandchild2, child2, ...
+    pub fn depth_first_preorder(&self, id: ObjectId) -> ObjectResult<Vec<ObjectId>> {
+        let mut result = Vec::new();
+        self.depth_first_preorder_recursive(id, &mut result)?;
+        Ok(result)
+    }
+
+    fn depth_first_preorder_recursive(
+        &self,
+        id: ObjectId,
+        result: &mut Vec<ObjectId>,
+    ) -> ObjectResult<()> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+        result.push(id);
+        for &child_id in &data.children {
+            self.depth_first_preorder_recursive(child_id, result)?;
+        }
+        Ok(())
+    }
+
+    /// Perform a depth-first post-order traversal starting from an object.
+    ///
+    /// Visits children recursively first, then the node.
+    /// Returns objects in the order: grandchild1, grandchild2, child1, child2, root
+    pub fn depth_first_postorder(&self, id: ObjectId) -> ObjectResult<Vec<ObjectId>> {
+        let mut result = Vec::new();
+        self.depth_first_postorder_recursive(id, &mut result)?;
+        Ok(result)
+    }
+
+    fn depth_first_postorder_recursive(
+        &self,
+        id: ObjectId,
+        result: &mut Vec<ObjectId>,
+    ) -> ObjectResult<()> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+        for &child_id in &data.children {
+            self.depth_first_postorder_recursive(child_id, result)?;
+        }
+        result.push(id);
+        Ok(())
+    }
+
+    /// Perform a breadth-first (level-order) traversal starting from an object.
+    ///
+    /// Visits all nodes at depth N before any nodes at depth N+1.
+    pub fn breadth_first(&self, id: ObjectId) -> ObjectResult<Vec<ObjectId>> {
+        if !self.objects.contains_key(id) {
+            return Err(ObjectError::InvalidObjectId);
+        }
+
+        let mut result = Vec::new();
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(id);
+
+        while let Some(current_id) = queue.pop_front() {
+            result.push(current_id);
+            if let Some(data) = self.objects.get(current_id) {
+                for &child_id in &data.children {
+                    queue.push_back(child_id);
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    // =========================================================================
+    // Debug / Diagnostics
+    // =========================================================================
+
     /// Debug dump of the object tree.
     pub fn dump_object_tree(&self, id: ObjectId) -> ObjectResult<String> {
         let mut output = String::new();
@@ -534,6 +812,78 @@ impl SharedObjectRegistry {
     pub fn root_objects(&self) -> Vec<ObjectId> {
         self.inner.read().root_objects().collect()
     }
+
+    // =========================================================================
+    // Z-Order / Sibling Ordering
+    // =========================================================================
+
+    /// Get the index of an object among its siblings.
+    pub fn sibling_index(&self, id: ObjectId) -> ObjectResult<Option<usize>> {
+        self.inner.read().sibling_index(id)
+    }
+
+    /// Get the next sibling (higher z-order).
+    pub fn next_sibling(&self, id: ObjectId) -> ObjectResult<Option<ObjectId>> {
+        self.inner.read().next_sibling(id)
+    }
+
+    /// Get the previous sibling (lower z-order).
+    pub fn previous_sibling(&self, id: ObjectId) -> ObjectResult<Option<ObjectId>> {
+        self.inner.read().previous_sibling(id)
+    }
+
+    /// Raise an object to the front (highest z-order among siblings).
+    pub fn raise(&self, id: ObjectId) -> ObjectResult<()> {
+        self.inner.write().raise(id)
+    }
+
+    /// Lower an object to the back (lowest z-order among siblings).
+    pub fn lower(&self, id: ObjectId) -> ObjectResult<()> {
+        self.inner.write().lower(id)
+    }
+
+    /// Stack an object under (behind) a sibling.
+    pub fn stack_under(&self, id: ObjectId, sibling: ObjectId) -> ObjectResult<()> {
+        self.inner.write().stack_under(id, sibling)
+    }
+
+    /// Stack an object above (in front of) a sibling.
+    pub fn stack_above(&self, id: ObjectId, sibling: ObjectId) -> ObjectResult<()> {
+        self.inner.write().stack_above(id, sibling)
+    }
+
+    /// Get all siblings of an object (excluding the object itself).
+    pub fn siblings(&self, id: ObjectId) -> ObjectResult<Vec<ObjectId>> {
+        self.inner.read().siblings(id)
+    }
+
+    // =========================================================================
+    // Tree Traversal
+    // =========================================================================
+
+    /// Get all ancestors of an object from immediate parent to root.
+    pub fn ancestors(&self, id: ObjectId) -> ObjectResult<Vec<ObjectId>> {
+        self.inner.read().ancestors(id)
+    }
+
+    /// Perform a depth-first pre-order traversal starting from an object.
+    pub fn depth_first_preorder(&self, id: ObjectId) -> ObjectResult<Vec<ObjectId>> {
+        self.inner.read().depth_first_preorder(id)
+    }
+
+    /// Perform a depth-first post-order traversal starting from an object.
+    pub fn depth_first_postorder(&self, id: ObjectId) -> ObjectResult<Vec<ObjectId>> {
+        self.inner.read().depth_first_postorder(id)
+    }
+
+    /// Perform a breadth-first (level-order) traversal starting from an object.
+    pub fn breadth_first(&self, id: ObjectId) -> ObjectResult<Vec<ObjectId>> {
+        self.inner.read().breadth_first(id)
+    }
+
+    // =========================================================================
+    // Advanced Access
+    // =========================================================================
 
     /// Access the registry with a read lock for complex operations.
     pub fn with_read<F, R>(&self, f: F) -> R
@@ -743,6 +1093,96 @@ impl ObjectBase {
     pub fn set_property<T: Any + Send + Sync>(&self, name: &str, value: T) -> ObjectResult<()> {
         global_registry()?.set_dynamic_property(self.id, name, value)
     }
+
+    // =========================================================================
+    // Z-Order / Sibling Ordering
+    // =========================================================================
+
+    /// Get this object's index among its siblings.
+    ///
+    /// Index 0 is the back/bottom, higher indices are front/top.
+    /// Returns `None` if the object has no parent.
+    pub fn sibling_index(&self) -> Option<usize> {
+        global_registry()
+            .and_then(|r| r.sibling_index(self.id))
+            .ok()
+            .flatten()
+    }
+
+    /// Get the next sibling (higher z-order / closer to front).
+    pub fn next_sibling(&self) -> Option<ObjectId> {
+        global_registry()
+            .and_then(|r| r.next_sibling(self.id))
+            .ok()
+            .flatten()
+    }
+
+    /// Get the previous sibling (lower z-order / closer to back).
+    pub fn previous_sibling(&self) -> Option<ObjectId> {
+        global_registry()
+            .and_then(|r| r.previous_sibling(self.id))
+            .ok()
+            .flatten()
+    }
+
+    /// Raise this object to the front (highest z-order among siblings).
+    pub fn raise(&self) -> ObjectResult<()> {
+        global_registry()?.raise(self.id)
+    }
+
+    /// Lower this object to the back (lowest z-order among siblings).
+    pub fn lower(&self) -> ObjectResult<()> {
+        global_registry()?.lower(self.id)
+    }
+
+    /// Stack this object under (behind) a sibling.
+    pub fn stack_under(&self, sibling: ObjectId) -> ObjectResult<()> {
+        global_registry()?.stack_under(self.id, sibling)
+    }
+
+    /// Stack this object above (in front of) a sibling.
+    pub fn stack_above(&self, sibling: ObjectId) -> ObjectResult<()> {
+        global_registry()?.stack_above(self.id, sibling)
+    }
+
+    /// Get all siblings (excluding this object).
+    pub fn siblings(&self) -> Vec<ObjectId> {
+        global_registry()
+            .and_then(|r| r.siblings(self.id))
+            .unwrap_or_default()
+    }
+
+    // =========================================================================
+    // Tree Traversal
+    // =========================================================================
+
+    /// Get all ancestors from immediate parent to root.
+    pub fn ancestors(&self) -> Vec<ObjectId> {
+        global_registry()
+            .and_then(|r| r.ancestors(self.id))
+            .unwrap_or_default()
+    }
+
+    /// Get descendants in depth-first pre-order (self, then children recursively).
+    pub fn depth_first_preorder(&self) -> Vec<ObjectId> {
+        global_registry()
+            .and_then(|r| r.depth_first_preorder(self.id))
+            .unwrap_or_default()
+    }
+
+    /// Get descendants in depth-first post-order (children recursively, then self).
+    pub fn depth_first_postorder(&self) -> Vec<ObjectId> {
+        global_registry()
+            .and_then(|r| r.depth_first_postorder(self.id))
+            .unwrap_or_default()
+    }
+
+    /// Get descendants in breadth-first (level) order.
+    pub fn breadth_first(&self) -> Vec<ObjectId> {
+        global_registry()
+            .and_then(|r| r.breadth_first(self.id))
+            .unwrap_or_default()
+    }
 }
 
 impl Drop for ObjectBase {
@@ -945,5 +1385,227 @@ mod tests {
         // Wrong type cast returns None
         let wrong_cast = object_cast::<ChildObject>(obj_ref);
         assert!(wrong_cast.is_none());
+    }
+
+    // =========================================================================
+    // Z-Order Tests
+    // =========================================================================
+
+    #[test]
+    fn test_sibling_index() {
+        setup();
+        let parent = TestObject::new(1);
+        let child1 = ChildObject::new("first");
+        let child2 = ChildObject::new("second");
+        let child3 = ChildObject::new("third");
+
+        child1.base.set_parent(Some(parent.object_id())).unwrap();
+        child2.base.set_parent(Some(parent.object_id())).unwrap();
+        child3.base.set_parent(Some(parent.object_id())).unwrap();
+
+        assert_eq!(child1.base.sibling_index(), Some(0));
+        assert_eq!(child2.base.sibling_index(), Some(1));
+        assert_eq!(child3.base.sibling_index(), Some(2));
+
+        // Root object has no sibling index
+        assert_eq!(parent.base.sibling_index(), None);
+    }
+
+    #[test]
+    fn test_next_previous_sibling() {
+        setup();
+        let parent = TestObject::new(1);
+        let child1 = ChildObject::new("first");
+        let child2 = ChildObject::new("second");
+        let child3 = ChildObject::new("third");
+
+        child1.base.set_parent(Some(parent.object_id())).unwrap();
+        child2.base.set_parent(Some(parent.object_id())).unwrap();
+        child3.base.set_parent(Some(parent.object_id())).unwrap();
+
+        // First child has no previous, has next
+        assert_eq!(child1.base.previous_sibling(), None);
+        assert_eq!(child1.base.next_sibling(), Some(child2.object_id()));
+
+        // Middle child has both
+        assert_eq!(child2.base.previous_sibling(), Some(child1.object_id()));
+        assert_eq!(child2.base.next_sibling(), Some(child3.object_id()));
+
+        // Last child has previous, no next
+        assert_eq!(child3.base.previous_sibling(), Some(child2.object_id()));
+        assert_eq!(child3.base.next_sibling(), None);
+    }
+
+    #[test]
+    fn test_raise_lower() {
+        setup();
+        let parent = TestObject::new(1);
+        let child1 = ChildObject::new("first");
+        let child2 = ChildObject::new("second");
+        let child3 = ChildObject::new("third");
+
+        child1.base.set_parent(Some(parent.object_id())).unwrap();
+        child2.base.set_parent(Some(parent.object_id())).unwrap();
+        child3.base.set_parent(Some(parent.object_id())).unwrap();
+
+        // Initial order: [child1, child2, child3]
+        assert_eq!(child1.base.sibling_index(), Some(0));
+
+        // Raise child1 to front
+        child1.base.raise().unwrap();
+        // New order: [child2, child3, child1]
+        assert_eq!(child1.base.sibling_index(), Some(2));
+        assert_eq!(child2.base.sibling_index(), Some(0));
+
+        // Lower child1 to back
+        child1.base.lower().unwrap();
+        // New order: [child1, child2, child3]
+        assert_eq!(child1.base.sibling_index(), Some(0));
+        assert_eq!(child3.base.sibling_index(), Some(2));
+    }
+
+    #[test]
+    fn test_stack_under_above() {
+        setup();
+        let parent = TestObject::new(1);
+        let child1 = ChildObject::new("first");
+        let child2 = ChildObject::new("second");
+        let child3 = ChildObject::new("third");
+
+        child1.base.set_parent(Some(parent.object_id())).unwrap();
+        child2.base.set_parent(Some(parent.object_id())).unwrap();
+        child3.base.set_parent(Some(parent.object_id())).unwrap();
+
+        // Initial order: [child1, child2, child3]
+
+        // Stack child3 under child2
+        child3.base.stack_under(child2.object_id()).unwrap();
+        // New order: [child1, child3, child2]
+        assert_eq!(child1.base.sibling_index(), Some(0));
+        assert_eq!(child3.base.sibling_index(), Some(1));
+        assert_eq!(child2.base.sibling_index(), Some(2));
+
+        // Stack child1 above child2
+        child1.base.stack_above(child2.object_id()).unwrap();
+        // New order: [child3, child2, child1]
+        assert_eq!(child3.base.sibling_index(), Some(0));
+        assert_eq!(child2.base.sibling_index(), Some(1));
+        assert_eq!(child1.base.sibling_index(), Some(2));
+    }
+
+    #[test]
+    fn test_siblings() {
+        setup();
+        let parent = TestObject::new(1);
+        let child1 = ChildObject::new("first");
+        let child2 = ChildObject::new("second");
+        let child3 = ChildObject::new("third");
+
+        child1.base.set_parent(Some(parent.object_id())).unwrap();
+        child2.base.set_parent(Some(parent.object_id())).unwrap();
+        child3.base.set_parent(Some(parent.object_id())).unwrap();
+
+        let siblings = child2.base.siblings();
+        assert_eq!(siblings.len(), 2);
+        assert!(siblings.contains(&child1.object_id()));
+        assert!(siblings.contains(&child3.object_id()));
+        assert!(!siblings.contains(&child2.object_id()));
+    }
+
+    // =========================================================================
+    // Tree Traversal Tests
+    // =========================================================================
+
+    #[test]
+    fn test_ancestors() {
+        setup();
+        let root = TestObject::new(1);
+        let parent = ChildObject::new("parent");
+        let child = ChildObject::new("child");
+
+        parent.base.set_parent(Some(root.object_id())).unwrap();
+        child.base.set_parent(Some(parent.object_id())).unwrap();
+
+        let ancestors = child.base.ancestors();
+        assert_eq!(ancestors.len(), 2);
+        assert_eq!(ancestors[0], parent.object_id()); // Immediate parent first
+        assert_eq!(ancestors[1], root.object_id()); // Then root
+    }
+
+    #[test]
+    fn test_depth_first_preorder() {
+        setup();
+        let registry = global_registry().unwrap();
+
+        // Build tree:
+        //       root
+        //      /    \
+        //   child1  child2
+        //     |
+        //  grandchild
+        let root_id = registry.register::<TestObject>();
+        let child1_id = registry.register::<ChildObject>();
+        let child2_id = registry.register::<ChildObject>();
+        let grandchild_id = registry.register::<ChildObject>();
+
+        registry.set_parent(child1_id, Some(root_id)).unwrap();
+        registry.set_parent(child2_id, Some(root_id)).unwrap();
+        registry.set_parent(grandchild_id, Some(child1_id)).unwrap();
+
+        let preorder = registry.depth_first_preorder(root_id).unwrap();
+        // Expected: root, child1, grandchild, child2
+        assert_eq!(preorder.len(), 4);
+        assert_eq!(preorder[0], root_id);
+        assert_eq!(preorder[1], child1_id);
+        assert_eq!(preorder[2], grandchild_id);
+        assert_eq!(preorder[3], child2_id);
+    }
+
+    #[test]
+    fn test_depth_first_postorder() {
+        setup();
+        let registry = global_registry().unwrap();
+
+        // Same tree as preorder test
+        let root_id = registry.register::<TestObject>();
+        let child1_id = registry.register::<ChildObject>();
+        let child2_id = registry.register::<ChildObject>();
+        let grandchild_id = registry.register::<ChildObject>();
+
+        registry.set_parent(child1_id, Some(root_id)).unwrap();
+        registry.set_parent(child2_id, Some(root_id)).unwrap();
+        registry.set_parent(grandchild_id, Some(child1_id)).unwrap();
+
+        let postorder = registry.depth_first_postorder(root_id).unwrap();
+        // Expected: grandchild, child1, child2, root
+        assert_eq!(postorder.len(), 4);
+        assert_eq!(postorder[0], grandchild_id);
+        assert_eq!(postorder[1], child1_id);
+        assert_eq!(postorder[2], child2_id);
+        assert_eq!(postorder[3], root_id);
+    }
+
+    #[test]
+    fn test_breadth_first() {
+        setup();
+        let registry = global_registry().unwrap();
+
+        // Same tree as other tests
+        let root_id = registry.register::<TestObject>();
+        let child1_id = registry.register::<ChildObject>();
+        let child2_id = registry.register::<ChildObject>();
+        let grandchild_id = registry.register::<ChildObject>();
+
+        registry.set_parent(child1_id, Some(root_id)).unwrap();
+        registry.set_parent(child2_id, Some(root_id)).unwrap();
+        registry.set_parent(grandchild_id, Some(child1_id)).unwrap();
+
+        let bfs = registry.breadth_first(root_id).unwrap();
+        // Expected: root, child1, child2, grandchild (level by level)
+        assert_eq!(bfs.len(), 4);
+        assert_eq!(bfs[0], root_id);
+        assert_eq!(bfs[1], child1_id);
+        assert_eq!(bfs[2], child2_id);
+        assert_eq!(bfs[3], grandchild_id);
     }
 }

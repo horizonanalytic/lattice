@@ -144,6 +144,93 @@ impl WidgetBase {
     }
 
     // =========================================================================
+    // Z-Order / Sibling Ordering
+    // =========================================================================
+
+    /// Get this widget's index among its siblings.
+    ///
+    /// Index 0 is the back/bottom (painted first), higher indices are front/top (painted last).
+    /// Returns `None` if the widget has no parent.
+    pub fn sibling_index(&self) -> Option<usize> {
+        self.object_base.sibling_index()
+    }
+
+    /// Get the next sibling widget (higher z-order / closer to front).
+    pub fn next_sibling(&self) -> Option<ObjectId> {
+        self.object_base.next_sibling()
+    }
+
+    /// Get the previous sibling widget (lower z-order / closer to back).
+    pub fn previous_sibling(&self) -> Option<ObjectId> {
+        self.object_base.previous_sibling()
+    }
+
+    /// Raise this widget to the front (highest z-order among siblings).
+    ///
+    /// The widget will be painted last (on top of siblings).
+    pub fn raise(&self) -> ObjectResult<()> {
+        self.object_base.raise()
+    }
+
+    /// Lower this widget to the back (lowest z-order among siblings).
+    ///
+    /// The widget will be painted first (behind siblings).
+    pub fn lower(&self) -> ObjectResult<()> {
+        self.object_base.lower()
+    }
+
+    /// Stack this widget under (behind) a sibling widget.
+    ///
+    /// The widget will be positioned just before the sibling in paint order.
+    pub fn stack_under(&self, sibling: ObjectId) -> ObjectResult<()> {
+        self.object_base.stack_under(sibling)
+    }
+
+    /// Stack this widget above (in front of) a sibling widget.
+    ///
+    /// The widget will be positioned just after the sibling in paint order.
+    pub fn stack_above(&self, sibling: ObjectId) -> ObjectResult<()> {
+        self.object_base.stack_above(sibling)
+    }
+
+    /// Get all sibling widgets (excluding this widget).
+    pub fn siblings(&self) -> Vec<ObjectId> {
+        self.object_base.siblings()
+    }
+
+    // =========================================================================
+    // Tree Traversal
+    // =========================================================================
+
+    /// Get all ancestor widgets from immediate parent to root.
+    pub fn ancestors(&self) -> Vec<ObjectId> {
+        self.object_base.ancestors()
+    }
+
+    /// Get this widget and all descendants in depth-first pre-order.
+    ///
+    /// Order: self, child1, grandchild1, grandchild2, child2, ...
+    /// This is the natural paint order (parent before children).
+    pub fn depth_first_preorder(&self) -> Vec<ObjectId> {
+        self.object_base.depth_first_preorder()
+    }
+
+    /// Get this widget and all descendants in depth-first post-order.
+    ///
+    /// Order: grandchild1, grandchild2, child1, child2, self
+    /// Useful for bottom-up operations like destruction.
+    pub fn depth_first_postorder(&self) -> Vec<ObjectId> {
+        self.object_base.depth_first_postorder()
+    }
+
+    /// Get this widget and all descendants in breadth-first (level) order.
+    ///
+    /// Visits all nodes at depth N before any nodes at depth N+1.
+    pub fn breadth_first(&self) -> Vec<ObjectId> {
+        self.object_base.breadth_first()
+    }
+
+    // =========================================================================
     // Geometry
     // =========================================================================
 

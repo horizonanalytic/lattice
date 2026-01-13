@@ -5,7 +5,7 @@
 //! rendering backends.
 
 use crate::image::{Image, ImageScaleMode, NinePatch};
-use crate::paint::{BlendMode, Paint, Stroke};
+use crate::paint::{BlendMode, BoxShadow, Paint, Stroke};
 use crate::transform::{Transform2D, TransformStack};
 use crate::types::{Color, Path, Point, Rect, RoundedRect, Size};
 
@@ -160,6 +160,31 @@ pub trait Renderer {
 
     /// Stroke the outline of a rounded rectangle.
     fn stroke_rounded_rect(&mut self, rect: RoundedRect, stroke: &Stroke);
+
+    // =========================================================================
+    // Drawing - Shadows
+    // =========================================================================
+
+    /// Draw a box shadow for a rectangle.
+    ///
+    /// Box shadows are rendered behind the shape and can have offset, blur,
+    /// spread, and can be inset (inner shadow).
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let shadow = BoxShadow::new(Color::from_rgba(0.0, 0.0, 0.0, 0.3))
+    ///     .with_offset(4.0, 4.0)
+    ///     .with_blur(8.0);
+    /// renderer.draw_box_shadow(rect, &shadow);
+    /// renderer.fill_rect(rect, Color::WHITE); // Draw the shape on top
+    /// ```
+    fn draw_box_shadow(&mut self, rect: Rect, shadow: &BoxShadow);
+
+    /// Draw a box shadow for a rounded rectangle.
+    ///
+    /// The shadow will follow the rounded corners of the rectangle.
+    fn draw_box_shadow_rounded(&mut self, rect: RoundedRect, shadow: &BoxShadow);
 
     // =========================================================================
     // Drawing - Lines

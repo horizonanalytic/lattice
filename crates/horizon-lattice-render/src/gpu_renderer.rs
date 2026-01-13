@@ -15,7 +15,7 @@ use crate::error::RenderResult;
 use crate::image::{Image, ImageScaleMode, NinePatch};
 use crate::layer::Layer;
 use crate::offscreen::OffscreenSurface;
-use crate::paint::{BlendMode, Paint, Stroke};
+use crate::paint::{BlendMode, BoxShadow, Paint, Stroke};
 use crate::renderer::{FrameStats, RenderStateStack, Renderer};
 use crate::stencil::{ClipShape, ClipStack, StencilTexture};
 use crate::surface::RenderSurface;
@@ -177,6 +177,64 @@ impl ImageVertex {
     }
 }
 
+/// Vertex data for box shadows.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+struct ShadowVertex {
+    /// Position in pixels.
+    position: [f32; 2],
+    /// Shadow color (premultiplied alpha).
+    color: [f32; 4],
+    /// Center of the shadow-casting rectangle.
+    rect_center: [f32; 2],
+    /// Half-size of the rectangle (after spread applied).
+    rect_half_size: [f32; 2],
+    /// Shadow params: [sigma, corner_radius, offset_x, offset_y]
+    shadow_params: [f32; 4],
+    /// Flags: [inset, unused, unused, unused]
+    flags: [f32; 4],
+}
+
+impl ShadowVertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 6] = wgpu::vertex_attr_array![
+        0 => Float32x2, // position
+        1 => Float32x4, // color
+        2 => Float32x2, // rect_center
+        3 => Float32x2, // rect_half_size
+        4 => Float32x4, // shadow_params
+        5 => Float32x4, // flags
+    ];
+
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<ShadowVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+
+    /// Create a shadow vertex.
+    fn new(
+        position: [f32; 2],
+        color: Color,
+        rect_center: [f32; 2],
+        rect_half_size: [f32; 2],
+        sigma: f32,
+        corner_radius: f32,
+        offset: [f32; 2],
+        inset: bool,
+    ) -> Self {
+        Self {
+            position,
+            color: color.to_array(),
+            rect_center,
+            rect_half_size,
+            shadow_params: [sigma, corner_radius, offset[0], offset[1]],
+            flags: [if inset { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0],
+        }
+    }
+}
+
 /// Uniform buffer data.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -285,6 +343,18 @@ pub struct GpuRenderer {
     clip_stack: ClipStack,
     /// Pending clip shapes to be rendered this frame.
     pending_clips: Vec<(ClipShape, bool)>, // (shape, is_push)
+
+    // === Box shadow support ===
+    /// Render pipeline for box shadows.
+    shadow_pipeline: wgpu::RenderPipeline,
+    /// Vertex buffer for shadows.
+    shadow_vertex_buffer: wgpu::Buffer,
+    /// Index buffer for shadows.
+    shadow_index_buffer: wgpu::Buffer,
+    /// Shadow vertices waiting to be rendered.
+    shadow_vertices: Vec<ShadowVertex>,
+    /// Shadow indices waiting to be rendered.
+    shadow_indices: Vec<u32>,
 }
 
 impl GpuRenderer {
@@ -576,12 +646,71 @@ impl GpuRenderer {
             cache: None,
         });
 
+        // === Box shadow pipeline ===
+
+        // Create shadow shader module
+        let shadow_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("shadow_shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shadow.wgsl").into()),
+        });
+
+        // Create shadow render pipeline
+        let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("shadow_pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shadow_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[ShadowVertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shadow_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
+        // Create shadow vertex buffer
+        let shadow_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("shadow_vertex_buffer"),
+            size: (MAX_VERTICES * std::mem::size_of::<ShadowVertex>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Create shadow index buffer
+        let shadow_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("shadow_index_buffer"),
+            size: (MAX_INDICES * std::mem::size_of::<u32>()) as u64,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         debug!(
             target: "horizon_lattice_render::gpu_renderer",
             format = ?format,
             max_vertices = MAX_VERTICES,
             max_indices = MAX_INDICES,
-            "created GPU renderer with stencil clipping support"
+            "created GPU renderer with stencil clipping and box shadow support"
         );
 
         Ok(Self {
@@ -624,6 +753,13 @@ impl GpuRenderer {
             stencil_rect_pipeline,
             clip_stack: ClipStack::new(),
             pending_clips: Vec::new(),
+
+            // Box shadows
+            shadow_pipeline,
+            shadow_vertex_buffer,
+            shadow_index_buffer,
+            shadow_vertices: Vec::with_capacity(MAX_VERTICES),
+            shadow_indices: Vec::with_capacity(MAX_INDICES),
         })
     }
 
@@ -659,10 +795,16 @@ impl GpuRenderer {
         };
         queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
 
-        // Upload vertex and index data
+        // Upload vertex and index data for rectangles
         if !self.vertices.is_empty() {
             queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
             queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.indices));
+        }
+
+        // Upload vertex and index data for shadows
+        if !self.shadow_vertices.is_empty() {
+            queue.write_buffer(&self.shadow_vertex_buffer, 0, bytemuck::cast_slice(&self.shadow_vertices));
+            queue.write_buffer(&self.shadow_index_buffer, 0, bytemuck::cast_slice(&self.shadow_indices));
         }
 
         // Create command encoder
@@ -754,6 +896,16 @@ impl GpuRenderer {
                 }
             }
 
+            // Render shadows (before rectangles so they appear behind)
+            if !self.shadow_indices.is_empty() {
+                render_pass.set_pipeline(&self.shadow_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.shadow_vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.shadow_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.draw_indexed(0..self.shadow_indices.len() as u32, 0, 0..1);
+                self.draw_calls += 1;
+            }
+
             // Render rectangles
             if !self.indices.is_empty() {
                 // Use stencil pipeline if we have active clips
@@ -838,6 +990,12 @@ impl GpuRenderer {
             queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.indices));
         }
 
+        // Upload shadow vertex and index data
+        if !self.shadow_vertices.is_empty() {
+            queue.write_buffer(&self.shadow_vertex_buffer, 0, bytemuck::cast_slice(&self.shadow_vertices));
+            queue.write_buffer(&self.shadow_index_buffer, 0, bytemuck::cast_slice(&self.shadow_indices));
+        }
+
         // Create command encoder
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("offscreen_render_encoder"),
@@ -868,6 +1026,16 @@ impl GpuRenderer {
                     scissor.width().max(0.0) as u32,
                     scissor.height().max(0.0) as u32,
                 );
+            }
+
+            // Render shadows (before rectangles so they appear behind)
+            if !self.shadow_indices.is_empty() {
+                render_pass.set_pipeline(&self.shadow_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.shadow_vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.shadow_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.draw_indexed(0..self.shadow_indices.len() as u32, 0, 0..1);
+                self.draw_calls += 1;
             }
 
             // Render rectangles
@@ -915,6 +1083,8 @@ impl GpuRenderer {
         // Reset for next frame
         self.vertices.clear();
         self.indices.clear();
+        self.shadow_vertices.clear();
+        self.shadow_indices.clear();
         self.image_batches.clear();
         self.draw_calls = 0;
         self.vertex_count = 0;
@@ -1377,6 +1547,12 @@ impl GpuRenderer {
             queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.indices));
         }
 
+        // Upload shadow vertex and index data
+        if !self.shadow_vertices.is_empty() {
+            queue.write_buffer(&self.shadow_vertex_buffer, 0, bytemuck::cast_slice(&self.shadow_vertices));
+            queue.write_buffer(&self.shadow_index_buffer, 0, bytemuck::cast_slice(&self.shadow_indices));
+        }
+
         // Create command encoder
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("layer_render_encoder"),
@@ -1407,6 +1583,16 @@ impl GpuRenderer {
                     scissor.width().max(0.0) as u32,
                     scissor.height().max(0.0) as u32,
                 );
+            }
+
+            // Render shadows (before rectangles so they appear behind)
+            if !self.shadow_indices.is_empty() {
+                render_pass.set_pipeline(&self.shadow_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.shadow_vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.shadow_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.draw_indexed(0..self.shadow_indices.len() as u32, 0, 0..1);
+                self.draw_calls += 1;
             }
 
             // Render rectangles
@@ -1454,6 +1640,8 @@ impl GpuRenderer {
         // Reset for next frame
         self.vertices.clear();
         self.indices.clear();
+        self.shadow_vertices.clear();
+        self.shadow_indices.clear();
         self.image_batches.clear();
         self.draw_calls = 0;
         self.vertex_count = 0;
@@ -1572,6 +1760,10 @@ impl Renderer for GpuRenderer {
         self.indices.clear();
         self.image_batches.clear();
         self.scissor_rect = None;
+
+        // Reset shadow buffers
+        self.shadow_vertices.clear();
+        self.shadow_indices.clear();
 
         // Reset stencil clipping state
         self.clip_stack.reset();
@@ -1704,6 +1896,98 @@ impl Renderer for GpuRenderer {
     fn stroke_rounded_rect(&mut self, rrect: RoundedRect, stroke: &Stroke) {
         let transformed_rect = self.state.transform().transform_rect(&rrect.rect);
         self.add_stroked_quad(transformed_rect, rrect.radii, stroke);
+    }
+
+    fn draw_box_shadow(&mut self, rect: Rect, shadow: &BoxShadow) {
+        self.draw_box_shadow_rounded(RoundedRect::new(rect, 0.0), shadow);
+    }
+
+    fn draw_box_shadow_rounded(&mut self, rrect: RoundedRect, shadow: &BoxShadow) {
+        // Get the maximum corner radius for the shadow
+        let max_radius = rrect.radii.max();
+
+        // Calculate the expanded bounds for the shadow quad
+        // The shadow extends beyond the shape by blur + spread
+        let expand = shadow.blur_radius + shadow.spread_radius.max(0.0);
+
+        // For inset shadows, we render within the original bounds
+        // For outer shadows, we need to expand the rendering area
+        let render_rect = if shadow.inset {
+            rrect.rect
+        } else {
+            // Expand by blur + spread + some padding for smooth falloff
+            // We add 3*sigma extra padding to ensure the Gaussian tail is captured
+            let sigma = shadow.sigma();
+            let total_expand = expand + sigma * 3.0;
+
+            Rect::new(
+                rrect.rect.left() - total_expand + shadow.offset_x.min(0.0),
+                rrect.rect.top() - total_expand + shadow.offset_y.min(0.0),
+                rrect.rect.width() + total_expand * 2.0 + shadow.offset_x.abs(),
+                rrect.rect.height() + total_expand * 2.0 + shadow.offset_y.abs(),
+            )
+        };
+
+        // Transform the render rect
+        let transformed_render = self.state.transform().transform_rect(&render_rect);
+        let transformed_shape = self.state.transform().transform_rect(&rrect.rect);
+
+        // Calculate shadow rectangle center and half-size (with spread applied)
+        let spread = shadow.spread_radius;
+        let shadow_half_size = [
+            (rrect.rect.width() / 2.0 + spread).max(0.0),
+            (rrect.rect.height() / 2.0 + spread).max(0.0),
+        ];
+        let rect_center = [
+            transformed_shape.left() + rrect.rect.width() / 2.0,
+            transformed_shape.top() + rrect.rect.height() / 2.0,
+        ];
+
+        // Corner radius (adjusted for spread)
+        let corner_radius = (max_radius + spread).max(0.0);
+
+        // Apply opacity to shadow color
+        let color = self.apply_opacity(shadow.color);
+
+        // Create quad vertices for the shadow
+        let sigma = shadow.sigma();
+        let offset = [shadow.offset_x, shadow.offset_y];
+        let inset = shadow.inset;
+
+        let base_index = self.shadow_vertices.len() as u32;
+
+        // Four corners of the render quad
+        let positions = [
+            [transformed_render.left(), transformed_render.top()],
+            [transformed_render.right(), transformed_render.top()],
+            [transformed_render.right(), transformed_render.bottom()],
+            [transformed_render.left(), transformed_render.bottom()],
+        ];
+
+        for pos in positions {
+            self.shadow_vertices.push(ShadowVertex::new(
+                pos,
+                color,
+                rect_center,
+                shadow_half_size,
+                sigma,
+                corner_radius,
+                offset,
+                inset,
+            ));
+        }
+
+        // Two triangles for the quad
+        self.shadow_indices.extend_from_slice(&[
+            base_index,
+            base_index + 1,
+            base_index + 2,
+            base_index,
+            base_index + 2,
+            base_index + 3,
+        ]);
+
+        self.vertex_count += 4;
     }
 
     fn draw_line(&mut self, from: Point, to: Point, stroke: &Stroke) {

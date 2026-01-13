@@ -120,8 +120,8 @@ pub use renderer::{FrameStats, RenderState, RenderStateStack, Renderer};
 
 // Drawing types
 pub use paint::{
-    BlendMode, DashPattern, GradientStop, LineCap, LineJoin, LinearGradient, Paint,
-    RadialGradient, Stroke,
+    BlendMode, BoxShadow, BoxShadowParams, DashPattern, GradientStop, LineCap, LineJoin,
+    LinearGradient, Paint, RadialGradient, Stroke,
 };
 pub use transform::{Transform2D, TransformStack};
 pub use types::{Color, CornerRadii, Path, PathCommand, Point, Rect, RoundedRect, Size};

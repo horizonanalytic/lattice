@@ -91,6 +91,7 @@
 //! # }
 //! ```
 
+mod async_image;
 mod atlas;
 mod context;
 pub mod damage;
@@ -129,6 +130,7 @@ pub use transform::{Transform2D, TransformStack};
 pub use types::{Color, CornerRadii, Path, PathCommand, Point, Rect, RoundedRect, Size};
 
 // Image types
+pub use async_image::{AsyncImageHandle, AsyncImageLoader, AsyncImageLoaderConfig, LoadingState};
 pub use atlas::{ImageManager, TextureAtlas};
 pub use image::{Image, ImageLoader, ImageScaleMode, NinePatch};
 

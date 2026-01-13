@@ -1365,4 +1365,363 @@ mod tests {
         assert!(!widget.has_focus());
         assert_eq!(focus_states.lock().unwrap().as_slice(), &[true, false]);
     }
+
+    // =========================================================================
+    // Widget Destruction Tests
+    // =========================================================================
+
+    #[test]
+    fn test_destroyed_signal_fires() {
+        setup();
+
+        let destroyed_ids: Arc<Mutex<Vec<ObjectId>>> = Arc::new(Mutex::new(Vec::new()));
+        let destroyed_clone = destroyed_ids.clone();
+
+        let widget_id;
+        {
+            let widget = TestWidget::new(Color::RED);
+            widget_id = widget.object_id();
+
+            widget.widget_base().destroyed.connect(move |id| {
+                destroyed_clone.lock().unwrap().push(*id);
+            });
+
+            // Widget is still alive here
+            assert!(destroyed_ids.lock().unwrap().is_empty());
+        }
+        // Widget dropped here - destroyed signal should have fired
+
+        let ids = destroyed_ids.lock().unwrap();
+        assert_eq!(ids.len(), 1);
+        assert_eq!(ids[0], widget_id);
+    }
+
+    #[test]
+    fn test_destroyed_signal_on_parent_child() {
+        setup();
+
+        let destroyed_ids: Arc<Mutex<Vec<ObjectId>>> = Arc::new(Mutex::new(Vec::new()));
+        let destroyed_clone = destroyed_ids.clone();
+        let destroyed_clone2 = destroyed_ids.clone();
+
+        let parent_id;
+        let child_id;
+        {
+            let parent = TestWidget::new(Color::RED);
+            let child = TestWidget::new(Color::BLUE);
+
+            parent_id = parent.object_id();
+            child_id = child.object_id();
+
+            child.widget_base().set_parent(Some(parent_id)).unwrap();
+
+            parent.widget_base().destroyed.connect(move |id| {
+                destroyed_clone.lock().unwrap().push(*id);
+            });
+            child.widget_base().destroyed.connect(move |id| {
+                destroyed_clone2.lock().unwrap().push(*id);
+            });
+        }
+        // Both widgets dropped - both signals should have fired
+
+        let ids = destroyed_ids.lock().unwrap();
+        assert_eq!(ids.len(), 2);
+        // Both IDs should be present (order may vary due to drop order)
+        assert!(ids.contains(&parent_id));
+        assert!(ids.contains(&child_id));
+    }
+
+    #[test]
+    fn test_destroyed_signal_with_multiple_connections() {
+        setup();
+
+        let counter1: Arc<Mutex<u32>> = Arc::new(Mutex::new(0));
+        let counter2: Arc<Mutex<u32>> = Arc::new(Mutex::new(0));
+        let c1 = counter1.clone();
+        let c2 = counter2.clone();
+
+        {
+            let widget = TestWidget::new(Color::RED);
+
+            widget.widget_base().destroyed.connect(move |_| {
+                *c1.lock().unwrap() += 1;
+            });
+            widget.widget_base().destroyed.connect(move |_| {
+                *c2.lock().unwrap() += 1;
+            });
+        }
+        // Widget dropped
+
+        assert_eq!(*counter1.lock().unwrap(), 1);
+        assert_eq!(*counter2.lock().unwrap(), 1);
+    }
+
+    // =========================================================================
+    // Custom Event Tests
+    // =========================================================================
+
+    use crate::widget::CustomEvent;
+
+    /// A custom event payload for testing.
+    #[derive(Debug, Clone, PartialEq)]
+    struct TestCustomPayload {
+        message: String,
+        value: i32,
+    }
+
+    /// Another custom event payload for testing type differentiation.
+    #[derive(Debug, Clone, PartialEq)]
+    struct AnotherPayload {
+        flag: bool,
+    }
+
+    #[test]
+    fn test_custom_event_creation() {
+        setup();
+
+        let payload = TestCustomPayload {
+            message: "Hello".into(),
+            value: 42,
+        };
+        let event = CustomEvent::new(payload.clone());
+
+        assert!(!event.base.is_accepted());
+        assert!(event.is::<TestCustomPayload>());
+        assert!(!event.is::<AnotherPayload>());
+    }
+
+    #[test]
+    fn test_custom_event_with_name() {
+        setup();
+
+        let event = CustomEvent::with_name(
+            TestCustomPayload {
+                message: "test".into(),
+                value: 1,
+            },
+            "MyCustomEvent",
+        );
+
+        assert_eq!(event.name(), Some("MyCustomEvent"));
+    }
+
+    #[test]
+    fn test_custom_event_downcast_ref() {
+        setup();
+
+        let payload = TestCustomPayload {
+            message: "Hello".into(),
+            value: 42,
+        };
+        let event = CustomEvent::new(payload.clone());
+
+        // Correct type
+        let retrieved = event.downcast_ref::<TestCustomPayload>();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap(), &payload);
+
+        // Wrong type
+        let wrong = event.downcast_ref::<AnotherPayload>();
+        assert!(wrong.is_none());
+    }
+
+    #[test]
+    fn test_custom_event_downcast_mut() {
+        setup();
+
+        let payload = TestCustomPayload {
+            message: "Hello".into(),
+            value: 42,
+        };
+        let mut event = CustomEvent::new(payload);
+
+        // Modify through downcast_mut
+        if let Some(data) = event.downcast_mut::<TestCustomPayload>() {
+            data.value = 100;
+            data.message = "Modified".into();
+        }
+
+        // Verify modification
+        let retrieved = event.downcast_ref::<TestCustomPayload>();
+        assert_eq!(retrieved.unwrap().value, 100);
+        assert_eq!(retrieved.unwrap().message, "Modified");
+    }
+
+    #[test]
+    fn test_custom_event_in_widget_event() {
+        setup();
+
+        let payload = TestCustomPayload {
+            message: "Test".into(),
+            value: 99,
+        };
+        let mut event = WidgetEvent::Custom(CustomEvent::new(payload.clone()));
+
+        // Check it's a custom event
+        assert!(event.as_custom().is_some());
+        assert!(event.as_custom().unwrap().is::<TestCustomPayload>());
+
+        // Access the payload
+        if let Some(custom) = event.as_custom() {
+            let data = custom.downcast_ref::<TestCustomPayload>().unwrap();
+            assert_eq!(data, &payload);
+        }
+
+        // Accept/ignore works
+        assert!(!event.is_accepted());
+        event.accept();
+        assert!(event.is_accepted());
+    }
+
+    #[test]
+    fn test_custom_event_dispatch() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        // A widget that handles custom events
+        struct CustomEventWidget {
+            base: WidgetBase,
+            received_values: Arc<Mutex<Vec<i32>>>,
+        }
+
+        impl Object for CustomEventWidget {
+            fn object_id(&self) -> ObjectId {
+                self.base.object_id()
+            }
+        }
+
+        impl Widget for CustomEventWidget {
+            fn widget_base(&self) -> &WidgetBase {
+                &self.base
+            }
+
+            fn widget_base_mut(&mut self) -> &mut WidgetBase {
+                &mut self.base
+            }
+
+            fn size_hint(&self) -> SizeHint {
+                SizeHint::from_dimensions(100.0, 50.0)
+            }
+
+            fn paint(&self, _ctx: &mut PaintContext<'_>) {}
+
+            fn event(&mut self, event: &mut WidgetEvent) -> bool {
+                if let Some(custom) = event.as_custom() {
+                    if let Some(payload) = custom.downcast_ref::<TestCustomPayload>() {
+                        self.received_values.lock().unwrap().push(payload.value);
+                        event.accept();
+                        return true;
+                    }
+                }
+                false
+            }
+        }
+
+        let widget = CustomEventWidget {
+            base: WidgetBase::new::<CustomEventWidget>(),
+            received_values: events.clone(),
+        };
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        // Dispatch a custom event
+        let mut event = WidgetEvent::Custom(CustomEvent::new(TestCustomPayload {
+            message: "dispatch test".into(),
+            value: 123,
+        }));
+
+        let result = EventDispatcher::send_event(&mut storage, widget_id, &mut event);
+
+        assert_eq!(result, DispatchResult::Accepted);
+        assert_eq!(events.lock().unwrap().as_slice(), &[123]);
+    }
+
+    #[test]
+    fn test_custom_event_propagation() {
+        setup();
+
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let received_clone = received.clone();
+
+        // Parent handles custom events, child does not
+        struct PropagationTestWidget {
+            base: WidgetBase,
+            name: String,
+            handle_custom: bool,
+            received: Arc<Mutex<Vec<String>>>,
+        }
+
+        impl Object for PropagationTestWidget {
+            fn object_id(&self) -> ObjectId {
+                self.base.object_id()
+            }
+        }
+
+        impl Widget for PropagationTestWidget {
+            fn widget_base(&self) -> &WidgetBase {
+                &self.base
+            }
+
+            fn widget_base_mut(&mut self) -> &mut WidgetBase {
+                &mut self.base
+            }
+
+            fn size_hint(&self) -> SizeHint {
+                SizeHint::from_dimensions(100.0, 50.0)
+            }
+
+            fn paint(&self, _ctx: &mut PaintContext<'_>) {}
+
+            fn event(&mut self, event: &mut WidgetEvent) -> bool {
+                if let WidgetEvent::Custom(_) = event {
+                    self.received.lock().unwrap().push(self.name.clone());
+                    if self.handle_custom {
+                        event.accept();
+                        return true;
+                    }
+                }
+                false
+            }
+        }
+
+        let parent = PropagationTestWidget {
+            base: WidgetBase::new::<PropagationTestWidget>(),
+            name: "parent".into(),
+            handle_custom: true,
+            received: received.clone(),
+        };
+        let child = PropagationTestWidget {
+            base: WidgetBase::new::<PropagationTestWidget>(),
+            name: "child".into(),
+            handle_custom: false, // Won't accept, should propagate to parent
+            received: received_clone,
+        };
+
+        let parent_id = parent.object_id();
+        let child_id = child.object_id();
+
+        child.widget_base().set_parent(Some(parent_id)).unwrap();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(parent);
+        storage.add(child);
+
+        // Dispatch custom event to child - should bubble up to parent
+        let mut event = WidgetEvent::Custom(CustomEvent::new(TestCustomPayload {
+            message: "propagate".into(),
+            value: 1,
+        }));
+
+        let result = EventDispatcher::send_event(&mut storage, child_id, &mut event);
+
+        assert_eq!(result, DispatchResult::Accepted);
+        // Child received first, then propagated to parent
+        assert_eq!(
+            received.lock().unwrap().as_slice(),
+            &["child", "parent"]
+        );
+    }
 }

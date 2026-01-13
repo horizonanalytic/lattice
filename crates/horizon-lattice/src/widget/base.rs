@@ -155,6 +155,25 @@ pub struct WidgetBase {
 
     /// Signal emitted when focus state changes.
     pub focus_changed: Signal<bool>,
+
+    /// Signal emitted when the widget is about to be destroyed.
+    ///
+    /// This signal is emitted during the widget's destruction, before the
+    /// underlying object is removed from the registry. It allows other objects
+    /// to clean up references to this widget.
+    ///
+    /// The signal parameter is the ObjectId of the widget being destroyed.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let widget_id = widget.object_id();
+    /// widget.destroyed.connect(move |id| {
+    ///     println!("Widget {:?} is being destroyed", id);
+    ///     // Clean up any references to this widget
+    /// });
+    /// ```
+    pub destroyed: Signal<ObjectId>,
 }
 
 impl WidgetBase {
@@ -196,6 +215,7 @@ impl WidgetBase {
             visible_changed: Signal::new(),
             enabled_changed: Signal::new(),
             focus_changed: Signal::new(),
+            destroyed: Signal::new(),
         }
     }
 
@@ -971,4 +991,14 @@ impl Object for WidgetBase {
     }
 }
 
-// WidgetBase doesn't implement Drop because ObjectBase handles cleanup.
+impl Drop for WidgetBase {
+    fn drop(&mut self) {
+        // Emit the destroyed signal before ObjectBase::drop() runs.
+        // This allows connected slots to clean up references to this widget.
+        let id = self.object_base.id();
+        self.destroyed.emit(id);
+
+        // ObjectBase::drop() will run after this, which removes the object from
+        // the registry. The signal was emitted while the object was still valid.
+    }
+}

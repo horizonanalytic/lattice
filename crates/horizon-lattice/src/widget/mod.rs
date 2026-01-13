@@ -132,7 +132,7 @@ pub use base::{FocusPolicy, WidgetBase};
 pub use dispatcher::{DispatchResult, EventDispatcher, WidgetAccess};
 pub use focus::FocusManager;
 pub use events::{
-    EnterEvent, EventBase, FocusInEvent, FocusOutEvent, FocusReason, HideEvent, Key,
+    CustomEvent, EnterEvent, EventBase, FocusInEvent, FocusOutEvent, FocusReason, HideEvent, Key,
     KeyPressEvent, KeyReleaseEvent, KeyboardModifiers, LeaveEvent, MouseButton, MouseMoveEvent,
     MousePressEvent, MouseReleaseEvent, MoveEvent, PaintEvent, ResizeEvent, ShowEvent, WheelEvent,
     WidgetEvent,

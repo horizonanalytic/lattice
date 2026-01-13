@@ -2,6 +2,37 @@
 //!
 //! This module defines events that are specific to the widget system,
 //! including paint events, resize events, mouse events, and keyboard events.
+//!
+//! # Custom Events
+//!
+//! The event system supports user-defined custom events through `CustomEvent`.
+//! Custom events can carry any type of data and are dispatched through the
+//! same event system as built-in events.
+//!
+//! ```ignore
+//! use horizon_lattice::widget::{CustomEvent, WidgetEvent};
+//!
+//! // Define a custom event payload
+//! struct MyCustomData {
+//!     message: String,
+//!     value: i32,
+//! }
+//!
+//! // Create a custom event
+//! let event = CustomEvent::new(MyCustomData {
+//!     message: "Hello".into(),
+//!     value: 42,
+//! });
+//!
+//! // Later, when handling the event:
+//! if let WidgetEvent::Custom(custom) = &event {
+//!     if let Some(data) = custom.downcast_ref::<MyCustomData>() {
+//!         println!("Got message: {}", data.message);
+//!     }
+//! }
+//! ```
+
+use std::any::{Any, TypeId};
 
 use horizon_lattice_render::{Point, Rect, Size};
 
@@ -662,11 +693,148 @@ impl KeyReleaseEvent {
     }
 }
 
+/// A custom event that can carry any user-defined payload.
+///
+/// Custom events allow applications to define their own event types and
+/// dispatch them through the widget event system. The payload is stored
+/// as a type-erased `Box<dyn Any>`, allowing any `'static` type to be used.
+///
+/// # Type Safety
+///
+/// While the payload is type-erased for storage, you can recover the
+/// original type using [`downcast_ref`](Self::downcast_ref) or
+/// [`downcast_mut`](Self::downcast_mut).
+///
+/// # Example
+///
+/// ```ignore
+/// // Define your custom event data
+/// struct RefreshRequest {
+///     source: String,
+///     force: bool,
+/// }
+///
+/// // Create the event
+/// let event = CustomEvent::new(RefreshRequest {
+///     source: "user_action".into(),
+///     force: true,
+/// });
+///
+/// // Check the type and extract data
+/// if event.is::<RefreshRequest>() {
+///     let data = event.downcast_ref::<RefreshRequest>().unwrap();
+///     println!("Refresh from: {}", data.source);
+/// }
+/// ```
+pub struct CustomEvent {
+    /// Base event data.
+    pub base: EventBase,
+    /// The type-erased payload.
+    payload: Box<dyn Any + Send + Sync>,
+    /// Cached TypeId for efficient type checking.
+    type_id: TypeId,
+    /// Optional event name for debugging/logging.
+    name: Option<String>,
+}
+
+impl CustomEvent {
+    /// Create a new custom event with the given payload.
+    ///
+    /// The payload can be any type that implements `Send + Sync + 'static`.
+    pub fn new<T: Any + Send + Sync>(payload: T) -> Self {
+        Self {
+            base: EventBase::new(),
+            type_id: TypeId::of::<T>(),
+            payload: Box::new(payload),
+            name: None,
+        }
+    }
+
+    /// Create a new custom event with a name for debugging.
+    ///
+    /// The name is purely for debugging/logging purposes and does not
+    /// affect event dispatch or handling.
+    pub fn with_name<T: Any + Send + Sync>(payload: T, name: impl Into<String>) -> Self {
+        Self {
+            base: EventBase::new(),
+            type_id: TypeId::of::<T>(),
+            payload: Box::new(payload),
+            name: Some(name.into()),
+        }
+    }
+
+    /// Get the event name, if one was provided.
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// Get the TypeId of the payload.
+    pub fn payload_type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the payload is of type `T`.
+    pub fn is<T: Any>(&self) -> bool {
+        self.type_id == TypeId::of::<T>()
+    }
+
+    /// Try to get a reference to the payload as type `T`.
+    ///
+    /// Returns `Some(&T)` if the payload is of type `T`, otherwise `None`.
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        self.payload.downcast_ref::<T>()
+    }
+
+    /// Try to get a mutable reference to the payload as type `T`.
+    ///
+    /// Returns `Some(&mut T)` if the payload is of type `T`, otherwise `None`.
+    pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
+        self.payload.downcast_mut::<T>()
+    }
+
+    /// Consume the event and try to extract the payload as type `T`.
+    ///
+    /// Returns `Ok(T)` if the payload is of type `T`, otherwise returns
+    /// `Err(self)` with the original event.
+    pub fn downcast<T: Any + Send + Sync>(self) -> Result<T, Self> {
+        if self.is::<T>() {
+            // Safe because we just checked the type
+            let payload = self.payload.downcast::<T>().ok().map(|b| *b);
+            match payload {
+                Some(value) => Ok(value),
+                None => Err(Self {
+                    base: self.base,
+                    type_id: self.type_id,
+                    payload: Box::new(()),
+                    name: self.name,
+                }),
+            }
+        } else {
+            Err(self)
+        }
+    }
+}
+
+impl std::fmt::Debug for CustomEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CustomEvent")
+            .field("base", &self.base)
+            .field("type_id", &self.type_id)
+            .field("name", &self.name)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Enumeration of all widget event types.
 ///
 /// This allows passing events through a unified interface while preserving
 /// type information for event handlers.
-#[derive(Debug, Clone)]
+///
+/// # Custom Events
+///
+/// User-defined events can be dispatched using the [`Custom`](Self::Custom) variant.
+/// See [`CustomEvent`] for details on creating and handling custom events.
+#[derive(Debug)]
 pub enum WidgetEvent {
     /// Paint event.
     Paint(PaintEvent),
@@ -698,6 +866,12 @@ pub enum WidgetEvent {
     KeyPress(KeyPressEvent),
     /// Key release event.
     KeyRelease(KeyReleaseEvent),
+    /// User-defined custom event.
+    ///
+    /// Custom events can carry any payload and are dispatched through the
+    /// event system like built-in events. Use [`CustomEvent::downcast_ref`]
+    /// to extract the payload in your event handler.
+    Custom(CustomEvent),
 }
 
 impl WidgetEvent {
@@ -719,6 +893,7 @@ impl WidgetEvent {
             Self::FocusOut(e) => e.base.is_accepted(),
             Self::KeyPress(e) => e.base.is_accepted(),
             Self::KeyRelease(e) => e.base.is_accepted(),
+            Self::Custom(e) => e.base.is_accepted(),
         }
     }
 
@@ -740,6 +915,7 @@ impl WidgetEvent {
             Self::FocusOut(e) => e.base.accept(),
             Self::KeyPress(e) => e.base.accept(),
             Self::KeyRelease(e) => e.base.accept(),
+            Self::Custom(e) => e.base.accept(),
         }
     }
 
@@ -761,6 +937,7 @@ impl WidgetEvent {
             Self::FocusOut(e) => e.base.ignore(),
             Self::KeyPress(e) => e.base.ignore(),
             Self::KeyRelease(e) => e.base.ignore(),
+            Self::Custom(e) => e.base.ignore(),
         }
     }
 
@@ -785,6 +962,28 @@ impl WidgetEvent {
             Self::FocusIn(_) | Self::FocusOut(_) => false,
             // Enter/Leave are about the specific widget and don't propagate
             Self::Enter(_) | Self::Leave(_) => false,
+            // Custom events propagate by default (if not accepted)
+            Self::Custom(_) => !self.is_accepted(),
+        }
+    }
+
+    /// Try to get a reference to the inner [`CustomEvent`] if this is a custom event.
+    ///
+    /// Returns `Some(&CustomEvent)` if this is a `WidgetEvent::Custom`, otherwise `None`.
+    pub fn as_custom(&self) -> Option<&CustomEvent> {
+        match self {
+            Self::Custom(e) => Some(e),
+            _ => None,
+        }
+    }
+
+    /// Try to get a mutable reference to the inner [`CustomEvent`] if this is a custom event.
+    ///
+    /// Returns `Some(&mut CustomEvent)` if this is a `WidgetEvent::Custom`, otherwise `None`.
+    pub fn as_custom_mut(&mut self) -> Option<&mut CustomEvent> {
+        match self {
+            Self::Custom(e) => Some(e),
+            _ => None,
         }
     }
 }

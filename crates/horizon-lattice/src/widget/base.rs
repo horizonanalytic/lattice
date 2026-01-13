@@ -9,6 +9,38 @@ use horizon_lattice_render::{Point, Rect, Size};
 
 use super::geometry::{SizePolicy, SizePolicyPair};
 
+/// Focus policy for a widget.
+///
+/// Determines how a widget can receive keyboard focus. This follows Qt's
+/// design pattern where different widgets may accept focus through different
+/// interaction methods.
+///
+/// # Examples
+///
+/// ```ignore
+/// // A button accepts focus via Tab and mouse click
+/// widget.set_focus_policy(FocusPolicy::StrongFocus);
+///
+/// // A label doesn't accept focus at all
+/// widget.set_focus_policy(FocusPolicy::NoFocus);
+///
+/// // A scroll area only accepts focus via Tab (keyboard navigation)
+/// widget.set_focus_policy(FocusPolicy::TabFocus);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FocusPolicy {
+    /// Widget cannot receive keyboard focus.
+    #[default]
+    NoFocus,
+    /// Widget accepts focus via Tab/Shift+Tab keyboard navigation only.
+    TabFocus,
+    /// Widget accepts focus via mouse click only.
+    ClickFocus,
+    /// Widget accepts focus via both Tab navigation and mouse click.
+    /// This is typically used for interactive widgets like buttons, text fields.
+    StrongFocus,
+}
+
 /// The base implementation for all widgets.
 ///
 /// This struct provides common functionality that all widgets need:
@@ -76,8 +108,8 @@ pub struct WidgetBase {
     /// Whether the widget is enabled (can receive input).
     enabled: bool,
 
-    /// Whether the widget can receive keyboard focus.
-    focusable: bool,
+    /// Focus policy determining how the widget can receive focus.
+    focus_policy: FocusPolicy,
 
     /// Whether the widget currently has focus.
     focused: bool,
@@ -120,6 +152,9 @@ pub struct WidgetBase {
 
     /// Signal emitted when enabled state changes.
     pub enabled_changed: Signal<bool>,
+
+    /// Signal emitted when focus state changes.
+    pub focus_changed: Signal<bool>,
 }
 
 impl WidgetBase {
@@ -148,7 +183,7 @@ impl WidgetBase {
             size_policy: SizePolicyPair::default(),
             visible: true,
             enabled: true,
-            focusable: false,
+            focus_policy: FocusPolicy::NoFocus,
             focused: false,
             hovered: false,
             pressed: false,
@@ -160,6 +195,7 @@ impl WidgetBase {
             pressed_changed: Signal::new(),
             visible_changed: Signal::new(),
             enabled_changed: Signal::new(),
+            focus_changed: Signal::new(),
         }
     }
 
@@ -579,15 +615,57 @@ impl WidgetBase {
     // Focus
     // =========================================================================
 
+    /// Get the widget's focus policy.
+    #[inline]
+    pub fn focus_policy(&self) -> FocusPolicy {
+        self.focus_policy
+    }
+
+    /// Set the widget's focus policy.
+    ///
+    /// The focus policy determines how a widget can receive keyboard focus.
+    /// See [`FocusPolicy`] for available options.
+    pub fn set_focus_policy(&mut self, policy: FocusPolicy) {
+        self.focus_policy = policy;
+    }
+
     /// Check if the widget can receive keyboard focus.
+    ///
+    /// Returns `true` if the widget has a focus policy that allows focus
+    /// AND the widget is enabled AND visible. A widget with `NoFocus` policy
+    /// can never receive focus.
     #[inline]
     pub fn is_focusable(&self) -> bool {
-        self.focusable && self.enabled && self.visible
+        self.focus_policy != FocusPolicy::NoFocus && self.enabled && self.visible
+    }
+
+    /// Check if the widget accepts focus via Tab/Shift+Tab navigation.
+    #[inline]
+    pub fn accepts_tab_focus(&self) -> bool {
+        matches!(self.focus_policy, FocusPolicy::TabFocus | FocusPolicy::StrongFocus)
+            && self.enabled
+            && self.visible
+    }
+
+    /// Check if the widget accepts focus via mouse click.
+    #[inline]
+    pub fn accepts_click_focus(&self) -> bool {
+        matches!(self.focus_policy, FocusPolicy::ClickFocus | FocusPolicy::StrongFocus)
+            && self.enabled
+            && self.visible
     }
 
     /// Set whether the widget can receive keyboard focus.
+    ///
+    /// This is a convenience method that sets the focus policy to `StrongFocus`
+    /// if `focusable` is `true`, or `NoFocus` if `false`. For more fine-grained
+    /// control, use [`set_focus_policy()`](Self::set_focus_policy).
     pub fn set_focusable(&mut self, focusable: bool) {
-        self.focusable = focusable;
+        self.focus_policy = if focusable {
+            FocusPolicy::StrongFocus
+        } else {
+            FocusPolicy::NoFocus
+        };
     }
 
     /// Check if the widget currently has keyboard focus.
@@ -597,10 +675,13 @@ impl WidgetBase {
     }
 
     /// Set the focused state (used by the focus management system).
+    ///
+    /// This emits `focus_changed` signal when the state changes.
     pub(crate) fn set_focused(&mut self, focused: bool) {
         if self.focused != focused {
             self.focused = focused;
             self.needs_repaint = true;
+            self.focus_changed.emit(focused);
         }
     }
 

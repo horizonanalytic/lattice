@@ -300,12 +300,38 @@ pub trait Widget: Object + Send + Sync {
     // Focus
     // =========================================================================
 
+    /// Get the widget's focus policy.
+    fn focus_policy(&self) -> super::base::FocusPolicy {
+        self.widget_base().focus_policy()
+    }
+
+    /// Set the widget's focus policy.
+    ///
+    /// The focus policy determines how a widget can receive keyboard focus.
+    /// See [`FocusPolicy`](super::base::FocusPolicy) for available options.
+    fn set_focus_policy(&mut self, policy: super::base::FocusPolicy) {
+        self.widget_base_mut().set_focus_policy(policy);
+    }
+
     /// Check if the widget can receive keyboard focus.
     fn is_focusable(&self) -> bool {
         self.widget_base().is_focusable()
     }
 
+    /// Check if the widget accepts focus via Tab/Shift+Tab navigation.
+    fn accepts_tab_focus(&self) -> bool {
+        self.widget_base().accepts_tab_focus()
+    }
+
+    /// Check if the widget accepts focus via mouse click.
+    fn accepts_click_focus(&self) -> bool {
+        self.widget_base().accepts_click_focus()
+    }
+
     /// Set whether the widget can receive keyboard focus.
+    ///
+    /// This is a convenience method that sets the focus policy to `StrongFocus`
+    /// if `focusable` is `true`, or `NoFocus` if `false`.
     fn set_focusable(&mut self, focusable: bool) {
         self.widget_base_mut().set_focusable(focusable);
     }

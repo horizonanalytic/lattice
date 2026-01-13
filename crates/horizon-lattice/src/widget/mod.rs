@@ -120,6 +120,7 @@
 mod base;
 mod dispatcher;
 mod events;
+mod focus;
 mod geometry;
 mod painting;
 mod traits;
@@ -127,8 +128,9 @@ mod traits;
 #[cfg(test)]
 mod tests;
 
-pub use base::WidgetBase;
+pub use base::{FocusPolicy, WidgetBase};
 pub use dispatcher::{DispatchResult, EventDispatcher, WidgetAccess};
+pub use focus::FocusManager;
 pub use events::{
     EnterEvent, EventBase, FocusInEvent, FocusOutEvent, FocusReason, HideEvent, Key,
     KeyPressEvent, KeyReleaseEvent, KeyboardModifiers, LeaveEvent, MouseButton, MouseMoveEvent,

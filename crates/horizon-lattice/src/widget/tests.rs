@@ -953,4 +953,416 @@ mod tests {
         let hit = EventDispatcher::hit_test(&storage, widget_id, Point::new(50.0, 50.0));
         assert_eq!(hit, None);
     }
+
+    // =========================================================================
+    // Focus Management Tests
+    // =========================================================================
+
+    use crate::widget::{FocusManager, FocusPolicy, FocusReason};
+
+    /// A widget that tracks focus events.
+    struct FocusTrackingWidget {
+        base: WidgetBase,
+        focus_events: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl FocusTrackingWidget {
+        fn new(name: &str, events: Arc<Mutex<Vec<String>>>, policy: FocusPolicy) -> Self {
+            let base = WidgetBase::new::<Self>();
+            base.set_name(name);
+            let mut widget = Self {
+                base,
+                focus_events: events,
+            };
+            widget.base.set_focus_policy(policy);
+            widget
+        }
+    }
+
+    impl Object for FocusTrackingWidget {
+        fn object_id(&self) -> ObjectId {
+            self.base.object_id()
+        }
+    }
+
+    impl Widget for FocusTrackingWidget {
+        fn widget_base(&self) -> &WidgetBase {
+            &self.base
+        }
+
+        fn widget_base_mut(&mut self) -> &mut WidgetBase {
+            &mut self.base
+        }
+
+        fn size_hint(&self) -> SizeHint {
+            SizeHint::from_dimensions(100.0, 50.0)
+        }
+
+        fn paint(&self, _ctx: &mut PaintContext<'_>) {}
+
+        fn event(&mut self, event: &mut WidgetEvent) -> bool {
+            let name = self.base.name();
+            match event {
+                WidgetEvent::FocusIn(_) => {
+                    self.focus_events
+                        .lock()
+                        .unwrap()
+                        .push(format!("{}:FocusIn", name));
+                    true
+                }
+                WidgetEvent::FocusOut(_) => {
+                    self.focus_events
+                        .lock()
+                        .unwrap()
+                        .push(format!("{}:FocusOut", name));
+                    true
+                }
+                _ => false,
+            }
+        }
+    }
+
+    #[test]
+    fn test_focus_policy_default() {
+        setup();
+
+        let widget = TestWidget::new(Color::RED);
+
+        // Default focus policy is NoFocus
+        assert_eq!(widget.focus_policy(), FocusPolicy::NoFocus);
+        assert!(!widget.is_focusable());
+        assert!(!widget.accepts_tab_focus());
+        assert!(!widget.accepts_click_focus());
+    }
+
+    #[test]
+    fn test_focus_policy_strong_focus() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        widget.set_focus_policy(FocusPolicy::StrongFocus);
+
+        assert_eq!(widget.focus_policy(), FocusPolicy::StrongFocus);
+        assert!(widget.is_focusable());
+        assert!(widget.accepts_tab_focus());
+        assert!(widget.accepts_click_focus());
+    }
+
+    #[test]
+    fn test_focus_policy_tab_focus() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        widget.set_focus_policy(FocusPolicy::TabFocus);
+
+        assert_eq!(widget.focus_policy(), FocusPolicy::TabFocus);
+        assert!(widget.is_focusable());
+        assert!(widget.accepts_tab_focus());
+        assert!(!widget.accepts_click_focus());
+    }
+
+    #[test]
+    fn test_focus_policy_click_focus() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        widget.set_focus_policy(FocusPolicy::ClickFocus);
+
+        assert_eq!(widget.focus_policy(), FocusPolicy::ClickFocus);
+        assert!(widget.is_focusable());
+        assert!(!widget.accepts_tab_focus());
+        assert!(widget.accepts_click_focus());
+    }
+
+    #[test]
+    fn test_focusable_requires_enabled_and_visible() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        widget.set_focus_policy(FocusPolicy::StrongFocus);
+
+        // Initially focusable
+        assert!(widget.is_focusable());
+
+        // Disabled widgets cannot be focused
+        widget.set_enabled(false);
+        assert!(!widget.is_focusable());
+        assert!(!widget.accepts_tab_focus());
+
+        // Re-enable
+        widget.set_enabled(true);
+        assert!(widget.is_focusable());
+
+        // Hidden widgets cannot be focused
+        widget.hide();
+        assert!(!widget.is_focusable());
+        assert!(!widget.accepts_tab_focus());
+    }
+
+    #[test]
+    fn test_set_focusable_convenience_method() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+
+        // set_focusable(true) sets StrongFocus policy
+        widget.set_focusable(true);
+        assert_eq!(widget.focus_policy(), FocusPolicy::StrongFocus);
+        assert!(widget.is_focusable());
+
+        // set_focusable(false) sets NoFocus policy
+        widget.set_focusable(false);
+        assert_eq!(widget.focus_policy(), FocusPolicy::NoFocus);
+        assert!(!widget.is_focusable());
+    }
+
+    #[test]
+    fn test_focus_manager_set_focus() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let widget = FocusTrackingWidget::new("button", events.clone(), FocusPolicy::StrongFocus);
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        let mut focus_manager = FocusManager::new();
+
+        // No widget focused initially
+        assert!(focus_manager.focused_widget().is_none());
+
+        // Set focus to widget
+        let result = focus_manager.set_focus(&mut storage, widget_id, FocusReason::Other);
+        assert!(result);
+        assert_eq!(focus_manager.focused_widget(), Some(widget_id));
+
+        // Widget should have received FocusIn event
+        assert_eq!(events.lock().unwrap().as_slice(), &["button:FocusIn"]);
+    }
+
+    #[test]
+    fn test_focus_manager_change_focus() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let widget1 = FocusTrackingWidget::new("widget1", events.clone(), FocusPolicy::StrongFocus);
+        let widget2 = FocusTrackingWidget::new("widget2", events.clone(), FocusPolicy::StrongFocus);
+        let widget1_id = widget1.object_id();
+        let widget2_id = widget2.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget1);
+        storage.add(widget2);
+
+        let mut focus_manager = FocusManager::new();
+
+        // Focus widget1
+        focus_manager.set_focus(&mut storage, widget1_id, FocusReason::Other);
+        assert_eq!(focus_manager.focused_widget(), Some(widget1_id));
+
+        // Clear events
+        events.lock().unwrap().clear();
+
+        // Change focus to widget2
+        focus_manager.set_focus(&mut storage, widget2_id, FocusReason::Tab);
+        assert_eq!(focus_manager.focused_widget(), Some(widget2_id));
+
+        // Should see FocusOut on widget1, then FocusIn on widget2
+        assert_eq!(
+            events.lock().unwrap().as_slice(),
+            &["widget1:FocusOut", "widget2:FocusIn"]
+        );
+    }
+
+    #[test]
+    fn test_focus_manager_clear_focus() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let widget = FocusTrackingWidget::new("button", events.clone(), FocusPolicy::StrongFocus);
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        let mut focus_manager = FocusManager::new();
+        focus_manager.set_focus(&mut storage, widget_id, FocusReason::Other);
+
+        // Clear events
+        events.lock().unwrap().clear();
+
+        // Clear focus
+        focus_manager.clear_focus(&mut storage, FocusReason::Other);
+        assert!(focus_manager.focused_widget().is_none());
+
+        // Widget should have received FocusOut event
+        assert_eq!(events.lock().unwrap().as_slice(), &["button:FocusOut"]);
+    }
+
+    #[test]
+    fn test_focus_manager_cannot_focus_nofocus_widget() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let widget = FocusTrackingWidget::new("label", events.clone(), FocusPolicy::NoFocus);
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        let mut focus_manager = FocusManager::new();
+
+        // Attempting to focus a NoFocus widget should fail
+        let result = focus_manager.set_focus(&mut storage, widget_id, FocusReason::Other);
+        assert!(!result);
+        assert!(focus_manager.focused_widget().is_none());
+
+        // No events should be sent
+        assert!(events.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_focus_manager_cannot_focus_disabled_widget() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut widget = FocusTrackingWidget::new("button", events.clone(), FocusPolicy::StrongFocus);
+        widget.set_enabled(false);
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        let mut focus_manager = FocusManager::new();
+
+        // Attempting to focus a disabled widget should fail
+        let result = focus_manager.set_focus(&mut storage, widget_id, FocusReason::Other);
+        assert!(!result);
+        assert!(focus_manager.focused_widget().is_none());
+    }
+
+    #[test]
+    fn test_focus_next_previous() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        // Create a simple widget tree: root -> [child1, child2, child3]
+        let root = FocusTrackingWidget::new("root", events.clone(), FocusPolicy::NoFocus);
+        let child1 = FocusTrackingWidget::new("child1", events.clone(), FocusPolicy::StrongFocus);
+        let child2 = FocusTrackingWidget::new("child2", events.clone(), FocusPolicy::StrongFocus);
+        let child3 = FocusTrackingWidget::new("child3", events.clone(), FocusPolicy::StrongFocus);
+
+        let root_id = root.object_id();
+        let child1_id = child1.object_id();
+        let child2_id = child2.object_id();
+        let child3_id = child3.object_id();
+
+        // Set up parent-child relationships
+        child1.widget_base().set_parent(Some(root_id)).unwrap();
+        child2.widget_base().set_parent(Some(root_id)).unwrap();
+        child3.widget_base().set_parent(Some(root_id)).unwrap();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(root);
+        storage.add(child1);
+        storage.add(child2);
+        storage.add(child3);
+        storage.set_children(root_id, vec![child1_id, child2_id, child3_id]);
+
+        let mut focus_manager = FocusManager::new();
+
+        // focus_next with no current focus should focus first widget
+        focus_manager.focus_next(&mut storage, root_id);
+        assert_eq!(focus_manager.focused_widget(), Some(child1_id));
+
+        // focus_next should move to child2
+        focus_manager.focus_next(&mut storage, root_id);
+        assert_eq!(focus_manager.focused_widget(), Some(child2_id));
+
+        // focus_next should move to child3
+        focus_manager.focus_next(&mut storage, root_id);
+        assert_eq!(focus_manager.focused_widget(), Some(child3_id));
+
+        // focus_next should wrap to child1
+        focus_manager.focus_next(&mut storage, root_id);
+        assert_eq!(focus_manager.focused_widget(), Some(child1_id));
+
+        // focus_previous should go back to child3
+        focus_manager.focus_previous(&mut storage, root_id);
+        assert_eq!(focus_manager.focused_widget(), Some(child3_id));
+    }
+
+    #[test]
+    fn test_focus_navigation_skips_nofocus_and_hidden() {
+        setup();
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        let root = FocusTrackingWidget::new("root", events.clone(), FocusPolicy::NoFocus);
+        let child1 = FocusTrackingWidget::new("child1", events.clone(), FocusPolicy::StrongFocus);
+        let child2 = FocusTrackingWidget::new("child2", events.clone(), FocusPolicy::NoFocus); // NoFocus!
+        let mut child3 = FocusTrackingWidget::new("child3", events.clone(), FocusPolicy::StrongFocus);
+        child3.hide(); // Hidden!
+        let child4 = FocusTrackingWidget::new("child4", events.clone(), FocusPolicy::StrongFocus);
+
+        let root_id = root.object_id();
+        let child1_id = child1.object_id();
+        let child2_id = child2.object_id();
+        let child3_id = child3.object_id();
+        let child4_id = child4.object_id();
+
+        child1.widget_base().set_parent(Some(root_id)).unwrap();
+        child2.widget_base().set_parent(Some(root_id)).unwrap();
+        child3.widget_base().set_parent(Some(root_id)).unwrap();
+        child4.widget_base().set_parent(Some(root_id)).unwrap();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(root);
+        storage.add(child1);
+        storage.add(child2);
+        storage.add(child3);
+        storage.add(child4);
+        storage.set_children(root_id, vec![child1_id, child2_id, child3_id, child4_id]);
+
+        let mut focus_manager = FocusManager::new();
+
+        // Focus child1
+        focus_manager.focus_next(&mut storage, root_id);
+        assert_eq!(focus_manager.focused_widget(), Some(child1_id));
+
+        // focus_next should skip child2 (NoFocus) and child3 (hidden), go to child4
+        focus_manager.focus_next(&mut storage, root_id);
+        assert_eq!(focus_manager.focused_widget(), Some(child4_id));
+
+        // focus_next should wrap to child1 (skipping child2 and child3)
+        focus_manager.focus_next(&mut storage, root_id);
+        assert_eq!(focus_manager.focused_widget(), Some(child1_id));
+    }
+
+    #[test]
+    fn test_focus_changed_signal() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        widget.set_focusable(true);
+
+        // Track signal emissions
+        let focus_states: Arc<Mutex<Vec<bool>>> = Arc::new(Mutex::new(Vec::new()));
+        let states_clone = focus_states.clone();
+
+        widget.widget_base().focus_changed.connect(move |focused| {
+            states_clone.lock().unwrap().push(*focused);
+        });
+
+        // Directly set focus (simulating what FocusManager does)
+        widget.widget_base_mut().set_focused(true);
+        assert!(widget.has_focus());
+        assert_eq!(focus_states.lock().unwrap().as_slice(), &[true]);
+
+        widget.widget_base_mut().set_focused(false);
+        assert!(!widget.has_focus());
+        assert_eq!(focus_states.lock().unwrap().as_slice(), &[true, false]);
+    }
 }

@@ -264,6 +264,15 @@ pub trait Widget: Object + Send + Sync {
         self.widget_base_mut().hide();
     }
 
+    /// Check if the widget is effectively visible (considering ancestors).
+    ///
+    /// Returns `true` only if this widget AND all its ancestors are visible.
+    /// A widget with `is_visible() == true` may still be effectively hidden
+    /// if any ancestor is hidden.
+    fn is_effectively_visible(&self) -> bool {
+        self.widget_base().is_effectively_visible()
+    }
+
     // =========================================================================
     // Enabled State
     // =========================================================================
@@ -276,6 +285,15 @@ pub trait Widget: Object + Send + Sync {
     /// Set whether the widget is enabled.
     fn set_enabled(&mut self, enabled: bool) {
         self.widget_base_mut().set_enabled(enabled);
+    }
+
+    /// Check if the widget is effectively enabled (considering ancestors).
+    ///
+    /// Returns `true` only if this widget AND all its ancestors are enabled.
+    /// A widget with `is_enabled() == true` may still be effectively disabled
+    /// if any ancestor is disabled.
+    fn is_effectively_enabled(&self) -> bool {
+        self.widget_base().is_effectively_enabled()
     }
 
     // =========================================================================
@@ -295,6 +313,23 @@ pub trait Widget: Object + Send + Sync {
     /// Check if the widget currently has keyboard focus.
     fn has_focus(&self) -> bool {
         self.widget_base().has_focus()
+    }
+
+    // =========================================================================
+    // Pressed State
+    // =========================================================================
+
+    /// Check if the widget is currently pressed.
+    ///
+    /// A widget is considered pressed when a mouse button is held down on it.
+    /// This is typically used for visual feedback (e.g., button appears pushed).
+    fn is_pressed(&self) -> bool {
+        self.widget_base().is_pressed()
+    }
+
+    /// Check if the mouse is currently hovering over this widget.
+    fn is_hovered(&self) -> bool {
+        self.widget_base().is_hovered()
     }
 
     // =========================================================================

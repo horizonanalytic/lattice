@@ -65,6 +65,18 @@ impl std::error::Error for ObjectError {}
 /// Result type for object operations.
 pub type ObjectResult<T> = std::result::Result<T, ObjectError>;
 
+/// Widget-specific state stored in the registry for state propagation.
+///
+/// This is stored separately from the widget instance so that parent state
+/// can be queried by ObjectId when computing effective visibility/enabled state.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct WidgetState {
+    /// Whether the widget is visible (its own state, not considering ancestors).
+    pub visible: bool,
+    /// Whether the widget is enabled (its own state, not considering ancestors).
+    pub enabled: bool,
+}
+
 /// Internal data stored in the registry for each object.
 struct ObjectData {
     /// Human-readable name for debugging and lookup.
@@ -79,6 +91,8 @@ struct ObjectData {
     children: Vec<ObjectId>,
     /// Dynamic properties (type-erased).
     dynamic_properties: HashMap<String, Box<dyn Any + Send + Sync>>,
+    /// Widget state for state propagation (None for non-widget objects).
+    widget_state: Option<WidgetState>,
 }
 
 impl ObjectData {
@@ -90,6 +104,7 @@ impl ObjectData {
             parent: None,
             children: Vec::new(),
             dynamic_properties: HashMap::new(),
+            widget_state: None,
         }
     }
 }
@@ -381,6 +396,130 @@ impl ObjectRegistry {
     pub fn dynamic_property_names(&self, id: ObjectId) -> ObjectResult<Vec<&str>> {
         let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
         Ok(data.dynamic_properties.keys().map(|s| s.as_str()).collect())
+    }
+
+    // =========================================================================
+    // Widget State (for state propagation)
+    // =========================================================================
+
+    /// Initialize widget state for an object.
+    ///
+    /// Called when a widget is created to set up initial state in the registry.
+    /// This enables state propagation queries via `is_effectively_visible`/`is_effectively_enabled`.
+    pub fn init_widget_state(&mut self, id: ObjectId, state: WidgetState) -> ObjectResult<()> {
+        let data = self.objects.get_mut(id).ok_or(ObjectError::InvalidObjectId)?;
+        data.widget_state = Some(state);
+        Ok(())
+    }
+
+    /// Get the widget state for an object.
+    ///
+    /// Returns `None` if the object is not a widget or doesn't have state initialized.
+    pub fn widget_state(&self, id: ObjectId) -> ObjectResult<Option<WidgetState>> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+        Ok(data.widget_state)
+    }
+
+    /// Set the visible state for a widget.
+    pub fn set_widget_visible(&mut self, id: ObjectId, visible: bool) -> ObjectResult<()> {
+        let data = self.objects.get_mut(id).ok_or(ObjectError::InvalidObjectId)?;
+        if let Some(ref mut state) = data.widget_state {
+            state.visible = visible;
+        } else {
+            data.widget_state = Some(WidgetState {
+                visible,
+                enabled: true,
+            });
+        }
+        Ok(())
+    }
+
+    /// Set the enabled state for a widget.
+    pub fn set_widget_enabled(&mut self, id: ObjectId, enabled: bool) -> ObjectResult<()> {
+        let data = self.objects.get_mut(id).ok_or(ObjectError::InvalidObjectId)?;
+        if let Some(ref mut state) = data.widget_state {
+            state.enabled = enabled;
+        } else {
+            data.widget_state = Some(WidgetState {
+                visible: true,
+                enabled,
+            });
+        }
+        Ok(())
+    }
+
+    /// Check if a widget is effectively visible (itself and all ancestors are visible).
+    ///
+    /// Returns `true` if the object is visible and all ancestors are also visible.
+    /// Returns `false` if any ancestor is hidden.
+    /// Returns `None` if the object doesn't have widget state.
+    pub fn is_effectively_visible(&self, id: ObjectId) -> ObjectResult<Option<bool>> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+
+        // Check if this is a widget
+        let state = match data.widget_state {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+
+        // If self is not visible, not effectively visible
+        if !state.visible {
+            return Ok(Some(false));
+        }
+
+        // Check all ancestors
+        let mut current = data.parent;
+        while let Some(current_id) = current {
+            if let Some(ancestor_data) = self.objects.get(current_id) {
+                if let Some(ancestor_state) = ancestor_data.widget_state {
+                    if !ancestor_state.visible {
+                        return Ok(Some(false));
+                    }
+                }
+                current = ancestor_data.parent;
+            } else {
+                break;
+            }
+        }
+
+        Ok(Some(true))
+    }
+
+    /// Check if a widget is effectively enabled (itself and all ancestors are enabled).
+    ///
+    /// Returns `true` if the object is enabled and all ancestors are also enabled.
+    /// Returns `false` if any ancestor is disabled.
+    /// Returns `None` if the object doesn't have widget state.
+    pub fn is_effectively_enabled(&self, id: ObjectId) -> ObjectResult<Option<bool>> {
+        let data = self.objects.get(id).ok_or(ObjectError::InvalidObjectId)?;
+
+        // Check if this is a widget
+        let state = match data.widget_state {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+
+        // If self is not enabled, not effectively enabled
+        if !state.enabled {
+            return Ok(Some(false));
+        }
+
+        // Check all ancestors
+        let mut current = data.parent;
+        while let Some(current_id) = current {
+            if let Some(ancestor_data) = self.objects.get(current_id) {
+                if let Some(ancestor_state) = ancestor_data.widget_state {
+                    if !ancestor_state.enabled {
+                        return Ok(Some(false));
+                    }
+                }
+                current = ancestor_data.parent;
+            } else {
+                break;
+            }
+        }
+
+        Ok(Some(true))
     }
 
     /// Get the number of registered objects.
@@ -811,6 +950,40 @@ impl SharedObjectRegistry {
     /// Get all root objects.
     pub fn root_objects(&self) -> Vec<ObjectId> {
         self.inner.read().root_objects().collect()
+    }
+
+    // =========================================================================
+    // Widget State (for state propagation)
+    // =========================================================================
+
+    /// Initialize widget state for an object.
+    pub fn init_widget_state(&self, id: ObjectId, state: WidgetState) -> ObjectResult<()> {
+        self.inner.write().init_widget_state(id, state)
+    }
+
+    /// Get the widget state for an object.
+    pub fn widget_state(&self, id: ObjectId) -> ObjectResult<Option<WidgetState>> {
+        self.inner.read().widget_state(id)
+    }
+
+    /// Set the visible state for a widget.
+    pub fn set_widget_visible(&self, id: ObjectId, visible: bool) -> ObjectResult<()> {
+        self.inner.write().set_widget_visible(id, visible)
+    }
+
+    /// Set the enabled state for a widget.
+    pub fn set_widget_enabled(&self, id: ObjectId, enabled: bool) -> ObjectResult<()> {
+        self.inner.write().set_widget_enabled(id, enabled)
+    }
+
+    /// Check if a widget is effectively visible (itself and all ancestors are visible).
+    pub fn is_effectively_visible(&self, id: ObjectId) -> ObjectResult<Option<bool>> {
+        self.inner.read().is_effectively_visible(id)
+    }
+
+    /// Check if a widget is effectively enabled (itself and all ancestors are enabled).
+    pub fn is_effectively_enabled(&self, id: ObjectId) -> ObjectResult<Option<bool>> {
+        self.inner.read().is_effectively_enabled(id)
     }
 
     // =========================================================================

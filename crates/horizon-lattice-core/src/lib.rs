@@ -112,7 +112,7 @@ pub use meta::{
 };
 pub use object::{
     global_registry, init_global_registry, object_cast, object_cast_mut, Object, ObjectBase,
-    ObjectError, ObjectId, ObjectRegistry, ObjectResult, SharedObjectRegistry,
+    ObjectError, ObjectId, ObjectRegistry, ObjectResult, SharedObjectRegistry, WidgetState,
 };
 pub use property::{Binding, IntoProperty, Property, PropertyError, PropertyMeta, ReadOnlyProperty};
 pub use signal::{ConnectionGuard, ConnectionId, ConnectionType, Signal, SignalEmitter};

@@ -4,7 +4,7 @@
 //! for all widgets. It handles geometry, visibility, enabled state, and
 //! coordinates with the object system.
 
-use horizon_lattice_core::{global_registry, Object, ObjectBase, ObjectId, ObjectResult, Signal};
+use horizon_lattice_core::{global_registry, Object, ObjectBase, ObjectId, ObjectResult, Signal, WidgetState};
 use horizon_lattice_render::{Point, Rect, Size};
 
 use super::geometry::{SizePolicy, SizePolicyPair};
@@ -67,11 +67,17 @@ pub struct WidgetBase {
     /// Whether the mouse is currently over this widget.
     hovered: bool,
 
+    /// Whether the widget is currently pressed (mouse button down on it).
+    pressed: bool,
+
     /// Whether the widget needs to be repainted.
     needs_repaint: bool,
 
     /// Signal emitted when the geometry changes.
     pub geometry_changed: Signal<Rect>,
+
+    /// Signal emitted when pressed state changes.
+    pub pressed_changed: Signal<bool>,
 
     /// Signal emitted when visibility changes.
     pub visible_changed: Signal<bool>,
@@ -87,8 +93,21 @@ impl WidgetBase {
     ///
     /// Panics if the global object registry is not initialized.
     pub fn new<T: Object + 'static>() -> Self {
+        let object_base = ObjectBase::new::<T>();
+
+        // Initialize widget state in registry for state propagation queries
+        if let Ok(registry) = global_registry() {
+            let _ = registry.init_widget_state(
+                object_base.id(),
+                WidgetState {
+                    visible: true,
+                    enabled: true,
+                },
+            );
+        }
+
         Self {
-            object_base: ObjectBase::new::<T>(),
+            object_base,
             geometry: Rect::ZERO,
             size_policy: SizePolicyPair::default(),
             visible: true,
@@ -96,8 +115,10 @@ impl WidgetBase {
             focusable: false,
             focused: false,
             hovered: false,
+            pressed: false,
             needs_repaint: true,
             geometry_changed: Signal::new(),
+            pressed_changed: Signal::new(),
             visible_changed: Signal::new(),
             enabled_changed: Signal::new(),
         }
@@ -362,6 +383,11 @@ impl WidgetBase {
             self.visible = visible;
             self.needs_repaint = true;
             self.visible_changed.emit(visible);
+
+            // Sync to registry for state propagation queries
+            if let Ok(registry) = global_registry() {
+                let _ = registry.set_widget_visible(self.object_id(), visible);
+            }
         }
     }
 
@@ -375,37 +401,76 @@ impl WidgetBase {
         self.set_visible(false);
     }
 
-    /// Check if the widget is actually visible (considering ancestors).
+    /// Check if the widget is effectively visible (considering ancestors).
     ///
-    /// Returns true only if this widget and all its ancestors are visible.
+    /// Returns `true` only if this widget AND all its ancestors are visible.
+    /// A widget with `is_visible() == true` may still be effectively hidden
+    /// if any ancestor is hidden.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // If parent.hide() is called:
+    /// assert!(child.is_visible());           // Child's own flag is still true
+    /// assert!(!child.is_effectively_visible()); // But child is effectively hidden
+    /// ```
+    pub fn is_effectively_visible(&self) -> bool {
+        if !self.visible {
+            return false;
+        }
+
+        // Query registry for effective visibility (checks all ancestors)
+        match global_registry() {
+            Ok(registry) => registry
+                .is_effectively_visible(self.object_id())
+                .ok()
+                .flatten()
+                .unwrap_or(self.visible),
+            Err(_) => self.visible,
+        }
+    }
+
+    /// Check if the widget is visible up to a specific ancestor.
+    ///
+    /// Returns `true` if this widget and all ancestors up to (but not including)
+    /// `ancestor_id` are visible. If `ancestor_id` is `None`, checks all ancestors
+    /// up to the root.
     pub fn is_visible_to(&self, ancestor_id: Option<ObjectId>) -> bool {
         if !self.visible {
             return false;
         }
 
-        // Check if we need to traverse ancestors
-        if ancestor_id.is_none() {
-            return self.visible;
-        }
-
-        // Traverse up the tree checking visibility
         let registry = match global_registry() {
             Ok(r) => r,
             Err(_) => return self.visible,
         };
 
+        // Use registry's effective visibility check
+        if ancestor_id.is_none() {
+            // Check all ancestors to root
+            return registry
+                .is_effectively_visible(self.object_id())
+                .ok()
+                .flatten()
+                .unwrap_or(self.visible);
+        }
+
+        // Check ancestors up to specified ancestor
         let mut current = self.parent_id();
         while let Some(id) = current {
-            // We would need to access the widget's visible state, but we only
-            // have ObjectId here. For now, assume ancestors are visible.
-            // Full implementation requires widget registry.
             if Some(id) == ancestor_id {
                 break;
+            }
+            // Check this ancestor's visibility via registry
+            if let Ok(Some(state)) = registry.widget_state(id) {
+                if !state.visible {
+                    return false;
+                }
             }
             current = registry.parent(id).ok().flatten();
         }
 
-        self.visible
+        true
     }
 
     // =========================================================================
@@ -424,6 +489,11 @@ impl WidgetBase {
             self.enabled = enabled;
             self.needs_repaint = true;
             self.enabled_changed.emit(enabled);
+
+            // Sync to registry for state propagation queries
+            if let Ok(registry) = global_registry() {
+                let _ = registry.set_widget_enabled(self.object_id(), enabled);
+            }
         }
     }
 
@@ -435,6 +505,35 @@ impl WidgetBase {
     /// Disable the widget.
     pub fn disable(&mut self) {
         self.set_enabled(false);
+    }
+
+    /// Check if the widget is effectively enabled (considering ancestors).
+    ///
+    /// Returns `true` only if this widget AND all its ancestors are enabled.
+    /// A widget with `is_enabled() == true` may still be effectively disabled
+    /// if any ancestor is disabled.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // If parent.disable() is called:
+    /// assert!(child.is_enabled());           // Child's own flag is still true
+    /// assert!(!child.is_effectively_enabled()); // But child is effectively disabled
+    /// ```
+    pub fn is_effectively_enabled(&self) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        // Query registry for effective enabled state (checks all ancestors)
+        match global_registry() {
+            Ok(registry) => registry
+                .is_effectively_enabled(self.object_id())
+                .ok()
+                .flatten()
+                .unwrap_or(self.enabled),
+            Err(_) => self.enabled,
+        }
     }
 
     // =========================================================================
@@ -481,6 +580,30 @@ impl WidgetBase {
         if self.hovered != hovered {
             self.hovered = hovered;
             self.needs_repaint = true;
+        }
+    }
+
+    // =========================================================================
+    // Pressed State
+    // =========================================================================
+
+    /// Check if the widget is currently pressed.
+    ///
+    /// A widget is considered pressed when a mouse button is held down on it.
+    /// This is typically used for visual feedback (e.g., button appears pushed).
+    #[inline]
+    pub fn is_pressed(&self) -> bool {
+        self.pressed
+    }
+
+    /// Set the pressed state (used by the event system).
+    ///
+    /// This emits the `pressed_changed` signal when the state changes.
+    pub(crate) fn set_pressed(&mut self, pressed: bool) {
+        if self.pressed != pressed {
+            self.pressed = pressed;
+            self.needs_repaint = true;
+            self.pressed_changed.emit(pressed);
         }
     }
 

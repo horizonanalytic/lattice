@@ -2145,6 +2145,229 @@ impl GpuRenderer {
 
         self.vertex_count += 4;
     }
+
+    // === Shader hot-reload support ===
+
+    /// Reload shaders from the given reload result.
+    ///
+    /// This method updates the shader modules and clears the pipeline caches,
+    /// causing pipelines to be recreated on the next draw call.
+    ///
+    /// Only available when the `shader-hot-reload` feature is enabled.
+    #[cfg(feature = "shader-hot-reload")]
+    pub fn reload_shaders(&mut self, result: &crate::shader_watcher::ShaderReloadResult) {
+        use crate::shader_watcher::ShaderKind;
+
+        let ctx = GraphicsContext::get();
+        let device = ctx.device();
+
+        for (kind, source, _module) in &result.modules {
+            match kind {
+                ShaderKind::Rect => {
+                    // Update rect shader and clear pipeline cache
+                    self.rect_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                        label: Some("rect_shader"),
+                        source: wgpu::ShaderSource::Wgsl(source.clone().into()),
+                    });
+                    self.rect_pipelines.clear();
+
+                    // Re-insert the Normal blend mode pipeline immediately
+                    let pipeline = create_rect_pipeline(
+                        device,
+                        &self.rect_shader,
+                        &self.rect_pipeline_layout,
+                        self.surface_format,
+                        BlendMode::Normal,
+                    );
+                    self.rect_pipelines.insert(BlendMode::Normal, pipeline);
+
+                    // Recreate stencil pipelines that use the rect shader
+                    self.recreate_stencil_pipelines();
+
+                    tracing::info!("Reloaded rect shader and recreated {} pipelines", self.rect_pipelines.len() + 3);
+                }
+                ShaderKind::Image => {
+                    // Update image shader and clear pipeline cache
+                    self.image_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                        label: Some("image_shader"),
+                        source: wgpu::ShaderSource::Wgsl(source.clone().into()),
+                    });
+                    self.image_pipelines.clear();
+
+                    // Re-insert the Normal blend mode pipeline immediately
+                    let pipeline = create_image_pipeline(
+                        device,
+                        &self.image_shader,
+                        &self.image_pipeline_layout,
+                        self.surface_format,
+                        BlendMode::Normal,
+                    );
+                    self.image_pipelines.insert(BlendMode::Normal, pipeline);
+
+                    tracing::info!("Reloaded image shader and recreated pipeline cache");
+                }
+                ShaderKind::Shadow => {
+                    // Update shadow shader and recreate pipeline
+                    let shadow_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                        label: Some("shadow_shader"),
+                        source: wgpu::ShaderSource::Wgsl(source.clone().into()),
+                    });
+
+                    self.shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                        label: Some("shadow_pipeline"),
+                        layout: Some(&self.rect_pipeline_layout),
+                        vertex: wgpu::VertexState {
+                            module: &shadow_shader,
+                            entry_point: Some("vs_main"),
+                            buffers: &[ShadowVertex::desc()],
+                            compilation_options: Default::default(),
+                        },
+                        fragment: Some(wgpu::FragmentState {
+                            module: &shadow_shader,
+                            entry_point: Some("fs_main"),
+                            targets: &[Some(wgpu::ColorTargetState {
+                                format: self.surface_format,
+                                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                                write_mask: wgpu::ColorWrites::ALL,
+                            })],
+                            compilation_options: Default::default(),
+                        }),
+                        primitive: wgpu::PrimitiveState {
+                            topology: wgpu::PrimitiveTopology::TriangleList,
+                            strip_index_format: None,
+                            front_face: wgpu::FrontFace::Ccw,
+                            cull_mode: None,
+                            polygon_mode: wgpu::PolygonMode::Fill,
+                            unclipped_depth: false,
+                            conservative: false,
+                        },
+                        depth_stencil: None,
+                        multisample: wgpu::MultisampleState::default(),
+                        multiview: None,
+                        cache: None,
+                    });
+
+                    tracing::info!("Reloaded shadow shader and recreated pipeline");
+                }
+                ShaderKind::Composite => {
+                    // Composite shader is used by the Compositor, not directly by GpuRenderer
+                    tracing::info!("Composite shader changed - Compositor must be recreated to use new shader");
+                }
+            }
+        }
+    }
+
+    /// Recreate stencil-related pipelines after shader reload.
+    #[cfg(feature = "shader-hot-reload")]
+    fn recreate_stencil_pipelines(&mut self) {
+        let ctx = GraphicsContext::get();
+        let device = ctx.device();
+
+        // Push clip pipeline (increments stencil)
+        self.push_clip_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("push_clip_pipeline"),
+            layout: Some(&self.rect_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &self.rect_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[RectVertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &self.rect_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: self.surface_format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::empty(),
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(crate::stencil::push_clip_depth_stencil_state()),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
+        // Pop clip pipeline (decrements stencil)
+        self.pop_clip_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("pop_clip_pipeline"),
+            layout: Some(&self.rect_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &self.rect_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[RectVertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &self.rect_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: self.surface_format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::empty(),
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(crate::stencil::pop_clip_depth_stencil_state()),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
+        // Stencil rect pipeline (for rendering with stencil testing)
+        self.stencil_rect_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("stencil_rect_pipeline"),
+            layout: Some(&self.rect_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &self.rect_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[RectVertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &self.rect_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: self.surface_format,
+                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(crate::stencil::content_depth_stencil_state()),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+    }
 }
 
 impl Renderer for GpuRenderer {

@@ -40,6 +40,10 @@ pub enum RenderError {
     /// Failed to load an image.
     #[error("failed to load image: {0}")]
     ImageLoad(String),
+
+    /// Shader compilation or loading error.
+    #[error("shader error: {0}")]
+    ShaderError(String),
 }
 
 /// Result type for render operations.

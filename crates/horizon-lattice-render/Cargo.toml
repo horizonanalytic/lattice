@@ -7,6 +7,10 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
+[features]
+default = []
+shader-hot-reload = ["dep:notify", "dep:notify-debouncer-mini"]
+
 [dependencies]
 # Graphics
 wgpu = { workspace = true }
@@ -27,6 +31,10 @@ pollster = { workspace = true }
 
 # Image handling
 image = { workspace = true }
+
+# Shader hot-reload (optional)
+notify = { workspace = true, optional = true }
+notify-debouncer-mini = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

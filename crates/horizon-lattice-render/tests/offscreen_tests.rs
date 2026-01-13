@@ -181,3 +181,87 @@ fn test_multiple_offscreen_surfaces() {
 
     println!("Multiple offscreen surfaces test passed");
 }
+
+#[test]
+#[ignore = "requires GPU"]
+fn test_gpu_memory_churn() {
+    // This test creates and destroys resources repeatedly to check for memory leaks.
+    // While we can't directly measure GPU memory, we can ensure no errors/panics occur
+    // during resource churn and that rendering continues to work correctly.
+
+    if GraphicsContext::try_get().is_none() {
+        GraphicsContext::init(GraphicsConfig::default()).expect("Failed to init graphics");
+    }
+
+    const ITERATIONS: usize = 50;
+    const SURFACES_PER_ITERATION: usize = 5;
+
+    for iter in 0..ITERATIONS {
+        // Create multiple surfaces and renderers
+        let mut surfaces = Vec::new();
+        let mut renderers = Vec::new();
+
+        for i in 0..SURFACES_PER_ITERATION {
+            let size = 64 + (i * 32) as u32; // Varying sizes
+            let surface = OffscreenSurface::new(OffscreenConfig::new(size, size))
+                .expect("Failed to create surface");
+            let renderer =
+                GpuRenderer::new_offscreen(&surface).expect("Failed to create renderer");
+            surfaces.push(surface);
+            renderers.push(renderer);
+        }
+
+        // Render to each surface
+        for (surface, renderer) in surfaces.iter().zip(renderers.iter_mut()) {
+            let (w, h) = surface.size();
+            let viewport = Size::new(w as f32, h as f32);
+            renderer.begin_frame(Color::BLUE, viewport);
+
+            // Draw some shapes to use GPU resources
+            for j in 0..10 {
+                let offset = j as f32 * 5.0;
+                renderer.fill_rect(
+                    Rect::new(offset, offset, 20.0, 20.0),
+                    Color::from_rgba8(255, (j * 25) as u8, 0, 255),
+                );
+            }
+
+            renderer.end_frame();
+            renderer
+                .render_to_offscreen(surface)
+                .expect("Failed to render");
+        }
+
+        // Read pixels to ensure rendering completed
+        for surface in &surfaces {
+            let _pixels = surface.read_pixels().expect("Failed to read pixels");
+        }
+
+        // Surfaces and renderers are dropped here, releasing GPU resources
+
+        if iter % 10 == 0 {
+            println!("GPU memory churn test: iteration {}/{}", iter + 1, ITERATIONS);
+        }
+    }
+
+    // Final verification: create a new surface and render to it successfully
+    let final_surface = OffscreenSurface::new(OffscreenConfig::new(128, 128))
+        .expect("Final surface creation should work after churn");
+    let mut final_renderer =
+        GpuRenderer::new_offscreen(&final_surface).expect("Final renderer should work");
+
+    final_renderer.begin_frame(Color::GREEN, Size::new(128.0, 128.0));
+    final_renderer.fill_rect(Rect::new(10.0, 10.0, 100.0, 100.0), Color::RED);
+    final_renderer.end_frame();
+    final_renderer
+        .render_to_offscreen(&final_surface)
+        .expect("Final render should succeed");
+
+    let final_pixels = final_surface.read_pixels().expect("Final read should succeed");
+    assert_eq!(final_pixels.len(), 128 * 128 * 4);
+
+    println!(
+        "GPU memory churn test completed: {} iterations, {} surfaces each",
+        ITERATIONS, SURFACES_PER_ITERATION
+    );
+}

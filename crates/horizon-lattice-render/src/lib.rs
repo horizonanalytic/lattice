@@ -110,6 +110,10 @@ mod types;
 pub mod capture;
 mod offscreen;
 
+// Shader hot-reload support (optional)
+#[cfg(feature = "shader-hot-reload")]
+mod shader_watcher;
+
 // Core infrastructure
 pub use context::{GraphicsConfig, GraphicsContext, GpuResources};
 pub use error::{RenderError, RenderResult};
@@ -142,6 +146,10 @@ pub use layer::{Compositor, Layer, LayerConfig, LayerId};
 
 // Stencil clipping
 pub use stencil::{ClipShape, ClipStack};
+
+// Shader hot-reload support
+#[cfg(feature = "shader-hot-reload")]
+pub use shader_watcher::{load_shader_source, ShaderKind, ShaderReloadResult, ShaderWatcher};
 
 // Re-export wgpu types that users commonly need
 pub use wgpu;

@@ -60,6 +60,7 @@ mod grid_layout;
 mod form_layout;
 mod stack_layout;
 mod flow_layout;
+mod anchor_layout;
 
 pub use item::{LayoutItem, SpacerItem, SpacerType};
 pub use traits::Layout;
@@ -70,6 +71,7 @@ pub use grid_layout::{GridLayout, CellAlignment};
 pub use form_layout::{FormLayout, FormRow, FormItemRole, RowWrapPolicy, FieldGrowthPolicy};
 pub use stack_layout::{StackLayout, StackSizeMode};
 pub use flow_layout::FlowLayout;
+pub use anchor_layout::{AnchorLayout, AnchorLine, AnchorTarget, Anchor};
 
 use horizon_lattice_render::Size;
 

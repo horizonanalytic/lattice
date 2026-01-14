@@ -5,6 +5,7 @@ members = [
     "crates/horizon-lattice-core",
     "crates/horizon-lattice-macros",
     "crates/horizon-lattice-render",
+    "crates/horizon-lattice-style",
 ]
 
 [workspace.package]
@@ -47,7 +48,11 @@ proc-macro2 = "1.0"
 notify = "7"
 notify-debouncer-mini = "0.5"
 
+# CSS parsing
+cssparser = "0.34"
+
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }
 horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }
 horizon-lattice-render = { path = "crates/horizon-lattice-render" }
+horizon-lattice-style = { path = "crates/horizon-lattice-style" }

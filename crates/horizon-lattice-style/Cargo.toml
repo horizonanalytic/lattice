@@ -1,0 +1,32 @@
+[package]
+name = "horizon-lattice-style"
+description = "CSS-like styling system for Horizon Lattice"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = []
+hot-reload = ["dep:notify", "dep:notify-debouncer-mini"]
+
+[dependencies]
+# Internal crates
+horizon-lattice-core = { workspace = true }
+horizon-lattice-render = { workspace = true }
+
+# CSS parsing
+cssparser = { workspace = true }
+
+# Utilities
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+# File watching (optional)
+notify = { workspace = true, optional = true }
+notify-debouncer-mini = { workspace = true, optional = true }
+
+[dev-dependencies]
+tracing-subscriber = "0.3"

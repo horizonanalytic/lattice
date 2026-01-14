@@ -23,6 +23,7 @@
 //! - [`ToolBox`]: Accordion-style container with expandable pages
 //! - [`DockWidget`]: Dockable panel widget
 //! - [`MainWindow`]: Main application window with dock areas
+//! - [`Popup`]: Temporary floating container widget
 //! - [`Window`]: Top-level window widget
 
 mod abstract_button;
@@ -34,6 +35,7 @@ mod frame;
 mod label;
 mod line_edit;
 mod main_window;
+mod popup;
 mod progress_bar;
 mod push_button;
 mod radio_button;
@@ -57,6 +59,7 @@ pub use frame::{Frame, FrameShadow, FrameShape};
 pub use label::{ElideMode, Label};
 pub use line_edit::{EchoMode, LineEdit};
 pub use main_window::MainWindow;
+pub use popup::{Popup, PopupFlags, PopupPlacement};
 pub use progress_bar::{Orientation, ProgressBar};
 pub use push_button::PushButton;
 pub use radio_button::RadioButton;

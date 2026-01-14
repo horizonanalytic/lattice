@@ -23,6 +23,7 @@
 //! - [`ToolBox`]: Accordion-style container with expandable pages
 //! - [`DockWidget`]: Dockable panel widget
 //! - [`MainWindow`]: Main application window with dock areas
+//! - [`Window`]: Top-level window widget
 
 mod abstract_button;
 mod button_group;
@@ -45,6 +46,7 @@ mod stacked_widget;
 mod tab_bar;
 mod tab_widget;
 mod tool_box;
+mod window;
 
 pub use abstract_button::AbstractButton;
 pub use button_group::ButtonGroup;
@@ -67,3 +69,4 @@ pub use stacked_widget::StackedWidget;
 pub use tab_bar::{TabBar, TabPosition};
 pub use tab_widget::TabWidget;
 pub use tool_box::ToolBox;
+pub use window::{Window, WindowFlags, WindowModality, WindowState};

@@ -10,6 +10,7 @@
 //! - [`AbstractButton`]: Base for all button widgets
 //! - [`LineEdit`]: Single-line text input
 //! - [`ProgressBar`]: Progress indicator widget
+//! - [`ContainerWidget`]: Generic container widget with layout support
 //! - [`Frame`]: Container widget with border decoration
 //! - [`Separator`]: Visual dividing line
 //! - [`Spacer`]: Invisible widget for layout spacing
@@ -26,6 +27,7 @@
 mod abstract_button;
 mod button_group;
 mod checkbox;
+mod container;
 mod dock_widget;
 mod frame;
 mod label;
@@ -47,6 +49,7 @@ mod tool_box;
 pub use abstract_button::AbstractButton;
 pub use button_group::ButtonGroup;
 pub use checkbox::{CheckBox, CheckState};
+pub use container::ContainerWidget;
 pub use dock_widget::{DockArea, DockAreas, DockWidget, DockWidgetFeatures};
 pub use frame::{Frame, FrameShadow, FrameShape};
 pub use label::{ElideMode, Label};

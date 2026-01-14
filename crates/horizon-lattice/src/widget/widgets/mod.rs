@@ -19,13 +19,17 @@
 //! - [`TabBar`]: Standalone tab bar widget
 //! - [`TabWidget`]: Tabbed page container
 //! - [`StackedWidget`]: Container showing one child at a time
+//! - [`DockWidget`]: Dockable panel widget
+//! - [`MainWindow`]: Main application window with dock areas
 
 mod abstract_button;
 mod button_group;
 mod checkbox;
+mod dock_widget;
 mod frame;
 mod label;
 mod line_edit;
+mod main_window;
 mod progress_bar;
 mod push_button;
 mod radio_button;
@@ -41,9 +45,11 @@ mod tab_widget;
 pub use abstract_button::AbstractButton;
 pub use button_group::ButtonGroup;
 pub use checkbox::{CheckBox, CheckState};
+pub use dock_widget::{DockArea, DockAreas, DockWidget, DockWidgetFeatures};
 pub use frame::{Frame, FrameShadow, FrameShape};
 pub use label::{ElideMode, Label};
 pub use line_edit::{EchoMode, LineEdit};
+pub use main_window::MainWindow;
 pub use progress_bar::{Orientation, ProgressBar};
 pub use push_button::PushButton;
 pub use radio_button::RadioButton;

@@ -126,6 +126,7 @@ mod geometry;
 pub mod layout;
 mod painting;
 mod traits;
+pub mod widgets;
 
 #[cfg(test)]
 mod tests;
@@ -143,3 +144,6 @@ pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
 pub use layout::{ContentMargins, Layout, LayoutBase, LayoutInvalidator, LayoutItem, SpacerItem};
 pub use painting::{FrameRenderer, FrameStats, RepaintManager};
 pub use traits::{AsWidget, PaintContext, Widget};
+
+// Re-export widgets for convenience
+pub use widgets::{ElideMode, Label};

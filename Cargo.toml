@@ -51,6 +51,9 @@ notify-debouncer-mini = "0.5"
 # CSS parsing
 cssparser = "0.34"
 
+# Compile-time assertions
+static_assertions = "1.1"
+
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }
 horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }

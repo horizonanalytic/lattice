@@ -11,6 +11,8 @@ authors.workspace = true
 horizon-lattice-core = { workspace = true }
 horizon-lattice-macros = { workspace = true }
 horizon-lattice-render = { workspace = true }
+parking_lot = { workspace = true }
+static_assertions = { workspace = true }
 
 [dev-dependencies]
 slotmap = { workspace = true }

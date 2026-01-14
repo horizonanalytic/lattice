@@ -973,7 +973,9 @@ dependencies = [
  "horizon-lattice-core",
  "horizon-lattice-macros",
  "horizon-lattice-render",
+ "parking_lot",
  "slotmap",
+ "static_assertions",
 ]
 
 [[package]]

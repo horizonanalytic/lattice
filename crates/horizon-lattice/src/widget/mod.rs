@@ -146,4 +146,4 @@ pub use painting::{FrameRenderer, FrameStats, RepaintManager};
 pub use traits::{AsWidget, PaintContext, Widget};
 
 // Re-export widgets for convenience
-pub use widgets::{ElideMode, Label};
+pub use widgets::{AbstractButton, ElideMode, Label, PushButton};

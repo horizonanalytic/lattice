@@ -104,6 +104,7 @@
 //! );
 //! ```
 
+mod bidi;
 mod font;
 mod font_system;
 mod glyph_atlas;
@@ -112,6 +113,10 @@ mod layout;
 mod shaping;
 mod types;
 
+pub use bidi::{
+    contains_rtl, detect_base_direction, is_ltr_char, is_rtl_char, is_strong_directional,
+    isolates, overrides, wrap_with_direction, TextDirection,
+};
 pub use font::{Font, FontBuilder, FontFeature};
 pub use font_system::{FontFaceInfo, FontLoadError, FontSystem, FontSystemConfig};
 pub use glyph_atlas::{GlyphAllocation, GlyphAtlas, GlyphAtlasStats};

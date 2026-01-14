@@ -39,7 +39,7 @@ use cosmic_text::{Attrs, Buffer, CacheKeyFlags, Metrics, Shaping, Wrap};
 use fontdb::ID as FontFaceId;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Font, FontStyle, FontSystem, FontWeight, TextDecoration};
+use super::{Font, FontStyle, FontSystem, FontWeight, TextDecoration, TextDirection};
 #[cfg(test)]
 use super::FontFamily;
 
@@ -128,6 +128,12 @@ pub struct TextLayoutOptions {
     pub ellipsis: bool,
     /// Custom ellipsis string (defaults to "…").
     pub ellipsis_string: String,
+    /// Base text direction for the layout.
+    ///
+    /// - `TextDirection::Auto` (default): Automatically detect from content.
+    /// - `TextDirection::LeftToRight`: Force LTR direction.
+    /// - `TextDirection::RightToLeft`: Force RTL direction.
+    pub direction: TextDirection,
 }
 
 impl Default for TextLayoutOptions {
@@ -142,6 +148,7 @@ impl Default for TextLayoutOptions {
             paragraph_spacing: 0.0,
             ellipsis: false,
             ellipsis_string: "…".to_string(),
+            direction: TextDirection::Auto,
         }
     }
 }
@@ -205,6 +212,36 @@ impl TextLayoutOptions {
         self.ellipsis_string = s.into();
         self.ellipsis = true;
         self
+    }
+
+    /// Set the base text direction.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use horizon_lattice_render::text::{TextLayoutOptions, TextDirection};
+    ///
+    /// // Force RTL direction for Hebrew/Arabic text
+    /// let options = TextLayoutOptions::default()
+    ///     .direction(TextDirection::RightToLeft);
+    ///
+    /// // Auto-detect direction from content
+    /// let options = TextLayoutOptions::default()
+    ///     .direction(TextDirection::Auto);
+    /// ```
+    pub fn direction(mut self, direction: TextDirection) -> Self {
+        self.direction = direction;
+        self
+    }
+
+    /// Set left-to-right direction.
+    pub fn ltr(self) -> Self {
+        self.direction(TextDirection::LeftToRight)
+    }
+
+    /// Set right-to-left direction.
+    pub fn rtl(self) -> Self {
+        self.direction(TextDirection::RightToLeft)
     }
 }
 
@@ -553,6 +590,8 @@ pub struct TextLayout {
     background_rects: Vec<BackgroundRect>,
     /// Text decoration lines (underline, strikethrough, overline).
     decoration_lines: Vec<DecorationLine>,
+    /// The resolved base direction after layout.
+    resolved_direction: TextDirection,
 }
 
 impl TextLayout {
@@ -568,6 +607,9 @@ impl TextLayout {
         font: &Font,
         options: TextLayoutOptions,
     ) -> Self {
+        // Resolve direction from text content if Auto
+        let resolved_direction = options.direction.resolve(text);
+
         let mut layout = Self {
             text: text.to_string(),
             lines: Vec::new(),
@@ -578,6 +620,7 @@ impl TextLayout {
             inline_elements: Vec::new(),
             background_rects: Vec::new(),
             decoration_lines: Vec::new(),
+            resolved_direction,
         };
 
         layout.layout_text(font_system, font);
@@ -592,6 +635,7 @@ impl TextLayout {
         options: TextLayoutOptions,
     ) -> Self {
         let text: String = spans.iter().map(|s| s.text).collect();
+        let resolved_direction = options.direction.resolve(&text);
         let mut layout = Self {
             text,
             lines: Vec::new(),
@@ -602,6 +646,7 @@ impl TextLayout {
             inline_elements: Vec::new(),
             background_rects: Vec::new(),
             decoration_lines: Vec::new(),
+            resolved_direction,
         };
 
         layout.layout_rich_text(font_system, spans, default_font);
@@ -616,6 +661,7 @@ impl TextLayout {
         options: TextLayoutOptions,
         elements: &[(usize, InlineElement)],
     ) -> Self {
+        let resolved_direction = options.direction.resolve(text);
         let mut layout = Self {
             text: text.to_string(),
             lines: Vec::new(),
@@ -626,6 +672,7 @@ impl TextLayout {
             inline_elements: Vec::new(),
             background_rects: Vec::new(),
             decoration_lines: Vec::new(),
+            resolved_direction,
         };
 
         layout.layout_with_inline_elements(font_system, font, elements);
@@ -675,6 +722,27 @@ impl TextLayout {
     /// Get the decoration lines (underline, strikethrough, overline).
     pub fn decoration_lines(&self) -> &[DecorationLine] {
         &self.decoration_lines
+    }
+
+    /// Get the resolved base direction of the layout.
+    ///
+    /// This is either the explicit direction set in options, or the
+    /// auto-detected direction from the text content.
+    pub fn direction(&self) -> TextDirection {
+        self.resolved_direction
+    }
+
+    /// Check if the layout's base direction is right-to-left.
+    pub fn is_rtl(&self) -> bool {
+        self.resolved_direction.is_rtl()
+    }
+
+    /// Check if the layout contains any right-to-left glyphs.
+    ///
+    /// This can be true even for LTR base direction layouts that
+    /// contain RTL text segments (e.g., English with Arabic words).
+    pub fn has_rtl_content(&self) -> bool {
+        self.glyphs().any(|g| g.is_rtl())
     }
 
     /// Get all glyphs across all lines.
@@ -766,6 +834,20 @@ impl TextLayout {
         }
     }
 
+    /// Get the effective horizontal alignment, respecting text direction.
+    ///
+    /// For RTL text with default (Left) alignment, this returns Right.
+    /// For LTR text with default (Left) alignment, this returns Left.
+    /// Explicit alignments (Center, Right, Justified) are preserved.
+    pub fn effective_alignment(&self) -> HorizontalAlign {
+        match self.options.horizontal_align {
+            // Default alignment is direction-aware
+            HorizontalAlign::Left if self.resolved_direction.is_rtl() => HorizontalAlign::Right,
+            HorizontalAlign::Right if self.resolved_direction.is_rtl() => HorizontalAlign::Left,
+            other => other,
+        }
+    }
+
     /// Perform the actual text layout.
     fn layout_text(&mut self, font_system: &mut FontSystem, font: &Font) {
         if self.text.is_empty() {
@@ -799,9 +881,12 @@ impl TextLayout {
             Shaping::Advanced,
         );
 
+        // Get effective alignment (respects RTL direction)
+        let effective_align = self.effective_alignment();
+
         // Set alignment for each line
         for line in buffer.lines.iter_mut() {
-            line.set_align(Some(self.options.horizontal_align.to_cosmic()));
+            line.set_align(Some(effective_align.to_cosmic()));
         }
 
         // Re-shape after alignment change
@@ -893,7 +978,7 @@ impl TextLayout {
 
         // Set alignment for each line
         for line in buffer.lines.iter_mut() {
-            line.set_align(Some(self.options.horizontal_align.to_cosmic()));
+            line.set_align(Some(self.effective_alignment().to_cosmic()));
         }
 
         // Re-shape after setting rich text
@@ -1091,7 +1176,7 @@ impl TextLayout {
 
         // Set alignment for each line
         for line in buffer.lines.iter_mut() {
-            line.set_align(Some(self.options.horizontal_align.to_cosmic()));
+            line.set_align(Some(self.effective_alignment().to_cosmic()));
         }
 
         // Re-shape
@@ -1296,6 +1381,7 @@ impl Default for TextLayout {
             inline_elements: Vec::new(),
             background_rects: Vec::new(),
             decoration_lines: Vec::new(),
+            resolved_direction: TextDirection::LeftToRight,
         }
     }
 }
@@ -2404,5 +2490,167 @@ mod tests {
             decoration_type: super::super::TextDecorationType::Underline,
         };
         assert_eq!(line.width(), 100.0);
+    }
+
+    // =========================================================================
+    // Internationalization Tests
+    // =========================================================================
+
+    #[test]
+    fn direction_option_builder() {
+        let options = TextLayoutOptions::default()
+            .direction(TextDirection::RightToLeft);
+        assert_eq!(options.direction, TextDirection::RightToLeft);
+
+        let ltr_options = TextLayoutOptions::default().ltr();
+        assert_eq!(ltr_options.direction, TextDirection::LeftToRight);
+
+        let rtl_options = TextLayoutOptions::default().rtl();
+        assert_eq!(rtl_options.direction, TextDirection::RightToLeft);
+
+        let auto_options = TextLayoutOptions::default();
+        assert_eq!(auto_options.direction, TextDirection::Auto);
+    }
+
+    #[test]
+    fn direction_resolve_ltr() {
+        // Test direction resolution using TextDirection::resolve directly
+        // This doesn't require font shaping
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("Hello World"), TextDirection::LeftToRight);
+    }
+
+    #[test]
+    fn direction_resolve_rtl() {
+        // Arabic text should resolve to RTL
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("مرحبا بالعالم"), TextDirection::RightToLeft);
+    }
+
+    #[test]
+    fn direction_resolve_explicit_override() {
+        // Explicit direction should override text content
+        let explicit_rtl = TextDirection::RightToLeft;
+        assert_eq!(explicit_rtl.resolve("Hello World"), TextDirection::RightToLeft);
+
+        let explicit_ltr = TextDirection::LeftToRight;
+        assert_eq!(explicit_ltr.resolve("مرحبا"), TextDirection::LeftToRight);
+    }
+
+    #[test]
+    fn effective_alignment_ltr() {
+        let mut layout = TextLayout::default();
+        layout.resolved_direction = TextDirection::LeftToRight;
+
+        // LTR: Left stays Left
+        layout.options.horizontal_align = HorizontalAlign::Left;
+        assert_eq!(layout.effective_alignment(), HorizontalAlign::Left);
+
+        // LTR: Right stays Right
+        layout.options.horizontal_align = HorizontalAlign::Right;
+        assert_eq!(layout.effective_alignment(), HorizontalAlign::Right);
+
+        // LTR: Center stays Center
+        layout.options.horizontal_align = HorizontalAlign::Center;
+        assert_eq!(layout.effective_alignment(), HorizontalAlign::Center);
+    }
+
+    #[test]
+    fn effective_alignment_rtl() {
+        let mut layout = TextLayout::default();
+        layout.resolved_direction = TextDirection::RightToLeft;
+
+        // RTL: Left becomes Right
+        layout.options.horizontal_align = HorizontalAlign::Left;
+        assert_eq!(layout.effective_alignment(), HorizontalAlign::Right);
+
+        // RTL: Right becomes Left
+        layout.options.horizontal_align = HorizontalAlign::Right;
+        assert_eq!(layout.effective_alignment(), HorizontalAlign::Left);
+
+        // RTL: Center stays Center
+        layout.options.horizontal_align = HorizontalAlign::Center;
+        assert_eq!(layout.effective_alignment(), HorizontalAlign::Center);
+
+        // RTL: Justified stays Justified
+        layout.options.horizontal_align = HorizontalAlign::Justified;
+        assert_eq!(layout.effective_alignment(), HorizontalAlign::Justified);
+    }
+
+    #[test]
+    fn direction_mixed_text() {
+        // Mixed English and Arabic - first strong char is English
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("Hello مرحبا World"), TextDirection::LeftToRight);
+    }
+
+    #[test]
+    fn direction_rtl_first_char() {
+        // Arabic first, then English - first strong char is Arabic
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("مرحبا Hello"), TextDirection::RightToLeft);
+    }
+
+    #[test]
+    fn direction_neutral_only_defaults_ltr() {
+        // Numbers and punctuation only - no strong directional characters
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("123!@#"), TextDirection::LeftToRight);
+    }
+
+    #[test]
+    fn direction_hebrew_text() {
+        // Hebrew text should be RTL
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("שלום עולם"), TextDirection::RightToLeft);
+    }
+
+    #[test]
+    fn direction_cyrillic_is_ltr() {
+        // Russian text (Cyrillic script is LTR)
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("Привет мир"), TextDirection::LeftToRight);
+    }
+
+    #[test]
+    fn direction_chinese_is_ltr() {
+        // Chinese text (CJK is LTR)
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("你好世界"), TextDirection::LeftToRight);
+    }
+
+    #[test]
+    fn direction_persian_is_rtl() {
+        // Persian/Farsi text (uses Arabic script, RTL)
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("سلام دنیا"), TextDirection::RightToLeft);
+    }
+
+    #[test]
+    fn direction_greek_is_ltr() {
+        // Greek text is LTR
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("Γειά σου κόσμε"), TextDirection::LeftToRight);
+    }
+
+    #[test]
+    fn direction_thai_is_ltr() {
+        // Thai text is LTR
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("สวัสดี"), TextDirection::LeftToRight);
+    }
+
+    #[test]
+    fn direction_japanese_is_ltr() {
+        // Japanese text (horizontal) is LTR
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("こんにちは"), TextDirection::LeftToRight);
+    }
+
+    #[test]
+    fn direction_korean_is_ltr() {
+        // Korean text is LTR
+        let dir = TextDirection::Auto;
+        assert_eq!(dir.resolve("안녕하세요"), TextDirection::LeftToRight);
     }
 }

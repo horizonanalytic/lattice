@@ -976,6 +976,7 @@ dependencies = [
  "parking_lot",
  "slotmap",
  "static_assertions",
+ "unicode-segmentation",
 ]
 
 [[package]]

@@ -9,12 +9,14 @@
 //! - [`ButtonGroup`]: Non-visual container for exclusive button groups
 //! - [`AbstractButton`]: Base for all button widgets
 //! - [`LineEdit`]: Single-line text input
+//! - [`ProgressBar`]: Progress indicator widget
 
 mod abstract_button;
 mod button_group;
 mod checkbox;
 mod label;
 mod line_edit;
+mod progress_bar;
 mod push_button;
 mod radio_button;
 
@@ -23,5 +25,6 @@ pub use button_group::ButtonGroup;
 pub use checkbox::{CheckBox, CheckState};
 pub use label::{ElideMode, Label};
 pub use line_edit::{EchoMode, LineEdit};
+pub use progress_bar::{Orientation, ProgressBar};
 pub use push_button::PushButton;
 pub use radio_button::RadioButton;

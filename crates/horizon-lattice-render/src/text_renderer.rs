@@ -3,7 +3,7 @@
 //! This module provides the [`TextRenderer`] which combines glyph rasterization,
 //! caching, and GPU rendering into a unified text rendering system.
 //!
-//! # Example
+//! # Basic Example
 //!
 //! ```no_run
 //! use horizon_lattice_render::{
@@ -14,22 +14,53 @@
 //! // Setup
 //! let mut font_system = FontSystem::new();
 //! let mut text_renderer = TextRenderer::new().unwrap();
-//! // let mut gpu_renderer = GpuRenderer::new(&surface)?;
 //!
 //! // Create text layout
 //! let font = Font::new(FontFamily::SansSerif, 16.0);
 //! let layout = TextLayout::new(&mut font_system, "Hello, World!", &font);
 //!
-//! // Render
-//! // gpu_renderer.begin_frame(Color::WHITE, Size::new(800.0, 600.0));
-//! // text_renderer.draw_layout(
-//! //     &mut gpu_renderer,
-//! //     &mut font_system,
-//! //     &layout,
-//! //     Point::new(100.0, 100.0),
-//! //     Color::BLACK,
-//! // );
-//! // gpu_renderer.end_frame();
+//! // Prepare glyphs for rendering
+//! let position = Point::new(100.0, 100.0);
+//! let glyphs = text_renderer.prepare_layout(&mut font_system, &layout, position, Color::BLACK).unwrap();
+//! ```
+//!
+//! # Rich Text with Decorations
+//!
+//! For rich text with backgrounds, underlines, and other decorations:
+//!
+//! ```no_run
+//! use horizon_lattice_render::{
+//!     TextRenderer, FontSystem, Font, FontFamily, TextLayout, TextLayoutOptions,
+//!     TextSpan, TextRenderPass, Color, Point, Size, TextDecoration,
+//! };
+//!
+//! let mut font_system = FontSystem::new();
+//! let mut text_renderer = TextRenderer::new().unwrap();
+//!
+//! // Create rich text with styling
+//! let font = Font::new(FontFamily::SansSerif, 16.0);
+//! let spans = vec![
+//!     TextSpan::new("Normal text "),
+//!     TextSpan::new("highlighted")
+//!         .with_background_color([255, 255, 0, 128])
+//!         .with_underline(),
+//!     TextSpan::new(" and ")
+//!         .with_strikethrough(),
+//!     TextSpan::new("wavy underline")
+//!         .with_wavy_underline()
+//!         .with_color([255, 0, 0, 255]),
+//! ];
+//!
+//! let layout = TextLayout::rich_text(&mut font_system, &spans, &font, TextLayoutOptions::default());
+//!
+//! // Prepare glyphs
+//! let position = Point::new(100.0, 100.0);
+//! let glyphs = text_renderer.prepare_layout(&mut font_system, &layout, position, Color::BLACK).unwrap();
+//!
+//! // When rendering with TextRenderPass, add styling first:
+//! // text_render_pass.add_layout_styling(&layout, position);
+//! // text_render_pass.add_glyphs(&glyphs, text_renderer.atlas_size());
+//! // text_render_pass.render(&target, text_renderer.glyph_atlas(), viewport_size);
 //! ```
 
 use crate::error::RenderResult;

@@ -390,6 +390,115 @@ impl FontQuery {
     }
 }
 
+/// Text decoration type (underline, strikethrough, overline).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum TextDecorationType {
+    /// Underline decoration (below baseline).
+    #[default]
+    Underline,
+    /// Strikethrough decoration (through middle of text).
+    Strikethrough,
+    /// Overline decoration (above text).
+    Overline,
+}
+
+/// Text decoration line style.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum TextDecorationStyle {
+    /// Solid line.
+    #[default]
+    Solid,
+    /// Dotted line (circular dots).
+    Dotted,
+    /// Dashed line (short dashes).
+    Dashed,
+    /// Wavy line (sinusoidal wave).
+    Wavy,
+}
+
+/// A complete text decoration specification.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TextDecoration {
+    /// The type of decoration.
+    pub decoration_type: TextDecorationType,
+    /// The line style.
+    pub style: TextDecorationStyle,
+    /// The decoration color (RGBA). If None, uses text color.
+    pub color: Option<[u8; 4]>,
+    /// Line thickness multiplier (1.0 = default thickness from font metrics).
+    pub thickness: f32,
+}
+
+impl Default for TextDecoration {
+    fn default() -> Self {
+        Self {
+            decoration_type: TextDecorationType::Underline,
+            style: TextDecorationStyle::Solid,
+            color: None,
+            thickness: 1.0,
+        }
+    }
+}
+
+impl TextDecoration {
+    /// Create a new underline decoration.
+    pub fn underline() -> Self {
+        Self {
+            decoration_type: TextDecorationType::Underline,
+            ..Default::default()
+        }
+    }
+
+    /// Create a new strikethrough decoration.
+    pub fn strikethrough() -> Self {
+        Self {
+            decoration_type: TextDecorationType::Strikethrough,
+            ..Default::default()
+        }
+    }
+
+    /// Create a new overline decoration.
+    pub fn overline() -> Self {
+        Self {
+            decoration_type: TextDecorationType::Overline,
+            ..Default::default()
+        }
+    }
+
+    /// Set the line style.
+    pub fn with_style(mut self, style: TextDecorationStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// Set the decoration color (RGBA).
+    pub fn with_color(mut self, color: [u8; 4]) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    /// Set the thickness multiplier.
+    pub fn with_thickness(mut self, thickness: f32) -> Self {
+        self.thickness = thickness;
+        self
+    }
+
+    /// Create a dotted underline.
+    pub fn dotted_underline() -> Self {
+        Self::underline().with_style(TextDecorationStyle::Dotted)
+    }
+
+    /// Create a wavy underline (often used for spell check).
+    pub fn wavy_underline() -> Self {
+        Self::underline().with_style(TextDecorationStyle::Wavy)
+    }
+
+    /// Create a dashed underline.
+    pub fn dashed_underline() -> Self {
+        Self::underline().with_style(TextDecorationStyle::Dashed)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -445,5 +554,44 @@ mod tests {
         assert_eq!(query.weight, FontWeight::BOLD);
         assert_eq!(query.style, FontStyle::Italic);
         assert_eq!(query.stretch, FontStretch::Condensed);
+    }
+
+    #[test]
+    fn text_decoration_builders() {
+        let underline = TextDecoration::underline();
+        assert_eq!(underline.decoration_type, TextDecorationType::Underline);
+        assert_eq!(underline.style, TextDecorationStyle::Solid);
+        assert_eq!(underline.thickness, 1.0);
+        assert!(underline.color.is_none());
+
+        let strikethrough = TextDecoration::strikethrough();
+        assert_eq!(strikethrough.decoration_type, TextDecorationType::Strikethrough);
+
+        let overline = TextDecoration::overline();
+        assert_eq!(overline.decoration_type, TextDecorationType::Overline);
+    }
+
+    #[test]
+    fn text_decoration_styles() {
+        let dotted = TextDecoration::dotted_underline();
+        assert_eq!(dotted.style, TextDecorationStyle::Dotted);
+
+        let wavy = TextDecoration::wavy_underline();
+        assert_eq!(wavy.style, TextDecorationStyle::Wavy);
+
+        let dashed = TextDecoration::dashed_underline();
+        assert_eq!(dashed.style, TextDecorationStyle::Dashed);
+    }
+
+    #[test]
+    fn text_decoration_customization() {
+        let custom = TextDecoration::underline()
+            .with_style(TextDecorationStyle::Wavy)
+            .with_color([255, 0, 0, 255])
+            .with_thickness(2.0);
+
+        assert_eq!(custom.style, TextDecorationStyle::Wavy);
+        assert_eq!(custom.color, Some([255, 0, 0, 255]));
+        assert_eq!(custom.thickness, 2.0);
     }
 }

@@ -157,8 +157,10 @@ pub use text::{
     // Text shaping
     GlyphCacheKey, GlyphId, ShapedGlyph, ShapedText, ShapingOptions, TextShaper,
     // Text layout
-    HorizontalAlign, LayoutGlyph, LayoutLine, TextLayout, TextLayoutOptions, TextSpan,
-    VerticalAlign, WrapMode,
+    BackgroundRect, DecorationLine, HorizontalAlign, LayoutGlyph, LayoutLine, TextLayout,
+    TextLayoutOptions, TextSpan, VerticalAlign, WrapMode,
+    // Text decoration
+    TextDecoration, TextDecorationStyle, TextDecorationType,
     // Glyph rendering
     GlyphAllocation, GlyphAtlas, GlyphAtlasStats, GlyphCache, GlyphCacheStats, GlyphPixelFormat,
     GlyphRenderMode, RasterizedGlyph,

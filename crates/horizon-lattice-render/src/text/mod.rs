@@ -119,11 +119,15 @@ pub use glyph_cache::{
     GlyphCache, GlyphCacheStats, GlyphPixelFormat, GlyphRenderMode, RasterizedGlyph,
 };
 pub use layout::{
-    HorizontalAlign, InlineElement, InlineVerticalAlign, LayoutGlyph, LayoutLine, SelectionRect,
-    TextLayout, TextLayoutOptions, TextSpan, VerticalAlign, WrapMode,
+    BackgroundRect, DecorationLine, HorizontalAlign, InlineElement, InlineVerticalAlign,
+    LayoutGlyph, LayoutLine, SelectionRect, TextLayout, TextLayoutOptions, TextSpan,
+    VerticalAlign, WrapMode,
 };
 pub use shaping::{GlyphId, ShapedGlyph, ShapedText, ShapingOptions, TextShaper};
-pub use types::{FontFamily, FontMetrics, FontQuery, FontStretch, FontStyle, FontWeight};
+pub use types::{
+    FontFamily, FontMetrics, FontQuery, FontStretch, FontStyle, FontWeight, TextDecoration,
+    TextDecorationStyle, TextDecorationType,
+};
 
 // Re-export fontdb::ID for users who need to work with font face IDs
 pub use fontdb::ID as FontFaceId;

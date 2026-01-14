@@ -39,7 +39,7 @@ use cosmic_text::{Attrs, Buffer, CacheKeyFlags, Metrics, Shaping, Wrap};
 use fontdb::ID as FontFaceId;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Font, FontStyle, FontSystem, FontWeight};
+use super::{Font, FontStyle, FontSystem, FontWeight, TextDecoration};
 #[cfg(test)]
 use super::FontFamily;
 
@@ -339,6 +339,63 @@ impl LayoutLine {
     }
 }
 
+/// A background rectangle for styled text.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackgroundRect {
+    /// X position of the background rectangle.
+    pub x: f32,
+    /// Y position (top of the text area).
+    pub y: f32,
+    /// Width of the background rectangle.
+    pub width: f32,
+    /// Height of the background rectangle.
+    pub height: f32,
+    /// Background color (RGBA).
+    pub color: [u8; 4],
+}
+
+impl BackgroundRect {
+    /// Create a new background rectangle.
+    pub fn new(x: f32, y: f32, width: f32, height: f32, color: [u8; 4]) -> Self {
+        Self { x, y, width, height, color }
+    }
+}
+
+/// A positioned text decoration line for rendering.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DecorationLine {
+    /// X start position.
+    pub x_start: f32,
+    /// X end position.
+    pub x_end: f32,
+    /// Y position of the line.
+    pub y: f32,
+    /// Line thickness in pixels.
+    pub thickness: f32,
+    /// Decoration color (RGBA).
+    pub color: [u8; 4],
+    /// The decoration style.
+    pub style: super::TextDecorationStyle,
+    /// The decoration type.
+    pub decoration_type: super::TextDecorationType,
+}
+
+impl DecorationLine {
+    /// Get the width of the decoration line.
+    pub fn width(&self) -> f32 {
+        self.x_end - self.x_start
+    }
+}
+
+/// Information about a span for background and decoration extraction.
+#[derive(Debug)]
+struct SpanInfo {
+    byte_range: std::ops::Range<usize>,
+    background_color: Option<[u8; 4]>,
+    decorations: Vec<super::TextDecoration>,
+    text_color: Option<[u8; 4]>,
+}
+
 /// Metadata identifier for inline elements.
 const INLINE_ELEMENT_BASE: usize = 0x1000_0000;
 
@@ -396,6 +453,10 @@ pub struct TextSpan<'a> {
     pub font: Option<Font>,
     /// Optional color override for this span (RGBA).
     pub color: Option<[u8; 4]>,
+    /// Optional background color for this span (RGBA).
+    pub background_color: Option<[u8; 4]>,
+    /// Text decorations (underline, strikethrough, overline).
+    pub decorations: Vec<TextDecoration>,
 }
 
 impl<'a> TextSpan<'a> {
@@ -405,6 +466,8 @@ impl<'a> TextSpan<'a> {
             text,
             font: None,
             color: None,
+            background_color: None,
+            decorations: Vec::new(),
         }
     }
 
@@ -431,6 +494,42 @@ impl<'a> TextSpan<'a> {
         self.font = Some(base_font.with_style(FontStyle::Italic));
         self
     }
+
+    /// Set the background color for this span (RGBA).
+    pub fn with_background_color(mut self, color: [u8; 4]) -> Self {
+        self.background_color = Some(color);
+        self
+    }
+
+    /// Add a text decoration to this span.
+    pub fn with_decoration(mut self, decoration: TextDecoration) -> Self {
+        self.decorations.push(decoration);
+        self
+    }
+
+    /// Add an underline decoration.
+    pub fn with_underline(mut self) -> Self {
+        self.decorations.push(TextDecoration::underline());
+        self
+    }
+
+    /// Add a strikethrough decoration.
+    pub fn with_strikethrough(mut self) -> Self {
+        self.decorations.push(TextDecoration::strikethrough());
+        self
+    }
+
+    /// Add an overline decoration.
+    pub fn with_overline(mut self) -> Self {
+        self.decorations.push(TextDecoration::overline());
+        self
+    }
+
+    /// Add a wavy underline (often used for spell check errors).
+    pub fn with_wavy_underline(mut self) -> Self {
+        self.decorations.push(TextDecoration::wavy_underline());
+        self
+    }
 }
 
 /// A complete text layout with positioned lines and glyphs.
@@ -450,6 +549,10 @@ pub struct TextLayout {
     is_truncated: bool,
     /// Inline elements and their positions.
     inline_elements: Vec<(InlineElement, f32, f32)>,
+    /// Background rectangles for styled text.
+    background_rects: Vec<BackgroundRect>,
+    /// Text decoration lines (underline, strikethrough, overline).
+    decoration_lines: Vec<DecorationLine>,
 }
 
 impl TextLayout {
@@ -473,6 +576,8 @@ impl TextLayout {
             options,
             is_truncated: false,
             inline_elements: Vec::new(),
+            background_rects: Vec::new(),
+            decoration_lines: Vec::new(),
         };
 
         layout.layout_text(font_system, font);
@@ -495,6 +600,8 @@ impl TextLayout {
             options,
             is_truncated: false,
             inline_elements: Vec::new(),
+            background_rects: Vec::new(),
+            decoration_lines: Vec::new(),
         };
 
         layout.layout_rich_text(font_system, spans, default_font);
@@ -517,6 +624,8 @@ impl TextLayout {
             options,
             is_truncated: false,
             inline_elements: Vec::new(),
+            background_rects: Vec::new(),
+            decoration_lines: Vec::new(),
         };
 
         layout.layout_with_inline_elements(font_system, font, elements);
@@ -556,6 +665,16 @@ impl TextLayout {
     /// Get the inline elements with their positions.
     pub fn inline_elements(&self) -> &[(InlineElement, f32, f32)] {
         &self.inline_elements
+    }
+
+    /// Get the background rectangles for styled text.
+    pub fn background_rects(&self) -> &[BackgroundRect] {
+        &self.background_rects
+    }
+
+    /// Get the decoration lines (underline, strikethrough, overline).
+    pub fn decoration_lines(&self) -> &[DecorationLine] {
+        &self.decoration_lines
     }
 
     /// Get all glyphs across all lines.
@@ -724,6 +843,21 @@ impl TextLayout {
             self.options.max_height,
         );
 
+        // Build span info for later background/decoration extraction
+        // Track byte ranges for each span
+        let mut span_info: Vec<SpanInfo> = Vec::new();
+        let mut byte_offset = 0;
+        for span in spans {
+            let span_len = span.text.len();
+            span_info.push(SpanInfo {
+                byte_range: byte_offset..(byte_offset + span_len),
+                background_color: span.background_color,
+                decorations: span.decorations.clone(),
+                text_color: span.color,
+            });
+            byte_offset += span_len;
+        }
+
         // Build attributed spans for cosmic-text
         let cosmic_spans: Vec<(&str, Attrs<'_>)> = spans
             .iter()
@@ -772,6 +906,107 @@ impl TextLayout {
 
         // Extract layout data
         self.extract_layout(&buffer);
+
+        // Extract backgrounds and decorations from span info
+        self.extract_span_styling(&span_info, default_font.size());
+    }
+
+    /// Extract background rectangles and decoration lines from span info.
+    fn extract_span_styling(&mut self, span_info: &[SpanInfo], font_size: f32) {
+        use super::TextDecorationType;
+
+        // Default decoration thickness based on font size
+        let base_thickness = (font_size / 12.0).max(1.0);
+
+        for info in span_info {
+            // Skip spans without any styling
+            if info.background_color.is_none() && info.decorations.is_empty() {
+                continue;
+            }
+
+            // Find glyphs that belong to this span
+            for line in &self.lines {
+                let align_offset = self.alignment_offset(line);
+
+                // Find the range of glyphs in this line that belong to this span
+                let mut span_start_x: Option<f32> = None;
+                let mut span_end_x: f32 = 0.0;
+                let mut found_glyph = false;
+
+                for glyph in &line.glyphs {
+                    // Check if this glyph's cluster overlaps with the span's byte range
+                    let glyph_in_span = glyph.cluster.start < info.byte_range.end
+                        && glyph.cluster.end > info.byte_range.start;
+
+                    if glyph_in_span {
+                        if span_start_x.is_none() {
+                            span_start_x = Some(glyph.x);
+                        }
+                        span_end_x = glyph.x + glyph.width;
+                        found_glyph = true;
+                    }
+                }
+
+                if !found_glyph {
+                    continue;
+                }
+
+                let start_x = span_start_x.unwrap() + align_offset;
+                let end_x = span_end_x + align_offset;
+                let width = end_x - start_x;
+
+                if width <= 0.0 {
+                    continue;
+                }
+
+                // Add background rectangle
+                if let Some(bg_color) = info.background_color {
+                    self.background_rects.push(BackgroundRect::new(
+                        start_x,
+                        line.top_y,
+                        width,
+                        line.height,
+                        bg_color,
+                    ));
+                }
+
+                // Add decorations
+                for decoration in &info.decorations {
+                    let thickness = base_thickness * decoration.thickness;
+
+                    // Determine Y position based on decoration type
+                    let y = match decoration.decoration_type {
+                        TextDecorationType::Underline => {
+                            // Position below baseline
+                            line.baseline_y + (font_size * 0.15)
+                        }
+                        TextDecorationType::Strikethrough => {
+                            // Position at middle of x-height (roughly 0.3 from baseline)
+                            line.baseline_y - (font_size * 0.3)
+                        }
+                        TextDecorationType::Overline => {
+                            // Position above the text
+                            line.top_y + (thickness / 2.0)
+                        }
+                    };
+
+                    // Determine color (use decoration color, or fall back to text color, or default to black)
+                    let color = decoration.color
+                        .or(info.text_color)
+                        .unwrap_or([0, 0, 0, 255]);
+
+                    self.decoration_lines.push(DecorationLine {
+                        x_start: start_x,
+                        x_end: end_x,
+                        y,
+                        thickness,
+                        color,
+                        style: decoration.style,
+                        decoration_type: decoration.decoration_type,
+                    });
+                }
+            }
+        }
     }
 
     /// Layout text with inline elements.
@@ -1059,6 +1294,8 @@ impl Default for TextLayout {
             options: TextLayoutOptions::default(),
             is_truncated: false,
             inline_elements: Vec::new(),
+            background_rects: Vec::new(),
+            decoration_lines: Vec::new(),
         }
     }
 }
@@ -2086,5 +2323,86 @@ mod tests {
 
         // Second rect should be on second line
         assert_eq!(rects[1].y, 20.0);
+    }
+
+    #[test]
+    fn text_span_with_background_color() {
+        let span = TextSpan::new("Highlighted")
+            .with_background_color([255, 255, 0, 128]);
+
+        assert_eq!(span.text, "Highlighted");
+        assert_eq!(span.background_color, Some([255, 255, 0, 128]));
+        assert!(span.decorations.is_empty());
+    }
+
+    #[test]
+    fn text_span_with_decorations() {
+        let span = TextSpan::new("Decorated")
+            .with_underline()
+            .with_strikethrough();
+
+        assert_eq!(span.text, "Decorated");
+        assert_eq!(span.decorations.len(), 2);
+        assert_eq!(span.decorations[0].decoration_type, super::super::TextDecorationType::Underline);
+        assert_eq!(span.decorations[1].decoration_type, super::super::TextDecorationType::Strikethrough);
+    }
+
+    #[test]
+    fn text_span_with_wavy_underline() {
+        let span = TextSpan::new("Error")
+            .with_wavy_underline();
+
+        assert_eq!(span.decorations.len(), 1);
+        assert_eq!(span.decorations[0].decoration_type, super::super::TextDecorationType::Underline);
+        assert_eq!(span.decorations[0].style, super::super::TextDecorationStyle::Wavy);
+    }
+
+    #[test]
+    fn text_span_with_overline() {
+        let span = TextSpan::new("Overlined")
+            .with_overline();
+
+        assert_eq!(span.decorations.len(), 1);
+        assert_eq!(span.decorations[0].decoration_type, super::super::TextDecorationType::Overline);
+    }
+
+    #[test]
+    fn text_span_combined_styling() {
+        let font = Font::new(FontFamily::SansSerif, 16.0);
+        let span = TextSpan::new("Styled")
+            .with_color([255, 0, 0, 255])
+            .with_background_color([255, 255, 0, 128])
+            .with_underline()
+            .bold(&font);
+
+        assert_eq!(span.text, "Styled");
+        assert_eq!(span.color, Some([255, 0, 0, 255]));
+        assert_eq!(span.background_color, Some([255, 255, 0, 128]));
+        assert_eq!(span.decorations.len(), 1);
+        assert!(span.font.is_some());
+    }
+
+    #[test]
+    fn background_rect_new() {
+        let rect = BackgroundRect::new(10.0, 20.0, 100.0, 30.0, [255, 0, 0, 255]);
+        assert_eq!(rect.x, 10.0);
+        assert_eq!(rect.y, 20.0);
+        assert_eq!(rect.width, 100.0);
+        assert_eq!(rect.height, 30.0);
+        assert_eq!(rect.color, [255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn decoration_line_width() {
+        let line = DecorationLine {
+            x_start: 10.0,
+            x_end: 110.0,
+            y: 50.0,
+            thickness: 1.5,
+            color: [0, 0, 0, 255],
+            style: super::super::TextDecorationStyle::Solid,
+            decoration_type: super::super::TextDecorationType::Underline,
+        };
+        assert_eq!(line.width(), 100.0);
     }
 }

@@ -37,6 +37,7 @@ cosmic-text = { workspace = true }
 fontdb = { workspace = true }
 ttf-parser = { workspace = true }
 sys-locale = { workspace = true }
+unicode-segmentation = { workspace = true }
 
 # Shader hot-reload (optional)
 notify = { workspace = true, optional = true }

@@ -37,6 +37,7 @@ use std::ops::Range;
 
 use cosmic_text::{Attrs, Buffer, CacheKeyFlags, Metrics, Shaping, Wrap};
 use fontdb::ID as FontFaceId;
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Font, FontStyle, FontSystem, FontWeight};
 #[cfg(test)]
@@ -1062,6 +1063,422 @@ impl Default for TextLayout {
     }
 }
 
+/// A rectangle representing a selection region in text.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SelectionRect {
+    /// X position of the selection rectangle.
+    pub x: f32,
+    /// Y position of the selection rectangle (top of line).
+    pub y: f32,
+    /// Width of the selection rectangle.
+    pub width: f32,
+    /// Height of the selection rectangle.
+    pub height: f32,
+}
+
+impl SelectionRect {
+    /// Create a new selection rectangle.
+    pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
+        Self { x, y, width, height }
+    }
+
+    /// Check if a point is within this rectangle.
+    pub fn contains(&self, x: f32, y: f32) -> bool {
+        x >= self.x && x < self.x + self.width && y >= self.y && y < self.y + self.height
+    }
+
+    /// Get the right edge x position.
+    pub fn right(&self) -> f32 {
+        self.x + self.width
+    }
+
+    /// Get the bottom edge y position.
+    pub fn bottom(&self) -> f32 {
+        self.y + self.height
+    }
+}
+
+// =============================================================================
+// Text Editing Support
+// =============================================================================
+
+impl TextLayout {
+    // -------------------------------------------------------------------------
+    // Word Boundary Detection
+    // -------------------------------------------------------------------------
+
+    /// Find the start of the word at or before the given byte offset.
+    ///
+    /// Returns the byte offset of the word boundary. If the offset is in the
+    /// middle of a word, returns the start of that word. If the offset is at
+    /// whitespace or punctuation, returns the start of the previous word.
+    pub fn word_boundary_before(&self, offset: usize) -> usize {
+        if offset == 0 || self.text.is_empty() {
+            return 0;
+        }
+
+        let offset = offset.min(self.text.len());
+        let mut last_word_start = 0;
+        let mut current_word_start = None;
+
+        for (idx, word) in self.text.split_word_bound_indices() {
+            let end = idx + word.len();
+
+            // Track starts of actual words (alphanumeric content)
+            if word.chars().any(|c| c.is_alphanumeric()) {
+                if idx <= offset && offset <= end {
+                    // We're inside or at the start of this word
+                    current_word_start = Some(idx);
+                } else if idx < offset {
+                    // This word is before our offset
+                    last_word_start = idx;
+                }
+            }
+        }
+
+        // If we're in a word, return its start; otherwise return last word start
+        current_word_start.unwrap_or(last_word_start)
+    }
+
+    /// Find the end of the word at or after the given byte offset.
+    ///
+    /// Returns the byte offset of the word boundary. If the offset is in the
+    /// middle of a word, returns the end of that word. If the offset is at
+    /// whitespace or punctuation, returns the end of the next word.
+    pub fn word_boundary_after(&self, offset: usize) -> usize {
+        if offset >= self.text.len() || self.text.is_empty() {
+            return self.text.len();
+        }
+
+        for (idx, word) in self.text.split_word_bound_indices() {
+            let end = idx + word.len();
+            if end > offset && word.chars().any(|c| c.is_alphanumeric()) {
+                return end;
+            }
+        }
+
+        self.text.len()
+    }
+
+    /// Get the word range containing the given byte offset.
+    ///
+    /// Returns the byte range of the word. If the offset is at whitespace
+    /// or punctuation, returns an empty range at that position.
+    pub fn word_at_offset(&self, offset: usize) -> Range<usize> {
+        if self.text.is_empty() {
+            return 0..0;
+        }
+
+        let offset = offset.min(self.text.len());
+
+        for (idx, word) in self.text.split_word_bound_indices() {
+            let end = idx + word.len();
+            if idx <= offset && offset < end {
+                // Only return range for actual words
+                if word.chars().any(|c| c.is_alphanumeric()) {
+                    return idx..end;
+                }
+                // For non-word segments, return empty range
+                return offset..offset;
+            }
+        }
+
+        self.text.len()..self.text.len()
+    }
+
+    // -------------------------------------------------------------------------
+    // Selection Rendering
+    // -------------------------------------------------------------------------
+
+    /// Calculate selection rectangles for the given byte range.
+    ///
+    /// Returns a vector of rectangles that, when rendered, highlight the
+    /// selected text. For multi-line selections, multiple rectangles are
+    /// returned (one per line).
+    ///
+    /// The rectangles are positioned relative to the layout origin and
+    /// account for text alignment.
+    pub fn selection_rects(&self, start: usize, end: usize) -> Vec<SelectionRect> {
+        if start >= end || self.lines.is_empty() {
+            return Vec::new();
+        }
+
+        let start = start.min(self.text.len());
+        let end = end.min(self.text.len());
+
+        let mut rects = Vec::new();
+
+        for line in &self.lines {
+            // Skip lines that don't overlap with selection
+            if line.text_range.end <= start || line.text_range.start >= end {
+                continue;
+            }
+
+            // Calculate the portion of this line that's selected
+            let line_start = start.max(line.text_range.start);
+            let line_end = end.min(line.text_range.end);
+
+            let align_offset = self.alignment_offset(line);
+
+            // Get x positions for selection bounds
+            let x_start = line.x_for_offset(line_start) + align_offset;
+            let x_end = if line_end >= line.text_range.end {
+                // Selection extends to end of line
+                line.width + align_offset
+            } else {
+                line.x_for_offset(line_end) + align_offset
+            };
+
+            let width = (x_end - x_start).max(0.0);
+
+            // Use a minimum width for empty selections at line boundaries
+            let width = if width < 1.0 && line_start < line_end {
+                // At least show something for selections of whitespace/newlines
+                4.0
+            } else {
+                width
+            };
+
+            rects.push(SelectionRect::new(x_start, line.top_y, width, line.height));
+        }
+
+        rects
+    }
+
+    // -------------------------------------------------------------------------
+    // Cursor Navigation
+    // -------------------------------------------------------------------------
+
+    /// Move the cursor left by one grapheme cluster.
+    ///
+    /// Returns the new byte offset. If already at the start, returns 0.
+    pub fn move_cursor_left(&self, offset: usize) -> usize {
+        if offset == 0 || self.text.is_empty() {
+            return 0;
+        }
+
+        let offset = offset.min(self.text.len());
+
+        // Find the grapheme cluster before the current offset
+        let mut prev_offset = 0;
+        for (idx, _) in self.text.grapheme_indices(true) {
+            if idx >= offset {
+                break;
+            }
+            prev_offset = idx;
+        }
+
+        prev_offset
+    }
+
+    /// Move the cursor right by one grapheme cluster.
+    ///
+    /// Returns the new byte offset. If already at the end, returns text length.
+    pub fn move_cursor_right(&self, offset: usize) -> usize {
+        if offset >= self.text.len() || self.text.is_empty() {
+            return self.text.len();
+        }
+
+        // Find the next grapheme cluster after the current offset
+        for (idx, grapheme) in self.text.grapheme_indices(true) {
+            if idx >= offset {
+                return idx + grapheme.len();
+            }
+        }
+
+        self.text.len()
+    }
+
+    /// Move the cursor left by one word.
+    ///
+    /// Skips over whitespace and punctuation to find the start of the
+    /// previous word. Returns 0 if at the start.
+    pub fn move_cursor_word_left(&self, offset: usize) -> usize {
+        if offset == 0 || self.text.is_empty() {
+            return 0;
+        }
+
+        let offset = offset.min(self.text.len());
+
+        // First, skip any whitespace/punctuation to the left
+        let mut current = offset;
+        while current > 0 {
+            let prev = self.move_cursor_left(current);
+            let char_at_prev = self.text[prev..current].chars().next();
+            if let Some(c) = char_at_prev {
+                if c.is_alphanumeric() {
+                    break;
+                }
+            }
+            current = prev;
+        }
+
+        // Then find the start of the word
+        self.word_boundary_before(current)
+    }
+
+    /// Move the cursor right by one word.
+    ///
+    /// Skips over whitespace and punctuation to find the end of the
+    /// next word. Returns text length if at the end.
+    pub fn move_cursor_word_right(&self, offset: usize) -> usize {
+        if offset >= self.text.len() || self.text.is_empty() {
+            return self.text.len();
+        }
+
+        // First, skip any whitespace/punctuation to the right
+        let mut current = offset;
+        while current < self.text.len() {
+            let char_at = self.text[current..].chars().next();
+            if let Some(c) = char_at {
+                if c.is_alphanumeric() {
+                    break;
+                }
+            }
+            current = self.move_cursor_right(current);
+        }
+
+        // Then find the end of the word
+        self.word_boundary_after(current)
+    }
+
+    /// Move the cursor to the start of the current line.
+    ///
+    /// Returns the byte offset of the first character on the line
+    /// containing the given offset.
+    pub fn move_cursor_to_line_start(&self, offset: usize) -> usize {
+        if self.lines.is_empty() {
+            return 0;
+        }
+
+        for line in &self.lines {
+            if line.text_range.contains(&offset)
+                || offset == line.text_range.start
+                || (offset == line.text_range.end && line.is_hard_break)
+            {
+                return line.text_range.start;
+            }
+        }
+
+        // If past the end, return start of last line
+        if let Some(line) = self.lines.last() {
+            return line.text_range.start;
+        }
+
+        0
+    }
+
+    /// Move the cursor to the end of the current line.
+    ///
+    /// Returns the byte offset of the last character on the line
+    /// containing the given offset (before any trailing newline).
+    pub fn move_cursor_to_line_end(&self, offset: usize) -> usize {
+        if self.lines.is_empty() {
+            return self.text.len();
+        }
+
+        for line in &self.lines {
+            if line.text_range.contains(&offset)
+                || offset == line.text_range.start
+                || (offset == line.text_range.end && line.is_hard_break)
+            {
+                // Return end of line content (excluding newline if present)
+                let mut end = line.text_range.end;
+                if end > 0 && self.text.get(end - 1..end) == Some("\n") {
+                    end -= 1;
+                }
+                return end;
+            }
+        }
+
+        // If past the end, return end of text
+        self.text.len()
+    }
+
+    /// Move the cursor up to the previous line.
+    ///
+    /// Attempts to maintain the same horizontal position (preferred_x).
+    /// Returns the new byte offset, or the current offset if on the first line.
+    ///
+    /// The `preferred_x` parameter should be the x position the cursor was
+    /// originally at before any vertical movement began. This allows the
+    /// cursor to return to its preferred column when moving through lines
+    /// of varying lengths.
+    pub fn move_cursor_up(&self, offset: usize, preferred_x: f32) -> usize {
+        if self.lines.is_empty() {
+            return 0;
+        }
+
+        // Find current line
+        let current_line_idx = self.line_index_for_offset(offset).unwrap_or(0);
+
+        if current_line_idx == 0 {
+            // Already on first line
+            return self.lines[0].text_range.start;
+        }
+
+        // Move to previous line
+        let prev_line = &self.lines[current_line_idx - 1];
+        let align_offset = self.alignment_offset(prev_line);
+        prev_line.offset_at_x(preferred_x - align_offset)
+    }
+
+    /// Move the cursor down to the next line.
+    ///
+    /// Attempts to maintain the same horizontal position (preferred_x).
+    /// Returns the new byte offset, or the current offset if on the last line.
+    ///
+    /// The `preferred_x` parameter should be the x position the cursor was
+    /// originally at before any vertical movement began.
+    pub fn move_cursor_down(&self, offset: usize, preferred_x: f32) -> usize {
+        if self.lines.is_empty() {
+            return self.text.len();
+        }
+
+        // Find current line
+        let current_line_idx = self.line_index_for_offset(offset).unwrap_or(self.lines.len() - 1);
+
+        if current_line_idx >= self.lines.len() - 1 {
+            // Already on last line
+            return self.lines.last().map(|l| l.text_range.end).unwrap_or(self.text.len());
+        }
+
+        // Move to next line
+        let next_line = &self.lines[current_line_idx + 1];
+        let align_offset = self.alignment_offset(next_line);
+        next_line.offset_at_x(preferred_x - align_offset)
+    }
+
+    /// Get the line index containing the given byte offset.
+    fn line_index_for_offset(&self, offset: usize) -> Option<usize> {
+        for (i, line) in self.lines.iter().enumerate() {
+            if line.text_range.contains(&offset) || offset == line.text_range.start {
+                return Some(i);
+            }
+            // Handle cursor at end of line with hard break
+            if offset == line.text_range.end && line.is_hard_break {
+                return Some(i);
+            }
+        }
+
+        // If offset is at end of text, return last line
+        if offset == self.text.len() && !self.lines.is_empty() {
+            return Some(self.lines.len() - 1);
+        }
+
+        None
+    }
+
+    /// Get the x position of the cursor at the given byte offset.
+    ///
+    /// This is useful for tracking the preferred x position during
+    /// vertical cursor navigation.
+    pub fn cursor_x_at_offset(&self, offset: usize) -> f32 {
+        let (x, _) = self.point_for_offset(offset);
+        x
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1259,5 +1676,415 @@ mod tests {
         layout.options.vertical_align = VerticalAlign::Bottom;
         let expected = 100.0 - 20.0;
         assert!((layout.vertical_offset() - expected).abs() < 0.01);
+    }
+
+    // =========================================================================
+    // Text Editing Support Tests
+    // =========================================================================
+
+    #[test]
+    fn selection_rect_creation() {
+        let rect = SelectionRect::new(10.0, 20.0, 100.0, 30.0);
+        assert_eq!(rect.x, 10.0);
+        assert_eq!(rect.y, 20.0);
+        assert_eq!(rect.width, 100.0);
+        assert_eq!(rect.height, 30.0);
+        assert_eq!(rect.right(), 110.0);
+        assert_eq!(rect.bottom(), 50.0);
+    }
+
+    #[test]
+    fn selection_rect_contains() {
+        let rect = SelectionRect::new(10.0, 20.0, 100.0, 30.0);
+
+        // Inside
+        assert!(rect.contains(50.0, 35.0));
+        assert!(rect.contains(10.0, 20.0)); // Top-left corner
+
+        // Outside
+        assert!(!rect.contains(5.0, 35.0)); // Left of rect
+        assert!(!rect.contains(115.0, 35.0)); // Right of rect
+        assert!(!rect.contains(50.0, 15.0)); // Above rect
+        assert!(!rect.contains(50.0, 55.0)); // Below rect
+
+        // On boundary (exclusive right/bottom)
+        assert!(!rect.contains(110.0, 35.0)); // Right edge
+        assert!(!rect.contains(50.0, 50.0)); // Bottom edge
+    }
+
+    #[test]
+    fn word_boundary_before_basic() {
+        let mut layout = TextLayout::default();
+        layout.text = "Hello World Test".to_string();
+
+        // From middle of "World"
+        assert_eq!(layout.word_boundary_before(8), 6); // "World" starts at 6
+
+        // From start of "World"
+        assert_eq!(layout.word_boundary_before(6), 6);
+
+        // From space before "World"
+        assert_eq!(layout.word_boundary_before(5), 0); // Goes back to "Hello"
+
+        // From start
+        assert_eq!(layout.word_boundary_before(0), 0);
+
+        // From end
+        assert_eq!(layout.word_boundary_before(16), 12); // "Test" starts at 12
+    }
+
+    #[test]
+    fn word_boundary_after_basic() {
+        let mut layout = TextLayout::default();
+        layout.text = "Hello World Test".to_string();
+
+        // From start of "Hello"
+        assert_eq!(layout.word_boundary_after(0), 5); // "Hello" ends at 5
+
+        // From middle of "World"
+        assert_eq!(layout.word_boundary_after(8), 11); // "World" ends at 11
+
+        // From space
+        assert_eq!(layout.word_boundary_after(5), 11); // Next word "World" ends at 11
+
+        // From end
+        assert_eq!(layout.word_boundary_after(16), 16);
+    }
+
+    #[test]
+    fn word_at_offset_basic() {
+        let mut layout = TextLayout::default();
+        layout.text = "Hello World".to_string();
+
+        // Inside "Hello"
+        assert_eq!(layout.word_at_offset(2), 0..5);
+
+        // Inside "World"
+        assert_eq!(layout.word_at_offset(8), 6..11);
+
+        // On space (non-word)
+        let range = layout.word_at_offset(5);
+        assert!(range.is_empty() || range == (5..5));
+    }
+
+    #[test]
+    fn word_boundary_empty_text() {
+        let layout = TextLayout::default();
+
+        assert_eq!(layout.word_boundary_before(0), 0);
+        assert_eq!(layout.word_boundary_before(10), 0);
+        assert_eq!(layout.word_boundary_after(0), 0);
+        assert_eq!(layout.word_boundary_after(10), 0);
+        assert_eq!(layout.word_at_offset(0), 0..0);
+    }
+
+    #[test]
+    fn cursor_left_right_basic() {
+        let mut layout = TextLayout::default();
+        layout.text = "Hello".to_string();
+
+        // Move right from start
+        assert_eq!(layout.move_cursor_right(0), 1);
+        assert_eq!(layout.move_cursor_right(1), 2);
+
+        // Move left from end
+        assert_eq!(layout.move_cursor_left(5), 4);
+        assert_eq!(layout.move_cursor_left(4), 3);
+
+        // Edge cases
+        assert_eq!(layout.move_cursor_left(0), 0);
+        assert_eq!(layout.move_cursor_right(5), 5);
+    }
+
+    #[test]
+    fn cursor_left_right_unicode() {
+        let mut layout = TextLayout::default();
+        layout.text = "Héllo 👋".to_string(); // é is 2 bytes, 👋 is 4 bytes
+
+        // Move through 'H'
+        assert_eq!(layout.move_cursor_right(0), 1);
+
+        // Move through 'é' (2 bytes)
+        let pos = layout.move_cursor_right(1);
+        assert!(pos > 1); // Should skip the whole grapheme
+
+        // Move through emoji (4 bytes)
+        let emoji_start = "Héllo ".len();
+        let pos = layout.move_cursor_right(emoji_start);
+        assert_eq!(pos, layout.text.len()); // Should skip the whole emoji
+    }
+
+    #[test]
+    fn cursor_word_navigation() {
+        let mut layout = TextLayout::default();
+        layout.text = "Hello World Test".to_string();
+
+        // Word right from start
+        assert_eq!(layout.move_cursor_word_right(0), 5); // End of "Hello"
+
+        // Word right from middle of word
+        assert_eq!(layout.move_cursor_word_right(2), 5); // End of "Hello"
+
+        // Word right from space
+        assert_eq!(layout.move_cursor_word_right(5), 11); // End of "World"
+
+        // Word left from end
+        assert_eq!(layout.move_cursor_word_left(16), 12); // Start of "Test"
+
+        // Word left from middle of word
+        assert_eq!(layout.move_cursor_word_left(14), 12); // Start of "Test"
+
+        // Word left from start of word
+        assert_eq!(layout.move_cursor_word_left(12), 6); // Start of "World"
+    }
+
+    #[test]
+    fn cursor_line_navigation() {
+        let mut layout = TextLayout::default();
+        layout.text = "Line one\nLine two".to_string();
+        layout.lines = vec![
+            LayoutLine {
+                glyphs: Vec::new(),
+                baseline_y: 16.0,
+                top_y: 0.0,
+                height: 20.0,
+                width: 100.0,
+                text_range: 0..9, // "Line one\n"
+                is_hard_break: true,
+            },
+            LayoutLine {
+                glyphs: Vec::new(),
+                baseline_y: 36.0,
+                top_y: 20.0,
+                height: 20.0,
+                width: 100.0,
+                text_range: 9..17, // "Line two"
+                is_hard_break: false,
+            },
+        ];
+
+        // Line start from middle of first line
+        assert_eq!(layout.move_cursor_to_line_start(4), 0);
+
+        // Line start from second line
+        assert_eq!(layout.move_cursor_to_line_start(12), 9);
+
+        // Line end from middle of first line (excluding newline)
+        assert_eq!(layout.move_cursor_to_line_end(4), 8);
+
+        // Line end from second line
+        assert_eq!(layout.move_cursor_to_line_end(12), 17);
+    }
+
+    #[test]
+    fn cursor_vertical_navigation() {
+        let mut layout = TextLayout::default();
+        layout.text = "Line one\nLine two".to_string();
+        layout.lines = vec![
+            LayoutLine {
+                glyphs: vec![
+                    LayoutGlyph {
+                        glyph_id: 1,
+                        font_id: fontdb::ID::dummy(),
+                        x: 0.0,
+                        y: 16.0,
+                        width: 10.0,
+                        x_offset: 0.0,
+                        y_offset: 0.0,
+                        cluster: 0..1,
+                        font_size: 16.0,
+                        cache_key_flags: CacheKeyFlags::empty(),
+                        level: 0,
+                        color: None,
+                        metadata: 0,
+                    },
+                ],
+                baseline_y: 16.0,
+                top_y: 0.0,
+                height: 20.0,
+                width: 100.0,
+                text_range: 0..9,
+                is_hard_break: true,
+            },
+            LayoutLine {
+                glyphs: vec![
+                    LayoutGlyph {
+                        glyph_id: 1,
+                        font_id: fontdb::ID::dummy(),
+                        x: 0.0,
+                        y: 36.0,
+                        width: 10.0,
+                        x_offset: 0.0,
+                        y_offset: 0.0,
+                        cluster: 9..10,
+                        font_size: 16.0,
+                        cache_key_flags: CacheKeyFlags::empty(),
+                        level: 0,
+                        color: None,
+                        metadata: 0,
+                    },
+                ],
+                baseline_y: 36.0,
+                top_y: 20.0,
+                height: 20.0,
+                width: 100.0,
+                text_range: 9..17,
+                is_hard_break: false,
+            },
+        ];
+
+        // Move down from first line
+        let new_offset = layout.move_cursor_down(4, 5.0);
+        assert!(new_offset >= 9 && new_offset <= 17); // Should be on second line
+
+        // Move up from second line
+        let new_offset = layout.move_cursor_up(12, 5.0);
+        assert!(new_offset <= 9); // Should be on first line
+
+        // Move up from first line (should stay at start)
+        assert_eq!(layout.move_cursor_up(4, 5.0), 0);
+
+        // Move down from last line (should go to end)
+        let end_offset = layout.move_cursor_down(12, 5.0);
+        assert_eq!(end_offset, 17);
+    }
+
+    #[test]
+    fn selection_rects_single_line() {
+        let mut layout = TextLayout::default();
+        layout.text = "Hello World".to_string();
+        layout.lines = vec![LayoutLine {
+            glyphs: vec![
+                LayoutGlyph {
+                    glyph_id: 1,
+                    font_id: fontdb::ID::dummy(),
+                    x: 0.0,
+                    y: 16.0,
+                    width: 50.0,
+                    x_offset: 0.0,
+                    y_offset: 0.0,
+                    cluster: 0..5, // "Hello"
+                    font_size: 16.0,
+                    cache_key_flags: CacheKeyFlags::empty(),
+                    level: 0,
+                    color: None,
+                    metadata: 0,
+                },
+                LayoutGlyph {
+                    glyph_id: 2,
+                    font_id: fontdb::ID::dummy(),
+                    x: 50.0,
+                    y: 16.0,
+                    width: 10.0,
+                    x_offset: 0.0,
+                    y_offset: 0.0,
+                    cluster: 5..6, // " "
+                    font_size: 16.0,
+                    cache_key_flags: CacheKeyFlags::empty(),
+                    level: 0,
+                    color: None,
+                    metadata: 0,
+                },
+                LayoutGlyph {
+                    glyph_id: 3,
+                    font_id: fontdb::ID::dummy(),
+                    x: 60.0,
+                    y: 16.0,
+                    width: 50.0,
+                    x_offset: 0.0,
+                    y_offset: 0.0,
+                    cluster: 6..11, // "World"
+                    font_size: 16.0,
+                    cache_key_flags: CacheKeyFlags::empty(),
+                    level: 0,
+                    color: None,
+                    metadata: 0,
+                },
+            ],
+            baseline_y: 16.0,
+            top_y: 0.0,
+            height: 20.0,
+            width: 110.0,
+            text_range: 0..11,
+            is_hard_break: false,
+        }];
+
+        // Select "Hello"
+        let rects = layout.selection_rects(0, 5);
+        assert_eq!(rects.len(), 1);
+        assert_eq!(rects[0].x, 0.0);
+        assert!(rects[0].width > 0.0);
+
+        // Empty selection
+        let rects = layout.selection_rects(5, 5);
+        assert!(rects.is_empty());
+
+        // Invalid selection (start > end)
+        let rects = layout.selection_rects(10, 5);
+        assert!(rects.is_empty());
+    }
+
+    #[test]
+    fn selection_rects_multi_line() {
+        let mut layout = TextLayout::default();
+        layout.text = "Line one\nLine two".to_string();
+        layout.lines = vec![
+            LayoutLine {
+                glyphs: vec![LayoutGlyph {
+                    glyph_id: 1,
+                    font_id: fontdb::ID::dummy(),
+                    x: 0.0,
+                    y: 16.0,
+                    width: 80.0,
+                    x_offset: 0.0,
+                    y_offset: 0.0,
+                    cluster: 0..8, // "Line one"
+                    font_size: 16.0,
+                    cache_key_flags: CacheKeyFlags::empty(),
+                    level: 0,
+                    color: None,
+                    metadata: 0,
+                }],
+                baseline_y: 16.0,
+                top_y: 0.0,
+                height: 20.0,
+                width: 80.0,
+                text_range: 0..9, // Including newline
+                is_hard_break: true,
+            },
+            LayoutLine {
+                glyphs: vec![LayoutGlyph {
+                    glyph_id: 2,
+                    font_id: fontdb::ID::dummy(),
+                    x: 0.0,
+                    y: 36.0,
+                    width: 80.0,
+                    x_offset: 0.0,
+                    y_offset: 0.0,
+                    cluster: 9..17, // "Line two"
+                    font_size: 16.0,
+                    cache_key_flags: CacheKeyFlags::empty(),
+                    level: 0,
+                    color: None,
+                    metadata: 0,
+                }],
+                baseline_y: 36.0,
+                top_y: 20.0,
+                height: 20.0,
+                width: 80.0,
+                text_range: 9..17,
+                is_hard_break: false,
+            },
+        ];
+
+        // Select across both lines
+        let rects = layout.selection_rects(4, 14);
+        assert_eq!(rects.len(), 2); // One rect per line
+
+        // First rect should be on first line
+        assert_eq!(rects[0].y, 0.0);
+
+        // Second rect should be on second line
+        assert_eq!(rects[1].y, 20.0);
     }
 }

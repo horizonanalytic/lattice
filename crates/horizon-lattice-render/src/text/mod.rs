@@ -119,8 +119,8 @@ pub use glyph_cache::{
     GlyphCache, GlyphCacheStats, GlyphPixelFormat, GlyphRenderMode, RasterizedGlyph,
 };
 pub use layout::{
-    HorizontalAlign, InlineElement, InlineVerticalAlign, LayoutGlyph, LayoutLine, TextLayout,
-    TextLayoutOptions, TextSpan, VerticalAlign, WrapMode,
+    HorizontalAlign, InlineElement, InlineVerticalAlign, LayoutGlyph, LayoutLine, SelectionRect,
+    TextLayout, TextLayoutOptions, TextSpan, VerticalAlign, WrapMode,
 };
 pub use shaping::{GlyphId, ShapedGlyph, ShapedText, ShapingOptions, TextShaper};
 pub use types::{FontFamily, FontMetrics, FontQuery, FontStretch, FontStyle, FontWeight};

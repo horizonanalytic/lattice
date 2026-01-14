@@ -35,6 +35,7 @@ cosmic-text = "0.12"
 fontdb = "0.16"
 ttf-parser = "0.21"
 sys-locale = "0.3"
+unicode-segmentation = "1.12"
 
 # Proc-macro dependencies
 syn = { version = "2.0", features = ["full"] }

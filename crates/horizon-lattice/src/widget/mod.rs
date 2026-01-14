@@ -146,4 +146,7 @@ pub use painting::{FrameRenderer, FrameStats, RepaintManager};
 pub use traits::{AsWidget, PaintContext, Widget};
 
 // Re-export widgets for convenience
-pub use widgets::{AbstractButton, CheckBox, CheckState, ElideMode, Label, Orientation, ProgressBar, PushButton};
+pub use widgets::{
+    AbstractButton, CheckBox, CheckState, ElideMode, Label, Orientation, ProgressBar, PushButton,
+    ScrollArea, ScrollBar, ScrollBarPolicy,
+};

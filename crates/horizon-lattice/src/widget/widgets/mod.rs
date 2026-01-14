@@ -13,6 +13,8 @@
 //! - [`Frame`]: Container widget with border decoration
 //! - [`Separator`]: Visual dividing line
 //! - [`Spacer`]: Invisible widget for layout spacing
+//! - [`ScrollBar`]: Standalone scrollbar widget
+//! - [`ScrollArea`]: Scrollable container widget
 
 mod abstract_button;
 mod button_group;
@@ -23,6 +25,8 @@ mod line_edit;
 mod progress_bar;
 mod push_button;
 mod radio_button;
+mod scroll_area;
+mod scroll_bar;
 mod separator;
 mod spacer;
 
@@ -35,5 +39,7 @@ pub use line_edit::{EchoMode, LineEdit};
 pub use progress_bar::{Orientation, ProgressBar};
 pub use push_button::PushButton;
 pub use radio_button::RadioButton;
+pub use scroll_area::{ScrollArea, ScrollBarPolicy};
+pub use scroll_bar::ScrollBar;
 pub use separator::{Separator, SeparatorOrientation};
 pub use spacer::Spacer;

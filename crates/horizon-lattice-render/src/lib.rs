@@ -159,6 +159,8 @@ pub use text::{
     // Text layout
     BackgroundRect, DecorationLine, HorizontalAlign, LayoutGlyph, LayoutLine, TextLayout,
     TextLayoutOptions, TextSpan, VerticalAlign, WrapMode,
+    // Rich text
+    RichText, RichTextSpan,
     // Text decoration
     TextDecoration, TextDecorationStyle, TextDecorationType,
     // Glyph rendering

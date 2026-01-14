@@ -33,7 +33,7 @@ use parking_lot::RwLock;
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, Font, FontFamily, FontSystem, HorizontalAlign, Point, Size, TextLayout,
+    Color, Font, FontFamily, FontSystem, HorizontalAlign, Point, RichText, Size, TextLayout,
     TextLayoutOptions, TextRenderer, VerticalAlign, WrapMode,
 };
 
@@ -59,7 +59,28 @@ pub enum ElideMode {
 /// A widget that displays text.
 ///
 /// Label is the primary widget for displaying non-editable text. It supports
-/// various text formatting options including alignment, wrapping, and elision.
+/// various text formatting options including alignment, wrapping, elision,
+/// and rich text with HTML formatting.
+///
+/// # Plain Text vs Rich Text
+///
+/// Labels can display either plain text or rich text:
+///
+/// ```ignore
+/// // Plain text
+/// let plain = Label::new("Hello, World!");
+///
+/// // Rich text from HTML
+/// let rich = Label::from_html("Hello <b>bold</b> and <i>italic</i>!");
+/// ```
+///
+/// Rich text supports basic HTML tags:
+/// - `<b>`, `<strong>` for bold
+/// - `<i>`, `<em>` for italic
+/// - `<u>` for underline
+/// - `<s>`, `<del>` for strikethrough
+/// - `<font color="..." size="...">` for color and size
+/// - `<br>` for line breaks
 ///
 /// # Layout Behavior
 ///
@@ -76,8 +97,11 @@ pub struct Label {
     /// Widget base for common functionality.
     base: WidgetBase,
 
-    /// The text to display.
+    /// The plain text to display (used when rich_text is None).
     text: String,
+
+    /// Rich text content (takes precedence over text when Some).
+    rich_text: Option<RichText>,
 
     /// Horizontal text alignment within the widget bounds.
     horizontal_align: HorizontalAlign,
@@ -130,6 +154,7 @@ impl Label {
         Self {
             base,
             text: text.into(),
+            rich_text: None,
             horizontal_align: HorizontalAlign::Left,
             vertical_align: VerticalAlign::Top,
             word_wrap: false,
@@ -141,18 +166,58 @@ impl Label {
         }
     }
 
-    /// Get the current text.
+    /// Create a new label from HTML rich text.
+    ///
+    /// The HTML is parsed to extract formatting. Supported tags:
+    /// - `<b>`, `<strong>` for bold
+    /// - `<i>`, `<em>` for italic
+    /// - `<u>` for underline
+    /// - `<s>`, `<del>` for strikethrough
+    /// - `<font color="..." size="...">` for color and size
+    /// - `<br>` for line breaks
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let label = Label::from_html("Hello <b>bold</b> and <i>italic</i>!");
+    /// ```
+    pub fn from_html(html: impl AsRef<str>) -> Self {
+        let rich = RichText::from_html(html.as_ref());
+        let plain = rich.plain_text();
+
+        let mut base = WidgetBase::new::<Self>();
+        base.set_focus_policy(FocusPolicy::NoFocus);
+
+        Self {
+            base,
+            text: plain,
+            rich_text: Some(rich),
+            horizontal_align: HorizontalAlign::Left,
+            vertical_align: VerticalAlign::Top,
+            word_wrap: false,
+            elide_mode: ElideMode::None,
+            font: Font::new(FontFamily::SansSerif, 14.0),
+            text_color: Color::BLACK,
+            cached_layout: RwLock::new(None),
+            text_changed: Signal::new(),
+        }
+    }
+
+    /// Get the current plain text content.
+    ///
+    /// If the label contains rich text, this returns the text without formatting.
     pub fn text(&self) -> &str {
         &self.text
     }
 
-    /// Set the text to display.
+    /// Set the text to display (as plain text).
     ///
-    /// This invalidates the cached layout and triggers a repaint.
+    /// This clears any rich text formatting and invalidates the cached layout.
     pub fn set_text(&mut self, text: impl Into<String>) {
         let new_text = text.into();
-        if self.text != new_text {
+        if self.text != new_text || self.rich_text.is_some() {
             self.text = new_text.clone();
+            self.rich_text = None;
             self.invalidate_layout();
             self.base.update();
             self.text_changed.emit(new_text);
@@ -162,8 +227,50 @@ impl Label {
     /// Set the text using builder pattern.
     pub fn with_text(mut self, text: impl Into<String>) -> Self {
         self.text = text.into();
+        self.rich_text = None;
         self.invalidate_layout();
         self
+    }
+
+    /// Check if this label has rich text formatting.
+    pub fn has_rich_text(&self) -> bool {
+        self.rich_text.is_some()
+    }
+
+    /// Get the rich text content, if any.
+    pub fn rich_text(&self) -> Option<&RichText> {
+        self.rich_text.as_ref()
+    }
+
+    /// Set rich text content.
+    ///
+    /// This replaces any existing plain text or rich text.
+    pub fn set_rich_text(&mut self, rich_text: RichText) {
+        self.text = rich_text.plain_text();
+        self.rich_text = Some(rich_text);
+        self.invalidate_layout();
+        self.base.update();
+        self.text_changed.emit(self.text.clone());
+    }
+
+    /// Set rich text from HTML.
+    ///
+    /// This is a convenience method that parses the HTML and sets the rich text.
+    pub fn set_html(&mut self, html: impl AsRef<str>) {
+        self.set_rich_text(RichText::from_html(html.as_ref()));
+    }
+
+    /// Set rich text using builder pattern.
+    pub fn with_rich_text(mut self, rich_text: RichText) -> Self {
+        self.text = rich_text.plain_text();
+        self.rich_text = Some(rich_text);
+        self.invalidate_layout();
+        self
+    }
+
+    /// Set rich text from HTML using builder pattern.
+    pub fn with_html(self, html: impl AsRef<str>) -> Self {
+        self.with_rich_text(RichText::from_html(html.as_ref()))
     }
 
     /// Get the horizontal alignment.
@@ -367,14 +474,27 @@ impl Label {
         // Build new layout
         let options = self.build_layout_options(width_constraint);
 
-        // Handle elide mode by modifying text if needed
-        let display_text = if self.elide_mode != ElideMode::None && width_constraint.is_some() {
-            self.compute_elided_text(font_system, width_constraint.unwrap())
+        let layout = if let Some(ref rich) = self.rich_text {
+            // Rich text rendering
+            // Note: Elision is not currently supported for rich text
+            if self.elide_mode != ElideMode::None && width_constraint.is_some() {
+                // Fall back to plain text for elision
+                let display_text = self.compute_elided_text(font_system, width_constraint.unwrap());
+                TextLayout::with_options(font_system, &display_text, &self.font, options)
+            } else {
+                // Use rich text layout
+                let spans = rich.to_spans(&self.font);
+                TextLayout::rich_text(font_system, &spans, &self.font, options)
+            }
         } else {
-            self.text.clone()
+            // Plain text rendering
+            let display_text = if self.elide_mode != ElideMode::None && width_constraint.is_some() {
+                self.compute_elided_text(font_system, width_constraint.unwrap())
+            } else {
+                self.text.clone()
+            };
+            TextLayout::with_options(font_system, &display_text, &self.font, options)
         };
-
-        let layout = TextLayout::with_options(font_system, &display_text, &self.font, options);
 
         *cached = Some(CachedLayout {
             layout: layout.clone(),
@@ -805,5 +925,84 @@ mod tests {
         let height = label.height_for_width(50.0);
         assert!(height.is_some());
         assert!(height.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn test_from_html() {
+        setup();
+        let label = Label::from_html("Hello <b>bold</b> world!");
+        assert_eq!(label.text(), "Hello bold world!");
+        assert!(label.has_rich_text());
+    }
+
+    #[test]
+    fn test_with_html() {
+        setup();
+        let label = Label::new("placeholder").with_html("Hello <i>italic</i>!");
+        assert_eq!(label.text(), "Hello italic!");
+        assert!(label.has_rich_text());
+    }
+
+    #[test]
+    fn test_set_html() {
+        setup();
+        let mut label = Label::new("Plain text");
+        assert!(!label.has_rich_text());
+
+        label.set_html("<b>Bold</b> text");
+        assert_eq!(label.text(), "Bold text");
+        assert!(label.has_rich_text());
+    }
+
+    #[test]
+    fn test_set_text_clears_rich_text() {
+        setup();
+        let mut label = Label::from_html("<b>Bold</b>");
+        assert!(label.has_rich_text());
+
+        label.set_text("Plain text");
+        assert_eq!(label.text(), "Plain text");
+        assert!(!label.has_rich_text());
+    }
+
+    #[test]
+    fn test_rich_text_access() {
+        setup();
+        let label = Label::from_html("<b>Bold</b> and <i>italic</i>");
+        let rich = label.rich_text().expect("should have rich text");
+        // spans: "Bold" (bold), " and ", "italic" (italic)
+        assert_eq!(rich.spans().len(), 3);
+    }
+
+    #[test]
+    fn test_complex_html() {
+        setup();
+        let label = Label::from_html(
+            "<b>Bold</b> <i>italic</i> <u>underline</u> <s>strikethrough</s>"
+        );
+        assert_eq!(label.text(), "Bold italic underline strikethrough");
+        assert!(label.has_rich_text());
+
+        let rich = label.rich_text().unwrap();
+        // "Bold" (bold), " ", "italic" (italic), " ", "underline" (underline), " ", "strikethrough" (strikethrough)
+        assert!(rich.spans()[0].bold);
+        assert!(rich.spans()[2].italic);
+        assert!(rich.spans()[4].underline);
+        assert!(rich.spans()[6].strikethrough);
+    }
+
+    #[test]
+    fn test_html_with_color() {
+        setup();
+        let label = Label::from_html("<font color=\"red\">Red text</font>");
+        let rich = label.rich_text().unwrap();
+        assert_eq!(rich.spans()[0].color, Some([255, 0, 0, 255]));
+    }
+
+    #[test]
+    fn test_html_with_line_breaks() {
+        setup();
+        let label = Label::from_html("Line 1<br>Line 2<br/>Line 3");
+        assert_eq!(label.text(), "Line 1\nLine 2\nLine 3");
     }
 }

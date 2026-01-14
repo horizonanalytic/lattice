@@ -110,6 +110,7 @@ mod font_system;
 mod glyph_atlas;
 mod glyph_cache;
 mod layout;
+mod rich_text;
 mod shaping;
 mod types;
 
@@ -128,6 +129,7 @@ pub use layout::{
     LayoutGlyph, LayoutLine, SelectionRect, TextLayout, TextLayoutOptions, TextSpan,
     VerticalAlign, WrapMode,
 };
+pub use rich_text::{RichText, RichTextSpan};
 pub use shaping::{GlyphId, ShapedGlyph, ShapedText, ShapingOptions, TextShaper};
 pub use types::{
     FontFamily, FontMetrics, FontQuery, FontStretch, FontStyle, FontWeight, TextDecoration,

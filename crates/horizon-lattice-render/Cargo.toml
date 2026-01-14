@@ -32,6 +32,12 @@ pollster = { workspace = true }
 # Image handling
 image = { workspace = true }
 
+# Text rendering
+cosmic-text = { workspace = true }
+fontdb = { workspace = true }
+ttf-parser = { workspace = true }
+sys-locale = { workspace = true }
+
 # Shader hot-reload (optional)
 notify = { workspace = true, optional = true }
 notify-debouncer-mini = { workspace = true, optional = true }

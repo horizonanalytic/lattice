@@ -104,6 +104,7 @@ mod path;
 mod renderer;
 pub mod stencil;
 mod surface;
+pub mod text;
 mod transform;
 mod types;
 
@@ -146,6 +147,14 @@ pub use layer::{Compositor, Layer, LayerConfig, LayerId};
 
 // Stencil clipping
 pub use stencil::{ClipShape, ClipStack};
+
+// Text rendering
+pub use text::{
+    Font, FontBuilder, FontFaceId, FontFaceInfo, FontFamily, FontFeature, FontLoadError,
+    FontMetrics, FontQuery, FontStretch, FontStyle, FontSystem, FontSystemConfig, FontWeight,
+    // Text shaping
+    GlyphCacheKey, GlyphId, ShapedGlyph, ShapedText, ShapingOptions, TextShaper,
+};
 
 // Shader hot-reload support
 #[cfg(feature = "shader-hot-reload")]

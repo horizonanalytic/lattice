@@ -17,6 +17,7 @@
 //! - [`ScrollArea`]: Scrollable container widget
 //! - [`TabBar`]: Standalone tab bar widget
 //! - [`TabWidget`]: Tabbed page container
+//! - [`StackedWidget`]: Container showing one child at a time
 
 mod abstract_button;
 mod button_group;
@@ -31,6 +32,7 @@ mod scroll_area;
 mod scroll_bar;
 mod separator;
 mod spacer;
+mod stacked_widget;
 mod tab_bar;
 mod tab_widget;
 
@@ -47,5 +49,6 @@ pub use scroll_area::{ScrollArea, ScrollBarPolicy};
 pub use scroll_bar::ScrollBar;
 pub use separator::{Separator, SeparatorOrientation};
 pub use spacer::Spacer;
+pub use stacked_widget::StackedWidget;
 pub use tab_bar::{TabBar, TabPosition};
 pub use tab_widget::TabWidget;

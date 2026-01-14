@@ -15,6 +15,8 @@
 //! - [`Spacer`]: Invisible widget for layout spacing
 //! - [`ScrollBar`]: Standalone scrollbar widget
 //! - [`ScrollArea`]: Scrollable container widget
+//! - [`TabBar`]: Standalone tab bar widget
+//! - [`TabWidget`]: Tabbed page container
 
 mod abstract_button;
 mod button_group;
@@ -29,6 +31,8 @@ mod scroll_area;
 mod scroll_bar;
 mod separator;
 mod spacer;
+mod tab_bar;
+mod tab_widget;
 
 pub use abstract_button::AbstractButton;
 pub use button_group::ButtonGroup;
@@ -43,3 +47,5 @@ pub use scroll_area::{ScrollArea, ScrollBarPolicy};
 pub use scroll_bar::ScrollBar;
 pub use separator::{Separator, SeparatorOrientation};
 pub use spacer::Spacer;
+pub use tab_bar::{TabBar, TabPosition};
+pub use tab_widget::TabWidget;

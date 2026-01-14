@@ -269,6 +269,43 @@ impl MousePressEvent {
     }
 }
 
+/// Mouse double-click event.
+#[derive(Debug, Clone, Copy)]
+pub struct MouseDoubleClickEvent {
+    /// Base event data.
+    pub base: EventBase,
+    /// The button that was double-clicked.
+    pub button: MouseButton,
+    /// Position in widget-local coordinates.
+    pub local_pos: Point,
+    /// Position in window coordinates.
+    pub window_pos: Point,
+    /// Position in global screen coordinates.
+    pub global_pos: Point,
+    /// Keyboard modifiers held during the event.
+    pub modifiers: KeyboardModifiers,
+}
+
+impl MouseDoubleClickEvent {
+    /// Create a new mouse double-click event.
+    pub fn new(
+        button: MouseButton,
+        local_pos: Point,
+        window_pos: Point,
+        global_pos: Point,
+        modifiers: KeyboardModifiers,
+    ) -> Self {
+        Self {
+            base: EventBase::new(),
+            button,
+            local_pos,
+            window_pos,
+            global_pos,
+            modifiers,
+        }
+    }
+}
+
 /// Mouse release event.
 #[derive(Debug, Clone, Copy)]
 pub struct MouseReleaseEvent {
@@ -848,6 +885,8 @@ pub enum WidgetEvent {
     Hide(HideEvent),
     /// Mouse press event.
     MousePress(MousePressEvent),
+    /// Mouse double-click event.
+    DoubleClick(MouseDoubleClickEvent),
     /// Mouse release event.
     MouseRelease(MouseReleaseEvent),
     /// Mouse move event.
@@ -884,6 +923,7 @@ impl WidgetEvent {
             Self::Show(e) => e.base.is_accepted(),
             Self::Hide(e) => e.base.is_accepted(),
             Self::MousePress(e) => e.base.is_accepted(),
+            Self::DoubleClick(e) => e.base.is_accepted(),
             Self::MouseRelease(e) => e.base.is_accepted(),
             Self::MouseMove(e) => e.base.is_accepted(),
             Self::Wheel(e) => e.base.is_accepted(),
@@ -906,6 +946,7 @@ impl WidgetEvent {
             Self::Show(e) => e.base.accept(),
             Self::Hide(e) => e.base.accept(),
             Self::MousePress(e) => e.base.accept(),
+            Self::DoubleClick(e) => e.base.accept(),
             Self::MouseRelease(e) => e.base.accept(),
             Self::MouseMove(e) => e.base.accept(),
             Self::Wheel(e) => e.base.accept(),
@@ -928,6 +969,7 @@ impl WidgetEvent {
             Self::Show(e) => e.base.ignore(),
             Self::Hide(e) => e.base.ignore(),
             Self::MousePress(e) => e.base.ignore(),
+            Self::DoubleClick(e) => e.base.ignore(),
             Self::MouseRelease(e) => e.base.ignore(),
             Self::MouseMove(e) => e.base.ignore(),
             Self::Wheel(e) => e.base.ignore(),
@@ -953,6 +995,7 @@ impl WidgetEvent {
             }
             // Input events propagate if not accepted
             Self::MousePress(_)
+            | Self::DoubleClick(_)
             | Self::MouseRelease(_)
             | Self::MouseMove(_)
             | Self::Wheel(_)

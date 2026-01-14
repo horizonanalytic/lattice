@@ -19,6 +19,7 @@
 //! - [`TabBar`]: Standalone tab bar widget
 //! - [`TabWidget`]: Tabbed page container
 //! - [`StackedWidget`]: Container showing one child at a time
+//! - [`ToolBox`]: Accordion-style container with expandable pages
 //! - [`DockWidget`]: Dockable panel widget
 //! - [`MainWindow`]: Main application window with dock areas
 
@@ -41,6 +42,7 @@ mod splitter;
 mod stacked_widget;
 mod tab_bar;
 mod tab_widget;
+mod tool_box;
 
 pub use abstract_button::AbstractButton;
 pub use button_group::ButtonGroup;
@@ -61,3 +63,4 @@ pub use splitter::Splitter;
 pub use stacked_widget::StackedWidget;
 pub use tab_bar::{TabBar, TabPosition};
 pub use tab_widget::TabWidget;
+pub use tool_box::ToolBox;

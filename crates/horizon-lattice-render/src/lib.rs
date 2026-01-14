@@ -105,6 +105,8 @@ mod renderer;
 pub mod stencil;
 mod surface;
 pub mod text;
+mod text_render_pass;
+mod text_renderer;
 mod transform;
 mod types;
 
@@ -154,7 +156,17 @@ pub use text::{
     FontMetrics, FontQuery, FontStretch, FontStyle, FontSystem, FontSystemConfig, FontWeight,
     // Text shaping
     GlyphCacheKey, GlyphId, ShapedGlyph, ShapedText, ShapingOptions, TextShaper,
+    // Text layout
+    HorizontalAlign, LayoutGlyph, LayoutLine, TextLayout, TextLayoutOptions, TextSpan,
+    VerticalAlign, WrapMode,
+    // Glyph rendering
+    GlyphAllocation, GlyphAtlas, GlyphAtlasStats, GlyphCache, GlyphCacheStats, GlyphPixelFormat,
+    GlyphRenderMode, RasterizedGlyph,
 };
+
+// Text renderer
+pub use text_render_pass::TextRenderPass;
+pub use text_renderer::{PreparedGlyph, TextRenderer, TextRendererConfig, TextRendererStats};
 
 // Shader hot-reload support
 #[cfg(feature = "shader-hot-reload")]

@@ -106,12 +106,18 @@
 
 mod font;
 mod font_system;
+mod glyph_atlas;
+mod glyph_cache;
 mod layout;
 mod shaping;
 mod types;
 
 pub use font::{Font, FontBuilder, FontFeature};
 pub use font_system::{FontFaceInfo, FontLoadError, FontSystem, FontSystemConfig};
+pub use glyph_atlas::{GlyphAllocation, GlyphAtlas, GlyphAtlasStats};
+pub use glyph_cache::{
+    GlyphCache, GlyphCacheStats, GlyphPixelFormat, GlyphRenderMode, RasterizedGlyph,
+};
 pub use layout::{
     HorizontalAlign, InlineElement, InlineVerticalAlign, LayoutGlyph, LayoutLine, TextLayout,
     TextLayoutOptions, TextSpan, VerticalAlign, WrapMode,

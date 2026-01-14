@@ -21,7 +21,7 @@
 //! let shaped = shaper.shape_text(&mut font_system, "Hello, World!", &font, ShapingOptions::default());
 //!
 //! for glyph in shaped.glyphs() {
-//!     println!("Glyph {} at ({}, {})", glyph.glyph_id, glyph.x, glyph.y);
+//!     println!("Glyph {} at ({}, {})", glyph.glyph_id.value(), glyph.x, glyph.y);
 //! }
 //! ```
 

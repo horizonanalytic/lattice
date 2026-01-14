@@ -44,6 +44,10 @@ pub enum RenderError {
     /// Shader compilation or loading error.
     #[error("shader error: {0}")]
     ShaderError(String),
+
+    /// Glyph atlas error.
+    #[error("glyph atlas error: {0}")]
+    GlyphAtlas(String),
 }
 
 /// Result type for render operations.

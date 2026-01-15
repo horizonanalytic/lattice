@@ -8,6 +8,7 @@
 //! - [`ButtonVariant`]: Visual variants for buttons (Primary, Secondary, Danger, Flat, Outlined)
 //! - [`CheckBox`]: Checkbox for boolean/tri-state selection
 //! - [`RadioButton`]: Radio button for exclusive selection
+//! - [`RadioGroup`]: Visual container for radio buttons with automatic exclusivity
 //! - [`ButtonGroup`]: Non-visual container for exclusive button groups
 //! - [`AbstractButton`]: Base for all button widgets
 //! - [`LineEdit`]: Single-line text input
@@ -41,6 +42,7 @@ mod popup;
 mod progress_bar;
 mod push_button;
 mod radio_button;
+mod radio_group;
 mod scroll_area;
 mod scroll_bar;
 mod separator;
@@ -66,6 +68,7 @@ pub use popup::{Popup, PopupFlags, PopupPlacement};
 pub use progress_bar::{Orientation, ProgressBar};
 pub use push_button::PushButton;
 pub use radio_button::RadioButton;
+pub use radio_group::RadioGroup;
 pub use scroll_area::{ScrollArea, ScrollBarPolicy};
 pub use scroll_bar::ScrollBar;
 pub use separator::{Separator, SeparatorOrientation};

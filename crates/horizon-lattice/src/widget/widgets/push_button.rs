@@ -318,6 +318,42 @@ impl PushButton {
         self
     }
 
+    // =========================================================================
+    // Default Button
+    // =========================================================================
+
+    /// Check if this button is the default button.
+    ///
+    /// The default button is activated when Enter is pressed in a window/dialog,
+    /// even if the button doesn't have keyboard focus. Default buttons have
+    /// enhanced visual styling to indicate their special status.
+    pub fn is_default(&self) -> bool {
+        self.inner.is_default()
+    }
+
+    /// Set whether this button is the default button.
+    ///
+    /// Only one button in a window should typically be marked as default.
+    /// Setting this to `true` enables:
+    /// - Enhanced visual styling (prominent border ring)
+    /// - Activation via Enter key at the window level
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let ok_button = PushButton::new("OK")
+    ///     .with_default(true);
+    /// ```
+    pub fn set_default(&mut self, is_default: bool) {
+        self.inner.set_default(is_default);
+    }
+
+    /// Set default using builder pattern.
+    pub fn with_default(mut self, is_default: bool) -> Self {
+        self.inner = self.inner.with_default(is_default);
+        self
+    }
+
     /// Programmatically click the button.
     pub fn click(&mut self) {
         self.inner.click();
@@ -628,11 +664,23 @@ impl Widget for PushButton {
             }
         }
 
-        // Draw focus indicator when focused
-        if self.widget_base().has_focus() {
-            let focus_rect = RoundedRect::new(
+        // Draw default button indicator (prominent ring)
+        if self.inner.is_default() {
+            let default_rect = RoundedRect::new(
                 rect.inflate(2.0),
                 self.border_radius + 2.0,
+            );
+            // Primary blue color for default button ring
+            let default_color = Color::from_rgb8(0, 122, 255);
+            let stroke = Stroke::new(default_color, 2.0);
+            ctx.renderer().stroke_rounded_rect(default_rect, &stroke);
+        }
+
+        // Draw focus indicator when focused (stacks on top of default indicator)
+        if self.widget_base().has_focus() {
+            let focus_rect = RoundedRect::new(
+                rect.inflate(4.0),
+                self.border_radius + 4.0,
             );
             let focus_color = Color::from_rgba8(66, 133, 244, 128);
             ctx.renderer().fill_rounded_rect(focus_rect, focus_color);
@@ -880,5 +928,36 @@ mod tests {
         let _danger = PushButton::new("Danger").with_variant(ButtonVariant::Danger);
         let _flat = PushButton::new("Flat").with_variant(ButtonVariant::Flat);
         let _outlined = PushButton::new("Outlined").with_variant(ButtonVariant::Outlined);
+    }
+
+    // =========================================================================
+    // Default Button Tests
+    // =========================================================================
+
+    #[test]
+    fn test_default_button_false_by_default() {
+        setup();
+        let button = PushButton::new("Test");
+        assert!(!button.is_default());
+    }
+
+    #[test]
+    fn test_default_button_builder() {
+        setup();
+        let button = PushButton::new("OK").with_default(true);
+        assert!(button.is_default());
+    }
+
+    #[test]
+    fn test_set_default() {
+        setup();
+        let mut button = PushButton::new("OK");
+        assert!(!button.is_default());
+
+        button.set_default(true);
+        assert!(button.is_default());
+
+        button.set_default(false);
+        assert!(!button.is_default());
     }
 }

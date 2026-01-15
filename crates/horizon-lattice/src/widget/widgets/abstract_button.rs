@@ -149,6 +149,13 @@ pub struct AbstractButton {
     /// Spacing between icon and text in pixels.
     icon_spacing: f32,
 
+    /// Whether this button is the default button.
+    ///
+    /// The default button is activated when the user presses Enter in a
+    /// window/dialog, even if the button doesn't have focus. This is typically
+    /// used for the primary action in dialogs (e.g., "OK", "Save").
+    is_default: bool,
+
     /// Signal emitted when the button is clicked.
     ///
     /// For checkable buttons, this is emitted after the checked state changes.
@@ -188,6 +195,7 @@ impl AbstractButton {
             icon_position: IconPosition::Left,
             icon_mode: IconMode::IconAndText,
             icon_spacing: 6.0,
+            is_default: false,
             clicked: Signal::new(),
             pressed: Signal::new(),
             released: Signal::new(),
@@ -480,6 +488,37 @@ impl AbstractButton {
     /// Check if this button should show text.
     pub fn shows_text(&self) -> bool {
         !self.text.is_empty() && self.icon_mode != IconMode::IconOnly
+    }
+
+    // =========================================================================
+    // Default Button
+    // =========================================================================
+
+    /// Check if this button is the default button.
+    ///
+    /// The default button is activated when Enter is pressed in a window/dialog,
+    /// even if the button doesn't have keyboard focus.
+    pub fn is_default(&self) -> bool {
+        self.is_default
+    }
+
+    /// Set whether this button is the default button.
+    ///
+    /// Only one button in a window should typically be marked as default.
+    /// Setting this to `true` enables:
+    /// - Enhanced visual styling (more prominent border)
+    /// - Activation via Enter key at the window level
+    pub fn set_default(&mut self, is_default: bool) {
+        if self.is_default != is_default {
+            self.is_default = is_default;
+            self.base.update();
+        }
+    }
+
+    /// Set default using builder pattern.
+    pub fn with_default(mut self, is_default: bool) -> Self {
+        self.is_default = is_default;
+        self
     }
 
     // =========================================================================

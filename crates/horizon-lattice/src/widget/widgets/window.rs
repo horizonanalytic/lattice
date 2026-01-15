@@ -431,6 +431,13 @@ pub struct Window {
     /// The last mnemonic key pressed (for cycle state management).
     last_mnemonic_key: Option<char>,
 
+    // Default button state
+    /// The ObjectId of the default button in this window.
+    ///
+    /// The default button is activated when Enter is pressed at the window level
+    /// and no focused widget handles the Enter key.
+    default_button: Option<ObjectId>,
+
     // Signals
     /// Signal emitted when close is requested.
     pub close_requested: Signal<()>,
@@ -452,6 +459,29 @@ pub struct Window {
     /// to this signal to perform mnemonic dispatch (finding matching labels
     /// and transferring focus to their buddy widgets).
     pub mnemonic_key_pressed: Signal<char>,
+
+    /// Signal emitted when Enter is pressed and should activate the default button.
+    ///
+    /// This signal is emitted when:
+    /// 1. The Enter key is pressed at the window level
+    /// 2. A default button is set for this window
+    /// 3. No focused widget consumed the Enter key event
+    ///
+    /// The parameter is the ObjectId of the default button that should be activated.
+    /// Connect a handler to this signal to call `click()` on the default button.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// window.default_button_activated.connect(|button_id| {
+    ///     if let Some(button) = storage.get_widget_mut(button_id) {
+    ///         if let Some(push_button) = button.downcast_mut::<PushButton>() {
+    ///             push_button.click();
+    ///         }
+    ///     }
+    /// });
+    /// ```
+    pub default_button_activated: Signal<ObjectId>,
 }
 
 impl Window {
@@ -498,6 +528,7 @@ impl Window {
             alt_held: false,
             mnemonic_cycle_state: HashMap::new(),
             last_mnemonic_key: None,
+            default_button: None,
             close_requested: Signal::new(),
             state_changed: Signal::new(),
             title_changed: Signal::new(),
@@ -506,6 +537,7 @@ impl Window {
             activated: Signal::new(),
             deactivated: Signal::new(),
             mnemonic_key_pressed: Signal::new(),
+            default_button_activated: Signal::new(),
         }
     }
 
@@ -808,6 +840,53 @@ impl Window {
             self.base.update();
             self.deactivated.emit(());
         }
+    }
+
+    // =========================================================================
+    // Default Button
+    // =========================================================================
+
+    /// Get the default button's ObjectId, if one is set.
+    ///
+    /// The default button is activated when Enter is pressed in the window
+    /// and no focused widget handles the Enter key.
+    pub fn default_button(&self) -> Option<ObjectId> {
+        self.default_button
+    }
+
+    /// Set the default button for this window.
+    ///
+    /// Pass `Some(id)` to set a button as default, or `None` to clear the default.
+    /// When Enter is pressed in the window and the default button is set,
+    /// the `default_button_activated` signal is emitted with the button's ObjectId.
+    ///
+    /// Only one button per window should be set as default. Setting a new default
+    /// does not automatically unset `is_default` on the previous button - that
+    /// is the responsibility of the application code.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Set up the default button
+    /// let ok_button = PushButton::new("OK").with_default(true);
+    /// let ok_id = ok_button.object_id();
+    /// // ... add ok_button to widget storage ...
+    ///
+    /// window.set_default_button(Some(ok_id));
+    ///
+    /// // Connect the activation signal
+    /// window.default_button_activated.connect(move |button_id| {
+    ///     // Activate the button (application handles this)
+    /// });
+    /// ```
+    pub fn set_default_button(&mut self, button_id: Option<ObjectId>) {
+        self.default_button = button_id;
+    }
+
+    /// Set default button using builder pattern.
+    pub fn with_default_button(mut self, button_id: ObjectId) -> Self {
+        self.default_button = Some(button_id);
+        self
     }
 
     // =========================================================================
@@ -1376,6 +1455,15 @@ impl Window {
             return true;
         }
 
+        // Handle Enter key for default button activation
+        // This handles Enter at the window level when no focused widget consumed it
+        if event.key == Key::Enter && !event.is_repeat {
+            if let Some(button_id) = self.default_button {
+                self.default_button_activated.emit(button_id);
+                return true;
+            }
+        }
+
         // Handle Alt key press - show mnemonic underlines
         if matches!(event.key, Key::AltLeft | Key::AltRight) {
             if !self.alt_held {
@@ -1696,5 +1784,47 @@ mod tests {
         assert!(!flags.has_minimize_button());
         assert!(!flags.has_maximize_button());
         assert!(!flags.is_resizable());
+    }
+
+    // =========================================================================
+    // Default Button Tests
+    // =========================================================================
+
+    #[test]
+    fn test_default_button_none_by_default() {
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let window = Window::new("Test Window");
+        assert!(window.default_button().is_none());
+    }
+
+    #[test]
+    fn test_set_default_button() {
+        use crate::widget::widgets::PushButton;
+        use horizon_lattice_core::{init_global_registry, Object};
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        let button = PushButton::new("OK");
+        let button_id = button.object_id();
+
+        window.set_default_button(Some(button_id));
+        assert_eq!(window.default_button(), Some(button_id));
+
+        window.set_default_button(None);
+        assert!(window.default_button().is_none());
+    }
+
+    #[test]
+    fn test_default_button_builder() {
+        use crate::widget::widgets::PushButton;
+        use horizon_lattice_core::{init_global_registry, Object};
+        init_global_registry();
+
+        let button = PushButton::new("OK");
+        let button_id = button.object_id();
+        let window = Window::new("Test Window").with_default_button(button_id);
+        assert_eq!(window.default_button(), Some(button_id));
     }
 }

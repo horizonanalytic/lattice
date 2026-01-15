@@ -60,6 +60,9 @@ static_assertions = "1.1"
 # Regular expressions
 regex = "1"
 
+# Rope data structure for large text documents
+ropey = "1.6"
+
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }
 horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }

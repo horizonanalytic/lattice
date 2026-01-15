@@ -16,6 +16,7 @@ static_assertions = { workspace = true }
 unicode-segmentation = { workspace = true }
 arboard = { workspace = true }
 regex = { workspace = true }
+ropey = { workspace = true }
 
 [dev-dependencies]
 slotmap = { workspace = true }

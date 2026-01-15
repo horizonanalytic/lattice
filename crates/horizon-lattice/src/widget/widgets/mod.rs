@@ -13,6 +13,7 @@
 //! - [`AbstractButton`]: Base for all button widgets
 //! - [`LineEdit`]: Single-line text input
 //! - [`TextEdit`]: Multi-line text editor with scrolling and word wrap
+//! - [`PlainTextEdit`]: Plain text editor optimized for large documents with syntax highlighting
 //! - [`ProgressBar`]: Progress indicator widget
 //! - [`ContainerWidget`]: Generic container widget with layout support
 //! - [`Frame`]: Container widget with border decoration
@@ -54,6 +55,7 @@ mod splitter;
 mod stacked_widget;
 mod tab_bar;
 mod tab_widget;
+mod plain_text_edit;
 mod text_edit;
 mod tool_box;
 mod tool_button;
@@ -88,6 +90,7 @@ pub use splitter::Splitter;
 pub use stacked_widget::StackedWidget;
 pub use tab_bar::{TabBar, TabPosition};
 pub use tab_widget::TabWidget;
+pub use plain_text_edit::{HighlightSpan, PlainTextEdit, SyntaxHighlighter};
 pub use text_edit::{TextEdit, TextWrapMode};
 pub use tool_box::ToolBox;
 pub use tool_button::{ToolButton, ToolButtonPopupMode, ToolButtonStyle};

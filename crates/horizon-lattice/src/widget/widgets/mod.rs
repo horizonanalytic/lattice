@@ -4,6 +4,7 @@
 //!
 //! - [`Label`]: Text display widget
 //! - [`PushButton`]: Standard clickable button
+//! - [`ToolButton`]: Icon-focused button for toolbars with menu support
 //! - [`ButtonVariant`]: Visual variants for buttons (Primary, Secondary, Danger, Flat, Outlined)
 //! - [`CheckBox`]: Checkbox for boolean/tri-state selection
 //! - [`RadioButton`]: Radio button for exclusive selection
@@ -49,6 +50,7 @@ mod stacked_widget;
 mod tab_bar;
 mod tab_widget;
 mod tool_box;
+mod tool_button;
 mod window;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
@@ -73,4 +75,5 @@ pub use stacked_widget::StackedWidget;
 pub use tab_bar::{TabBar, TabPosition};
 pub use tab_widget::TabWidget;
 pub use tool_box::ToolBox;
+pub use tool_button::{ToolButton, ToolButtonPopupMode, ToolButtonStyle};
 pub use window::{Window, WindowFlags, WindowModality, WindowState};

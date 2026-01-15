@@ -242,6 +242,24 @@ impl Font {
         font
     }
 
+    /// Create a copy of this font with a different primary family.
+    pub fn with_family(&self, family: FontFamily) -> Self {
+        let mut font = self.clone();
+        if font.families.is_empty() {
+            font.families.push(family);
+        } else {
+            font.families[0] = family;
+        }
+        font
+    }
+
+    /// Create a copy of this font with a different stretch.
+    pub fn with_stretch(&self, stretch: FontStretch) -> Self {
+        let mut font = self.clone();
+        font.stretch = stretch;
+        font
+    }
+
     /// Convert to cosmic-text Attrs for text shaping.
     pub fn to_attrs(&self) -> cosmic_text::Attrs<'_> {
         let family = match self.family() {
@@ -411,6 +429,24 @@ mod tests {
         assert_eq!(larger.weight(), FontWeight::NORMAL);
         assert_eq!(bold.size(), 12.0);
         assert_eq!(bold.weight(), FontWeight::BOLD);
+    }
+
+    #[test]
+    fn font_with_family() {
+        let font = Font::new(FontFamily::SansSerif, 14.0);
+        let changed = font.with_family(FontFamily::Name("Arial".into()));
+
+        assert_eq!(changed.family(), &FontFamily::Name("Arial".into()));
+        assert_eq!(changed.size(), 14.0); // Size unchanged
+    }
+
+    #[test]
+    fn font_with_stretch() {
+        let font = Font::new(FontFamily::SansSerif, 14.0);
+        let condensed = font.with_stretch(FontStretch::Condensed);
+
+        assert_eq!(condensed.stretch(), FontStretch::Condensed);
+        assert_eq!(condensed.size(), 14.0); // Size unchanged
     }
 
     #[test]

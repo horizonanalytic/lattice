@@ -125,6 +125,8 @@ pub use tab_widget::TabWidget;
 pub use plain_text_edit::{HighlightSpan, LineNumberConfig, PlainTextEdit, SyntaxHighlighter};
 pub use styled_document::{CharFormat, FormatRun, StyledDocument};
 pub use text_edit::{TextEdit, TextWrapMode};
+// Re-export font types for rich text formatting
+pub use horizon_lattice_render::text::{FontFamily, FontWeight};
 pub use double_spin_box::DoubleSpinBox;
 pub use font_combo_box::{FontComboBox, FontFilter};
 pub use spin_box::SpinBox;

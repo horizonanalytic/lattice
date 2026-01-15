@@ -764,11 +764,11 @@ impl TextEdit {
         if let Some((start, end)) = self.selection_range() {
             self.document
                 .format_for_range(&(start..end))
-                .unwrap_or(self.cursor_format)
+                .unwrap_or_else(|| self.cursor_format.clone())
         } else {
             // Use cursor format if set, otherwise query document
             if self.cursor_format.is_styled() {
-                self.cursor_format
+                self.cursor_format.clone()
             } else {
                 self.document.format_at(self.cursor_pos)
             }
@@ -1041,6 +1041,142 @@ impl TextEdit {
         self.emit_format_changed();
     }
 
+    // =========================================================================
+    // Font Properties
+    // =========================================================================
+
+    /// Get the font family of the current selection or cursor position.
+    ///
+    /// Returns `Some(family)` if a font family is set, or `None` if using the default.
+    pub fn char_font_family(&self) -> Option<FontFamily> {
+        self.current_format().font_family
+    }
+
+    /// Get the font size of the current selection or cursor position.
+    ///
+    /// Returns `Some(size)` if a font size is set, or `None` if using the default.
+    pub fn char_font_size(&self) -> Option<f32> {
+        self.current_format().font_size
+    }
+
+    /// Get the font weight of the current selection or cursor position.
+    ///
+    /// Returns `Some(weight)` if a font weight is set, or `None` if using the default.
+    pub fn char_font_weight(&self) -> Option<FontWeight> {
+        self.current_format().font_weight
+    }
+
+    /// Set the font family on the selection or cursor format.
+    ///
+    /// Pass `Some(family)` to set a specific font family, or `None` to clear and use the default.
+    pub fn set_char_font_family(&mut self, family: Option<FontFamily>) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            self.apply_font_family_to_range(start..end, family);
+            self.sync_text_from_document();
+        } else {
+            self.cursor_format.font_family = family;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Set the font size on the selection or cursor format.
+    ///
+    /// Pass `Some(size)` to set a specific font size, or `None` to clear and use the default.
+    pub fn set_char_font_size(&mut self, size: Option<f32>) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            self.apply_font_size_to_range(start..end, size);
+            self.sync_text_from_document();
+        } else {
+            self.cursor_format.font_size = size;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Set the font weight on the selection or cursor format.
+    ///
+    /// Pass `Some(weight)` to set a specific font weight, or `None` to clear and use the default.
+    /// Note: Setting a weight overrides the `bold` toggle for rendering purposes.
+    pub fn set_char_font_weight(&mut self, weight: Option<FontWeight>) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            self.apply_font_weight_to_range(start..end, weight);
+            self.sync_text_from_document();
+        } else {
+            self.cursor_format.font_weight = weight;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Apply font family to a range, preserving other formatting.
+    fn apply_font_family_to_range(
+        &mut self,
+        range: std::ops::Range<usize>,
+        family: Option<FontFamily>,
+    ) {
+        let mut pos = range.start;
+        while pos < range.end {
+            let current = self.document.format_at(pos);
+            let mut new_format = current;
+            new_format.font_family = family.clone();
+
+            let next_boundary = self.find_format_boundary(pos, range.end);
+            self.document.set_format(pos..next_boundary, new_format);
+            pos = next_boundary;
+        }
+    }
+
+    /// Apply font size to a range, preserving other formatting.
+    fn apply_font_size_to_range(&mut self, range: std::ops::Range<usize>, size: Option<f32>) {
+        let mut pos = range.start;
+        while pos < range.end {
+            let current = self.document.format_at(pos);
+            let mut new_format = current;
+            new_format.font_size = size;
+
+            let next_boundary = self.find_format_boundary(pos, range.end);
+            self.document.set_format(pos..next_boundary, new_format);
+            pos = next_boundary;
+        }
+    }
+
+    /// Apply font weight to a range, preserving other formatting.
+    fn apply_font_weight_to_range(
+        &mut self,
+        range: std::ops::Range<usize>,
+        weight: Option<FontWeight>,
+    ) {
+        let mut pos = range.start;
+        while pos < range.end {
+            let current = self.document.format_at(pos);
+            let mut new_format = current;
+            new_format.font_weight = weight;
+
+            let next_boundary = self.find_format_boundary(pos, range.end);
+            self.document.set_format(pos..next_boundary, new_format);
+            pos = next_boundary;
+        }
+    }
+
     /// Apply a color to a range, preserving other formatting.
     ///
     /// If `is_foreground` is true, sets foreground color; otherwise sets background color.
@@ -1202,7 +1338,7 @@ impl TextEdit {
         }
 
         // Insert into the styled document with current cursor format first
-        self.document.insert(self.cursor_pos, text, self.cursor_format);
+        self.document.insert(self.cursor_pos, text, self.cursor_format.clone());
 
         // Then insert into the plain text buffer
         self.text.insert_str(self.cursor_pos, text);
@@ -2490,14 +2626,33 @@ impl TextEdit {
                     let mut font = self.font.clone();
                     let mut needs_font = false;
 
-                    if format.bold {
+                    // Apply font family if specified
+                    if let Some(ref family) = format.font_family {
+                        font = font.with_family(family.clone());
+                        needs_font = true;
+                    }
+
+                    // Apply font size if specified
+                    if let Some(size) = format.font_size {
+                        font = font.with_size(size);
+                        needs_font = true;
+                    }
+
+                    // Apply font weight: explicit weight takes precedence over bold flag
+                    if let Some(weight) = format.font_weight {
+                        font = font.with_weight(weight);
+                        needs_font = true;
+                    } else if format.bold {
                         font = font.with_weight(FontWeight::BOLD);
                         needs_font = true;
                     }
+
+                    // Apply italic style
                     if format.italic {
                         font = font.with_style(FontStyle::Italic);
                         needs_font = true;
                     }
+
                     if needs_font {
                         span = span.with_font(font);
                     }

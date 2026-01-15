@@ -6,12 +6,14 @@
 
 use std::ops::Range;
 
+use horizon_lattice_render::text::{FontFamily, FontWeight};
 use horizon_lattice_render::Color;
 
 /// Character-level formatting attributes.
 ///
 /// Represents the styling applied to a range of text characters.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// All `Option` fields mean "inherit from default" when `None`.
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct CharFormat {
     /// Whether the text is bold.
     pub bold: bool,
@@ -25,11 +27,17 @@ pub struct CharFormat {
     pub foreground_color: Option<Color>,
     /// Background (highlight) color. None means no background highlight.
     pub background_color: Option<Color>,
+    /// Font family. None means use widget's default font family.
+    pub font_family: Option<FontFamily>,
+    /// Font size in pixels. None means use widget's default font size.
+    pub font_size: Option<f32>,
+    /// Font weight (100-900). None means use default weight (or Bold if `bold` is true).
+    pub font_weight: Option<FontWeight>,
 }
 
 impl CharFormat {
     /// Create a new default (unstyled) format.
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             bold: false,
             italic: false,
@@ -37,6 +45,9 @@ impl CharFormat {
             strikethrough: false,
             foreground_color: None,
             background_color: None,
+            font_family: None,
+            font_size: None,
+            font_weight: None,
         }
     }
 
@@ -48,10 +59,13 @@ impl CharFormat {
             || self.strikethrough
             || self.foreground_color.is_some()
             || self.background_color.is_some()
+            || self.font_family.is_some()
+            || self.font_size.is_some()
+            || self.font_weight.is_some()
     }
 
     /// Create a bold format.
-    pub const fn bold() -> Self {
+    pub fn bold() -> Self {
         Self {
             bold: true,
             italic: false,
@@ -59,11 +73,14 @@ impl CharFormat {
             strikethrough: false,
             foreground_color: None,
             background_color: None,
+            font_family: None,
+            font_size: None,
+            font_weight: None,
         }
     }
 
     /// Create an italic format.
-    pub const fn italic() -> Self {
+    pub fn italic() -> Self {
         Self {
             bold: false,
             italic: true,
@@ -71,42 +88,63 @@ impl CharFormat {
             strikethrough: false,
             foreground_color: None,
             background_color: None,
+            font_family: None,
+            font_size: None,
+            font_weight: None,
         }
     }
 
     /// Builder method to set bold.
-    pub const fn with_bold(mut self, bold: bool) -> Self {
+    pub fn with_bold(mut self, bold: bool) -> Self {
         self.bold = bold;
         self
     }
 
     /// Builder method to set italic.
-    pub const fn with_italic(mut self, italic: bool) -> Self {
+    pub fn with_italic(mut self, italic: bool) -> Self {
         self.italic = italic;
         self
     }
 
     /// Builder method to set underline.
-    pub const fn with_underline(mut self, underline: bool) -> Self {
+    pub fn with_underline(mut self, underline: bool) -> Self {
         self.underline = underline;
         self
     }
 
     /// Builder method to set strikethrough.
-    pub const fn with_strikethrough(mut self, strikethrough: bool) -> Self {
+    pub fn with_strikethrough(mut self, strikethrough: bool) -> Self {
         self.strikethrough = strikethrough;
         self
     }
 
     /// Builder method to set foreground (text) color.
-    pub const fn with_foreground_color(mut self, color: Option<Color>) -> Self {
+    pub fn with_foreground_color(mut self, color: Option<Color>) -> Self {
         self.foreground_color = color;
         self
     }
 
     /// Builder method to set background (highlight) color.
-    pub const fn with_background_color(mut self, color: Option<Color>) -> Self {
+    pub fn with_background_color(mut self, color: Option<Color>) -> Self {
         self.background_color = color;
+        self
+    }
+
+    /// Builder method to set font family.
+    pub fn with_font_family(mut self, family: Option<FontFamily>) -> Self {
+        self.font_family = family;
+        self
+    }
+
+    /// Builder method to set font size.
+    pub fn with_font_size(mut self, size: Option<f32>) -> Self {
+        self.font_size = size;
+        self
+    }
+
+    /// Builder method to set font weight.
+    pub fn with_font_weight(mut self, weight: Option<FontWeight>) -> Self {
+        self.font_weight = weight;
         self
     }
 
@@ -243,7 +281,7 @@ impl StyledDocument {
     pub fn format_at(&self, pos: usize) -> CharFormat {
         for run in &self.format_runs {
             if run.contains(pos) {
-                return run.format;
+                return run.format.clone();
             }
             if run.range.start > pos {
                 break;
@@ -274,7 +312,7 @@ impl StyledDocument {
                 if covered < run.range.start {
                     formats.push(CharFormat::default());
                 }
-                formats.push(run.format);
+                formats.push(run.format.clone());
                 covered = run.range.end.min(range.end);
             }
         }
@@ -288,9 +326,9 @@ impl StyledDocument {
         if formats.is_empty() {
             Some(CharFormat::default())
         } else {
-            let first = formats[0];
-            if formats.iter().all(|f| *f == first) {
-                Some(first)
+            let first = &formats[0];
+            if formats.iter().all(|f| f == first) {
+                Some(first.clone())
             } else {
                 None
             }
@@ -397,7 +435,7 @@ impl StyledDocument {
             for run in &mut self.format_runs {
                 if run.range.start < range.start && run.range.end > range.end {
                     // Run spans the range - split it
-                    new_runs.push(FormatRun::new(range.end..run.range.end, run.format));
+                    new_runs.push(FormatRun::new(range.end..run.range.end, run.format.clone()));
                     run.range.end = range.start;
                 } else if run.range.start < range.start && run.range.end > range.start {
                     // Run overlaps start
@@ -428,7 +466,7 @@ impl StyledDocument {
 
             if run.range.start < range.start && run.range.end > range.end {
                 // Run spans the entire range - split into three
-                new_runs.push(FormatRun::new(range.end..run.range.end, run.format));
+                new_runs.push(FormatRun::new(range.end..run.range.end, run.format.clone()));
                 run.range.end = range.start;
             } else if run.range.start < range.start {
                 // Run overlaps start - truncate
@@ -594,7 +632,7 @@ impl StyledDocument {
             // Add the formatted run
             let end = run.range.end.min(self.text.len());
             if run.range.start < end {
-                spans.push((&self.text[run.range.start..end], run.format));
+                spans.push((&self.text[run.range.start..end], run.format.clone()));
             }
             pos = end;
         }
@@ -769,5 +807,75 @@ mod tests {
 
         let format = doc.format_for_range(&(0..10));
         assert!(format.is_none()); // Mixed formatting
+    }
+
+    #[test]
+    fn test_font_family() {
+        let mut doc = StyledDocument::from_text("Hello");
+        let format = CharFormat::new().with_font_family(Some(FontFamily::Monospace));
+        doc.set_format(0..5, format);
+
+        let result = doc.format_at(0);
+        assert_eq!(result.font_family, Some(FontFamily::Monospace));
+    }
+
+    #[test]
+    fn test_font_size() {
+        let mut doc = StyledDocument::from_text("Hello");
+        let format = CharFormat::new().with_font_size(Some(24.0));
+        doc.set_format(0..5, format);
+
+        let result = doc.format_at(0);
+        assert_eq!(result.font_size, Some(24.0));
+    }
+
+    #[test]
+    fn test_font_weight() {
+        let mut doc = StyledDocument::from_text("Hello");
+        let format = CharFormat::new().with_font_weight(Some(FontWeight::BOLD));
+        doc.set_format(0..5, format);
+
+        let result = doc.format_at(0);
+        assert_eq!(result.font_weight, Some(FontWeight::BOLD));
+    }
+
+    #[test]
+    fn test_combined_font_properties() {
+        let mut doc = StyledDocument::from_text("Test text");
+        let format = CharFormat::new()
+            .with_font_family(Some(FontFamily::name("Arial")))
+            .with_font_size(Some(18.0))
+            .with_font_weight(Some(FontWeight::MEDIUM));
+        doc.set_format(0..4, format);
+
+        let result = doc.format_at(0);
+        assert_eq!(result.font_family, Some(FontFamily::name("Arial")));
+        assert_eq!(result.font_size, Some(18.0));
+        assert_eq!(result.font_weight, Some(FontWeight::MEDIUM));
+
+        // Text outside the range should have default font properties
+        let default = doc.format_at(5);
+        assert!(default.font_family.is_none());
+        assert!(default.font_size.is_none());
+        assert!(default.font_weight.is_none());
+    }
+
+    #[test]
+    fn test_is_styled_with_font_properties() {
+        // Font family makes it styled
+        let f1 = CharFormat::new().with_font_family(Some(FontFamily::Serif));
+        assert!(f1.is_styled());
+
+        // Font size makes it styled
+        let f2 = CharFormat::new().with_font_size(Some(12.0));
+        assert!(f2.is_styled());
+
+        // Font weight makes it styled
+        let f3 = CharFormat::new().with_font_weight(Some(FontWeight::LIGHT));
+        assert!(f3.is_styled());
+
+        // Default is not styled
+        let f4 = CharFormat::new();
+        assert!(!f4.is_styled());
     }
 }

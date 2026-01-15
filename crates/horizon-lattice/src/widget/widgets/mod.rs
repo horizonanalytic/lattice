@@ -37,6 +37,7 @@
 mod abstract_button;
 mod button_group;
 mod checkbox;
+mod combo_box;
 mod container;
 mod dial;
 mod dock_widget;
@@ -70,6 +71,10 @@ mod window;
 pub use abstract_button::{AbstractButton, ButtonVariant};
 pub use button_group::ButtonGroup;
 pub use checkbox::{CheckBox, CheckState};
+pub use combo_box::{
+    ComboBox, ComboBoxItem, ComboBoxItemDelegate, ComboBoxModel, DefaultComboBoxDelegate,
+    IconListComboModel, StringListComboModel,
+};
 pub use container::ContainerWidget;
 pub use dial::Dial;
 pub use dock_widget::{DockArea, DockAreas, DockWidget, DockWidgetFeatures};

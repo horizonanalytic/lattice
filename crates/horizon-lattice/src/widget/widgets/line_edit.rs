@@ -33,6 +33,7 @@
 use parking_lot::RwLock;
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::platform::Clipboard;
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
     Color, Font, FontFamily, FontSystem, Point, Rect, Renderer, Size, Stroke, TextLayout,
@@ -83,6 +84,10 @@ pub enum EchoMode {
 /// - Delete: Delete character after cursor
 /// - Ctrl+Backspace: Delete word before cursor
 /// - Ctrl+Delete: Delete word after cursor
+/// - Ctrl+A: Select all text
+/// - Ctrl+C / Cmd+C: Copy selected text to clipboard
+/// - Ctrl+X / Cmd+X: Cut selected text to clipboard
+/// - Ctrl+V / Cmd+V: Paste from clipboard
 pub struct LineEdit {
     /// Widget base for common functionality.
     base: WidgetBase,
@@ -610,6 +615,121 @@ impl LineEdit {
     }
 
     // =========================================================================
+    // Clipboard Operations
+    // =========================================================================
+
+    /// Copy the selected text to the clipboard.
+    ///
+    /// Returns `true` if text was copied, `false` if there was no selection
+    /// or the clipboard operation failed.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut edit = LineEdit::with_text("Hello World");
+    /// edit.select_all();
+    /// edit.copy(); // "Hello World" is now in clipboard
+    /// ```
+    pub fn copy(&self) -> bool {
+        if !self.has_selection() {
+            return false;
+        }
+
+        let selected = self.selected_text().to_owned();
+        if selected.is_empty() {
+            return false;
+        }
+
+        // Don't copy password text to clipboard
+        if self.echo_mode == EchoMode::Password || self.echo_mode == EchoMode::NoEcho {
+            return false;
+        }
+
+        if let Ok(mut clipboard) = Clipboard::new() {
+            clipboard.set_text(&selected).is_ok()
+        } else {
+            false
+        }
+    }
+
+    /// Cut the selected text to the clipboard.
+    ///
+    /// Copies the selected text to the clipboard and then deletes it.
+    /// Returns `true` if text was cut, `false` if there was no selection,
+    /// the widget is read-only, or the clipboard operation failed.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut edit = LineEdit::with_text("Hello World");
+    /// edit.select_all();
+    /// edit.cut(); // "Hello World" is now in clipboard, text is cleared
+    /// assert_eq!(edit.text(), "");
+    /// ```
+    pub fn cut(&mut self) -> bool {
+        if self.read_only {
+            return false;
+        }
+
+        if !self.has_selection() {
+            return false;
+        }
+
+        // Don't cut password text to clipboard
+        if self.echo_mode == EchoMode::Password || self.echo_mode == EchoMode::NoEcho {
+            return false;
+        }
+
+        let selected = self.selected_text().to_owned();
+        if selected.is_empty() {
+            return false;
+        }
+
+        if let Ok(mut clipboard) = Clipboard::new() {
+            if clipboard.set_text(&selected).is_ok() {
+                self.delete_selection();
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Paste text from the clipboard at the cursor position.
+    ///
+    /// If there is a selection, it will be replaced with the pasted text.
+    /// Returns `true` if text was pasted, `false` if the widget is read-only
+    /// or the clipboard operation failed.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut edit = LineEdit::new();
+    /// // Assuming clipboard contains "Hello"
+    /// edit.paste(); // Text is now "Hello"
+    /// ```
+    pub fn paste(&mut self) -> bool {
+        if self.read_only {
+            return false;
+        }
+
+        if let Ok(mut clipboard) = Clipboard::new() {
+            if let Ok(text) = clipboard.get_text() {
+                // Filter out newlines and other control characters
+                let filtered: String = text
+                    .chars()
+                    .filter(|c| !c.is_control() || *c == '\t')
+                    .collect();
+
+                if !filtered.is_empty() {
+                    self.insert_text(&filtered);
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    // =========================================================================
     // Internal: Cursor Movement
     // =========================================================================
 
@@ -1014,6 +1134,20 @@ impl LineEdit {
             // Select all
             Key::A if ctrl => {
                 self.select_all();
+                true
+            }
+
+            // Clipboard operations
+            Key::C if ctrl => {
+                self.copy();
+                true
+            }
+            Key::X if ctrl => {
+                self.cut();
+                true
+            }
+            Key::V if ctrl => {
+                self.paste();
                 true
             }
 
@@ -1565,5 +1699,109 @@ mod tests {
         assert!(hint.preferred.width > 0.0);
         assert!(hint.preferred.height > 0.0);
         assert!(hint.minimum.is_some());
+    }
+
+    // =========================================================================
+    // Clipboard Tests
+    // =========================================================================
+
+    #[test]
+    fn test_copy_without_selection_returns_false() {
+        setup();
+        let edit = LineEdit::with_text("Hello");
+        // No selection, copy should return false
+        assert!(!edit.copy());
+    }
+
+    #[test]
+    fn test_copy_password_mode_returns_false() {
+        setup();
+        let mut edit = LineEdit::with_text("secret");
+        edit.set_echo_mode(EchoMode::Password);
+        edit.select_all();
+        // Should not copy password text
+        assert!(!edit.copy());
+    }
+
+    #[test]
+    fn test_copy_no_echo_mode_returns_false() {
+        setup();
+        let mut edit = LineEdit::with_text("secret");
+        edit.set_echo_mode(EchoMode::NoEcho);
+        edit.select_all();
+        // Should not copy no-echo text
+        assert!(!edit.copy());
+    }
+
+    #[test]
+    fn test_cut_without_selection_returns_false() {
+        setup();
+        let mut edit = LineEdit::with_text("Hello");
+        // No selection, cut should return false
+        assert!(!edit.cut());
+    }
+
+    #[test]
+    fn test_cut_read_only_returns_false() {
+        setup();
+        let mut edit = LineEdit::with_text("Hello");
+        edit.set_read_only(true);
+        edit.select_all();
+        // Read-only, cut should return false
+        assert!(!edit.cut());
+    }
+
+    #[test]
+    fn test_cut_password_mode_returns_false() {
+        setup();
+        let mut edit = LineEdit::with_text("secret");
+        edit.set_echo_mode(EchoMode::Password);
+        edit.select_all();
+        // Should not cut password text
+        assert!(!edit.cut());
+    }
+
+    #[test]
+    fn test_paste_read_only_returns_false() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_read_only(true);
+        // Read-only, paste should return false
+        assert!(!edit.paste());
+    }
+
+    #[test]
+    #[ignore] // Requires system clipboard - run manually with: cargo test -- --ignored
+    fn test_copy_paste_integration() {
+        setup();
+        let mut edit1 = LineEdit::with_text("Hello World");
+        edit1.select_all();
+
+        // Copy from edit1
+        if edit1.copy() {
+            let mut edit2 = LineEdit::new();
+            // Paste into edit2
+            if edit2.paste() {
+                assert_eq!(edit2.text(), "Hello World");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore] // Requires system clipboard - run manually with: cargo test -- --ignored
+    fn test_cut_integration() {
+        setup();
+        let mut edit = LineEdit::with_text("Hello World");
+        edit.select_all();
+
+        // Cut should remove text and copy to clipboard
+        if edit.cut() {
+            assert_eq!(edit.text(), "");
+
+            // Paste should restore the text
+            if edit.paste() {
+                assert_eq!(edit.text(), "Hello World");
+            }
+        }
     }
 }

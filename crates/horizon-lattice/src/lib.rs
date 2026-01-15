@@ -47,5 +47,8 @@ pub mod render {
     pub use horizon_lattice_render::*;
 }
 
+/// Platform services and system integration.
+pub mod platform;
+
 /// Widget system module.
 pub mod widget;

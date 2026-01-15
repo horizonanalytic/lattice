@@ -125,6 +125,7 @@ mod focus;
 mod geometry;
 pub mod layout;
 mod painting;
+mod shortcut;
 mod traits;
 pub mod widgets;
 
@@ -143,6 +144,7 @@ pub use events::{
 pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
 pub use layout::{ContentMargins, Layout, LayoutBase, LayoutInvalidator, LayoutItem, SpacerItem};
 pub use painting::{FrameRenderer, FrameStats, RepaintManager};
+pub use shortcut::{parse_mnemonic, KeySequence, KeySequenceParseError, MnemonicText};
 pub use traits::{AsWidget, PaintContext, Widget};
 
 // Re-export widgets for convenience

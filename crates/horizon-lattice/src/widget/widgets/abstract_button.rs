@@ -24,8 +24,8 @@ use horizon_lattice_render::{
 };
 
 use crate::widget::{
-    FocusPolicy, Key, KeyPressEvent, MouseButton, MousePressEvent, MouseReleaseEvent, SizeHint,
-    WidgetBase,
+    parse_mnemonic, FocusPolicy, Key, KeyPressEvent, KeySequence, MnemonicText, MouseButton,
+    MousePressEvent, MouseReleaseEvent, SizeHint, WidgetBase,
 };
 
 // =========================================================================
@@ -156,6 +156,18 @@ pub struct AbstractButton {
     /// used for the primary action in dialogs (e.g., "OK", "Save").
     is_default: bool,
 
+    /// Optional keyboard shortcut to activate the button.
+    ///
+    /// When set, this shortcut will activate the button when pressed,
+    /// regardless of focus state (global shortcut within the window).
+    shortcut: Option<KeySequence>,
+
+    /// Cached mnemonic information parsed from the text.
+    ///
+    /// This is lazily computed when `text` changes and contains the
+    /// display text (with '&' markers processed) and mnemonic character.
+    mnemonic_cache: Option<MnemonicText>,
+
     /// Signal emitted when the button is clicked.
     ///
     /// For checkable buttons, this is emitted after the checked state changes.
@@ -180,9 +192,12 @@ impl AbstractButton {
         // Buttons should accept focus via both Tab and click
         base.set_focus_policy(FocusPolicy::StrongFocus);
 
+        let text_str = text.into();
+        let mnemonic_cache = Some(parse_mnemonic(&text_str));
+
         Self {
             base,
-            text: text.into(),
+            text: text_str,
             variant: ButtonVariant::Primary,
             checkable: false,
             checked: false,
@@ -196,6 +211,8 @@ impl AbstractButton {
             icon_mode: IconMode::IconAndText,
             icon_spacing: 6.0,
             is_default: false,
+            shortcut: None,
+            mnemonic_cache,
             clicked: Signal::new(),
             pressed: Signal::new(),
             released: Signal::new(),
@@ -213,10 +230,14 @@ impl AbstractButton {
     }
 
     /// Set the button's text.
+    ///
+    /// Note: If the text contains '&' markers (e.g., "&Open"), these define
+    /// the button's mnemonic. Use "&&" for a literal ampersand.
     pub fn set_text(&mut self, text: impl Into<String>) {
         let new_text = text.into();
         if self.text != new_text {
             self.text = new_text;
+            self.update_mnemonic_cache();
             self.base.update();
         }
     }
@@ -224,6 +245,7 @@ impl AbstractButton {
     /// Set the text using builder pattern.
     pub fn with_text(mut self, text: impl Into<String>) -> Self {
         self.text = text.into();
+        self.update_mnemonic_cache();
         self
     }
 
@@ -522,6 +544,122 @@ impl AbstractButton {
     }
 
     // =========================================================================
+    // Keyboard Shortcut
+    // =========================================================================
+
+    /// Get the button's keyboard shortcut, if any.
+    ///
+    /// When set, this shortcut activates the button when pressed anywhere
+    /// within the parent window, regardless of focus state.
+    pub fn shortcut(&self) -> Option<&KeySequence> {
+        self.shortcut.as_ref()
+    }
+
+    /// Set the button's keyboard shortcut.
+    ///
+    /// Pass `Some(KeySequence)` to set a shortcut, or `None` to clear it.
+    /// The shortcut is window-level: pressing it activates the button
+    /// regardless of which widget has focus.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice::widget::{KeySequence, Key};
+    ///
+    /// // Set Ctrl+S as shortcut
+    /// button.set_shortcut(Some(KeySequence::ctrl(Key::S)));
+    ///
+    /// // Or parse from string
+    /// button.set_shortcut(Some("Ctrl+S".parse().unwrap()));
+    /// ```
+    pub fn set_shortcut(&mut self, shortcut: Option<KeySequence>) {
+        self.shortcut = shortcut;
+    }
+
+    /// Set shortcut using builder pattern.
+    pub fn with_shortcut(mut self, shortcut: KeySequence) -> Self {
+        self.shortcut = Some(shortcut);
+        self
+    }
+
+    /// Set shortcut from a string using builder pattern.
+    ///
+    /// Parses the string as a key sequence. Returns self unchanged if
+    /// parsing fails (for builder chain convenience).
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let button = PushButton::new("&Save")
+    ///     .with_shortcut_str("Ctrl+S");
+    /// ```
+    pub fn with_shortcut_str(mut self, shortcut: &str) -> Self {
+        if let Ok(seq) = shortcut.parse() {
+            self.shortcut = Some(seq);
+        }
+        self
+    }
+
+    /// Check if this button's shortcut matches the given key combination.
+    pub fn matches_shortcut(&self, key: Key, modifiers: crate::widget::KeyboardModifiers) -> bool {
+        self.shortcut
+            .as_ref()
+            .is_some_and(|s| s.matches(key, modifiers))
+    }
+
+    // =========================================================================
+    // Mnemonic Support
+    // =========================================================================
+
+    /// Update the mnemonic cache after text changes.
+    fn update_mnemonic_cache(&mut self) {
+        self.mnemonic_cache = Some(parse_mnemonic(&self.text));
+    }
+
+    /// Get the parsed mnemonic information for this button.
+    ///
+    /// Returns a reference to the cached [`MnemonicText`] containing:
+    /// - `display_text`: The text to display (with '&' markers processed)
+    /// - `mnemonic`: The mnemonic character (lowercase), if any
+    /// - `mnemonic_index`: The position of the mnemonic in display_text
+    pub fn mnemonic_info(&self) -> &MnemonicText {
+        self.mnemonic_cache
+            .as_ref()
+            .expect("mnemonic cache should be initialized")
+    }
+
+    /// Get the display text for the button (with mnemonic markers processed).
+    ///
+    /// This returns the text that should be rendered, with '&' markers
+    /// converted appropriately ('&X' becomes 'X', '&&' becomes '&').
+    pub fn display_text(&self) -> &str {
+        &self.mnemonic_info().display_text
+    }
+
+    /// Get the mnemonic character for this button, if any.
+    ///
+    /// The mnemonic is the character following '&' in the button text.
+    /// For example, "&Open" has mnemonic 'o'.
+    pub fn mnemonic(&self) -> Option<char> {
+        self.mnemonic_info().mnemonic
+    }
+
+    /// Get the index of the mnemonic character in the display text.
+    ///
+    /// This is used for rendering the mnemonic underline.
+    pub fn mnemonic_index(&self) -> Option<usize> {
+        self.mnemonic_info().mnemonic_index
+    }
+
+    /// Check if this button's mnemonic matches the given character.
+    ///
+    /// Comparison is case-insensitive.
+    pub fn matches_mnemonic(&self, ch: char) -> bool {
+        self.mnemonic()
+            .is_some_and(|m| m == ch.to_ascii_lowercase())
+    }
+
+    // =========================================================================
     // Event Handling
     // =========================================================================
 
@@ -626,13 +764,17 @@ impl AbstractButton {
     // =========================================================================
 
     /// Calculate the size needed for the button text.
+    ///
+    /// Uses the display text (with mnemonic markers processed) for accurate sizing.
     pub fn text_size(&self) -> Size {
         if self.text.is_empty() || !self.shows_text() {
             return Size::new(0.0, self.font.size());
         }
 
+        let display = self.display_text();
+
         let mut font_system = FontSystem::new();
-        let layout = TextLayout::new(&mut font_system, &self.text, &self.font);
+        let layout = TextLayout::new(&mut font_system, display, &self.font);
         Size::new(layout.width(), layout.height())
     }
 

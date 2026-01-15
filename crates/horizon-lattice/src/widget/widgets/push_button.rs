@@ -360,6 +360,72 @@ impl PushButton {
     }
 
     // =========================================================================
+    // Keyboard Shortcut
+    // =========================================================================
+
+    /// Get the button's keyboard shortcut, if any.
+    pub fn shortcut(&self) -> Option<&crate::widget::KeySequence> {
+        self.inner.shortcut()
+    }
+
+    /// Set the button's keyboard shortcut.
+    pub fn set_shortcut(&mut self, shortcut: Option<crate::widget::KeySequence>) {
+        self.inner.set_shortcut(shortcut);
+    }
+
+    /// Set shortcut using builder pattern.
+    pub fn with_shortcut(mut self, shortcut: crate::widget::KeySequence) -> Self {
+        self.inner = self.inner.with_shortcut(shortcut);
+        self
+    }
+
+    /// Set shortcut from a string using builder pattern.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let button = PushButton::new("&Save")
+    ///     .with_shortcut_str("Ctrl+S");
+    /// ```
+    pub fn with_shortcut_str(mut self, shortcut: &str) -> Self {
+        self.inner = self.inner.with_shortcut_str(shortcut);
+        self
+    }
+
+    /// Check if this button's shortcut matches the given key combination.
+    pub fn matches_shortcut(
+        &self,
+        key: crate::widget::Key,
+        modifiers: crate::widget::KeyboardModifiers,
+    ) -> bool {
+        self.inner.matches_shortcut(key, modifiers)
+    }
+
+    // =========================================================================
+    // Mnemonic Support
+    // =========================================================================
+
+    /// Get the display text for the button (with mnemonic markers processed).
+    pub fn display_text(&self) -> &str {
+        self.inner.display_text()
+    }
+
+    /// Get the mnemonic character for this button, if any.
+    pub fn mnemonic(&self) -> Option<char> {
+        self.inner.mnemonic()
+    }
+
+    /// Get the index of the mnemonic character in the display text.
+    pub fn mnemonic_index(&self) -> Option<usize> {
+        self.inner.mnemonic_index()
+    }
+
+    /// Check if this button's mnemonic matches the given character.
+    pub fn matches_mnemonic(&self, ch: char) -> bool {
+        self.inner.matches_mnemonic(ch)
+    }
+
+    // =========================================================================
     // Private Rendering Helpers
     // =========================================================================
 
@@ -634,9 +700,10 @@ impl Widget for PushButton {
         }
 
         // Draw text if present
-        if shows_text && !self.inner.text().is_empty() {
+        if shows_text && !self.inner.display_text().is_empty() {
             let mut font_system = FontSystem::new();
-            let layout = TextLayout::new(&mut font_system, self.inner.text(), self.inner.font());
+            let display_text = self.inner.display_text();
+            let layout = TextLayout::new(&mut font_system, display_text, self.inner.font());
 
             // Calculate text position (centered within text area, offset by icon if present)
             let text_area_x = if shows_icon {
@@ -661,6 +728,45 @@ impl Widget for PushButton {
                     text_pos,
                     text_color,
                 );
+            }
+
+            // Draw mnemonic underline if there's a mnemonic character
+            if let Some(mnemonic_idx) = self.inner.mnemonic_index() {
+                // Calculate underline position by measuring text segments
+                let text_before = &display_text[..mnemonic_idx];
+                let mnemonic_char = display_text
+                    .chars()
+                    .nth(text_before.chars().count())
+                    .map(|c| c.to_string())
+                    .unwrap_or_default();
+
+                // Measure width of text before mnemonic
+                let before_width = if text_before.is_empty() {
+                    0.0
+                } else {
+                    let before_layout =
+                        TextLayout::new(&mut font_system, text_before, self.inner.font());
+                    before_layout.width()
+                };
+
+                // Measure width of mnemonic character
+                let mnemonic_width = if mnemonic_char.is_empty() {
+                    0.0
+                } else {
+                    let mnemonic_layout =
+                        TextLayout::new(&mut font_system, &mnemonic_char, self.inner.font());
+                    mnemonic_layout.width()
+                };
+
+                // Draw underline beneath the mnemonic character
+                if mnemonic_width > 0.0 {
+                    let underline_y = text_pos.y + layout.height() + 1.0;
+                    let underline_start = Point::new(text_pos.x + before_width, underline_y);
+                    let underline_end =
+                        Point::new(text_pos.x + before_width + mnemonic_width, underline_y);
+                    let stroke = Stroke::new(text_color, 1.0);
+                    ctx.renderer().draw_line(underline_start, underline_end, &stroke);
+                }
             }
         }
 
@@ -959,5 +1065,105 @@ mod tests {
 
         button.set_default(false);
         assert!(!button.is_default());
+    }
+
+    // =========================================================================
+    // Mnemonic Tests
+    // =========================================================================
+
+    #[test]
+    fn test_mnemonic_from_text() {
+        setup();
+        let button = PushButton::new("&Open");
+        assert_eq!(button.display_text(), "Open");
+        assert_eq!(button.mnemonic(), Some('o'));
+        assert_eq!(button.mnemonic_index(), Some(0));
+    }
+
+    #[test]
+    fn test_mnemonic_middle_of_text() {
+        setup();
+        let button = PushButton::new("Save &As");
+        assert_eq!(button.display_text(), "Save As");
+        assert_eq!(button.mnemonic(), Some('a'));
+        assert_eq!(button.mnemonic_index(), Some(5));
+    }
+
+    #[test]
+    fn test_escaped_ampersand() {
+        setup();
+        let button = PushButton::new("Fish && Chips");
+        assert_eq!(button.display_text(), "Fish & Chips");
+        assert_eq!(button.mnemonic(), None);
+    }
+
+    #[test]
+    fn test_no_mnemonic() {
+        setup();
+        let button = PushButton::new("Plain Text");
+        assert_eq!(button.display_text(), "Plain Text");
+        assert_eq!(button.mnemonic(), None);
+    }
+
+    #[test]
+    fn test_matches_mnemonic() {
+        setup();
+        let button = PushButton::new("&Open");
+        assert!(button.matches_mnemonic('o'));
+        assert!(button.matches_mnemonic('O')); // Case insensitive
+        assert!(!button.matches_mnemonic('x'));
+    }
+
+    // =========================================================================
+    // Shortcut Tests
+    // =========================================================================
+
+    #[test]
+    fn test_no_shortcut_by_default() {
+        setup();
+        let button = PushButton::new("Test");
+        assert!(button.shortcut().is_none());
+    }
+
+    #[test]
+    fn test_shortcut_builder() {
+        setup();
+        use crate::widget::{Key, KeySequence};
+
+        let button = PushButton::new("Save").with_shortcut(KeySequence::ctrl(Key::S));
+        assert!(button.shortcut().is_some());
+        let shortcut = button.shortcut().unwrap();
+        assert_eq!(shortcut.key, Key::S);
+        assert!(shortcut.modifiers.control);
+    }
+
+    #[test]
+    fn test_shortcut_from_string() {
+        setup();
+        use crate::widget::Key;
+
+        let button = PushButton::new("Save").with_shortcut_str("Ctrl+S");
+        assert!(button.shortcut().is_some());
+        let shortcut = button.shortcut().unwrap();
+        assert_eq!(shortcut.key, Key::S);
+        assert!(shortcut.modifiers.control);
+    }
+
+    #[test]
+    fn test_matches_shortcut() {
+        setup();
+        use crate::widget::{Key, KeySequence, KeyboardModifiers};
+
+        let button = PushButton::new("Save").with_shortcut(KeySequence::ctrl(Key::S));
+
+        let ctrl_s = KeyboardModifiers {
+            control: true,
+            ..Default::default()
+        };
+        let none = KeyboardModifiers::default();
+
+        assert!(button.matches_shortcut(Key::S, ctrl_s));
+        assert!(!button.matches_shortcut(Key::S, none));
+        assert!(!button.matches_shortcut(Key::A, ctrl_s));
     }
 }

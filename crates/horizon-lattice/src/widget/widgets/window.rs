@@ -438,6 +438,17 @@ pub struct Window {
     /// and no focused widget handles the Enter key.
     default_button: Option<ObjectId>,
 
+    // Shortcut state
+    /// Registry of keyboard shortcuts mapped to button ObjectIds.
+    ///
+    /// Multiple buttons can be registered for the same shortcut; they are
+    /// cycled through on repeated presses.
+    shortcut_registry: HashMap<crate::widget::KeySequence, Vec<ObjectId>>,
+    /// Cycle state for shortcuts: maps KeySequence to current index.
+    shortcut_cycle_state: HashMap<crate::widget::KeySequence, usize>,
+    /// Last shortcut pressed (for cycle management).
+    last_shortcut: Option<crate::widget::KeySequence>,
+
     // Signals
     /// Signal emitted when close is requested.
     pub close_requested: Signal<()>,
@@ -482,6 +493,16 @@ pub struct Window {
     /// });
     /// ```
     pub default_button_activated: Signal<ObjectId>,
+
+    /// Signal emitted when a keyboard shortcut should activate a button.
+    ///
+    /// This signal is emitted when:
+    /// 1. A key combination matching a registered shortcut is pressed
+    /// 2. No focused widget consumed the key event
+    ///
+    /// The parameter is the ObjectId of the button that should be activated.
+    /// Connect a handler to this signal to call `click()` on the button.
+    pub shortcut_activated: Signal<ObjectId>,
 }
 
 impl Window {
@@ -529,6 +550,9 @@ impl Window {
             mnemonic_cycle_state: HashMap::new(),
             last_mnemonic_key: None,
             default_button: None,
+            shortcut_registry: HashMap::new(),
+            shortcut_cycle_state: HashMap::new(),
+            last_shortcut: None,
             close_requested: Signal::new(),
             state_changed: Signal::new(),
             title_changed: Signal::new(),
@@ -538,6 +562,7 @@ impl Window {
             deactivated: Signal::new(),
             mnemonic_key_pressed: Signal::new(),
             default_button_activated: Signal::new(),
+            shortcut_activated: Signal::new(),
         }
     }
 
@@ -930,6 +955,134 @@ impl Window {
         self.mnemonic_cycle_state.insert(key, index);
         self.last_mnemonic_key = Some(key);
         index
+    }
+
+    // =========================================================================
+    // Shortcut Registry
+    // =========================================================================
+
+    /// Register a keyboard shortcut for a button.
+    ///
+    /// Multiple buttons can be registered for the same shortcut; pressing the
+    /// shortcut repeatedly will cycle through them.
+    ///
+    /// # Arguments
+    ///
+    /// * `shortcut` - The key sequence that triggers the button
+    /// * `button_id` - The ObjectId of the button to activate
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice::widget::KeySequence;
+    ///
+    /// // Register Ctrl+S to trigger the save button
+    /// window.register_shortcut(KeySequence::ctrl(Key::S), save_button_id);
+    /// ```
+    pub fn register_shortcut(
+        &mut self,
+        shortcut: crate::widget::KeySequence,
+        button_id: ObjectId,
+    ) {
+        self.shortcut_registry
+            .entry(shortcut)
+            .or_default()
+            .push(button_id);
+    }
+
+    /// Unregister a keyboard shortcut for a button.
+    ///
+    /// Removes the button from the list of targets for this shortcut.
+    /// If the button is not registered for this shortcut, this is a no-op.
+    pub fn unregister_shortcut(
+        &mut self,
+        shortcut: &crate::widget::KeySequence,
+        button_id: ObjectId,
+    ) {
+        if let Some(buttons) = self.shortcut_registry.get_mut(shortcut) {
+            buttons.retain(|&id| id != button_id);
+            if buttons.is_empty() {
+                self.shortcut_registry.remove(shortcut);
+            }
+        }
+    }
+
+    /// Unregister all shortcuts for a button.
+    ///
+    /// Call this when removing a button from the window.
+    pub fn unregister_all_shortcuts_for(&mut self, button_id: ObjectId) {
+        self.shortcut_registry.retain(|_, buttons| {
+            buttons.retain(|&id| id != button_id);
+            !buttons.is_empty()
+        });
+    }
+
+    /// Clear the shortcut cycle state.
+    ///
+    /// Called when a different key is pressed or focus changes.
+    fn reset_shortcut_cycle(&mut self) {
+        self.shortcut_cycle_state.clear();
+        self.last_shortcut = None;
+    }
+
+    /// Get the button to activate for a shortcut and advance the cycle.
+    ///
+    /// Returns `Some(ObjectId)` if there's a button registered for this shortcut,
+    /// `None` otherwise.
+    fn get_shortcut_target(
+        &mut self,
+        shortcut: &crate::widget::KeySequence,
+    ) -> Option<ObjectId> {
+        // Get button count first to avoid borrow issues
+        let num_buttons = self
+            .shortcut_registry
+            .get(shortcut)
+            .map(|b| b.len())
+            .unwrap_or(0);
+
+        if num_buttons == 0 {
+            return None;
+        }
+
+        let index = if self.last_shortcut.as_ref() == Some(shortcut) {
+            // Same shortcut pressed again - cycle to next
+            let current = self.shortcut_cycle_state.get(shortcut).copied().unwrap_or(0);
+            (current + 1) % num_buttons
+        } else {
+            // Different shortcut - start at first match
+            self.reset_shortcut_cycle();
+            0
+        };
+
+        self.shortcut_cycle_state.insert(shortcut.clone(), index);
+        self.last_shortcut = Some(shortcut.clone());
+
+        // Get the button at the computed index
+        self.shortcut_registry
+            .get(shortcut)
+            .and_then(|buttons| buttons.get(index).copied())
+    }
+
+    /// Try to dispatch a key event to a registered shortcut.
+    ///
+    /// Returns `true` if a shortcut was matched and the `shortcut_activated`
+    /// signal was emitted.
+    pub fn try_dispatch_shortcut(&mut self, event: &KeyPressEvent) -> bool {
+        // Don't dispatch on key repeat
+        if event.is_repeat {
+            return false;
+        }
+
+        // Build the key sequence from the event
+        let shortcut = crate::widget::KeySequence::new(event.key, event.modifiers);
+
+        // Try to find a matching button
+        if let Some(button_id) = self.get_shortcut_target(&shortcut) {
+            self.shortcut_activated.emit(button_id);
+            return true;
+        }
+
+        false
     }
 
     /// Dispatch a mnemonic key press to matching widgets.
@@ -1452,6 +1605,12 @@ impl Window {
         // Escape to close if modal or has close button
         if event.key == Key::Escape && (self.is_modal() || self.flags.has_close_button()) {
             self.close_requested.emit(());
+            return true;
+        }
+
+        // Try to dispatch registered keyboard shortcuts first
+        // (This handles Ctrl+S, etc. before other handlers can consume them)
+        if self.try_dispatch_shortcut(event) {
             return true;
         }
 

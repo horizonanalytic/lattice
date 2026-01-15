@@ -37,7 +37,7 @@ use std::any::{Any, TypeId};
 use horizon_lattice_render::{Point, Rect, Size};
 
 /// Keyboard modifiers that may be held during input events.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct KeyboardModifiers {
     /// The Shift key is held.
     pub shift: bool,

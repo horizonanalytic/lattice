@@ -34,11 +34,12 @@
 use parking_lot::RwLock;
 use unicode_segmentation::UnicodeSegmentation;
 
+use super::styled_document::{CharFormat, StyledDocument};
 use crate::platform::Clipboard;
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, Font, FontFamily, FontSystem, Point, Rect, Renderer, Size, Stroke, TextLayout,
-    TextLayoutOptions, TextRenderer, WrapMode,
+    Color, Font, FontFamily, FontStyle, FontSystem, FontWeight, Point, Rect, Renderer, Size,
+    Stroke, TextDecoration, TextLayout, TextLayoutOptions, TextRenderer, TextSpan, WrapMode,
 };
 
 use crate::widget::{
@@ -305,11 +306,17 @@ pub struct TextEdit {
     /// Widget base.
     base: WidgetBase,
 
-    /// The text content.
+    /// The styled document containing text and formatting.
+    document: StyledDocument,
+
+    /// The text content (plain text, for backward compatibility).
     text: String,
 
     /// Placeholder text displayed when empty.
     placeholder: String,
+
+    /// Current cursor format (for subsequent typing when no selection).
+    cursor_format: CharFormat,
 
     /// Current cursor position (byte offset).
     cursor_pos: usize,
@@ -402,6 +409,9 @@ pub struct TextEdit {
 
     /// Signal emitted when find previous is requested (Shift+F3).
     pub find_previous_requested: Signal<()>,
+
+    /// Signal emitted when text format changes (bold state, italic state, underline state, strikethrough state).
+    pub format_changed: Signal<(bool, bool, bool, bool)>,
 }
 
 impl TextEdit {
@@ -413,8 +423,10 @@ impl TextEdit {
 
         Self {
             base,
+            document: StyledDocument::new(),
             text: String::new(),
             placeholder: String::new(),
+            cursor_format: CharFormat::new(),
             cursor_pos: 0,
             selection_anchor: None,
             wrap_mode: TextWrapMode::Word,
@@ -445,13 +457,16 @@ impl TextEdit {
             find_replace_requested: Signal::new(),
             find_next_requested: Signal::new(),
             find_previous_requested: Signal::new(),
+            format_changed: Signal::new(),
         }
     }
 
     /// Create a new TextEdit with initial text.
     pub fn with_text(text: impl Into<String>) -> Self {
         let mut edit = Self::new();
-        edit.text = text.into();
+        let text_string = text.into();
+        edit.document.set_text(&text_string);
+        edit.text = text_string;
         edit.cursor_pos = edit.text.len();
         edit
     }
@@ -468,13 +483,15 @@ impl TextEdit {
     /// Set the text content.
     ///
     /// This clears any selection, moves the cursor to the end, and clears
-    /// the undo history.
+    /// the undo history and all formatting.
     pub fn set_text(&mut self, text: impl Into<String>) {
         let new_text = text.into();
         if self.text != new_text {
-            self.text = new_text;
+            self.text = new_text.clone();
+            self.document.set_text(&new_text);
             self.cursor_pos = self.text.len();
             self.selection_anchor = None;
+            self.cursor_format = CharFormat::new();
             self.undo_stack.clear();
             self.invalidate_layout();
             self.ensure_cursor_visible();
@@ -714,10 +731,356 @@ impl TextEdit {
     }
 
     // =========================================================================
+    // Text Formatting
+    // =========================================================================
+
+    /// Get the current format at cursor position or selection.
+    ///
+    /// Returns the format at the cursor position, or if there's a selection,
+    /// returns the format if it's uniform across the selection, or the cursor format.
+    pub fn current_format(&self) -> CharFormat {
+        if let Some((start, end)) = self.selection_range() {
+            self.document
+                .format_for_range(&(start..end))
+                .unwrap_or(self.cursor_format)
+        } else {
+            // Use cursor format if set, otherwise query document
+            if self.cursor_format.is_styled() {
+                self.cursor_format
+            } else {
+                self.document.format_at(self.cursor_pos)
+            }
+        }
+    }
+
+    /// Check if the current selection or cursor position has bold formatting.
+    pub fn is_bold(&self) -> bool {
+        self.current_format().bold
+    }
+
+    /// Check if the current selection or cursor position has italic formatting.
+    pub fn is_italic(&self) -> bool {
+        self.current_format().italic
+    }
+
+    /// Check if the current selection or cursor position has underline formatting.
+    pub fn is_underline(&self) -> bool {
+        self.current_format().underline
+    }
+
+    /// Check if the current selection or cursor position has strikethrough formatting.
+    pub fn is_strikethrough(&self) -> bool {
+        self.current_format().strikethrough
+    }
+
+    /// Toggle bold formatting on the selection or set cursor format.
+    pub fn toggle_bold(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            // Toggle bold on selection
+            self.document.toggle_format(
+                start..end,
+                CharFormat::new().with_bold(true),
+            );
+            // Update text from document
+            self.sync_text_from_document();
+        } else {
+            // Toggle cursor format for subsequent typing
+            self.cursor_format.bold = !self.cursor_format.bold;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Toggle italic formatting on the selection or set cursor format.
+    pub fn toggle_italic(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            // Toggle italic on selection
+            self.document.toggle_format(
+                start..end,
+                CharFormat::new().with_italic(true),
+            );
+            // Update text from document
+            self.sync_text_from_document();
+        } else {
+            // Toggle cursor format for subsequent typing
+            self.cursor_format.italic = !self.cursor_format.italic;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Toggle underline formatting on the selection or set cursor format.
+    pub fn toggle_underline(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            // Toggle underline on selection
+            self.document.toggle_format(
+                start..end,
+                CharFormat::new().with_underline(true),
+            );
+            // Update text from document
+            self.sync_text_from_document();
+        } else {
+            // Toggle cursor format for subsequent typing
+            self.cursor_format.underline = !self.cursor_format.underline;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Toggle strikethrough formatting on the selection or set cursor format.
+    pub fn toggle_strikethrough(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            // Toggle strikethrough on selection
+            self.document.toggle_format(
+                start..end,
+                CharFormat::new().with_strikethrough(true),
+            );
+            // Update text from document
+            self.sync_text_from_document();
+        } else {
+            // Toggle cursor format for subsequent typing
+            self.cursor_format.strikethrough = !self.cursor_format.strikethrough;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Set bold formatting on the selection or cursor format.
+    pub fn set_bold(&mut self, bold: bool) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            if bold {
+                // Apply format
+                self.apply_format_to_range(start..end, CharFormat::new().with_bold(true));
+            } else {
+                // Remove format
+                self.remove_format_from_range(start..end, CharFormat::new().with_bold(true));
+            }
+            self.sync_text_from_document();
+        } else {
+            self.cursor_format.bold = bold;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Set italic formatting on the selection or cursor format.
+    pub fn set_italic(&mut self, italic: bool) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            if italic {
+                self.apply_format_to_range(start..end, CharFormat::new().with_italic(true));
+            } else {
+                self.remove_format_from_range(start..end, CharFormat::new().with_italic(true));
+            }
+            self.sync_text_from_document();
+        } else {
+            self.cursor_format.italic = italic;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Set underline formatting on the selection or cursor format.
+    pub fn set_underline(&mut self, underline: bool) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            if underline {
+                self.apply_format_to_range(start..end, CharFormat::new().with_underline(true));
+            } else {
+                self.remove_format_from_range(start..end, CharFormat::new().with_underline(true));
+            }
+            self.sync_text_from_document();
+        } else {
+            self.cursor_format.underline = underline;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Set strikethrough formatting on the selection or cursor format.
+    pub fn set_strikethrough(&mut self, strikethrough: bool) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            if strikethrough {
+                self.apply_format_to_range(start..end, CharFormat::new().with_strikethrough(true));
+            } else {
+                self.remove_format_from_range(start..end, CharFormat::new().with_strikethrough(true));
+            }
+            self.sync_text_from_document();
+        } else {
+            self.cursor_format.strikethrough = strikethrough;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Apply a format to a range in the document.
+    fn apply_format_to_range(&mut self, range: std::ops::Range<usize>, format: CharFormat) {
+        // Get current format for the range and merge with the new format
+        let mut pos = range.start;
+        while pos < range.end {
+            let current = self.document.format_at(pos);
+            let mut new_format = current;
+
+            if format.bold {
+                new_format.bold = true;
+            }
+            if format.italic {
+                new_format.italic = true;
+            }
+            if format.underline {
+                new_format.underline = true;
+            }
+            if format.strikethrough {
+                new_format.strikethrough = true;
+            }
+
+            // Find the end of this segment
+            let segment_end = self.find_format_boundary(pos, range.end);
+            self.document.set_format(pos..segment_end, new_format);
+            pos = segment_end;
+        }
+    }
+
+    /// Remove a format from a range in the document.
+    fn remove_format_from_range(&mut self, range: std::ops::Range<usize>, format: CharFormat) {
+        // Get current format for the range and remove the specified format
+        let mut pos = range.start;
+        while pos < range.end {
+            let current = self.document.format_at(pos);
+            let mut new_format = current;
+
+            if format.bold {
+                new_format.bold = false;
+            }
+            if format.italic {
+                new_format.italic = false;
+            }
+            if format.underline {
+                new_format.underline = false;
+            }
+            if format.strikethrough {
+                new_format.strikethrough = false;
+            }
+
+            // Find the end of this segment
+            let segment_end = self.find_format_boundary(pos, range.end);
+            self.document.set_format(pos..segment_end, new_format);
+            pos = segment_end;
+        }
+    }
+
+    /// Find the next boundary where format might change.
+    fn find_format_boundary(&self, pos: usize, max: usize) -> usize {
+        let mut next = max;
+        for run in self.document.format_runs() {
+            if run.range.start > pos && run.range.start < next {
+                next = run.range.start;
+            }
+            if run.range.end > pos && run.range.end < next {
+                next = run.range.end;
+            }
+        }
+        next
+    }
+
+    /// Sync the plain text field from the document.
+    fn sync_text_from_document(&mut self) {
+        self.text = self.document.text().to_string();
+    }
+
+    /// Sync the document from the plain text field.
+    #[allow(dead_code)]
+    fn sync_document_from_text(&mut self) {
+        if self.document.text() != self.text {
+            self.document.set_text(&self.text);
+        }
+    }
+
+    /// Emit format changed signal with current format state.
+    fn emit_format_changed(&self) {
+        let format = self.current_format();
+        self.format_changed.emit((
+            format.bold,
+            format.italic,
+            format.underline,
+            format.strikethrough,
+        ));
+    }
+
+    /// Clear the cursor format (reset to default for new typing).
+    #[allow(dead_code)]
+    fn clear_cursor_format(&mut self) {
+        self.cursor_format = CharFormat::new();
+    }
+
+    /// Convert the styled document to TextSpans for rendering.
+    ///
+    /// Returns owned spans that can be used with TextLayout::rich_text.
+    fn styled_spans_for_rendering(&self) -> Vec<(String, CharFormat)> {
+        self.document.to_styled_spans()
+            .into_iter()
+            .map(|(text, format)| (text.to_string(), format))
+            .collect()
+    }
+
+    /// Check if the document has any formatting applied.
+    fn has_formatting(&self) -> bool {
+        !self.document.format_runs().is_empty()
+    }
+
+    // =========================================================================
     // Editing Operations
     // =========================================================================
 
     /// Insert text at the current cursor position.
+    ///
+    /// If cursor_format has styling applied, the inserted text will inherit that format.
     pub fn insert_text(&mut self, text: &str) {
         if self.read_only || text.is_empty() {
             return;
@@ -728,14 +1091,23 @@ impl TextEdit {
             self.delete_selection_internal();
         }
 
-        // Insert the text
+        // Insert into the styled document with current cursor format first
+        self.document.insert(self.cursor_pos, text, self.cursor_format);
+
+        // Then insert into the plain text buffer
         self.text.insert_str(self.cursor_pos, text);
+
         self.undo_stack.push(EditCommand::Insert {
             pos: self.cursor_pos,
             text: text.to_string(),
         });
         self.cursor_pos += text.len();
         self.selection_anchor = None;
+
+        // Clear cursor format after insertion (standard behavior: format applies once)
+        // Keep the format if it was explicitly set (user toggled it)
+        // Actually, we want to keep the cursor format until the user moves the cursor
+        // or changes selection, so don't clear it here.
 
         self.invalidate_layout();
         self.ensure_cursor_visible();
@@ -762,6 +1134,10 @@ impl TextEdit {
     fn delete_selection_internal(&mut self) {
         if let Some((start, end)) = self.selection_range() {
             let deleted = self.text[start..end].to_string();
+
+            // Delete from the styled document first (before modifying text)
+            self.document.delete(start..end);
+
             self.text.replace_range(start..end, "");
             self.undo_stack.push(EditCommand::Delete {
                 pos: start,
@@ -786,6 +1162,9 @@ impl TextEdit {
         });
         self.cursor_pos = 0;
 
+        // Also clear the styled document
+        self.document.clear();
+
         self.invalidate_layout();
         self.base.update();
         self.text_changed.emit(self.text.clone());
@@ -800,6 +1179,10 @@ impl TextEdit {
 
         let pos = self.text.len();
         self.text.push_str(text);
+
+        // Also append to the styled document (with default format)
+        self.document.insert(pos, text, CharFormat::default());
+
         self.undo_stack.push(EditCommand::Insert {
             pos,
             text: text.to_string(),
@@ -1672,6 +2055,10 @@ impl TextEdit {
                     };
 
                     let deleted = self.text[delete_start..self.cursor_pos].to_string();
+
+                    // Delete from the styled document first (before modifying text)
+                    self.document.delete(delete_start..self.cursor_pos);
+
                     self.text.replace_range(delete_start..self.cursor_pos, "");
                     self.undo_stack.push(EditCommand::Delete {
                         pos: delete_start,
@@ -1716,6 +2103,10 @@ impl TextEdit {
                     };
 
                     let deleted = self.text[self.cursor_pos..delete_end].to_string();
+
+                    // Delete from the styled document first (before modifying text)
+                    self.document.delete(self.cursor_pos..delete_end);
+
                     self.text.replace_range(self.cursor_pos..delete_end, "");
                     self.undo_stack.push(EditCommand::Delete {
                         pos: self.cursor_pos,
@@ -1776,6 +2167,20 @@ impl TextEdit {
             // Select all
             Key::A if ctrl => {
                 self.select_all();
+                true
+            }
+
+            // Text formatting shortcuts
+            Key::B if ctrl => {
+                self.toggle_bold();
+                true
+            }
+            Key::I if ctrl => {
+                self.toggle_italic();
+                true
+            }
+            Key::U if ctrl => {
+                self.toggle_underline();
                 true
             }
 
@@ -1963,7 +2368,66 @@ impl TextEdit {
                     }
                 }
             }
+        } else if self.has_formatting() {
+            // Rich text rendering: use styled spans
+            let styled_spans = self.styled_spans_for_rendering();
+            let text_spans: Vec<TextSpan<'_>> = styled_spans
+                .iter()
+                .map(|(text, format)| {
+                    let mut span = TextSpan::new(text);
+
+                    // Build font with style overrides
+                    let mut font = self.font.clone();
+                    let mut needs_font = false;
+
+                    if format.bold {
+                        font = font.with_weight(FontWeight::BOLD);
+                        needs_font = true;
+                    }
+                    if format.italic {
+                        font = font.with_style(FontStyle::Italic);
+                        needs_font = true;
+                    }
+                    if needs_font {
+                        span = span.with_font(font);
+                    }
+
+                    // Apply decorations
+                    if format.underline {
+                        span = span.with_decoration(TextDecoration::underline());
+                    }
+                    if format.strikethrough {
+                        span = span.with_decoration(TextDecoration::strikethrough());
+                    }
+
+                    span
+                })
+                .collect();
+
+            let options = TextLayoutOptions::default()
+                .wrap(self.wrap_mode.to_render_wrap());
+            let options = if self.wrap_mode != TextWrapMode::NoWrap {
+                options.max_width(content_rect.width())
+            } else {
+                options
+            };
+
+            let layout = TextLayout::rich_text(font_system, &text_spans, &self.font, options);
+
+            // Prepare glyphs for rendering
+            if let Ok(mut text_renderer) = TextRenderer::new() {
+                if let Ok(_prepared_glyphs) = text_renderer.prepare_layout(
+                    font_system,
+                    &layout,
+                    Point::new(0.0, 0.0),
+                    self.text_color,
+                ) {
+                    // Note: Actual glyph rendering requires integration with the
+                    // application's render pass system.
+                }
+            }
         } else {
+            // Plain text rendering: use cached layout
             self.ensure_layout(font_system);
             let cached = self.cached_layout.read();
             if let Some(ref c) = *cached {
@@ -2655,5 +3119,195 @@ mod tests {
         edit.clear_search_highlights();
         assert!(edit.search_matches.is_empty());
         assert_eq!(edit.current_search_match, None);
+    }
+
+    // =========================================================================
+    // Text Formatting Tests
+    // =========================================================================
+
+    #[test]
+    fn test_toggle_bold_no_selection() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Initially no formatting
+        assert!(!edit.is_bold());
+
+        // Toggle bold on (cursor format)
+        edit.toggle_bold();
+        assert!(edit.cursor_format.bold);
+
+        // Toggle bold off
+        edit.toggle_bold();
+        assert!(!edit.cursor_format.bold);
+    }
+
+    #[test]
+    fn test_toggle_bold_with_selection() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Select "Hello" (bytes 0-5)
+        edit.set_selection(0, 5);
+        assert!(edit.has_selection());
+
+        // Toggle bold on selection
+        edit.toggle_bold();
+
+        // Check that the document has formatting
+        assert!(edit.has_formatting());
+        assert!(edit.document.format_at(0).bold);
+        assert!(edit.document.format_at(4).bold);
+        assert!(!edit.document.format_at(5).bold); // Space after Hello
+
+        // Toggle bold off
+        edit.set_selection(0, 5);
+        edit.toggle_bold();
+        assert!(!edit.document.format_at(0).bold);
+    }
+
+    #[test]
+    fn test_toggle_italic() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Select "World" (bytes 6-11)
+        edit.set_selection(6, 11);
+        edit.toggle_italic();
+
+        assert!(edit.document.format_at(6).italic);
+        assert!(edit.document.format_at(10).italic);
+        assert!(!edit.document.format_at(0).italic);
+    }
+
+    #[test]
+    fn test_toggle_underline() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        edit.set_selection(0, 5);
+        edit.toggle_underline();
+
+        assert!(edit.document.format_at(0).underline);
+        assert!(!edit.document.format_at(6).underline);
+    }
+
+    #[test]
+    fn test_toggle_strikethrough() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        edit.set_selection(0, 5);
+        edit.toggle_strikethrough();
+
+        assert!(edit.document.format_at(0).strikethrough);
+        assert!(!edit.document.format_at(6).strikethrough);
+    }
+
+    #[test]
+    fn test_multiple_formats() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Make "Hello" bold and italic
+        edit.set_selection(0, 5);
+        edit.toggle_bold();
+        edit.set_selection(0, 5);
+        edit.toggle_italic();
+
+        let format = edit.document.format_at(0);
+        assert!(format.bold);
+        assert!(format.italic);
+        assert!(!format.underline);
+    }
+
+    #[test]
+    fn test_insert_with_cursor_format() {
+        setup();
+        let mut edit = TextEdit::new();
+
+        // Set cursor format to bold
+        edit.cursor_format.bold = true;
+
+        // Insert text
+        edit.insert_text("Bold");
+
+        // The inserted text should have bold formatting
+        assert!(edit.document.format_at(0).bold);
+        assert!(edit.document.format_at(3).bold);
+    }
+
+    #[test]
+    fn test_format_state_queries() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        assert!(!edit.is_bold());
+        assert!(!edit.is_italic());
+        assert!(!edit.is_underline());
+        assert!(!edit.is_strikethrough());
+
+        edit.set_selection(0, 5);
+        edit.toggle_bold();
+
+        // With selection on bold text
+        edit.set_selection(0, 5);
+        assert!(edit.is_bold());
+    }
+
+    #[test]
+    fn test_current_format_returns_cursor_format() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Set cursor format
+        edit.cursor_format = CharFormat::new().with_bold(true).with_italic(true);
+
+        let format = edit.current_format();
+        assert!(format.bold);
+        assert!(format.italic);
+    }
+
+    #[test]
+    fn test_delete_preserves_formatting() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Make "World" bold
+        edit.set_selection(6, 11);
+        edit.toggle_bold();
+
+        // Delete "Hello " (keep formatting on "World")
+        edit.set_selection(0, 6);
+        edit.delete_selection();
+
+        // "World" should still be bold (now at position 0)
+        assert_eq!(edit.text(), "World");
+        assert!(edit.document.format_at(0).bold);
+    }
+
+    #[test]
+    fn test_set_text_clears_formatting() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Add formatting
+        edit.set_selection(0, 5);
+        edit.toggle_bold();
+        assert!(edit.has_formatting());
+
+        // Set new text should clear formatting
+        edit.set_text("New Text");
+        assert!(!edit.has_formatting());
     }
 }

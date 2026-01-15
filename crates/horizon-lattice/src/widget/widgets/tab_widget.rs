@@ -24,7 +24,7 @@
 //! ```
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
-use horizon_lattice_render::{Color, Rect, Renderer};
+use horizon_lattice_render::{Color, Icon, Rect, Renderer};
 
 use super::tab_bar::{TabBar, TabPosition};
 use crate::widget::layout::{ContentMargins, Layout, LayoutItem, StackLayout};
@@ -133,7 +133,7 @@ impl TabWidget {
         &mut self,
         widget_id: ObjectId,
         label: impl Into<String>,
-        icon: impl Into<String>,
+        icon: Icon,
     ) -> i32 {
         let index = self.tab_bar.add_tab_with_icon(label, icon);
         self.pages.push(widget_id);
@@ -277,6 +277,16 @@ impl TabWidget {
     /// Set whether a specific tab is closable.
     pub fn set_tab_closable(&mut self, index: i32, closable: bool) {
         self.tab_bar.set_tab_closable(index, closable);
+    }
+
+    /// Get the icon for a tab.
+    pub fn tab_icon(&self, index: i32) -> Option<&Icon> {
+        self.tab_bar.tab_icon(index)
+    }
+
+    /// Set the icon for a tab.
+    pub fn set_tab_icon(&mut self, index: i32, icon: Option<Icon>) {
+        self.tab_bar.set_tab_icon(index, icon);
     }
 
     // =========================================================================

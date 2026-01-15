@@ -26,8 +26,8 @@
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, CornerRadii, Font, FontFamily, FontSystem, Point, Rect, Renderer, RoundedRect, Stroke,
-    TextLayout, TextRenderer,
+    Color, CornerRadii, Font, FontFamily, FontSystem, Icon, ImageScaleMode, Point, Rect, Renderer,
+    RoundedRect, Stroke, TextLayout, TextRenderer,
 };
 
 use crate::widget::{
@@ -63,12 +63,12 @@ impl TabPosition {
 }
 
 /// Information about a single tab.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct TabItem {
     /// Tab label text.
     label: String,
-    /// Optional icon path (for future implementation).
-    icon: Option<String>,
+    /// Optional icon for the tab.
+    icon: Option<Icon>,
     /// Whether the tab is enabled.
     enabled: bool,
     /// Whether this tab can be closed.
@@ -165,6 +165,11 @@ pub struct TabBar {
     tab_max_width: f32,
     tab_padding: f32,
 
+    /// Icon size for tab icons.
+    icon_size: f32,
+    /// Spacing between icon and text.
+    icon_spacing: f32,
+
     /// Close button size.
     close_button_size: f32,
 
@@ -234,6 +239,8 @@ impl TabBar {
             tab_min_width: 80.0,
             tab_max_width: 200.0,
             tab_padding: 12.0,
+            icon_size: 16.0,
+            icon_spacing: 6.0,
             close_button_size: 16.0,
             scroll_button_size: 20.0,
             background_color: Color::from_rgb8(245, 245, 245),
@@ -278,10 +285,10 @@ impl TabBar {
     }
 
     /// Add a new tab with label and icon.
-    pub fn add_tab_with_icon(&mut self, label: impl Into<String>, icon: impl Into<String>) -> i32 {
+    pub fn add_tab_with_icon(&mut self, label: impl Into<String>, icon: Icon) -> i32 {
         let index = self.add_tab(label);
         if let Some(tab) = self.tabs.get_mut(index as usize) {
-            tab.icon = Some(icon.into());
+            tab.icon = Some(icon);
         }
         index
     }
@@ -433,6 +440,64 @@ impl TabBar {
             self.update_overflow();
             self.base.update();
         }
+    }
+
+    /// Get the icon for a tab.
+    pub fn tab_icon(&self, index: i32) -> Option<&Icon> {
+        self.tabs.get(index as usize).and_then(|t| t.icon.as_ref())
+    }
+
+    /// Set the icon for a tab.
+    pub fn set_tab_icon(&mut self, index: i32, icon: Option<Icon>) {
+        if let Some(tab) = self.tabs.get_mut(index as usize) {
+            tab.icon = icon;
+            self.update_overflow();
+            self.base.update();
+        }
+    }
+
+    // =========================================================================
+    // Icon Size Configuration
+    // =========================================================================
+
+    /// Get the icon size used for tab icons.
+    pub fn icon_size(&self) -> f32 {
+        self.icon_size
+    }
+
+    /// Set the icon size used for tab icons.
+    pub fn set_icon_size(&mut self, size: f32) {
+        if self.icon_size != size {
+            self.icon_size = size.max(8.0);
+            self.update_overflow();
+            self.base.update();
+        }
+    }
+
+    /// Set icon size using builder pattern.
+    pub fn with_icon_size(mut self, size: f32) -> Self {
+        self.icon_size = size.max(8.0);
+        self
+    }
+
+    /// Get the spacing between icon and text.
+    pub fn icon_spacing(&self) -> f32 {
+        self.icon_spacing
+    }
+
+    /// Set the spacing between icon and text.
+    pub fn set_icon_spacing(&mut self, spacing: f32) {
+        if self.icon_spacing != spacing {
+            self.icon_spacing = spacing.max(0.0);
+            self.update_overflow();
+            self.base.update();
+        }
+    }
+
+    /// Set icon spacing using builder pattern.
+    pub fn with_icon_spacing(mut self, spacing: f32) -> Self {
+        self.icon_spacing = spacing.max(0.0);
+        self
     }
 
     // =========================================================================
@@ -606,13 +671,19 @@ impl TabBar {
         let layout = TextLayout::new(&mut font_system, &tab.label, &self.font);
         let text_width = layout.width();
 
+        let icon_width = if tab.icon.is_some() {
+            self.icon_size + self.icon_spacing
+        } else {
+            0.0
+        };
+
         let close_width = if tab.closable {
             self.close_button_size + self.tab_padding / 2.0
         } else {
             0.0
         };
 
-        (text_width + 2.0 * self.tab_padding + close_width)
+        (text_width + icon_width + 2.0 * self.tab_padding + close_width)
             .clamp(self.tab_min_width, self.tab_max_width)
     }
 
@@ -1236,7 +1307,7 @@ impl TabBar {
             ctx.renderer().fill_rect(border_rect, self.tab_selected_color);
         }
 
-        // Draw text
+        // Draw icon and text
         let text_color = if tab.enabled {
             self.text_color
         } else {
@@ -1246,20 +1317,53 @@ impl TabBar {
         let mut font_system = FontSystem::new();
         let layout = TextLayout::new(&mut font_system, &tab.label, &self.font);
 
-        // Calculate text position (centered, accounting for close button)
+        // Calculate content width (icon + text)
+        let icon_space = if tab.icon.is_some() {
+            self.icon_size + self.icon_spacing
+        } else {
+            0.0
+        };
+
         let close_space = if tab.closable {
             self.close_button_size + self.tab_padding / 2.0
         } else {
             0.0
         };
 
-        let text_x = if self.tab_position.is_horizontal() {
-            rect.origin.x + (rect.width() - layout.width() - close_space) / 2.0
+        let content_width = icon_space + layout.width();
+
+        // Calculate starting position for content (centered, accounting for close button)
+        let content_start_x = if self.tab_position.is_horizontal() {
+            rect.origin.x + (rect.width() - content_width - close_space) / 2.0
         } else {
-            rect.origin.x + (rect.width() - layout.width()) / 2.0
+            rect.origin.x + (rect.width() - content_width) / 2.0
         };
 
-        let text_y = rect.origin.y + (rect.height() - layout.height()) / 2.0;
+        let content_y = rect.origin.y + (rect.height() - layout.height()) / 2.0;
+
+        // Draw icon if present
+        let mut current_x = content_start_x;
+        if let Some(icon) = &tab.icon {
+            let icon_y = rect.origin.y + (rect.height() - self.icon_size) / 2.0;
+
+            // Get the appropriate image based on enabled state
+            let image = if !tab.enabled {
+                icon.disabled_image().or_else(|| icon.image())
+            } else {
+                icon.image()
+            };
+
+            if let Some(img) = image {
+                let icon_rect = Rect::new(current_x, icon_y, self.icon_size, self.icon_size);
+                ctx.renderer().draw_image(img, icon_rect, ImageScaleMode::Fit);
+            }
+
+            current_x += self.icon_size + self.icon_spacing;
+        }
+
+        // Draw text
+        let text_x = current_x;
+        let text_y = content_y;
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
             let _ = text_renderer.prepare_layout(
@@ -1556,5 +1660,52 @@ mod tests {
         assert!(bar.tabs_closable());
         assert!(!bar.tabs_movable());
         assert!(bar.expanding());
+    }
+
+    #[test]
+    fn test_tab_icon() {
+        setup();
+        let mut bar = TabBar::new();
+        bar.add_tab("Tab 1");
+        bar.add_tab("Tab 2");
+
+        // Initially no icon
+        assert!(bar.tab_icon(0).is_none());
+        assert!(bar.tab_icon(1).is_none());
+
+        // Set an icon using a path (lazy loading)
+        let icon = Icon::from_path("test_icon.png");
+        bar.set_tab_icon(0, Some(icon));
+
+        // Icon is now set
+        assert!(bar.tab_icon(0).is_some());
+        assert!(bar.tab_icon(1).is_none());
+
+        // Clear the icon
+        bar.set_tab_icon(0, None);
+        assert!(bar.tab_icon(0).is_none());
+    }
+
+    #[test]
+    fn test_icon_size_configuration() {
+        setup();
+        let bar = TabBar::new()
+            .with_icon_size(24.0)
+            .with_icon_spacing(8.0);
+
+        assert_eq!(bar.icon_size(), 24.0);
+        assert_eq!(bar.icon_spacing(), 8.0);
+    }
+
+    #[test]
+    fn test_add_tab_with_icon() {
+        setup();
+        let mut bar = TabBar::new();
+
+        let icon = Icon::from_path("home.png");
+        let index = bar.add_tab_with_icon("Home", icon);
+
+        assert_eq!(index, 0);
+        assert!(bar.tab_icon(0).is_some());
     }
 }

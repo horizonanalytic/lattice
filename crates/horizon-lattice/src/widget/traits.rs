@@ -19,6 +19,8 @@ pub struct PaintContext<'a> {
     renderer: &'a mut GpuRenderer,
     /// The widget's local rectangle (origin always 0,0).
     widget_rect: Rect,
+    /// Whether the Alt key is currently held (for mnemonic underline display).
+    alt_held: bool,
 }
 
 impl<'a> PaintContext<'a> {
@@ -27,7 +29,24 @@ impl<'a> PaintContext<'a> {
         Self {
             renderer,
             widget_rect,
+            alt_held: false,
         }
+    }
+
+    /// Set the Alt held state (builder pattern).
+    #[inline]
+    pub fn with_alt_held(mut self, alt_held: bool) -> Self {
+        self.alt_held = alt_held;
+        self
+    }
+
+    /// Check if the Alt key is currently held.
+    ///
+    /// This is used by widgets like Label to determine whether to display
+    /// mnemonic underlines.
+    #[inline]
+    pub fn is_alt_held(&self) -> bool {
+        self.alt_held
     }
 
     /// Get the renderer.
@@ -496,6 +515,36 @@ pub trait Widget: Object + Send + Sync {
     /// Request an immediate repaint of a specific region.
     fn repaint_rect(&mut self, rect: Rect) -> Option<Rect> {
         self.widget_base_mut().repaint_rect(rect)
+    }
+
+    // =========================================================================
+    // Mnemonic Support
+    // =========================================================================
+
+    /// Check if this widget has a mnemonic that matches the given key.
+    ///
+    /// The key should be a lowercase character. Override this in widgets
+    /// that support mnemonics (like Label).
+    ///
+    /// # Returns
+    ///
+    /// `true` if this widget has a mnemonic matching the given key.
+    fn matches_mnemonic_key(&self, _key: char) -> bool {
+        false
+    }
+
+    /// Activate this widget's mnemonic.
+    ///
+    /// This is called when the user presses Alt+key where key matches
+    /// this widget's mnemonic. Override this in widgets that support
+    /// mnemonics to emit signals and return the buddy widget ID.
+    ///
+    /// # Returns
+    ///
+    /// The ObjectId of the buddy widget to receive focus, or `None` if
+    /// this widget doesn't have a buddy or doesn't support mnemonics.
+    fn activate_mnemonic(&self) -> Option<ObjectId> {
+        None
     }
 }
 

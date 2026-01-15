@@ -181,6 +181,30 @@ impl FrameRenderer {
         root_id: ObjectId,
         renderer: &mut GpuRenderer,
     ) -> FrameStats {
+        Self::render_frame_with_alt(storage, root_id, renderer, false)
+    }
+
+    /// Render a frame with Alt key state for mnemonic underlines.
+    ///
+    /// This is the same as `render_frame` but accepts an `alt_held` parameter
+    /// to control whether mnemonic underlines should be displayed.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - Widget storage implementing `WidgetAccess`.
+    /// * `root_id` - The root widget to start painting from.
+    /// * `renderer` - The GPU renderer to paint with.
+    /// * `alt_held` - Whether the Alt key is currently held (for mnemonic display).
+    ///
+    /// # Returns
+    ///
+    /// Statistics about the frame rendering.
+    pub fn render_frame_with_alt<S: WidgetAccess>(
+        storage: &mut S,
+        root_id: ObjectId,
+        renderer: &mut GpuRenderer,
+        alt_held: bool,
+    ) -> FrameStats {
         let mut stats = FrameStats::default();
 
         // Collect the paint order (depth-first preorder from root)
@@ -188,7 +212,7 @@ impl FrameRenderer {
 
         // Paint each widget
         for widget_id in paint_order {
-            Self::paint_widget(storage, widget_id, renderer, Point::ZERO, &mut stats);
+            Self::paint_widget(storage, widget_id, renderer, Point::ZERO, alt_held, &mut stats);
         }
 
         stats
@@ -210,6 +234,28 @@ impl FrameRenderer {
         renderer: &mut GpuRenderer,
         dirty_region: Rect,
     ) -> FrameStats {
+        Self::render_frame_region_with_alt(storage, root_id, renderer, dirty_region, false)
+    }
+
+    /// Render a frame with a specific dirty region and Alt key state.
+    ///
+    /// This is the same as `render_frame_region` but accepts an `alt_held` parameter
+    /// to control whether mnemonic underlines should be displayed.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - Widget storage implementing `WidgetAccess`.
+    /// * `root_id` - The root widget to start painting from.
+    /// * `renderer` - The GPU renderer to paint with.
+    /// * `dirty_region` - The region that needs repainting (in window coordinates).
+    /// * `alt_held` - Whether the Alt key is currently held (for mnemonic display).
+    pub fn render_frame_region_with_alt<S: WidgetAccess>(
+        storage: &mut S,
+        root_id: ObjectId,
+        renderer: &mut GpuRenderer,
+        dirty_region: Rect,
+        alt_held: bool,
+    ) -> FrameStats {
         let mut stats = FrameStats::default();
 
         // Set up clipping for the dirty region
@@ -227,6 +273,7 @@ impl FrameRenderer {
                 renderer,
                 Point::ZERO,
                 &dirty_region,
+                alt_held,
                 &mut stats,
             );
         }
@@ -273,6 +320,7 @@ impl FrameRenderer {
         widget_id: ObjectId,
         renderer: &mut GpuRenderer,
         parent_offset: Point,
+        alt_held: bool,
         stats: &mut FrameStats,
     ) {
         // Get widget info
@@ -314,7 +362,7 @@ impl FrameRenderer {
                     renderer.restore();
                     return;
                 };
-                let mut ctx = PaintContext::new(renderer, local_rect);
+                let mut ctx = PaintContext::new(renderer, local_rect).with_alt_held(alt_held);
                 widget.paint(&mut ctx);
             }
 
@@ -337,7 +385,7 @@ impl FrameRenderer {
         // Paint children
         let children = storage.get_children(widget_id);
         for child_id in children {
-            Self::paint_widget(storage, child_id, renderer, window_pos, stats);
+            Self::paint_widget(storage, child_id, renderer, window_pos, alt_held, stats);
         }
     }
 
@@ -348,6 +396,7 @@ impl FrameRenderer {
         renderer: &mut GpuRenderer,
         parent_offset: Point,
         dirty_region: &Rect,
+        alt_held: bool,
         stats: &mut FrameStats,
     ) {
         // Get widget info
@@ -416,7 +465,7 @@ impl FrameRenderer {
             let _ = widget.event(&mut paint_event);
 
             // Paint the widget
-            let mut ctx = PaintContext::new(renderer, local_rect);
+            let mut ctx = PaintContext::new(renderer, local_rect).with_alt_held(alt_held);
             widget.paint(&mut ctx);
 
             // Clear repaint flag
@@ -433,7 +482,7 @@ impl FrameRenderer {
         // Paint children
         let children = storage.get_children(widget_id);
         for child_id in children {
-            Self::paint_widget_with_clip(storage, child_id, renderer, window_pos, dirty_region, stats);
+            Self::paint_widget_with_clip(storage, child_id, renderer, window_pos, dirty_region, alt_held, stats);
         }
     }
 

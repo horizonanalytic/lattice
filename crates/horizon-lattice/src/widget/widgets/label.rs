@@ -155,6 +155,8 @@ struct CachedLayout {
     layout: TextLayout,
     /// The width constraint used for this layout (None = unconstrained).
     width_constraint: Option<f32>,
+    /// Whether the mnemonic underline is shown in this layout.
+    show_mnemonic_underline: bool,
 }
 
 /// Parsed mnemonic information from text containing `&` characters.
@@ -702,12 +704,25 @@ impl Label {
     /// Get or create the text layout.
     ///
     /// The layout is cached and only recalculated when necessary.
-    fn ensure_layout(&self, font_system: &mut FontSystem, width_constraint: Option<f32>) -> TextLayout {
+    ///
+    /// # Arguments
+    ///
+    /// * `font_system` - The font system for text layout.
+    /// * `width_constraint` - Optional width constraint for wrapping/elision.
+    /// * `show_mnemonic_underline` - Whether to show the mnemonic underline (typically when Alt is held).
+    fn ensure_layout(
+        &self,
+        font_system: &mut FontSystem,
+        width_constraint: Option<f32>,
+        show_mnemonic_underline: bool,
+    ) -> TextLayout {
         let mut cached = self.cached_layout.write();
 
         // Check if we can reuse the cached layout
         if let Some(ref cache) = *cached {
-            if cache.width_constraint == width_constraint {
+            if cache.width_constraint == width_constraint
+                && cache.show_mnemonic_underline == show_mnemonic_underline
+            {
                 return cache.layout.clone();
             }
         }
@@ -727,25 +742,36 @@ impl Label {
                 let spans = rich.to_spans(&self.font);
                 TextLayout::rich_text(font_system, &spans, &self.font, options)
             }
-        } else if let Some(mnemonic_pos) = self.mnemonic_byte_pos {
-            // Plain text with mnemonic - create rich text to underline the mnemonic char
-            let display_text = if self.elide_mode != ElideMode::None && width_constraint.is_some() {
-                self.compute_elided_text(font_system, width_constraint.unwrap())
-            } else {
-                self.text.clone()
-            };
+        } else if show_mnemonic_underline {
+            // Show mnemonic underline (Alt is held)
+            if let Some(mnemonic_pos) = self.mnemonic_byte_pos {
+                // Plain text with mnemonic - create rich text to underline the mnemonic char
+                let display_text = if self.elide_mode != ElideMode::None && width_constraint.is_some() {
+                    self.compute_elided_text(font_system, width_constraint.unwrap())
+                } else {
+                    self.text.clone()
+                };
 
-            // Only apply mnemonic underlining if the position is still valid
-            if mnemonic_pos < display_text.len() {
-                let mnemonic_rich = self.create_mnemonic_rich_text(&display_text, mnemonic_pos);
-                let spans = mnemonic_rich.to_spans(&self.font);
-                TextLayout::rich_text(font_system, &spans, &self.font, options)
+                // Only apply mnemonic underlining if the position is still valid
+                if mnemonic_pos < display_text.len() {
+                    let mnemonic_rich = self.create_mnemonic_rich_text(&display_text, mnemonic_pos);
+                    let spans = mnemonic_rich.to_spans(&self.font);
+                    TextLayout::rich_text(font_system, &spans, &self.font, options)
+                } else {
+                    // Mnemonic position invalid (e.g., text was elided), render as plain text
+                    TextLayout::with_options(font_system, &display_text, &self.font, options)
+                }
             } else {
-                // Mnemonic position invalid (e.g., text was elided), render as plain text
+                // No mnemonic, render as plain text
+                let display_text = if self.elide_mode != ElideMode::None && width_constraint.is_some() {
+                    self.compute_elided_text(font_system, width_constraint.unwrap())
+                } else {
+                    self.text.clone()
+                };
                 TextLayout::with_options(font_system, &display_text, &self.font, options)
             }
         } else {
-            // Plain text rendering without mnemonic
+            // Plain text rendering without mnemonic underline (Alt not held)
             let display_text = if self.elide_mode != ElideMode::None && width_constraint.is_some() {
                 self.compute_elided_text(font_system, width_constraint.unwrap())
             } else {
@@ -757,6 +783,7 @@ impl Label {
         *cached = Some(CachedLayout {
             layout: layout.clone(),
             width_constraint,
+            show_mnemonic_underline,
         });
 
         layout
@@ -1021,8 +1048,11 @@ impl Widget for Label {
         // Get font system and text renderer (would normally be from application context)
         let mut font_system = FontSystem::new();
 
+        // Determine if mnemonic underline should be shown (when Alt is held)
+        let show_mnemonic_underline = ctx.is_alt_held() && self.mnemonic_byte_pos.is_some();
+
         // Build the layout
-        let layout = self.ensure_layout(&mut font_system, width_constraint);
+        let layout = self.ensure_layout(&mut font_system, width_constraint, show_mnemonic_underline);
 
         // Calculate vertical offset based on alignment
         let y_offset = match self.vertical_align {
@@ -1063,6 +1093,16 @@ impl Widget for Label {
                 // submitted to a TextRenderPass during the frame render.
             }
         }
+    }
+
+    fn matches_mnemonic_key(&self, key: char) -> bool {
+        // Delegate to our existing method
+        Label::matches_mnemonic_key(self, key)
+    }
+
+    fn activate_mnemonic(&self) -> Option<ObjectId> {
+        // Delegate to our existing method
+        Label::activate_mnemonic(self)
     }
 }
 

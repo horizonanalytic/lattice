@@ -27,6 +27,7 @@
 //! window.show();
 //! ```
 
+use std::collections::HashMap;
 use std::ops::{BitAnd, BitOr, BitOrAssign};
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
@@ -34,9 +35,9 @@ use horizon_lattice_render::{Color, Point, Rect, Renderer, Size, Stroke};
 
 use crate::widget::layout::ContentMargins;
 use crate::widget::{
-    FocusPolicy, Key, KeyPressEvent, MouseButton, MouseDoubleClickEvent, MouseMoveEvent,
-    MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair,
-    Widget, WidgetBase, WidgetEvent,
+    FocusPolicy, Key, KeyPressEvent, KeyReleaseEvent, MouseButton, MouseDoubleClickEvent,
+    MouseMoveEvent, MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy,
+    SizePolicyPair, Widget, WidgetAccess, WidgetBase, WidgetEvent,
 };
 
 // ============================================================================
@@ -422,6 +423,14 @@ pub struct Window {
     /// Whether the window is currently active.
     active: bool,
 
+    // Mnemonic state
+    /// Whether the Alt key is currently held (for mnemonic underline display).
+    alt_held: bool,
+    /// Current mnemonic cycling state: maps mnemonic character to index in matches.
+    mnemonic_cycle_state: HashMap<char, usize>,
+    /// The last mnemonic key pressed (for cycle state management).
+    last_mnemonic_key: Option<char>,
+
     // Signals
     /// Signal emitted when close is requested.
     pub close_requested: Signal<()>,
@@ -437,6 +446,12 @@ pub struct Window {
     pub activated: Signal<()>,
     /// Signal emitted when the window is deactivated.
     pub deactivated: Signal<()>,
+    /// Signal emitted when an Alt+key mnemonic combination is pressed.
+    ///
+    /// The parameter is the lowercase mnemonic key character. Connect a handler
+    /// to this signal to perform mnemonic dispatch (finding matching labels
+    /// and transferring focus to their buddy widgets).
+    pub mnemonic_key_pressed: Signal<char>,
 }
 
 impl Window {
@@ -480,6 +495,9 @@ impl Window {
             drag_start: Point::ZERO,
             drag_start_geometry: Rect::ZERO,
             active: false,
+            alt_held: false,
+            mnemonic_cycle_state: HashMap::new(),
+            last_mnemonic_key: None,
             close_requested: Signal::new(),
             state_changed: Signal::new(),
             title_changed: Signal::new(),
@@ -487,6 +505,7 @@ impl Window {
             modality_changed: Signal::new(),
             activated: Signal::new(),
             deactivated: Signal::new(),
+            mnemonic_key_pressed: Signal::new(),
         }
     }
 
@@ -788,6 +807,146 @@ impl Window {
             self.active = false;
             self.base.update();
             self.deactivated.emit(());
+        }
+    }
+
+    // =========================================================================
+    // Mnemonic State
+    // =========================================================================
+
+    /// Check if the Alt key is currently held.
+    ///
+    /// This is used to determine whether mnemonic underlines should be displayed.
+    pub fn is_alt_held(&self) -> bool {
+        self.alt_held
+    }
+
+    /// Clear the mnemonic cycle state.
+    ///
+    /// Called when Alt is released or focus changes.
+    fn reset_mnemonic_cycle(&mut self) {
+        self.mnemonic_cycle_state.clear();
+        self.last_mnemonic_key = None;
+    }
+
+    /// Get the current cycle index for a mnemonic key and advance it.
+    ///
+    /// Returns the index to use for this mnemonic activation.
+    /// If this is a different key than the last one pressed, resets to 0.
+    fn advance_mnemonic_cycle(&mut self, key: char, num_matches: usize) -> usize {
+        if num_matches == 0 {
+            return 0;
+        }
+
+        let index = if self.last_mnemonic_key == Some(key) {
+            // Same key pressed again - cycle to next
+            let current = self.mnemonic_cycle_state.get(&key).copied().unwrap_or(0);
+            (current + 1) % num_matches
+        } else {
+            // New mnemonic key - start at first match
+            self.reset_mnemonic_cycle();
+            0
+        };
+
+        self.mnemonic_cycle_state.insert(key, index);
+        self.last_mnemonic_key = Some(key);
+        index
+    }
+
+    /// Dispatch a mnemonic key press to matching widgets.
+    ///
+    /// This method searches the window's widget tree for widgets with mnemonics
+    /// matching the given key, activates the appropriate one (with cycling support
+    /// for multiple matches), and returns the buddy widget ID for focus transfer.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - Widget storage implementing `WidgetAccess`.
+    /// * `mnemonic_key` - The lowercase mnemonic key character.
+    ///
+    /// # Returns
+    ///
+    /// The ObjectId of the buddy widget to receive focus, or `None` if no
+    /// matching mnemonic was found or the widget has no buddy.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // In response to Window::mnemonic_key_pressed signal:
+    /// window.mnemonic_key_pressed.connect(|key| {
+    ///     if let Some(buddy_id) = window.dispatch_mnemonic(&mut storage, key) {
+    ///         focus_manager.set_focus(&mut storage, buddy_id, FocusReason::Shortcut);
+    ///     }
+    /// });
+    /// ```
+    pub fn dispatch_mnemonic<S: WidgetAccess>(
+        &mut self,
+        storage: &S,
+        mnemonic_key: char,
+    ) -> Option<ObjectId> {
+        // Find all matching widgets
+        let matching_widgets = self.find_mnemonic_widgets(storage, mnemonic_key);
+
+        if matching_widgets.is_empty() {
+            return None;
+        }
+
+        // Get the cycle index for this key
+        let index = self.advance_mnemonic_cycle(mnemonic_key, matching_widgets.len());
+
+        // Get the widget at this index
+        let widget_id = matching_widgets[index];
+
+        // Activate the mnemonic
+        if let Some(widget) = storage.get_widget(widget_id) {
+            widget.activate_mnemonic()
+        } else {
+            None
+        }
+    }
+
+    /// Find all widgets in the window's content tree that match the given mnemonic key.
+    ///
+    /// Returns a list of ObjectIds for widgets with matching mnemonics, in
+    /// depth-first traversal order. Only visible and enabled widgets are included.
+    fn find_mnemonic_widgets<S: WidgetAccess>(
+        &self,
+        storage: &S,
+        mnemonic_key: char,
+    ) -> Vec<ObjectId> {
+        let mut matches = Vec::new();
+
+        // Start from the content widget
+        if let Some(root_id) = self.content_widget {
+            self.collect_mnemonic_widgets_recursive(storage, root_id, mnemonic_key, &mut matches);
+        }
+
+        matches
+    }
+
+    /// Recursively collect widgets with matching mnemonics.
+    fn collect_mnemonic_widgets_recursive<S: WidgetAccess>(
+        &self,
+        storage: &S,
+        widget_id: ObjectId,
+        mnemonic_key: char,
+        matches: &mut Vec<ObjectId>,
+    ) {
+        let Some(widget) = storage.get_widget(widget_id) else {
+            return;
+        };
+
+        // Only check visible and enabled widgets
+        if widget.is_visible() && widget.is_enabled() {
+            // Check if this widget has a matching mnemonic
+            if widget.matches_mnemonic_key(mnemonic_key) {
+                matches.push(widget_id);
+            }
+        }
+
+        // Recurse to children
+        for child_id in storage.get_children(widget_id) {
+            self.collect_mnemonic_widgets_recursive(storage, child_id, mnemonic_key, matches);
         }
     }
 
@@ -1217,6 +1376,44 @@ impl Window {
             return true;
         }
 
+        // Handle Alt key press - show mnemonic underlines
+        if matches!(event.key, Key::AltLeft | Key::AltRight) {
+            if !self.alt_held {
+                self.alt_held = true;
+                // Trigger repaint of window to show mnemonic underlines
+                self.base.update();
+            }
+            return false; // Don't consume the Alt key event
+        }
+
+        // Handle Alt+key mnemonic activation
+        if event.modifiers.alt {
+            if let Some(key_char) = event.key.to_ascii_char() {
+                // Emit signal for mnemonic dispatch
+                self.mnemonic_key_pressed.emit(key_char);
+                return true; // Consume the Alt+key event
+            }
+        }
+
+        false
+    }
+
+    fn handle_key_release(&mut self, event: &KeyReleaseEvent) -> bool {
+        // Handle Alt key release - hide mnemonic underlines
+        if matches!(event.key, Key::AltLeft | Key::AltRight) {
+            // Only hide if no Alt keys remain pressed
+            // (Check modifiers to see if Alt is still held via the other Alt key)
+            if !event.modifiers.alt {
+                if self.alt_held {
+                    self.alt_held = false;
+                    self.reset_mnemonic_cycle();
+                    // Trigger repaint of window to hide mnemonic underlines
+                    self.base.update();
+                }
+            }
+            return false; // Don't consume the Alt key event
+        }
+
         false
     }
 
@@ -1396,6 +1593,7 @@ impl Widget for Window {
             WidgetEvent::MouseMove(e) => self.handle_mouse_move(e),
             WidgetEvent::DoubleClick(e) => self.handle_double_click(e),
             WidgetEvent::KeyPress(e) => self.handle_key_press(e),
+            WidgetEvent::KeyRelease(e) => self.handle_key_release(e),
             WidgetEvent::Leave(_) => {
                 // Clear hover states
                 let changed = self.close_button_state.hovered

@@ -6,6 +6,7 @@
 //! - Password masking mode
 //! - Read-only mode
 //! - Maximum length constraint
+//! - Undo/redo with coalescing for character input
 //!
 //! # Example
 //!
@@ -44,6 +45,189 @@ use crate::widget::{
     FocusPolicy, Key, KeyPressEvent, MouseButton, MouseMoveEvent, MousePressEvent,
     MouseReleaseEvent, PaintContext, SizeHint, Widget, WidgetBase, WidgetEvent,
 };
+
+// =========================================================================
+// Undo/Redo System
+// =========================================================================
+
+/// Represents an undoable edit operation.
+#[derive(Debug, Clone, PartialEq)]
+enum EditCommand {
+    /// Text was inserted at a position.
+    Insert {
+        /// Byte position where text was inserted.
+        pos: usize,
+        /// The inserted text.
+        text: String,
+    },
+    /// Text was deleted from a range.
+    Delete {
+        /// Byte position where deletion started.
+        pos: usize,
+        /// The deleted text.
+        text: String,
+    },
+}
+
+impl EditCommand {
+    /// Try to merge another command into this one for coalescing.
+    /// Returns true if merge was successful.
+    fn try_merge(&mut self, other: &EditCommand) -> bool {
+        match (self, other) {
+            // Merge consecutive insertions (typing characters)
+            (
+                EditCommand::Insert { pos, text },
+                EditCommand::Insert {
+                    pos: other_pos,
+                    text: other_text,
+                },
+            ) => {
+                // Can merge if the new insertion is at the end of the current one
+                if *pos + text.len() == *other_pos {
+                    text.push_str(other_text);
+                    true
+                } else {
+                    false
+                }
+            }
+            // Merge consecutive backspace deletions
+            (
+                EditCommand::Delete { pos, text },
+                EditCommand::Delete {
+                    pos: other_pos,
+                    text: other_text,
+                },
+            ) => {
+                // Backspace: deletion at position before current
+                if *other_pos + other_text.len() == *pos {
+                    // Prepend the deleted text
+                    let mut new_text = other_text.clone();
+                    new_text.push_str(text);
+                    *text = new_text;
+                    *pos = *other_pos;
+                    true
+                }
+                // Forward delete: deletion at same position
+                else if *other_pos == *pos {
+                    text.push_str(other_text);
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+
+/// Manages undo/redo history for text editing.
+#[derive(Debug)]
+struct UndoStack {
+    /// Stack of edit commands.
+    commands: Vec<EditCommand>,
+    /// Current position in the stack (commands after this are redo-able).
+    index: usize,
+    /// Maximum number of commands to keep.
+    max_size: usize,
+    /// Whether to attempt merging the next command.
+    merge_enabled: bool,
+}
+
+impl UndoStack {
+    /// Create a new undo stack.
+    fn new() -> Self {
+        Self {
+            commands: Vec::new(),
+            index: 0,
+            max_size: 100,
+            merge_enabled: true,
+        }
+    }
+
+    /// Push a new command onto the stack.
+    fn push(&mut self, command: EditCommand) {
+        // Remove any commands after current index (clear redo history)
+        self.commands.truncate(self.index);
+
+        // Try to merge with the last command if merging is enabled
+        if self.merge_enabled {
+            if let Some(last) = self.commands.last_mut() {
+                if last.try_merge(&command) {
+                    return;
+                }
+            }
+        }
+
+        // Add the new command
+        self.commands.push(command);
+        self.index = self.commands.len();
+
+        // Enforce max size by removing oldest commands
+        if self.commands.len() > self.max_size {
+            let excess = self.commands.len() - self.max_size;
+            self.commands.drain(0..excess);
+            self.index = self.commands.len();
+        }
+    }
+
+    /// Check if undo is available.
+    fn can_undo(&self) -> bool {
+        self.index > 0
+    }
+
+    /// Check if redo is available.
+    fn can_redo(&self) -> bool {
+        self.index < self.commands.len()
+    }
+
+    /// Get the command to undo (if any) and decrement index.
+    fn undo(&mut self) -> Option<&EditCommand> {
+        if self.can_undo() {
+            self.index -= 1;
+            // Disable merging after undo to prevent merging new edits with old
+            self.merge_enabled = false;
+            Some(&self.commands[self.index])
+        } else {
+            None
+        }
+    }
+
+    /// Get the command to redo (if any) and increment index.
+    fn redo(&mut self) -> Option<&EditCommand> {
+        if self.can_redo() {
+            let cmd = &self.commands[self.index];
+            self.index += 1;
+            // Disable merging after redo
+            self.merge_enabled = false;
+            Some(cmd)
+        } else {
+            None
+        }
+    }
+
+    /// Clear all undo/redo history.
+    fn clear(&mut self) {
+        self.commands.clear();
+        self.index = 0;
+        self.merge_enabled = true;
+    }
+
+    /// Break the merge chain (next command won't merge with previous).
+    fn break_merge(&mut self) {
+        self.merge_enabled = false;
+    }
+
+    /// Enable merging for the next command.
+    fn enable_merge(&mut self) {
+        self.merge_enabled = true;
+    }
+}
+
+impl Default for UndoStack {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Echo mode determines how text is displayed in the LineEdit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -88,6 +272,8 @@ pub enum EchoMode {
 /// - Ctrl+C / Cmd+C: Copy selected text to clipboard
 /// - Ctrl+X / Cmd+X: Cut selected text to clipboard
 /// - Ctrl+V / Cmd+V: Paste from clipboard
+/// - Ctrl+Z / Cmd+Z: Undo
+/// - Ctrl+Shift+Z / Cmd+Shift+Z or Ctrl+Y: Redo
 pub struct LineEdit {
     /// Widget base for common functionality.
     base: WidgetBase,
@@ -140,6 +326,9 @@ pub struct LineEdit {
     /// Whether we're currently dragging to select.
     is_dragging: bool,
 
+    /// Undo/redo stack for edit operations.
+    undo_stack: UndoStack,
+
     // Signals
 
     /// Signal emitted when text changes.
@@ -184,6 +373,7 @@ impl LineEdit {
             cursor_visible: true,
             cached_layout: RwLock::new(None),
             is_dragging: false,
+            undo_stack: UndoStack::new(),
             text_changed: Signal::new(),
             editing_finished: Signal::new(),
             return_pressed: Signal::new(),
@@ -209,7 +399,8 @@ impl LineEdit {
 
     /// Set the text content.
     ///
-    /// This clears any selection and moves the cursor to the end.
+    /// This clears any selection, moves the cursor to the end, and clears
+    /// the undo history (since this is an external reset of the text).
     /// If max_length is set, the text will be truncated.
     pub fn set_text(&mut self, text: impl Into<String>) {
         let mut new_text = text.into();
@@ -225,6 +416,8 @@ impl LineEdit {
             self.text = new_text.clone();
             self.cursor_pos = self.text.len();
             self.selection_anchor = None;
+            // Clear undo history since this is an external reset
+            self.undo_stack.clear();
             self.invalidate_layout();
             self.ensure_cursor_visible();
             self.base.update();
@@ -481,17 +674,24 @@ impl LineEdit {
 
     /// Insert text at the cursor position.
     fn insert_text(&mut self, text: &str) {
+        self.insert_text_impl(text, true);
+    }
+
+    /// Insert text implementation with optional undo recording.
+    fn insert_text_impl(&mut self, text: &str, record_undo: bool) {
         if self.read_only || text.is_empty() {
             return;
         }
 
         // Delete selection first if any
         if self.has_selection() {
-            self.delete_selection();
+            self.delete_selection_impl(record_undo);
         }
 
+        let insert_pos = self.cursor_pos;
+
         // Check max length
-        if let Some(max) = self.max_length {
+        let actual_text = if let Some(max) = self.max_length {
             let current_len = self.text_length();
             let insert_len = text.chars().count();
             if current_len + insert_len > max {
@@ -503,13 +703,24 @@ impl LineEdit {
                 let truncated: String = text.chars().take(allowed).collect();
                 self.text.insert_str(self.cursor_pos, &truncated);
                 self.cursor_pos += truncated.len();
+                truncated
             } else {
                 self.text.insert_str(self.cursor_pos, text);
                 self.cursor_pos += text.len();
+                text.to_string()
             }
         } else {
             self.text.insert_str(self.cursor_pos, text);
             self.cursor_pos += text.len();
+            text.to_string()
+        };
+
+        // Record undo command
+        if record_undo && !actual_text.is_empty() {
+            self.undo_stack.push(EditCommand::Insert {
+                pos: insert_pos,
+                text: actual_text,
+            });
         }
 
         self.invalidate_layout();
@@ -520,10 +731,29 @@ impl LineEdit {
 
     /// Delete the selected text.
     fn delete_selection(&mut self) {
+        self.delete_selection_impl(true);
+    }
+
+    /// Delete selection implementation with optional undo recording.
+    fn delete_selection_impl(&mut self, record_undo: bool) {
         if let Some((start, end)) = self.selection_range() {
+            let deleted_text = self.text[start..end].to_string();
+
             self.text.replace_range(start..end, "");
             self.cursor_pos = start;
             self.selection_anchor = None;
+
+            // Record undo command
+            if record_undo && !deleted_text.is_empty() {
+                // Break merge chain since selection delete is a distinct operation
+                self.undo_stack.break_merge();
+                self.undo_stack.push(EditCommand::Delete {
+                    pos: start,
+                    text: deleted_text,
+                });
+                self.undo_stack.break_merge();
+            }
+
             self.invalidate_layout();
             self.base.update();
             self.text_changed.emit(self.text.clone());
@@ -532,19 +762,36 @@ impl LineEdit {
 
     /// Delete character before cursor (backspace).
     fn delete_char_before(&mut self) {
+        self.delete_char_before_impl(true);
+    }
+
+    /// Delete character before cursor implementation with optional undo recording.
+    fn delete_char_before_impl(&mut self, record_undo: bool) {
         if self.read_only {
             return;
         }
 
         if self.has_selection() {
-            self.delete_selection();
+            self.delete_selection_impl(record_undo);
             return;
         }
 
         if self.cursor_pos > 0 {
             let prev_pos = self.prev_grapheme_boundary(self.cursor_pos);
+            let deleted_text = self.text[prev_pos..self.cursor_pos].to_string();
+
             self.text.replace_range(prev_pos..self.cursor_pos, "");
             self.cursor_pos = prev_pos;
+
+            // Record undo command (backspace deletions can be merged)
+            if record_undo && !deleted_text.is_empty() {
+                self.undo_stack.enable_merge();
+                self.undo_stack.push(EditCommand::Delete {
+                    pos: prev_pos,
+                    text: deleted_text,
+                });
+            }
+
             self.invalidate_layout();
             self.ensure_cursor_visible();
             self.base.update();
@@ -554,18 +801,35 @@ impl LineEdit {
 
     /// Delete character after cursor (delete).
     fn delete_char_after(&mut self) {
+        self.delete_char_after_impl(true);
+    }
+
+    /// Delete character after cursor implementation with optional undo recording.
+    fn delete_char_after_impl(&mut self, record_undo: bool) {
         if self.read_only {
             return;
         }
 
         if self.has_selection() {
-            self.delete_selection();
+            self.delete_selection_impl(record_undo);
             return;
         }
 
         if self.cursor_pos < self.text.len() {
             let next_pos = self.next_grapheme_boundary(self.cursor_pos);
+            let deleted_text = self.text[self.cursor_pos..next_pos].to_string();
+
             self.text.replace_range(self.cursor_pos..next_pos, "");
+
+            // Record undo command (forward deletions can be merged)
+            if record_undo && !deleted_text.is_empty() {
+                self.undo_stack.enable_merge();
+                self.undo_stack.push(EditCommand::Delete {
+                    pos: self.cursor_pos,
+                    text: deleted_text,
+                });
+            }
+
             self.invalidate_layout();
             self.base.update();
             self.text_changed.emit(self.text.clone());
@@ -574,19 +838,37 @@ impl LineEdit {
 
     /// Delete word before cursor.
     fn delete_word_before(&mut self) {
+        self.delete_word_before_impl(true);
+    }
+
+    /// Delete word before cursor implementation with optional undo recording.
+    fn delete_word_before_impl(&mut self, record_undo: bool) {
         if self.read_only {
             return;
         }
 
         if self.has_selection() {
-            self.delete_selection();
+            self.delete_selection_impl(record_undo);
             return;
         }
 
         if self.cursor_pos > 0 {
             let word_start = self.word_boundary_before(self.cursor_pos);
+            let deleted_text = self.text[word_start..self.cursor_pos].to_string();
+
             self.text.replace_range(word_start..self.cursor_pos, "");
             self.cursor_pos = word_start;
+
+            // Record undo command (word deletions break merge chain)
+            if record_undo && !deleted_text.is_empty() {
+                self.undo_stack.break_merge();
+                self.undo_stack.push(EditCommand::Delete {
+                    pos: word_start,
+                    text: deleted_text,
+                });
+                self.undo_stack.break_merge();
+            }
+
             self.invalidate_layout();
             self.ensure_cursor_visible();
             self.base.update();
@@ -596,18 +878,36 @@ impl LineEdit {
 
     /// Delete word after cursor.
     fn delete_word_after(&mut self) {
+        self.delete_word_after_impl(true);
+    }
+
+    /// Delete word after cursor implementation with optional undo recording.
+    fn delete_word_after_impl(&mut self, record_undo: bool) {
         if self.read_only {
             return;
         }
 
         if self.has_selection() {
-            self.delete_selection();
+            self.delete_selection_impl(record_undo);
             return;
         }
 
         if self.cursor_pos < self.text.len() {
             let word_end = self.word_boundary_after(self.cursor_pos);
+            let deleted_text = self.text[self.cursor_pos..word_end].to_string();
+
             self.text.replace_range(self.cursor_pos..word_end, "");
+
+            // Record undo command (word deletions break merge chain)
+            if record_undo && !deleted_text.is_empty() {
+                self.undo_stack.break_merge();
+                self.undo_stack.push(EditCommand::Delete {
+                    pos: self.cursor_pos,
+                    text: deleted_text,
+                });
+                self.undo_stack.break_merge();
+            }
+
             self.invalidate_layout();
             self.base.update();
             self.text_changed.emit(self.text.clone());
@@ -727,6 +1027,143 @@ impl LineEdit {
             }
         }
         false
+    }
+
+    // =========================================================================
+    // Undo/Redo Operations
+    // =========================================================================
+
+    /// Check if undo is available.
+    ///
+    /// Returns `true` if there are operations that can be undone.
+    pub fn can_undo(&self) -> bool {
+        self.undo_stack.can_undo()
+    }
+
+    /// Check if redo is available.
+    ///
+    /// Returns `true` if there are operations that can be redone.
+    pub fn can_redo(&self) -> bool {
+        self.undo_stack.can_redo()
+    }
+
+    /// Undo the last editing operation.
+    ///
+    /// Returns `true` if an operation was undone, `false` if there was
+    /// nothing to undo or the widget is read-only.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut edit = LineEdit::new();
+    /// edit.insert_text("Hello");
+    /// assert_eq!(edit.text(), "Hello");
+    ///
+    /// edit.undo();
+    /// assert_eq!(edit.text(), "");
+    /// ```
+    pub fn undo(&mut self) -> bool {
+        if self.read_only {
+            return false;
+        }
+
+        // Clone the command to avoid borrow issues
+        let command = self.undo_stack.undo().cloned();
+
+        if let Some(cmd) = command {
+            match cmd {
+                EditCommand::Insert { pos, text } => {
+                    // Undo insert by deleting the text
+                    let end = pos + text.len();
+                    if end <= self.text.len() {
+                        self.text.replace_range(pos..end, "");
+                        self.cursor_pos = pos;
+                        self.selection_anchor = None;
+                        self.invalidate_layout();
+                        self.ensure_cursor_visible();
+                        self.base.update();
+                        self.text_changed.emit(self.text.clone());
+                    }
+                }
+                EditCommand::Delete { pos, text } => {
+                    // Undo delete by inserting the text back
+                    self.text.insert_str(pos, &text);
+                    self.cursor_pos = pos + text.len();
+                    self.selection_anchor = None;
+                    self.invalidate_layout();
+                    self.ensure_cursor_visible();
+                    self.base.update();
+                    self.text_changed.emit(self.text.clone());
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Redo the last undone operation.
+    ///
+    /// Returns `true` if an operation was redone, `false` if there was
+    /// nothing to redo or the widget is read-only.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut edit = LineEdit::new();
+    /// edit.insert_text("Hello");
+    /// edit.undo();
+    /// assert_eq!(edit.text(), "");
+    ///
+    /// edit.redo();
+    /// assert_eq!(edit.text(), "Hello");
+    /// ```
+    pub fn redo(&mut self) -> bool {
+        if self.read_only {
+            return false;
+        }
+
+        // Clone the command to avoid borrow issues
+        let command = self.undo_stack.redo().cloned();
+
+        if let Some(cmd) = command {
+            match cmd {
+                EditCommand::Insert { pos, text } => {
+                    // Redo insert by inserting the text
+                    self.text.insert_str(pos, &text);
+                    self.cursor_pos = pos + text.len();
+                    self.selection_anchor = None;
+                    self.invalidate_layout();
+                    self.ensure_cursor_visible();
+                    self.base.update();
+                    self.text_changed.emit(self.text.clone());
+                }
+                EditCommand::Delete { pos, text } => {
+                    // Redo delete by removing the text
+                    let end = pos + text.len();
+                    if end <= self.text.len() {
+                        self.text.replace_range(pos..end, "");
+                        self.cursor_pos = pos;
+                        self.selection_anchor = None;
+                        self.invalidate_layout();
+                        self.ensure_cursor_visible();
+                        self.base.update();
+                        self.text_changed.emit(self.text.clone());
+                    }
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Clear the undo/redo history.
+    ///
+    /// This is useful when you want to reset the undo state without
+    /// changing the text content.
+    pub fn clear_undo_history(&mut self) {
+        self.undo_stack.clear();
     }
 
     // =========================================================================
@@ -1148,6 +1585,23 @@ impl LineEdit {
             }
             Key::V if ctrl => {
                 self.paste();
+                true
+            }
+
+            // Undo/Redo
+            Key::Z if ctrl && shift => {
+                // Ctrl+Shift+Z or Cmd+Shift+Z: Redo
+                self.redo();
+                true
+            }
+            Key::Z if ctrl => {
+                // Ctrl+Z or Cmd+Z: Undo
+                self.undo();
+                true
+            }
+            Key::Y if ctrl => {
+                // Ctrl+Y: Redo (alternative shortcut, common on Windows)
+                self.redo();
                 true
             }
 
@@ -1803,5 +2257,238 @@ mod tests {
                 assert_eq!(edit.text(), "Hello World");
             }
         }
+    }
+
+    // =========================================================================
+    // Undo/Redo Tests
+    // =========================================================================
+
+    #[test]
+    fn test_undo_insert() {
+        setup();
+        let mut edit = LineEdit::new();
+
+        // Insert text
+        edit.insert_text("Hello");
+        assert_eq!(edit.text(), "Hello");
+        assert!(edit.can_undo());
+        assert!(!edit.can_redo());
+
+        // Undo should restore empty state
+        assert!(edit.undo());
+        assert_eq!(edit.text(), "");
+        assert!(!edit.can_undo());
+        assert!(edit.can_redo());
+    }
+
+    #[test]
+    fn test_redo_insert() {
+        setup();
+        let mut edit = LineEdit::new();
+
+        edit.insert_text("Hello");
+        edit.undo();
+        assert_eq!(edit.text(), "");
+
+        // Redo should restore the text
+        assert!(edit.redo());
+        assert_eq!(edit.text(), "Hello");
+        assert!(edit.can_undo());
+        assert!(!edit.can_redo());
+    }
+
+    #[test]
+    fn test_undo_delete_backspace() {
+        setup();
+        let mut edit = LineEdit::with_text("Hello");
+        edit.undo_stack.clear(); // Clear undo from set_text in with_text
+
+        // Delete last character
+        edit.delete_char_before();
+        assert_eq!(edit.text(), "Hell");
+
+        // Undo should restore the 'o'
+        assert!(edit.undo());
+        assert_eq!(edit.text(), "Hello");
+    }
+
+    #[test]
+    fn test_undo_delete_forward() {
+        setup();
+        let mut edit = LineEdit::with_text("Hello");
+        edit.set_cursor_position(0);
+        edit.undo_stack.clear();
+
+        // Delete first character
+        edit.delete_char_after();
+        assert_eq!(edit.text(), "ello");
+
+        // Undo should restore the 'H'
+        assert!(edit.undo());
+        assert_eq!(edit.text(), "Hello");
+    }
+
+    #[test]
+    fn test_undo_delete_selection() {
+        setup();
+        let mut edit = LineEdit::with_text("Hello World");
+        edit.undo_stack.clear();
+
+        // Select and delete "World"
+        edit.selection_anchor = Some(6);
+        edit.cursor_pos = 11;
+        edit.delete_selection();
+        assert_eq!(edit.text(), "Hello ");
+
+        // Undo should restore "World"
+        assert!(edit.undo());
+        assert_eq!(edit.text(), "Hello World");
+    }
+
+    #[test]
+    fn test_undo_coalescing_insert() {
+        setup();
+        let mut edit = LineEdit::new();
+
+        // Type multiple characters - should coalesce
+        edit.insert_text("H");
+        edit.insert_text("e");
+        edit.insert_text("l");
+        edit.insert_text("l");
+        edit.insert_text("o");
+        assert_eq!(edit.text(), "Hello");
+
+        // Single undo should remove all coalesced characters
+        assert!(edit.undo());
+        assert_eq!(edit.text(), "");
+
+        // No more undo available
+        assert!(!edit.can_undo());
+    }
+
+    #[test]
+    fn test_undo_coalescing_backspace() {
+        setup();
+        let mut edit = LineEdit::with_text("Hello");
+        edit.undo_stack.clear();
+
+        // Delete multiple characters with backspace - should coalesce
+        edit.delete_char_before();
+        edit.delete_char_before();
+        edit.delete_char_before();
+        assert_eq!(edit.text(), "He");
+
+        // Single undo should restore all deleted characters
+        assert!(edit.undo());
+        assert_eq!(edit.text(), "Hello");
+    }
+
+    #[test]
+    fn test_undo_multiple_operations() {
+        setup();
+        let mut edit = LineEdit::new();
+
+        // Multiple distinct operations
+        edit.insert_text("Hello");
+        edit.undo_stack.break_merge(); // Break coalescing
+        edit.insert_text(" World");
+
+        assert_eq!(edit.text(), "Hello World");
+
+        // First undo removes " World"
+        assert!(edit.undo());
+        assert_eq!(edit.text(), "Hello");
+
+        // Second undo removes "Hello"
+        assert!(edit.undo());
+        assert_eq!(edit.text(), "");
+
+        // Redo restores "Hello"
+        assert!(edit.redo());
+        assert_eq!(edit.text(), "Hello");
+
+        // Redo restores " World"
+        assert!(edit.redo());
+        assert_eq!(edit.text(), "Hello World");
+    }
+
+    #[test]
+    fn test_undo_clears_redo_on_new_edit() {
+        setup();
+        let mut edit = LineEdit::new();
+
+        edit.insert_text("Hello");
+        edit.undo();
+        assert_eq!(edit.text(), "");
+        assert!(edit.can_redo());
+
+        // New edit should clear redo history
+        edit.insert_text("World");
+        assert!(!edit.can_redo());
+        assert_eq!(edit.text(), "World");
+    }
+
+    #[test]
+    fn test_undo_read_only_returns_false() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.insert_text("Hello");
+        edit.set_read_only(true);
+
+        // Undo should fail when read-only
+        assert!(!edit.undo());
+        assert_eq!(edit.text(), "Hello");
+    }
+
+    #[test]
+    fn test_redo_read_only_returns_false() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.insert_text("Hello");
+        edit.undo();
+        edit.set_read_only(true);
+
+        // Redo should fail when read-only
+        assert!(!edit.redo());
+        assert_eq!(edit.text(), "");
+    }
+
+    #[test]
+    fn test_set_text_clears_undo() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.insert_text("Hello");
+        assert!(edit.can_undo());
+
+        // set_text should clear undo history
+        edit.set_text("New text");
+        assert!(!edit.can_undo());
+    }
+
+    #[test]
+    fn test_clear_undo_history() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.insert_text("Hello");
+        assert!(edit.can_undo());
+
+        edit.clear_undo_history();
+        assert!(!edit.can_undo());
+        assert!(!edit.can_redo());
+    }
+
+    #[test]
+    fn test_undo_word_delete() {
+        setup();
+        let mut edit = LineEdit::with_text("Hello World");
+        edit.undo_stack.clear();
+
+        // Delete "World"
+        edit.delete_word_before();
+        assert_eq!(edit.text(), "Hello ");
+
+        // Undo should restore "World"
+        assert!(edit.undo());
+        assert_eq!(edit.text(), "Hello World");
     }
 }

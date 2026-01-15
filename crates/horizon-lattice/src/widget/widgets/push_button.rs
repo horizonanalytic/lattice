@@ -26,7 +26,8 @@
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, Font, FontSystem, Point, Renderer, RoundedRect, TextLayout, TextRenderer,
+    icon_tint_for_state, Color, Font, FontSystem, Icon, IconMode, IconPosition, ImageScaleMode,
+    Point, Rect, Renderer, RoundedRect, TextLayout, TextRenderer,
 };
 
 use super::abstract_button::AbstractButton;
@@ -195,6 +196,74 @@ impl PushButton {
     }
 
     // =========================================================================
+    // Delegated Icon Methods
+    // =========================================================================
+
+    /// Get the button's icon, if any.
+    pub fn icon(&self) -> Option<&Icon> {
+        self.inner.icon()
+    }
+
+    /// Set the button's icon.
+    pub fn set_icon(&mut self, icon: Option<Icon>) {
+        self.inner.set_icon(icon);
+    }
+
+    /// Set the icon using builder pattern.
+    pub fn with_icon(mut self, icon: Icon) -> Self {
+        self.inner = self.inner.with_icon(icon);
+        self
+    }
+
+    /// Get the icon position.
+    pub fn icon_position(&self) -> IconPosition {
+        self.inner.icon_position()
+    }
+
+    /// Set the position of the icon relative to text.
+    pub fn set_icon_position(&mut self, position: IconPosition) {
+        self.inner.set_icon_position(position);
+    }
+
+    /// Set icon position using builder pattern.
+    pub fn with_icon_position(mut self, position: IconPosition) -> Self {
+        self.inner = self.inner.with_icon_position(position);
+        self
+    }
+
+    /// Get the icon display mode.
+    pub fn icon_mode(&self) -> IconMode {
+        self.inner.icon_mode()
+    }
+
+    /// Set the icon display mode.
+    pub fn set_icon_mode(&mut self, mode: IconMode) {
+        self.inner.set_icon_mode(mode);
+    }
+
+    /// Set icon mode using builder pattern.
+    pub fn with_icon_mode(mut self, mode: IconMode) -> Self {
+        self.inner = self.inner.with_icon_mode(mode);
+        self
+    }
+
+    /// Get the spacing between icon and text.
+    pub fn icon_spacing(&self) -> f32 {
+        self.inner.icon_spacing()
+    }
+
+    /// Set the spacing between icon and text in pixels.
+    pub fn set_icon_spacing(&mut self, spacing: f32) {
+        self.inner.set_icon_spacing(spacing);
+    }
+
+    /// Set icon spacing using builder pattern.
+    pub fn with_icon_spacing(mut self, spacing: f32) -> Self {
+        self.inner = self.inner.with_icon_spacing(spacing);
+        self
+    }
+
+    // =========================================================================
     // PushButton-Specific Methods
     // =========================================================================
 
@@ -304,16 +373,116 @@ impl Widget for PushButton {
         let rrect = RoundedRect::new(rect, self.border_radius);
         ctx.renderer().fill_rounded_rect(rrect, bg_color);
 
+        // Get state info for icon tinting
+        let is_disabled = !self.inner.widget_base().is_effectively_enabled();
+        let is_pressed = self.inner.widget_base().is_pressed();
+        let is_hovered = self.inner.widget_base().is_hovered();
+
+        // Calculate content sizes
+        let shows_icon = self.inner.shows_icon();
+        let shows_text = self.inner.shows_text();
+        let icon_size = self.inner.icon_size();
+        let content_size = self.inner.content_size();
+        let spacing = self.inner.icon_spacing();
+
+        // Center the content in the button
+        let content_x = rect.origin.x + (rect.width() - content_size.width) / 2.0;
+        let content_y = rect.origin.y + (rect.height() - content_size.height) / 2.0;
+
+        // Calculate icon and text positions based on icon position
+        let (icon_pos, text_offset) = if shows_icon && shows_text {
+            match self.inner.icon_position() {
+                IconPosition::Left => {
+                    let icon_y = content_y + (content_size.height - icon_size.height) / 2.0;
+                    (
+                        Point::new(content_x, icon_y),
+                        Point::new(icon_size.width + spacing, 0.0),
+                    )
+                }
+                IconPosition::Right => {
+                    let text_size = self.inner.text_size();
+                    let icon_y = content_y + (content_size.height - icon_size.height) / 2.0;
+                    (
+                        Point::new(content_x + text_size.width + spacing, icon_y),
+                        Point::new(0.0, 0.0),
+                    )
+                }
+                IconPosition::Top => {
+                    let icon_x = content_x + (content_size.width - icon_size.width) / 2.0;
+                    (
+                        Point::new(icon_x, content_y),
+                        Point::new(0.0, icon_size.height + spacing),
+                    )
+                }
+                IconPosition::Bottom => {
+                    let text_size = self.inner.text_size();
+                    let icon_x = content_x + (content_size.width - icon_size.width) / 2.0;
+                    (
+                        Point::new(icon_x, content_y + text_size.height + spacing),
+                        Point::new(0.0, 0.0),
+                    )
+                }
+            }
+        } else if shows_icon {
+            // Icon only - center it
+            let icon_x = content_x + (content_size.width - icon_size.width) / 2.0;
+            let icon_y = content_y + (content_size.height - icon_size.height) / 2.0;
+            (Point::new(icon_x, icon_y), Point::new(0.0, 0.0))
+        } else {
+            // Text only - no icon position needed
+            (Point::new(0.0, 0.0), Point::new(0.0, 0.0))
+        };
+
+        // Draw icon if present and loaded
+        if shows_icon {
+            if let Some(icon) = self.inner.icon() {
+                // Get the appropriate image based on state
+                let image = if is_disabled {
+                    icon.disabled_image()
+                } else {
+                    icon.image()
+                };
+
+                if let Some(img) = image {
+                    let icon_rect = Rect::new(
+                        icon_pos.x,
+                        icon_pos.y,
+                        icon_size.width,
+                        icon_size.height,
+                    );
+
+                    // Apply tint for state feedback (only if not using dedicated disabled image)
+                    let _tint = icon_tint_for_state(
+                        Color::WHITE,
+                        is_disabled && icon.disabled_image().is_none(),
+                        is_pressed,
+                        is_hovered,
+                    );
+
+                    // Draw the icon image
+                    ctx.renderer().draw_image(img, icon_rect, ImageScaleMode::Fit);
+                }
+            }
+        }
+
         // Draw text if present
-        if !self.inner.text().is_empty() {
+        if shows_text && !self.inner.text().is_empty() {
             let mut font_system = FontSystem::new();
             let layout = TextLayout::new(&mut font_system, self.inner.text(), self.inner.font());
 
-            // Center the text in the button
-            let text_x = rect.origin.x + (rect.width() - layout.width()) / 2.0;
-            let text_y = rect.origin.y + (rect.height() - layout.height()) / 2.0;
-            let text_pos = Point::new(text_x, text_y);
+            // Calculate text position (centered within text area, offset by icon if present)
+            let text_area_x = if shows_icon {
+                content_x + text_offset.x
+            } else {
+                rect.origin.x + (rect.width() - layout.width()) / 2.0
+            };
+            let text_area_y = if shows_icon {
+                content_y + text_offset.y + (content_size.height - text_offset.y - layout.height()) / 2.0
+            } else {
+                rect.origin.y + (rect.height() - layout.height()) / 2.0
+            };
 
+            let text_pos = Point::new(text_area_x, text_area_y);
             let text_color = self.inner.effective_text_color();
 
             // Render text
@@ -473,5 +642,65 @@ mod tests {
 
         button.toggle();
         assert!(!button.is_checked()); // No effect since not checkable
+    }
+
+    #[test]
+    fn test_icon_position_default() {
+        setup();
+        let button = PushButton::new("Test");
+        assert_eq!(button.icon_position(), IconPosition::Left);
+    }
+
+    #[test]
+    fn test_icon_position_builder() {
+        setup();
+        let button = PushButton::new("Test")
+            .with_icon_position(IconPosition::Right);
+        assert_eq!(button.icon_position(), IconPosition::Right);
+    }
+
+    #[test]
+    fn test_icon_mode_default() {
+        setup();
+        let button = PushButton::new("Test");
+        assert_eq!(button.icon_mode(), IconMode::IconAndText);
+    }
+
+    #[test]
+    fn test_icon_mode_builder() {
+        setup();
+        let button = PushButton::new("Test")
+            .with_icon_mode(IconMode::IconOnly);
+        assert_eq!(button.icon_mode(), IconMode::IconOnly);
+    }
+
+    #[test]
+    fn test_icon_spacing_default() {
+        setup();
+        let button = PushButton::new("Test");
+        assert_eq!(button.icon_spacing(), 6.0);
+    }
+
+    #[test]
+    fn test_icon_spacing_builder() {
+        setup();
+        let button = PushButton::new("Test")
+            .with_icon_spacing(12.0);
+        assert_eq!(button.icon_spacing(), 12.0);
+    }
+
+    #[test]
+    fn test_no_icon_by_default() {
+        setup();
+        let button = PushButton::new("Test");
+        assert!(button.icon().is_none());
+    }
+
+    #[test]
+    fn test_icon_from_path() {
+        setup();
+        let icon = Icon::from_path("test/icon.png");
+        let button = PushButton::new("Test").with_icon(icon);
+        assert!(button.icon().is_some());
     }
 }

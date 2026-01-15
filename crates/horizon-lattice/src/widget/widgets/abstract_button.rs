@@ -19,7 +19,9 @@
 //! - Auto-repeat when held (optional)
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
-use horizon_lattice_render::{Color, Font, FontFamily, FontSystem, Size, TextLayout};
+use horizon_lattice_render::{
+    Color, Font, FontFamily, FontSystem, Icon, IconMode, IconPosition, Size, TextLayout,
+};
 
 use crate::widget::{
     FocusPolicy, Key, KeyPressEvent, MouseButton, MousePressEvent, MouseReleaseEvent, SizeHint,
@@ -63,6 +65,18 @@ pub struct AbstractButton {
     /// Text color.
     text_color: Color,
 
+    /// Optional icon to display.
+    icon: Option<Icon>,
+
+    /// Position of the icon relative to text.
+    icon_position: IconPosition,
+
+    /// Icon display mode (icon+text, icon only, text only).
+    icon_mode: IconMode,
+
+    /// Spacing between icon and text in pixels.
+    icon_spacing: f32,
+
     /// Signal emitted when the button is clicked.
     ///
     /// For checkable buttons, this is emitted after the checked state changes.
@@ -97,6 +111,10 @@ impl AbstractButton {
             auto_repeat_interval: 100,
             font: Font::new(FontFamily::SansSerif, 14.0),
             text_color: Color::BLACK,
+            icon: None,
+            icon_position: IconPosition::Left,
+            icon_mode: IconMode::IconAndText,
+            icon_spacing: 6.0,
             clicked: Signal::new(),
             pressed: Signal::new(),
             released: Signal::new(),
@@ -278,6 +296,94 @@ impl AbstractButton {
     }
 
     // =========================================================================
+    // Icon
+    // =========================================================================
+
+    /// Get the button's icon, if any.
+    pub fn icon(&self) -> Option<&Icon> {
+        self.icon.as_ref()
+    }
+
+    /// Set the button's icon.
+    pub fn set_icon(&mut self, icon: Option<Icon>) {
+        self.icon = icon;
+        self.base.update();
+    }
+
+    /// Set the icon using builder pattern.
+    pub fn with_icon(mut self, icon: Icon) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// Get the icon position.
+    pub fn icon_position(&self) -> IconPosition {
+        self.icon_position
+    }
+
+    /// Set the position of the icon relative to text.
+    pub fn set_icon_position(&mut self, position: IconPosition) {
+        if self.icon_position != position {
+            self.icon_position = position;
+            self.base.update();
+        }
+    }
+
+    /// Set icon position using builder pattern.
+    pub fn with_icon_position(mut self, position: IconPosition) -> Self {
+        self.icon_position = position;
+        self
+    }
+
+    /// Get the icon display mode.
+    pub fn icon_mode(&self) -> IconMode {
+        self.icon_mode
+    }
+
+    /// Set the icon display mode.
+    pub fn set_icon_mode(&mut self, mode: IconMode) {
+        if self.icon_mode != mode {
+            self.icon_mode = mode;
+            self.base.update();
+        }
+    }
+
+    /// Set icon mode using builder pattern.
+    pub fn with_icon_mode(mut self, mode: IconMode) -> Self {
+        self.icon_mode = mode;
+        self
+    }
+
+    /// Get the spacing between icon and text.
+    pub fn icon_spacing(&self) -> f32 {
+        self.icon_spacing
+    }
+
+    /// Set the spacing between icon and text in pixels.
+    pub fn set_icon_spacing(&mut self, spacing: f32) {
+        if (self.icon_spacing - spacing).abs() > f32::EPSILON {
+            self.icon_spacing = spacing;
+            self.base.update();
+        }
+    }
+
+    /// Set icon spacing using builder pattern.
+    pub fn with_icon_spacing(mut self, spacing: f32) -> Self {
+        self.icon_spacing = spacing;
+        self
+    }
+
+    /// Check if this button should show an icon.
+    pub fn shows_icon(&self) -> bool {
+        self.icon.is_some() && self.icon_mode != IconMode::TextOnly
+    }
+
+    /// Check if this button should show text.
+    pub fn shows_text(&self) -> bool {
+        !self.text.is_empty() && self.icon_mode != IconMode::IconOnly
+    }
+
+    // =========================================================================
     // Event Handling
     // =========================================================================
 
@@ -383,7 +489,7 @@ impl AbstractButton {
 
     /// Calculate the size needed for the button text.
     pub fn text_size(&self) -> Size {
-        if self.text.is_empty() {
+        if self.text.is_empty() || !self.shows_text() {
             return Size::new(0.0, self.font.size());
         }
 
@@ -392,17 +498,58 @@ impl AbstractButton {
         Size::new(layout.width(), layout.height())
     }
 
+    /// Get the size of the icon for display.
+    pub fn icon_size(&self) -> Size {
+        if !self.shows_icon() {
+            return Size::ZERO;
+        }
+        self.icon
+            .as_ref()
+            .map(|i| i.display_size())
+            .unwrap_or(Size::ZERO)
+    }
+
+    /// Calculate the combined content size (icon + text + spacing).
+    pub fn content_size(&self) -> Size {
+        let text_size = self.text_size();
+        let icon_size = self.icon_size();
+        let shows_icon = self.shows_icon();
+        let shows_text = self.shows_text();
+
+        // Calculate total content size based on layout direction
+        if shows_icon && shows_text {
+            let spacing = self.icon_spacing;
+            if self.icon_position.is_horizontal() {
+                // Icon and text side by side
+                Size::new(
+                    icon_size.width + spacing + text_size.width,
+                    icon_size.height.max(text_size.height),
+                )
+            } else {
+                // Icon and text stacked
+                Size::new(
+                    icon_size.width.max(text_size.width),
+                    icon_size.height + spacing + text_size.height,
+                )
+            }
+        } else if shows_icon {
+            icon_size
+        } else {
+            text_size
+        }
+    }
+
     /// Get the default size hint for the button.
     pub fn default_size_hint(&self) -> SizeHint {
-        let text_size = self.text_size();
-        // Add padding around the text
+        let content_size = self.content_size();
+        // Add padding around the content
         let padding = 16.0; // 8px on each side
         let min_width = 64.0;
         let min_height = 24.0;
 
         let preferred = Size::new(
-            (text_size.width + padding * 2.0).max(min_width),
-            (text_size.height + padding).max(min_height),
+            (content_size.width + padding * 2.0).max(min_width),
+            (content_size.height + padding).max(min_height),
         );
 
         SizeHint::new(preferred)

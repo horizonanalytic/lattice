@@ -97,6 +97,7 @@ mod context;
 pub mod damage;
 mod error;
 mod gpu_renderer;
+mod icon;
 mod image;
 pub mod layer;
 mod paint;
@@ -140,6 +141,9 @@ pub use types::{Color, CornerRadii, Path, PathCommand, Point, Rect, RoundedRect,
 pub use async_image::{AsyncImageHandle, AsyncImageLoader, AsyncImageLoaderConfig, LoadingState};
 pub use atlas::{ImageManager, TextureAtlas};
 pub use image::{Image, ImageLoader, ImageScaleMode, NinePatch};
+
+// Icon types
+pub use icon::{icon_tint_for_state, Icon, IconMode, IconPosition, IconSource};
 
 // Damage tracking
 pub use damage::DamageTracker;

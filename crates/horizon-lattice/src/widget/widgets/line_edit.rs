@@ -48,6 +48,7 @@ use parking_lot::RwLock;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::platform::Clipboard;
+use crate::widget::input_mask::InputMask;
 use crate::widget::validator::{ValidationState, Validator};
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
@@ -352,6 +353,13 @@ pub struct LineEdit {
     /// Current validation state.
     validation_state: ValidationState,
 
+    /// Optional input mask for formatted input.
+    input_mask: Option<InputMask>,
+
+    /// User input characters (without mask literals) when mask is active.
+    /// When no mask is active, this is empty and `text` is used directly.
+    mask_input: String,
+
     // Signals
 
     /// Signal emitted when text changes (and validation passes, if a validator is set).
@@ -407,6 +415,8 @@ impl LineEdit {
             undo_stack: UndoStack::new(),
             validator: None,
             validation_state: ValidationState::Acceptable,
+            input_mask: None,
+            mask_input: String::new(),
             text_changed: Signal::new(),
             text_edited: Signal::new(),
             editing_finished: Signal::new(),
@@ -428,7 +438,22 @@ impl LineEdit {
     // =========================================================================
 
     /// Get the current text.
+    ///
+    /// When an input mask is active, this returns only the user-entered characters
+    /// (without literal separators or blank characters).
     pub fn text(&self) -> &str {
+        if self.input_mask.is_some() {
+            &self.mask_input
+        } else {
+            &self.text
+        }
+    }
+
+    /// Get the display text (what is shown to the user).
+    ///
+    /// When an input mask is active, this includes literal separators and
+    /// blank characters for unfilled positions.
+    pub fn display_text_value(&self) -> &str {
         &self.text
     }
 
@@ -437,41 +462,97 @@ impl LineEdit {
     /// This clears any selection, moves the cursor to the end, and clears
     /// the undo history (since this is an external reset of the text).
     /// If max_length is set, the text will be truncated.
+    ///
+    /// When an input mask is active, the text is filtered to match the mask pattern.
     pub fn set_text(&mut self, text: impl Into<String>) {
-        let mut new_text = text.into();
+        let new_text = text.into();
 
-        // Truncate to max_length if set
-        if let Some(max) = self.max_length {
-            if new_text.chars().count() > max {
-                new_text = new_text.chars().take(max).collect();
+        if let Some(ref mask) = self.input_mask {
+            // Filter input for mask
+            let filtered = self.filter_for_mask(&new_text, mask);
+            if self.mask_input != filtered {
+                self.mask_input = filtered;
+                self.text = mask.display_text(&self.mask_input);
+
+                // Position cursor after last filled position
+                let input_len = self.mask_input.chars().count();
+                let display_pos = mask.input_pos_to_display_pos(input_len);
+                self.cursor_pos = self.mask_display_pos_to_byte(display_pos);
+
+                self.selection_anchor = None;
+                self.undo_stack.clear();
+                self.invalidate_layout();
+                self.ensure_cursor_visible();
+                self.base.update();
+
+                self.text_edited.emit(self.mask_input.clone());
+                self.revalidate();
+                self.text_changed.emit(self.mask_input.clone());
             }
-        }
+        } else {
+            // No mask - original behavior
+            let mut new_text = new_text;
 
-        if self.text != new_text {
-            self.text = new_text.clone();
-            self.cursor_pos = self.text.len();
-            self.selection_anchor = None;
-            // Clear undo history since this is an external reset
-            self.undo_stack.clear();
-            self.invalidate_layout();
-            self.ensure_cursor_visible();
-            self.base.update();
-            // Emit text_edited signal
-            self.text_edited.emit(new_text.clone());
-            // Validate and emit text_changed
-            self.revalidate();
-            self.text_changed.emit(new_text);
+            // Truncate to max_length if set
+            if let Some(max) = self.max_length {
+                if new_text.chars().count() > max {
+                    new_text = new_text.chars().take(max).collect();
+                }
+            }
+
+            if self.text != new_text {
+                self.text = new_text.clone();
+                self.cursor_pos = self.text.len();
+                self.selection_anchor = None;
+                // Clear undo history since this is an external reset
+                self.undo_stack.clear();
+                self.invalidate_layout();
+                self.ensure_cursor_visible();
+                self.base.update();
+                // Emit text_edited signal
+                self.text_edited.emit(new_text.clone());
+                // Validate and emit text_changed
+                self.revalidate();
+                self.text_changed.emit(new_text);
+            }
         }
     }
 
     /// Clear all text.
     pub fn clear(&mut self) {
-        self.set_text("");
+        if self.input_mask.is_some() {
+            self.mask_input.clear();
+            if let Some(ref mask) = self.input_mask {
+                self.text = mask.display_text("");
+            }
+            if let Some(pos) = self.input_mask.as_ref().and_then(|m| m.first_editable_pos()) {
+                self.cursor_pos = self.mask_display_pos_to_byte(pos);
+            } else {
+                self.cursor_pos = 0;
+            }
+            self.selection_anchor = None;
+            self.undo_stack.clear();
+            self.invalidate_layout();
+            self.ensure_cursor_visible();
+            self.base.update();
+
+            self.text_edited.emit(String::new());
+            self.revalidate();
+            self.text_changed.emit(String::new());
+        } else {
+            self.set_text("");
+        }
     }
 
     /// Get the text length in characters.
+    ///
+    /// When an input mask is active, this returns the number of user-entered characters.
     pub fn text_length(&self) -> usize {
-        self.text.chars().count()
+        if self.input_mask.is_some() {
+            self.mask_input.chars().count()
+        } else {
+            self.text.chars().count()
+        }
     }
 
     // =========================================================================
@@ -660,6 +741,184 @@ impl LineEdit {
     }
 
     // =========================================================================
+    // Input Mask
+    // =========================================================================
+
+    /// Get the current input mask pattern, if any.
+    ///
+    /// Returns `None` if no mask is set.
+    pub fn input_mask(&self) -> Option<&str> {
+        self.input_mask.as_ref().map(|m| m.pattern())
+    }
+
+    /// Set an input mask to constrain user input to a specific pattern.
+    ///
+    /// The input mask defines which characters can be entered at each position,
+    /// automatically inserts literal separators, and optionally transforms case.
+    ///
+    /// # Mask Characters
+    ///
+    /// | Char | Meaning |
+    /// |------|---------|
+    /// | `A`  | Letter required (A-Z, a-z) |
+    /// | `a`  | Letter permitted but not required |
+    /// | `N`  | Alphanumeric required (A-Z, a-z, 0-9) |
+    /// | `n`  | Alphanumeric permitted but not required |
+    /// | `X`  | Any non-blank character required |
+    /// | `x`  | Any non-blank character permitted but not required |
+    /// | `9`  | Digit required (0-9) |
+    /// | `0`  | Digit permitted but not required |
+    /// | `D`  | Digit 1-9 required (no zero) |
+    /// | `d`  | Digit 1-9 permitted but not required |
+    /// | `#`  | Digit or +/- sign permitted but not required |
+    /// | `H`  | Hex character required (A-F, a-f, 0-9) |
+    /// | `h`  | Hex character permitted but not required |
+    /// | `B`  | Binary character required (0-1) |
+    /// | `b`  | Binary character permitted but not required |
+    ///
+    /// # Meta Characters
+    ///
+    /// | Char | Meaning |
+    /// |------|---------|
+    /// | `>`  | All following alphabetic characters are uppercased |
+    /// | `<`  | All following alphabetic characters are lowercased |
+    /// | `!`  | Switch off case conversion |
+    /// | `\`  | Escape the following character to use it as a literal |
+    /// | `;c` | Terminates the mask and sets the blank character to `c` |
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice::widget::widgets::LineEdit;
+    ///
+    /// let mut edit = LineEdit::new();
+    ///
+    /// // Phone number: (999) 999-9999
+    /// edit.set_input_mask("(999) 999-9999");
+    ///
+    /// // IP address with underscore blanks
+    /// edit.set_input_mask("000.000.000.000;_");
+    ///
+    /// // License key (uppercase)
+    /// edit.set_input_mask(">AAAAA-AAAAA-AAAAA-AAAAA-AAAAA;#");
+    /// ```
+    pub fn set_input_mask(&mut self, mask: &str) {
+        if mask.is_empty() {
+            self.clear_input_mask();
+            return;
+        }
+
+        if let Some(parsed) = InputMask::new(mask) {
+            // Convert existing text to mask input if possible
+            let old_text = std::mem::take(&mut self.text);
+            self.mask_input = self.filter_for_mask(&old_text, &parsed);
+
+            // Update display text
+            self.text = parsed.display_text(&self.mask_input);
+
+            self.input_mask = Some(parsed);
+
+            // Position cursor at first editable position
+            if let Some(pos) = self.input_mask.as_ref().and_then(|m| m.first_editable_pos()) {
+                self.cursor_pos = self.mask_display_pos_to_byte(pos);
+            } else {
+                self.cursor_pos = 0;
+            }
+
+            self.selection_anchor = None;
+            self.undo_stack.clear();
+            self.invalidate_layout();
+            self.ensure_cursor_visible();
+            self.base.update();
+
+            // Emit signals
+            self.text_edited.emit(self.mask_input.clone());
+            self.revalidate();
+            self.text_changed.emit(self.mask_input.clone());
+        }
+    }
+
+    /// Set input mask using builder pattern.
+    pub fn with_input_mask(mut self, mask: &str) -> Self {
+        self.set_input_mask(mask);
+        self
+    }
+
+    /// Clear the input mask.
+    ///
+    /// The current text (without mask formatting) is preserved.
+    pub fn clear_input_mask(&mut self) {
+        if self.input_mask.is_some() {
+            // Preserve the user input as the new text
+            let user_input = std::mem::take(&mut self.mask_input);
+            self.text = user_input;
+            self.input_mask = None;
+
+            self.cursor_pos = self.text.len();
+            self.selection_anchor = None;
+            self.invalidate_layout();
+            self.ensure_cursor_visible();
+            self.base.update();
+
+            self.text_edited.emit(self.text.clone());
+            self.revalidate();
+            self.text_changed.emit(self.text.clone());
+        }
+    }
+
+    /// Check if an input mask is currently set.
+    pub fn has_input_mask(&self) -> bool {
+        self.input_mask.is_some()
+    }
+
+    /// Check if the current input satisfies all required positions in the mask.
+    ///
+    /// Returns `true` if no mask is set, or if all required mask positions have been filled.
+    pub fn is_mask_complete(&self) -> bool {
+        match &self.input_mask {
+            Some(mask) => mask.is_complete(&self.mask_input),
+            None => true,
+        }
+    }
+
+    /// Filter input text to only contain characters valid for the mask.
+    fn filter_for_mask(&self, text: &str, mask: &InputMask) -> String {
+        let mut result = String::new();
+        let mut text_chars = text.chars();
+        let editable_count = mask.editable_count();
+
+        for i in 0..editable_count {
+            let display_pos = mask.input_pos_to_display_pos(i);
+            if let Some(element) = mask.element_at(display_pos) {
+                // Find next char from input that matches this position
+                while let Some(ch) = text_chars.next() {
+                    if element.accepts(ch) {
+                        result.push(element.transform(ch));
+                        break;
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Convert mask display position (0-based element index) to byte position in text.
+    fn mask_display_pos_to_byte(&self, display_pos: usize) -> usize {
+        // Each display position corresponds to one character
+        self.text
+            .char_indices()
+            .nth(display_pos)
+            .map(|(i, _)| i)
+            .unwrap_or(self.text.len())
+    }
+
+    /// Convert byte position in text to mask display position.
+    fn byte_to_mask_display_pos(&self, byte_pos: usize) -> usize {
+        self.text[..byte_pos.min(self.text.len())].chars().count()
+    }
+
+    // =========================================================================
     // Cursor and Selection
     // =========================================================================
 
@@ -799,6 +1058,12 @@ impl LineEdit {
             return;
         }
 
+        // Handle input mask mode
+        if self.input_mask.is_some() {
+            self.insert_text_masked(text, record_undo);
+            return;
+        }
+
         // Delete selection first if any
         if self.has_selection() {
             self.delete_selection_impl(record_undo);
@@ -851,6 +1116,93 @@ impl LineEdit {
         self.text_changed.emit(self.text.clone());
     }
 
+    /// Insert text with input mask active.
+    fn insert_text_masked(&mut self, text: &str, record_undo: bool) {
+        let mask = match &self.input_mask {
+            Some(m) => m.clone(),
+            None => return,
+        };
+
+        // Delete selection first if any
+        if self.has_selection() {
+            self.delete_selection_impl(record_undo);
+        }
+
+        // Current display position
+        let mut display_pos = self.byte_to_mask_display_pos(self.cursor_pos);
+
+        let old_mask_input = self.mask_input.clone();
+        let mut inserted_chars = String::new();
+
+        for ch in text.chars() {
+            // Find the next editable position
+            let editable_pos = match mask.next_editable_pos(display_pos) {
+                Some(pos) => pos,
+                None => break, // No more editable positions
+            };
+
+            // Check if this character is valid for this position
+            if let Some(element) = mask.element_at(editable_pos) {
+                if element.accepts(ch) {
+                    let transformed = element.transform(ch);
+
+                    // Calculate the input position for this display position
+                    let input_pos = mask.display_pos_to_input_pos(editable_pos);
+
+                    // Insert or replace the character in mask_input
+                    if input_pos < self.mask_input.chars().count() {
+                        // Replace existing character
+                        let mut chars: Vec<char> = self.mask_input.chars().collect();
+                        chars[input_pos] = transformed;
+                        self.mask_input = chars.into_iter().collect();
+                    } else {
+                        // Append new character
+                        self.mask_input.push(transformed);
+                    }
+
+                    inserted_chars.push(transformed);
+
+                    // Move to next position after this editable one
+                    display_pos = editable_pos + 1;
+                }
+            }
+        }
+
+        if !inserted_chars.is_empty() {
+            // Update display text
+            self.text = mask.display_text(&self.mask_input);
+
+            // Move cursor to next editable position
+            if let Some(next_pos) = mask.next_editable_pos(display_pos) {
+                self.cursor_pos = self.mask_display_pos_to_byte(next_pos);
+            } else {
+                // No more editable positions, move to end
+                self.cursor_pos = self.text.len();
+            }
+
+            // Record undo command
+            if record_undo {
+                self.undo_stack.push(EditCommand::Insert {
+                    pos: 0, // For mask, we track the whole mask_input change
+                    text: inserted_chars,
+                });
+            }
+
+            self.invalidate_layout();
+            self.ensure_cursor_visible();
+            self.base.update();
+
+            // Emit signals with mask_input (user-entered text)
+            self.text_edited.emit(self.mask_input.clone());
+            self.revalidate();
+            self.text_changed.emit(self.mask_input.clone());
+        } else if old_mask_input != self.mask_input {
+            // Mask input changed but no characters inserted (shouldn't happen, but safety)
+            self.invalidate_layout();
+            self.base.update();
+        }
+    }
+
     /// Delete the selected text.
     fn delete_selection(&mut self) {
         self.delete_selection_impl(true);
@@ -859,6 +1211,12 @@ impl LineEdit {
     /// Delete selection implementation with optional undo recording.
     fn delete_selection_impl(&mut self, record_undo: bool) {
         if let Some((start, end)) = self.selection_range() {
+            // Handle input mask mode
+            if self.input_mask.is_some() {
+                self.delete_selection_masked(start, end, record_undo);
+                return;
+            }
+
             let deleted_text = self.text[start..end].to_string();
 
             self.text.replace_range(start..end, "");
@@ -888,6 +1246,68 @@ impl LineEdit {
         }
     }
 
+    /// Delete selection with input mask active.
+    fn delete_selection_masked(&mut self, start: usize, end: usize, record_undo: bool) {
+        let mask = match &self.input_mask {
+            Some(m) => m.clone(),
+            None => return,
+        };
+
+        // Convert byte positions to display positions
+        let start_display = self.byte_to_mask_display_pos(start);
+        let end_display = self.byte_to_mask_display_pos(end);
+
+        // Find which input positions to delete
+        let start_input = mask.display_pos_to_input_pos(start_display);
+        let end_input = mask.display_pos_to_input_pos(end_display);
+
+        if start_input < end_input && start_input < self.mask_input.chars().count() {
+            // Delete the range from mask_input
+            let deleted: String = self.mask_input.chars()
+                .skip(start_input)
+                .take(end_input - start_input)
+                .collect();
+
+            let mut chars: Vec<char> = self.mask_input.chars().collect();
+            // Remove the characters in the range
+            chars.drain(start_input..end_input.min(chars.len()));
+            self.mask_input = chars.into_iter().collect();
+
+            // Update display text
+            self.text = mask.display_text(&self.mask_input);
+
+            // Position cursor at the start of deletion
+            if let Some(pos) = mask.next_editable_pos(start_display) {
+                self.cursor_pos = self.mask_display_pos_to_byte(pos);
+            } else {
+                self.cursor_pos = start;
+            }
+            self.selection_anchor = None;
+
+            // Record undo command
+            if record_undo && !deleted.is_empty() {
+                self.undo_stack.break_merge();
+                self.undo_stack.push(EditCommand::Delete {
+                    pos: start_input,
+                    text: deleted,
+                });
+                self.undo_stack.break_merge();
+            }
+
+            self.invalidate_layout();
+            self.ensure_cursor_visible();
+            self.base.update();
+
+            self.text_edited.emit(self.mask_input.clone());
+            self.revalidate();
+            self.text_changed.emit(self.mask_input.clone());
+        } else {
+            // Nothing to delete, just clear selection
+            self.selection_anchor = None;
+            self.base.update();
+        }
+    }
+
     /// Delete character before cursor (backspace).
     fn delete_char_before(&mut self) {
         self.delete_char_before_impl(true);
@@ -901,6 +1321,12 @@ impl LineEdit {
 
         if self.has_selection() {
             self.delete_selection_impl(record_undo);
+            return;
+        }
+
+        // Handle input mask mode
+        if self.input_mask.is_some() {
+            self.delete_char_before_masked(record_undo);
             return;
         }
 
@@ -933,6 +1359,53 @@ impl LineEdit {
         }
     }
 
+    /// Delete character before cursor with input mask active.
+    fn delete_char_before_masked(&mut self, record_undo: bool) {
+        let mask = match &self.input_mask {
+            Some(m) => m.clone(),
+            None => return,
+        };
+
+        let display_pos = self.byte_to_mask_display_pos(self.cursor_pos);
+
+        // Find the previous editable position
+        if let Some(prev_editable) = mask.prev_editable_pos(display_pos) {
+            let input_pos = mask.display_pos_to_input_pos(prev_editable);
+
+            if input_pos < self.mask_input.chars().count() {
+                // Delete the character at this position
+                let deleted: String = self.mask_input.chars().nth(input_pos).into_iter().collect();
+
+                let mut chars: Vec<char> = self.mask_input.chars().collect();
+                chars.remove(input_pos);
+                self.mask_input = chars.into_iter().collect();
+
+                // Update display text
+                self.text = mask.display_text(&self.mask_input);
+
+                // Move cursor to the deleted position
+                self.cursor_pos = self.mask_display_pos_to_byte(prev_editable);
+
+                // Record undo command
+                if record_undo && !deleted.is_empty() {
+                    self.undo_stack.enable_merge();
+                    self.undo_stack.push(EditCommand::Delete {
+                        pos: input_pos,
+                        text: deleted,
+                    });
+                }
+
+                self.invalidate_layout();
+                self.ensure_cursor_visible();
+                self.base.update();
+
+                self.text_edited.emit(self.mask_input.clone());
+                self.revalidate();
+                self.text_changed.emit(self.mask_input.clone());
+            }
+        }
+    }
+
     /// Delete character after cursor (delete).
     fn delete_char_after(&mut self) {
         self.delete_char_after_impl(true);
@@ -946,6 +1419,12 @@ impl LineEdit {
 
         if self.has_selection() {
             self.delete_selection_impl(record_undo);
+            return;
+        }
+
+        // Handle input mask mode
+        if self.input_mask.is_some() {
+            self.delete_char_after_masked(record_undo);
             return;
         }
 
@@ -973,6 +1452,52 @@ impl LineEdit {
             // Validate and emit text_changed
             self.revalidate();
             self.text_changed.emit(self.text.clone());
+        }
+    }
+
+    /// Delete character after cursor with input mask active.
+    fn delete_char_after_masked(&mut self, record_undo: bool) {
+        let mask = match &self.input_mask {
+            Some(m) => m.clone(),
+            None => return,
+        };
+
+        let display_pos = self.byte_to_mask_display_pos(self.cursor_pos);
+
+        // Find the current or next editable position
+        if let Some(editable_pos) = mask.next_editable_pos(display_pos) {
+            let input_pos = mask.display_pos_to_input_pos(editable_pos);
+
+            if input_pos < self.mask_input.chars().count() {
+                // Delete the character at this position
+                let deleted: String = self.mask_input.chars().nth(input_pos).into_iter().collect();
+
+                let mut chars: Vec<char> = self.mask_input.chars().collect();
+                chars.remove(input_pos);
+                self.mask_input = chars.into_iter().collect();
+
+                // Update display text
+                self.text = mask.display_text(&self.mask_input);
+
+                // Keep cursor at current position (or move to editable if needed)
+                self.cursor_pos = self.mask_display_pos_to_byte(editable_pos);
+
+                // Record undo command
+                if record_undo && !deleted.is_empty() {
+                    self.undo_stack.enable_merge();
+                    self.undo_stack.push(EditCommand::Delete {
+                        pos: input_pos,
+                        text: deleted,
+                    });
+                }
+
+                self.invalidate_layout();
+                self.base.update();
+
+                self.text_edited.emit(self.mask_input.clone());
+                self.revalidate();
+                self.text_changed.emit(self.mask_input.clone());
+            }
         }
     }
 
@@ -1347,7 +1872,20 @@ impl LineEdit {
         }
 
         if self.cursor_pos > 0 {
-            self.cursor_pos = self.prev_grapheme_boundary(self.cursor_pos);
+            // Handle input mask: skip to previous editable position
+            if let Some(ref mask) = self.input_mask {
+                let display_pos = self.byte_to_mask_display_pos(self.cursor_pos);
+                if let Some(prev_editable) = mask.prev_editable_pos(display_pos) {
+                    self.cursor_pos = self.mask_display_pos_to_byte(prev_editable);
+                } else {
+                    // No previous editable, move to first position
+                    if let Some(first) = mask.first_editable_pos() {
+                        self.cursor_pos = self.mask_display_pos_to_byte(first);
+                    }
+                }
+            } else {
+                self.cursor_pos = self.prev_grapheme_boundary(self.cursor_pos);
+            }
             self.ensure_cursor_visible();
             self.base.update();
         }
@@ -1370,7 +1908,19 @@ impl LineEdit {
         }
 
         if self.cursor_pos < self.text.len() {
-            self.cursor_pos = self.next_grapheme_boundary(self.cursor_pos);
+            // Handle input mask: skip to next editable position
+            if let Some(ref mask) = self.input_mask {
+                let display_pos = self.byte_to_mask_display_pos(self.cursor_pos);
+                // Move past current position to find next editable
+                if let Some(next_editable) = mask.next_editable_pos(display_pos + 1) {
+                    self.cursor_pos = self.mask_display_pos_to_byte(next_editable);
+                } else {
+                    // No next editable, move to end
+                    self.cursor_pos = self.text.len();
+                }
+            } else {
+                self.cursor_pos = self.next_grapheme_boundary(self.cursor_pos);
+            }
             self.ensure_cursor_visible();
             self.base.update();
         }
@@ -1416,7 +1966,16 @@ impl LineEdit {
             self.selection_anchor = None;
         }
 
-        self.cursor_pos = 0;
+        // Handle input mask: move to first editable position
+        if let Some(ref mask) = self.input_mask {
+            if let Some(first) = mask.first_editable_pos() {
+                self.cursor_pos = self.mask_display_pos_to_byte(first);
+            } else {
+                self.cursor_pos = 0;
+            }
+        } else {
+            self.cursor_pos = 0;
+        }
         self.ensure_cursor_visible();
         self.base.update();
     }
@@ -1431,7 +1990,19 @@ impl LineEdit {
             self.selection_anchor = None;
         }
 
-        self.cursor_pos = self.text.len();
+        // Handle input mask: move to position after last filled character
+        if let Some(ref mask) = self.input_mask {
+            let input_len = self.mask_input.chars().count();
+            let display_pos = mask.input_pos_to_display_pos(input_len);
+            // Try to find next editable position after last filled
+            if let Some(next) = mask.next_editable_pos(display_pos) {
+                self.cursor_pos = self.mask_display_pos_to_byte(next);
+            } else {
+                self.cursor_pos = self.text.len();
+            }
+        } else {
+            self.cursor_pos = self.text.len();
+        }
         self.ensure_cursor_visible();
         self.base.update();
     }
@@ -2862,5 +3433,161 @@ mod tests {
 
         edit.set_text("New");
         assert_eq!(counter.load(Ordering::SeqCst), 3);
+    }
+
+    // =========================================================================
+    // Input Mask Tests
+    // =========================================================================
+
+    #[test]
+    fn test_input_mask_set_and_clear() {
+        setup();
+        let mut edit = LineEdit::new();
+
+        edit.set_input_mask("(999) 999-9999");
+        assert!(edit.has_input_mask());
+        assert_eq!(edit.input_mask(), Some("(999) 999-9999"));
+
+        edit.clear_input_mask();
+        assert!(!edit.has_input_mask());
+        assert_eq!(edit.input_mask(), None);
+    }
+
+    #[test]
+    fn test_input_mask_display() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_input_mask("(999) 999-9999");
+
+        // Display should show blank placeholders
+        assert_eq!(edit.display_text_value(), "(   )    -    ");
+        assert_eq!(edit.text(), "");
+    }
+
+    #[test]
+    fn test_input_mask_insert_digits() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_input_mask("(999) 999-9999");
+
+        edit.insert_text("5");
+        assert_eq!(edit.text(), "5");
+        assert_eq!(edit.display_text_value(), "(5  )    -    ");
+
+        edit.insert_text("55123");
+        assert_eq!(edit.text(), "555123");
+        assert_eq!(edit.display_text_value(), "(555) 123-    ");
+    }
+
+    #[test]
+    fn test_input_mask_rejects_invalid_chars() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_input_mask("999-999");
+
+        // Letters should be rejected for digit-only mask
+        edit.insert_text("abc");
+        assert_eq!(edit.text(), "");
+
+        // Digits should be accepted
+        edit.insert_text("123");
+        assert_eq!(edit.text(), "123");
+    }
+
+    #[test]
+    fn test_input_mask_backspace() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_input_mask("999-999");
+        edit.insert_text("123456");
+        assert_eq!(edit.text(), "123456");
+
+        edit.delete_char_before();
+        assert_eq!(edit.text(), "12345");
+    }
+
+    #[test]
+    fn test_input_mask_set_text() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_input_mask("(999) 999-9999");
+
+        edit.set_text("5551234567");
+        assert_eq!(edit.text(), "5551234567");
+        assert_eq!(edit.display_text_value(), "(555) 123-4567");
+    }
+
+    #[test]
+    fn test_input_mask_clear_text() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_input_mask("999-999");
+        edit.insert_text("123456");
+
+        edit.clear();
+        assert_eq!(edit.text(), "");
+        assert_eq!(edit.display_text_value(), "   -   ");
+    }
+
+    #[test]
+    fn test_input_mask_is_complete() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_input_mask("999-999");
+
+        // Empty is not complete
+        assert!(!edit.is_mask_complete());
+
+        // Partial is not complete
+        edit.insert_text("123");
+        assert!(!edit.is_mask_complete());
+
+        // Full is complete
+        edit.insert_text("456");
+        assert!(edit.is_mask_complete());
+    }
+
+    #[test]
+    fn test_input_mask_case_conversion() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_input_mask(">AAAAA");
+
+        edit.insert_text("hello");
+        assert_eq!(edit.text(), "HELLO");
+    }
+
+    #[test]
+    fn test_input_mask_with_blank_char() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_input_mask("000.000.000.000;_");
+
+        assert_eq!(edit.display_text_value(), "___.___.___.___");
+
+        edit.insert_text("192168");
+        assert_eq!(edit.display_text_value(), "192.168.___.___");
+    }
+
+    #[test]
+    fn test_input_mask_hex() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_input_mask("HH:HH:HH");
+
+        edit.insert_text("AABBCC");
+        assert_eq!(edit.text(), "AABBCC");
+        assert_eq!(edit.display_text_value(), "AA:BB:CC");
+    }
+
+    #[test]
+    fn test_input_mask_builder() {
+        setup();
+        let edit = LineEdit::new()
+            .with_input_mask("999-999")
+            .with_placeholder("Enter code...");
+
+        assert!(edit.has_input_mask());
+        assert_eq!(edit.placeholder(), "Enter code...");
     }
 }

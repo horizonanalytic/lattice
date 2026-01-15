@@ -127,6 +127,7 @@ pub mod layout;
 mod painting;
 mod shortcut;
 mod traits;
+pub mod input_mask;
 pub mod validator;
 pub mod widgets;
 

@@ -368,6 +368,18 @@ pub struct TextEdit {
     /// Tab width in spaces.
     tab_width: usize,
 
+    /// Search matches for highlighting.
+    search_matches: Vec<super::find_replace::SearchMatch>,
+
+    /// Current (focused) search match index.
+    current_search_match: Option<usize>,
+
+    /// Search match highlight color.
+    search_highlight_color: Color,
+
+    /// Current search match highlight color.
+    current_search_highlight_color: Color,
+
     // Signals
 
     /// Signal emitted when text changes.
@@ -378,6 +390,18 @@ pub struct TextEdit {
 
     /// Signal emitted when selection changes.
     pub selection_changed: Signal<()>,
+
+    /// Signal emitted when find is requested (Ctrl+F).
+    pub find_requested: Signal<()>,
+
+    /// Signal emitted when find and replace is requested (Ctrl+H).
+    pub find_replace_requested: Signal<()>,
+
+    /// Signal emitted when find next is requested (F3).
+    pub find_next_requested: Signal<()>,
+
+    /// Signal emitted when find previous is requested (Shift+F3).
+    pub find_previous_requested: Signal<()>,
 }
 
 impl TextEdit {
@@ -410,9 +434,17 @@ impl TextEdit {
             is_dragging: false,
             undo_stack: UndoStack::new(),
             tab_width: 4,
+            search_matches: Vec::new(),
+            current_search_match: None,
+            search_highlight_color: Color::from_rgba8(255, 255, 0, 100),
+            current_search_highlight_color: Color::from_rgba8(255, 165, 0, 150),
             text_changed: Signal::new(),
             cursor_position_changed: Signal::new(),
             selection_changed: Signal::new(),
+            find_requested: Signal::new(),
+            find_replace_requested: Signal::new(),
+            find_next_requested: Signal::new(),
+            find_previous_requested: Signal::new(),
         }
     }
 
@@ -1747,6 +1779,32 @@ impl TextEdit {
                 true
             }
 
+            // Find/Replace shortcuts
+            Key::F if ctrl => {
+                self.find_requested.emit(());
+                true
+            }
+            Key::H if ctrl => {
+                self.find_replace_requested.emit(());
+                true
+            }
+            Key::F3 => {
+                if shift {
+                    self.find_previous_requested.emit(());
+                } else {
+                    self.find_next_requested.emit(());
+                }
+                true
+            }
+            Key::G if ctrl => {
+                if shift {
+                    self.find_previous_requested.emit(());
+                } else {
+                    self.find_next_requested.emit(());
+                }
+                true
+            }
+
             // Character input - use the text field from the event
             _ => {
                 if !event.text.is_empty() && !ctrl && !event.modifiers.alt && !self.read_only {
@@ -1872,6 +1930,9 @@ impl TextEdit {
             content_rect.origin.y - self.scroll_y,
         );
 
+        // Paint search match highlights (before selection so selection renders on top)
+        self.paint_search_matches(ctx, line_height);
+
         // Paint selection background
         if let Some((start, end)) = self.selection_range() {
             self.paint_selection(ctx, start, end, line_height);
@@ -1953,6 +2014,44 @@ impl TextEdit {
 
             let selection_rect = Rect::new(x, y, width.max(char_width), line_height);
             ctx.renderer().fill_rect(selection_rect, self.selection_color);
+        }
+    }
+
+    fn paint_search_matches(&self, ctx: &mut PaintContext<'_>, line_height: f32) {
+        if self.search_matches.is_empty() {
+            return;
+        }
+
+        let char_width = self.font.size() * 0.6;
+
+        for (i, search_match) in self.search_matches.iter().enumerate() {
+            let is_current = self.current_search_match == Some(i);
+            let color = if is_current {
+                self.current_search_highlight_color
+            } else {
+                self.search_highlight_color
+            };
+
+            let start_pos = self.byte_pos_to_line_column(search_match.start);
+            let end_pos = self.byte_pos_to_line_column(search_match.end);
+
+            for line in start_pos.0..=end_pos.0 {
+                let line_start_col = if line == start_pos.0 { start_pos.1 } else { 0 };
+                let line_end_col = if line == end_pos.0 {
+                    end_pos.1
+                } else {
+                    let line_start = self.line_start(line);
+                    let line_end = self.line_end(line);
+                    self.text[line_start..line_end].chars().count() + 1
+                };
+
+                let x = line_start_col as f32 * char_width;
+                let y = line as f32 * line_height;
+                let width = (line_end_col - line_start_col) as f32 * char_width;
+
+                let match_rect = Rect::new(x, y, width.max(char_width), line_height);
+                ctx.renderer().fill_rect(match_rect, color);
+            }
         }
     }
 
@@ -2116,6 +2215,102 @@ impl Widget for TextEdit {
             _ => {}
         }
         false
+    }
+}
+
+// =========================================================================
+// Searchable Implementation
+// =========================================================================
+
+impl super::find_replace::Searchable for TextEdit {
+    fn search_text(&self) -> String {
+        self.text.clone()
+    }
+
+    fn cursor_position(&self) -> usize {
+        self.cursor_pos
+    }
+
+    fn set_cursor_position(&mut self, pos: usize) {
+        let pos = self.snap_to_char_boundary(pos.min(self.text.len()));
+        if self.cursor_pos != pos {
+            self.cursor_pos = pos;
+            self.selection_anchor = None;
+            self.ensure_cursor_visible();
+            self.base.update();
+            self.emit_cursor_position();
+        }
+    }
+
+    fn selection_range(&self) -> Option<(usize, usize)> {
+        TextEdit::selection_range(self)
+    }
+
+    fn set_selection(&mut self, start: usize, end: usize) {
+        TextEdit::set_selection(self, start, end)
+    }
+
+    fn clear_selection(&mut self) {
+        TextEdit::clear_selection(self)
+    }
+
+    fn replace_range(&mut self, start: usize, end: usize, replacement: &str) {
+        if self.read_only {
+            return;
+        }
+
+        let start = self.snap_to_char_boundary(start.min(self.text.len()));
+        let end = self.snap_to_char_boundary(end.min(self.text.len()));
+
+        // Record for undo
+        let deleted = self.text[start..end].to_string();
+        self.text.replace_range(start..end, replacement);
+
+        if !deleted.is_empty() {
+            self.undo_stack.push(EditCommand::Delete {
+                pos: start,
+                text: deleted,
+            });
+        }
+        if !replacement.is_empty() {
+            self.undo_stack.push(EditCommand::Insert {
+                pos: start,
+                text: replacement.to_string(),
+            });
+        }
+
+        // Update cursor
+        self.cursor_pos = start + replacement.len();
+        self.selection_anchor = None;
+
+        self.invalidate_layout();
+        self.ensure_cursor_visible();
+        self.base.update();
+        self.text_changed.emit(self.text.clone());
+        self.emit_cursor_position();
+    }
+
+    fn scroll_to_position(&mut self, pos: usize) {
+        let pos = self.snap_to_char_boundary(pos.min(self.text.len()));
+        self.cursor_pos = pos;
+        self.ensure_cursor_visible();
+        self.base.update();
+    }
+
+    fn set_search_matches(&mut self, matches: Vec<super::find_replace::SearchMatch>) {
+        self.search_matches = matches;
+        self.base.update();
+    }
+
+    fn set_current_match_index(&mut self, index: Option<usize>) {
+        self.current_search_match = index;
+        self.base.update();
+    }
+
+    fn clear_search_highlights(&mut self) {
+        self.search_matches.clear();
+        self.current_search_match = None;
+        self.base.update();
     }
 }
 
@@ -2372,5 +2567,93 @@ mod tests {
 
         edit.set_wrap_mode(TextWrapMode::Character);
         assert_eq!(edit.wrap_mode(), TextWrapMode::Character);
+    }
+
+    // Find/Replace tests
+    use super::super::find_replace::{FindOptions, SearchMatch, Searchable};
+
+    #[test]
+    fn test_searchable_find_all() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("hello world hello");
+
+        let options = FindOptions::default();
+        let matches = edit.find_all("hello", &options);
+
+        assert_eq!(matches.len(), 2);
+        assert_eq!(matches[0], SearchMatch::new(0, 5));
+        assert_eq!(matches[1], SearchMatch::new(12, 17));
+    }
+
+    #[test]
+    fn test_searchable_find_case_sensitive() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World HELLO");
+
+        // Case insensitive (default)
+        let matches = edit.find_all("hello", &FindOptions::default());
+        assert_eq!(matches.len(), 2);
+
+        // Case sensitive
+        let matches = edit.find_all("Hello", &FindOptions::new().with_case_sensitive(true));
+        assert_eq!(matches.len(), 1);
+    }
+
+    #[test]
+    fn test_searchable_find_whole_word() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("hello helloworld hello");
+
+        let matches = edit.find_all("hello", &FindOptions::new().with_whole_word(true));
+        assert_eq!(matches.len(), 2);
+        assert_eq!(matches[0], SearchMatch::new(0, 5));
+        assert_eq!(matches[1], SearchMatch::new(17, 22));
+    }
+
+    #[test]
+    fn test_searchable_find_regex() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("cat bat hat sat");
+
+        let matches = edit.find_all("[cbh]at", &FindOptions::new().with_regex(true));
+        assert_eq!(matches.len(), 3);
+    }
+
+    #[test]
+    fn test_searchable_replace_all() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("hello world hello");
+
+        let count = edit.replace_all("hello", "hi", &FindOptions::default());
+        assert_eq!(count, 2);
+        assert_eq!(edit.text(), "hi world hi");
+    }
+
+    #[test]
+    fn test_searchable_set_matches() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("hello world hello");
+
+        let matches = vec![
+            SearchMatch::new(0, 5),
+            SearchMatch::new(12, 17),
+        ];
+        edit.set_search_matches(matches.clone());
+
+        // Verify internal state is set
+        assert_eq!(edit.search_matches.len(), 2);
+
+        edit.set_current_match_index(Some(1));
+        assert_eq!(edit.current_search_match, Some(1));
+
+        edit.clear_search_highlights();
+        assert!(edit.search_matches.is_empty());
+        assert_eq!(edit.current_search_match, None);
     }
 }

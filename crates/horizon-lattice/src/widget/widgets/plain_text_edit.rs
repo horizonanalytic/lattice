@@ -505,6 +505,18 @@ pub struct PlainTextEdit {
     /// Line count when gutter width was last calculated.
     cached_line_count_for_gutter: usize,
 
+    /// Search matches for highlighting.
+    search_matches: Vec<super::find_replace::SearchMatch>,
+
+    /// Current (focused) search match index.
+    current_search_match: Option<usize>,
+
+    /// Search match highlight color.
+    search_highlight_color: Color,
+
+    /// Current search match highlight color.
+    current_search_highlight_color: Color,
+
     // Signals
 
     /// Signal emitted when text changes.
@@ -515,6 +527,18 @@ pub struct PlainTextEdit {
 
     /// Signal emitted when selection changes.
     pub selection_changed: Signal<()>,
+
+    /// Signal emitted when find is requested (Ctrl+F).
+    pub find_requested: Signal<()>,
+
+    /// Signal emitted when find and replace is requested (Ctrl+H).
+    pub find_replace_requested: Signal<()>,
+
+    /// Signal emitted when find next is requested (F3).
+    pub find_next_requested: Signal<()>,
+
+    /// Signal emitted when find previous is requested (Shift+F3).
+    pub find_previous_requested: Signal<()>,
 }
 
 impl PlainTextEdit {
@@ -554,9 +578,17 @@ impl PlainTextEdit {
             line_number_config: LineNumberConfig::default(),
             cached_gutter_width: 0.0,
             cached_line_count_for_gutter: 0,
+            search_matches: Vec::new(),
+            current_search_match: None,
+            search_highlight_color: Color::from_rgba8(255, 255, 0, 100),
+            current_search_highlight_color: Color::from_rgba8(255, 165, 0, 150),
             text_changed: Signal::new(),
             cursor_position_changed: Signal::new(),
             selection_changed: Signal::new(),
+            find_requested: Signal::new(),
+            find_replace_requested: Signal::new(),
+            find_next_requested: Signal::new(),
+            find_previous_requested: Signal::new(),
         }
     }
 
@@ -1811,6 +1843,32 @@ impl PlainTextEdit {
                 true
             }
 
+            // Find/Replace shortcuts
+            Key::F if ctrl => {
+                self.find_requested.emit(());
+                true
+            }
+            Key::H if ctrl => {
+                self.find_replace_requested.emit(());
+                true
+            }
+            Key::F3 => {
+                if shift {
+                    self.find_previous_requested.emit(());
+                } else {
+                    self.find_next_requested.emit(());
+                }
+                true
+            }
+            Key::G if ctrl => {
+                if shift {
+                    self.find_previous_requested.emit(());
+                } else {
+                    self.find_next_requested.emit(());
+                }
+                true
+            }
+
             // Character input - use the text field from the event
             _ => {
                 if !event.text.is_empty() && !ctrl && !event.modifiers.alt && !self.read_only {
@@ -1926,6 +1984,12 @@ impl PlainTextEdit {
             content_rect.origin.y - self.scroll_y,
         );
 
+        // Paint search match highlights (before selection so selection renders on top)
+        if !self.search_matches.is_empty() {
+            let (first_line, last_line) = self.visible_line_range();
+            self.paint_search_matches(ctx, first_line, last_line);
+        }
+
         // Paint selection background
         if self.has_selection() {
             let (first_line, last_line) = self.visible_line_range();
@@ -2030,6 +2094,56 @@ impl PlainTextEdit {
                     Rect::new(x, y, width, self.line_height),
                     self.selection_color,
                 );
+            }
+        }
+    }
+
+    fn paint_search_matches(&self, ctx: &mut PaintContext<'_>, first_line: usize, last_line: usize) {
+        let char_width = self.font.size() * 0.6;
+
+        for (i, search_match) in self.search_matches.iter().enumerate() {
+            let is_current = self.current_search_match == Some(i);
+            let color = if is_current {
+                self.current_search_highlight_color
+            } else {
+                self.search_highlight_color
+            };
+
+            // Convert byte positions to char positions
+            let len_bytes = self.rope.len_bytes();
+            let start_byte = search_match.start.min(len_bytes);
+            let end_byte = search_match.end.min(len_bytes);
+            let start_char = self.rope.byte_to_char(start_byte);
+            let end_char = self.rope.byte_to_char(end_byte);
+
+            let (start_line, start_col) = self.char_pos_to_line_col(start_char);
+            let (end_line, end_col) = self.char_pos_to_line_col(end_char);
+
+            // Only paint lines that are visible
+            for line_idx in first_line..last_line {
+                if line_idx < start_line || line_idx > end_line {
+                    continue;
+                }
+
+                let y = line_idx as f32 * self.line_height;
+                let line_chars = self.rope.line(line_idx).len_chars();
+
+                let match_start = if line_idx == start_line { start_col } else { 0 };
+                let match_end = if line_idx == end_line {
+                    end_col
+                } else {
+                    line_chars
+                };
+
+                if match_start < match_end {
+                    let x = match_start as f32 * char_width;
+                    let width = (match_end - match_start) as f32 * char_width;
+
+                    ctx.renderer().fill_rect(
+                        Rect::new(x, y, width, self.line_height),
+                        color,
+                    );
+                }
             }
         }
     }
@@ -2352,6 +2466,143 @@ impl Widget for PlainTextEdit {
             _ => {}
         }
         false
+    }
+}
+
+// =========================================================================
+// Searchable Implementation
+// =========================================================================
+
+impl super::find_replace::Searchable for PlainTextEdit {
+    fn search_text(&self) -> String {
+        self.rope.to_string()
+    }
+
+    fn cursor_position(&self) -> usize {
+        // Return byte offset by converting char position to byte position
+        if self.cursor_pos == 0 {
+            0
+        } else {
+            self.rope.char_to_byte(self.cursor_pos.min(self.rope.len_chars()))
+        }
+    }
+
+    fn set_cursor_position(&mut self, byte_pos: usize) {
+        // Convert byte offset to char position
+        let len_bytes = self.rope.len_bytes();
+        let byte_pos = byte_pos.min(len_bytes);
+        let char_pos = self.rope.byte_to_char(byte_pos);
+
+        if self.cursor_pos != char_pos {
+            self.cursor_pos = char_pos;
+            self.selection_anchor = None;
+            self.ensure_cursor_visible();
+            self.base.update();
+            self.emit_cursor_position();
+        }
+    }
+
+    fn selection_range(&self) -> Option<(usize, usize)> {
+        // Return byte offsets
+        self.selection_anchor.map(|anchor| {
+            let start_char = anchor.min(self.cursor_pos);
+            let end_char = anchor.max(self.cursor_pos);
+            let start_byte = self.rope.char_to_byte(start_char);
+            let end_byte = self.rope.char_to_byte(end_char);
+            (start_byte, end_byte)
+        })
+    }
+
+    fn set_selection(&mut self, start_byte: usize, end_byte: usize) {
+        // Convert byte offsets to char positions
+        let len_bytes = self.rope.len_bytes();
+        let start_byte = start_byte.min(len_bytes);
+        let end_byte = end_byte.min(len_bytes);
+        let start_char = self.rope.byte_to_char(start_byte);
+        let end_char = self.rope.byte_to_char(end_byte);
+
+        self.selection_anchor = Some(start_char);
+        self.cursor_pos = end_char;
+        self.ensure_cursor_visible();
+        self.base.update();
+        self.selection_changed.emit(());
+        self.emit_cursor_position();
+    }
+
+    fn clear_selection(&mut self) {
+        PlainTextEdit::clear_selection(self)
+    }
+
+    fn replace_range(&mut self, start_byte: usize, end_byte: usize, replacement: &str) {
+        if self.read_only {
+            return;
+        }
+
+        // Convert byte offsets to char positions
+        let len_bytes = self.rope.len_bytes();
+        let start_byte = start_byte.min(len_bytes);
+        let end_byte = end_byte.min(len_bytes);
+        let start_char = self.rope.byte_to_char(start_byte);
+        let end_char = self.rope.byte_to_char(end_byte);
+
+        // Record for undo
+        let deleted = self.rope.slice(start_char..end_char).to_string();
+
+        // Perform the replacement
+        self.rope.remove(start_char..end_char);
+        if !replacement.is_empty() {
+            self.rope.insert(start_char, replacement);
+        }
+
+        // Record undo commands
+        if !deleted.is_empty() {
+            self.undo_stack.push(EditCommand::Delete {
+                pos: start_char,
+                text: deleted,
+            });
+        }
+        if !replacement.is_empty() {
+            self.undo_stack.push(EditCommand::Insert {
+                pos: start_char,
+                text: replacement.to_string(),
+            });
+        }
+
+        // Update cursor
+        let replacement_chars = replacement.chars().count();
+        self.cursor_pos = start_char + replacement_chars;
+        self.selection_anchor = None;
+
+        self.invalidate_layout();
+        self.ensure_cursor_visible();
+        self.base.update();
+        self.text_changed.emit(self.rope.to_string());
+        self.emit_cursor_position();
+    }
+
+    fn scroll_to_position(&mut self, byte_pos: usize) {
+        let len_bytes = self.rope.len_bytes();
+        let byte_pos = byte_pos.min(len_bytes);
+        let char_pos = self.rope.byte_to_char(byte_pos);
+        self.cursor_pos = char_pos;
+        self.ensure_cursor_visible();
+        self.base.update();
+    }
+
+    fn set_search_matches(&mut self, matches: Vec<super::find_replace::SearchMatch>) {
+        self.search_matches = matches;
+        self.base.update();
+    }
+
+    fn set_current_match_index(&mut self, index: Option<usize>) {
+        self.current_search_match = index;
+        self.base.update();
+    }
+
+    fn clear_search_highlights(&mut self) {
+        self.search_matches.clear();
+        self.current_search_match = None;
+        self.base.update();
     }
 }
 

@@ -79,6 +79,7 @@ mod tool_box;
 mod tool_button;
 mod window;
 mod key_sequence_edit;
+mod find_replace;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
 pub use button_group::ButtonGroup;
@@ -130,3 +131,4 @@ pub use tool_box::ToolBox;
 pub use tool_button::{ToolButton, ToolButtonPopupMode, ToolButtonStyle};
 pub use window::{Window, WindowFlags, WindowModality, WindowState};
 pub use key_sequence_edit::KeySequenceEdit;
+pub use find_replace::{FindOptions, FindReplaceBar, FindReplaceMode, SearchMatch, Searchable};

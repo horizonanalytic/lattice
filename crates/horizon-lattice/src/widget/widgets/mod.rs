@@ -35,6 +35,7 @@
 //! - [`Window`]: Top-level window widget
 //! - [`ColorButton`]: Button that displays a color swatch
 //! - [`ColorPicker`]: Inline HSV color picker with saturation/value square and hue bar
+//! - [`FontComboBox`]: Dropdown for selecting font families with preview
 
 mod abstract_button;
 mod button_group;
@@ -49,6 +50,7 @@ mod date_time_edit;
 mod dial;
 mod dock_widget;
 mod double_spin_box;
+mod font_combo_box;
 mod frame;
 mod group_box;
 mod label;
@@ -119,6 +121,7 @@ pub use tab_widget::TabWidget;
 pub use plain_text_edit::{HighlightSpan, PlainTextEdit, SyntaxHighlighter};
 pub use text_edit::{TextEdit, TextWrapMode};
 pub use double_spin_box::DoubleSpinBox;
+pub use font_combo_box::{FontComboBox, FontFilter};
 pub use spin_box::SpinBox;
 pub use time_edit::{TimeEdit, TimeFormat};
 pub use tool_box::ToolBox;

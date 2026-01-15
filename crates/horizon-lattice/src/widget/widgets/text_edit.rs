@@ -49,6 +49,28 @@ use crate::widget::{
 };
 
 // =========================================================================
+// Color Conversion Helper
+// =========================================================================
+
+/// Convert a Color (premultiplied alpha, f32) to RGBA8 bytes for TextSpan.
+#[inline]
+fn color_to_rgba8(color: Color) -> [u8; 4] {
+    // Unpremultiply alpha for correct byte representation
+    let (r, g, b) = if color.a > 0.0 {
+        (color.r / color.a, color.g / color.a, color.b / color.a)
+    } else {
+        (0.0, 0.0, 0.0)
+    };
+
+    [
+        (r.clamp(0.0, 1.0) * 255.0) as u8,
+        (g.clamp(0.0, 1.0) * 255.0) as u8,
+        (b.clamp(0.0, 1.0) * 255.0) as u8,
+        (color.a.clamp(0.0, 1.0) * 255.0) as u8,
+    ]
+}
+
+// =========================================================================
 // Undo/Redo System
 // =========================================================================
 
@@ -773,6 +795,22 @@ impl TextEdit {
         self.current_format().strikethrough
     }
 
+    /// Get the foreground (text) color of the current selection or cursor position.
+    ///
+    /// Returns `Some(Color)` if a foreground color is set, or `None` if using the default color.
+    /// This refers to character-level formatting, not the widget's default text color.
+    pub fn char_foreground_color(&self) -> Option<Color> {
+        self.current_format().foreground_color
+    }
+
+    /// Get the background (highlight) color of the current selection or cursor position.
+    ///
+    /// Returns `Some(Color)` if a background color is set, or `None` if no highlight.
+    /// This refers to character-level highlighting, not the widget's background color.
+    pub fn char_background_color(&self) -> Option<Color> {
+        self.current_format().background_color
+    }
+
     /// Toggle bold formatting on the selection or set cursor format.
     pub fn toggle_bold(&mut self) {
         if self.read_only {
@@ -957,6 +995,78 @@ impl TextEdit {
         self.invalidate_layout();
         self.base.update();
         self.emit_format_changed();
+    }
+
+    /// Set the foreground (text) color on the selection or cursor format.
+    ///
+    /// Pass `Some(color)` to set a specific color, or `None` to clear and use the default color.
+    pub fn set_char_foreground_color(&mut self, color: Option<Color>) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            // Apply color to each character in the range
+            self.apply_color_to_range(start..end, color, true);
+            self.sync_text_from_document();
+        } else {
+            // Set cursor format for subsequent typing
+            self.cursor_format.foreground_color = color;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Set the background (highlight) color on the selection or cursor format.
+    ///
+    /// Pass `Some(color)` to set a specific highlight color, or `None` to clear the highlight.
+    pub fn set_char_background_color(&mut self, color: Option<Color>) {
+        if self.read_only {
+            return;
+        }
+
+        if let Some((start, end)) = self.selection_range() {
+            // Apply highlight to each character in the range
+            self.apply_color_to_range(start..end, color, false);
+            self.sync_text_from_document();
+        } else {
+            // Set cursor format for subsequent typing
+            self.cursor_format.background_color = color;
+        }
+
+        self.invalidate_layout();
+        self.base.update();
+        self.emit_format_changed();
+    }
+
+    /// Apply a color to a range, preserving other formatting.
+    ///
+    /// If `is_foreground` is true, sets foreground color; otherwise sets background color.
+    fn apply_color_to_range(
+        &mut self,
+        range: std::ops::Range<usize>,
+        color: Option<Color>,
+        is_foreground: bool,
+    ) {
+        // Walk through the range and update colors while preserving other formatting
+        let mut pos = range.start;
+        while pos < range.end {
+            let current = self.document.format_at(pos);
+            let mut new_format = current;
+
+            if is_foreground {
+                new_format.foreground_color = color;
+            } else {
+                new_format.background_color = color;
+            }
+
+            // Find the next format boundary
+            let next_boundary = self.find_format_boundary(pos, range.end);
+            self.document.set_format(pos..next_boundary, new_format);
+            pos = next_boundary;
+        }
     }
 
     /// Apply a format to a range in the document.
@@ -2400,6 +2510,14 @@ impl TextEdit {
                         span = span.with_decoration(TextDecoration::strikethrough());
                     }
 
+                    // Apply colors
+                    if let Some(fg_color) = format.foreground_color {
+                        span = span.with_color(color_to_rgba8(fg_color));
+                    }
+                    if let Some(bg_color) = format.background_color {
+                        span = span.with_background_color(color_to_rgba8(bg_color));
+                    }
+
                     span
                 })
                 .collect();
@@ -3309,5 +3427,94 @@ mod tests {
         // Set new text should clear formatting
         edit.set_text("New Text");
         assert!(!edit.has_formatting());
+    }
+
+    #[test]
+    fn test_set_char_foreground_color() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Apply red foreground color to "Hello"
+        edit.set_selection(0, 5);
+        edit.set_char_foreground_color(Some(Color::RED));
+
+        // Check color was applied
+        let format = edit.document.format_at(0);
+        assert!(format.foreground_color.is_some());
+        assert_eq!(format.foreground_color.unwrap(), Color::RED);
+
+        // "World" should have no foreground color
+        assert!(edit.document.format_at(6).foreground_color.is_none());
+    }
+
+    #[test]
+    fn test_set_char_background_color() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Apply yellow background (highlight) to "World"
+        edit.set_selection(6, 11);
+        edit.set_char_background_color(Some(Color::YELLOW));
+
+        // Check highlight was applied
+        let format = edit.document.format_at(6);
+        assert!(format.background_color.is_some());
+        assert_eq!(format.background_color.unwrap(), Color::YELLOW);
+
+        // "Hello" should have no background color
+        assert!(edit.document.format_at(0).background_color.is_none());
+    }
+
+    #[test]
+    fn test_clear_char_color() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Apply and then clear foreground color
+        edit.set_selection(0, 5);
+        edit.set_char_foreground_color(Some(Color::BLUE));
+        assert!(edit.document.format_at(0).foreground_color.is_some());
+
+        edit.set_selection(0, 5);
+        edit.set_char_foreground_color(None);
+        assert!(edit.document.format_at(0).foreground_color.is_none());
+    }
+
+    #[test]
+    fn test_color_with_other_formatting() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Apply bold and red color to "Hello"
+        edit.set_selection(0, 5);
+        edit.toggle_bold();
+        edit.set_selection(0, 5);
+        edit.set_char_foreground_color(Some(Color::RED));
+
+        // Both formatting attributes should be present
+        let format = edit.document.format_at(0);
+        assert!(format.bold);
+        assert!(format.foreground_color.is_some());
+        assert_eq!(format.foreground_color.unwrap(), Color::RED);
+    }
+
+    #[test]
+    fn test_cursor_format_color() {
+        setup();
+        let mut edit = TextEdit::new();
+
+        // Set cursor format with color (no selection)
+        edit.set_char_foreground_color(Some(Color::GREEN));
+        edit.set_char_background_color(Some(Color::YELLOW));
+
+        // Check cursor format
+        assert!(edit.cursor_format.foreground_color.is_some());
+        assert_eq!(edit.cursor_format.foreground_color.unwrap(), Color::GREEN);
+        assert!(edit.cursor_format.background_color.is_some());
+        assert_eq!(edit.cursor_format.background_color.unwrap(), Color::YELLOW);
     }
 }

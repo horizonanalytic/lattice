@@ -6,10 +6,12 @@
 
 use std::ops::Range;
 
+use horizon_lattice_render::Color;
+
 /// Character-level formatting attributes.
 ///
 /// Represents the styling applied to a range of text characters.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct CharFormat {
     /// Whether the text is bold.
     pub bold: bool,
@@ -19,6 +21,10 @@ pub struct CharFormat {
     pub underline: bool,
     /// Whether the text has strikethrough.
     pub strikethrough: bool,
+    /// Foreground (text) color. None means use default text color.
+    pub foreground_color: Option<Color>,
+    /// Background (highlight) color. None means no background highlight.
+    pub background_color: Option<Color>,
 }
 
 impl CharFormat {
@@ -29,12 +35,19 @@ impl CharFormat {
             italic: false,
             underline: false,
             strikethrough: false,
+            foreground_color: None,
+            background_color: None,
         }
     }
 
     /// Check if this format has any styling applied.
     pub fn is_styled(&self) -> bool {
-        self.bold || self.italic || self.underline || self.strikethrough
+        self.bold
+            || self.italic
+            || self.underline
+            || self.strikethrough
+            || self.foreground_color.is_some()
+            || self.background_color.is_some()
     }
 
     /// Create a bold format.
@@ -44,6 +57,8 @@ impl CharFormat {
             italic: false,
             underline: false,
             strikethrough: false,
+            foreground_color: None,
+            background_color: None,
         }
     }
 
@@ -54,6 +69,8 @@ impl CharFormat {
             italic: true,
             underline: false,
             strikethrough: false,
+            foreground_color: None,
+            background_color: None,
         }
     }
 
@@ -81,6 +98,18 @@ impl CharFormat {
         self
     }
 
+    /// Builder method to set foreground (text) color.
+    pub const fn with_foreground_color(mut self, color: Option<Color>) -> Self {
+        self.foreground_color = color;
+        self
+    }
+
+    /// Builder method to set background (highlight) color.
+    pub const fn with_background_color(mut self, color: Option<Color>) -> Self {
+        self.background_color = color;
+        self
+    }
+
     /// Merge another format into this one (toggle style).
     ///
     /// If the other format has a style set, it will be toggled in this format.
@@ -103,7 +132,7 @@ impl CharFormat {
 /// A run of text with a specific format.
 ///
 /// Format runs are stored as byte ranges in the document text.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FormatRun {
     /// The byte range this run covers (start..end).
     pub range: Range<usize>,

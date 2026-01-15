@@ -36,9 +36,12 @@
 
 mod abstract_button;
 mod button_group;
+mod calendar;
 mod checkbox;
 mod combo_box;
 mod container;
+mod date_edit;
+mod date_time_edit;
 mod dial;
 mod dock_widget;
 mod double_spin_box;
@@ -64,18 +67,22 @@ mod tab_bar;
 mod tab_widget;
 mod plain_text_edit;
 mod text_edit;
+mod time_edit;
 mod tool_box;
 mod tool_button;
 mod window;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
 pub use button_group::ButtonGroup;
+pub use calendar::CalendarWidget;
 pub use checkbox::{CheckBox, CheckState};
 pub use combo_box::{
     ComboBox, ComboBoxItem, ComboBoxItemDelegate, ComboBoxModel, DefaultComboBoxDelegate,
     IconListComboModel, StringListComboModel,
 };
 pub use container::ContainerWidget;
+pub use date_edit::{DateEdit, DateFormat};
+pub use date_time_edit::DateTimeEdit;
 pub use dial::Dial;
 pub use dock_widget::{DockArea, DockAreas, DockWidget, DockWidgetFeatures};
 pub use frame::{Frame, FrameShadow, FrameShape};
@@ -107,6 +114,7 @@ pub use plain_text_edit::{HighlightSpan, PlainTextEdit, SyntaxHighlighter};
 pub use text_edit::{TextEdit, TextWrapMode};
 pub use double_spin_box::DoubleSpinBox;
 pub use spin_box::SpinBox;
+pub use time_edit::{TimeEdit, TimeFormat};
 pub use tool_box::ToolBox;
 pub use tool_button::{ToolButton, ToolButtonPopupMode, ToolButtonStyle};
 pub use window::{Window, WindowFlags, WindowModality, WindowState};

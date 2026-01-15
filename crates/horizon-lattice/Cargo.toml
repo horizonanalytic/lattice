@@ -17,6 +17,7 @@ unicode-segmentation = { workspace = true }
 arboard = { workspace = true }
 regex = { workspace = true }
 ropey = { workspace = true }
+chrono = { workspace = true }
 
 [dev-dependencies]
 slotmap = { workspace = true }

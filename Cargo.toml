@@ -63,6 +63,9 @@ regex = "1"
 # Rope data structure for large text documents
 ropey = "1.6"
 
+# Date and time handling
+chrono = "0.4"
+
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }
 horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }

@@ -8,6 +8,7 @@
 //! - Maximum length constraint
 //! - Undo/redo with coalescing for character input
 //! - Input validation with visual feedback
+//! - Clear button to quickly clear text
 //!
 //! # Example
 //!
@@ -275,6 +276,7 @@ pub enum EchoMode {
 /// - `editing_finished`: Emitted when editing is finished (focus lost or Enter pressed)
 /// - `return_pressed`: Emitted when Enter is pressed
 /// - `input_rejected`: Emitted when input is rejected by the validator
+/// - `cleared`: Emitted when the clear button is clicked or Escape is pressed (with clear button enabled)
 ///
 /// # Keyboard Shortcuts
 ///
@@ -292,6 +294,7 @@ pub enum EchoMode {
 /// - Ctrl+V / Cmd+V: Paste from clipboard
 /// - Ctrl+Z / Cmd+Z: Undo
 /// - Ctrl+Shift+Z / Cmd+Shift+Z or Ctrl+Y: Redo
+/// - Escape: Clear all text (when clear button is enabled)
 pub struct LineEdit {
     /// Widget base for common functionality.
     base: WidgetBase,
@@ -360,6 +363,12 @@ pub struct LineEdit {
     /// When no mask is active, this is empty and `text` is used directly.
     mask_input: String,
 
+    /// Whether to show a clear button when text is present.
+    show_clear_button: bool,
+
+    /// Whether the clear button is currently hovered.
+    clear_button_hovered: bool,
+
     // Signals
 
     /// Signal emitted when text changes (and validation passes, if a validator is set).
@@ -378,6 +387,9 @@ pub struct LineEdit {
 
     /// Signal emitted when input is rejected by the validator.
     pub input_rejected: Signal<()>,
+
+    /// Signal emitted when the clear button is clicked.
+    pub cleared: Signal<()>,
 }
 
 /// Cached text layout data.
@@ -417,11 +429,14 @@ impl LineEdit {
             validation_state: ValidationState::Acceptable,
             input_mask: None,
             mask_input: String::new(),
+            show_clear_button: false,
+            clear_button_hovered: false,
             text_changed: Signal::new(),
             text_edited: Signal::new(),
             editing_finished: Signal::new(),
             return_pressed: Signal::new(),
             input_rejected: Signal::new(),
+            cleared: Signal::new(),
         }
     }
 
@@ -661,6 +676,68 @@ impl LineEdit {
     pub fn with_max_length(mut self, max: usize) -> Self {
         self.max_length = Some(max);
         self
+    }
+
+    // =========================================================================
+    // Clear Button
+    // =========================================================================
+
+    /// Check if the clear button is enabled.
+    ///
+    /// When enabled, a clear button (X) appears on the right side of the
+    /// LineEdit when text is present. Clicking it clears all text.
+    pub fn is_clear_button_enabled(&self) -> bool {
+        self.show_clear_button
+    }
+
+    /// Enable or disable the clear button.
+    ///
+    /// When enabled, a clear button (X) appears on the right side of the
+    /// LineEdit when text is present. Clicking it clears all text.
+    pub fn set_clear_button_enabled(&mut self, enabled: bool) {
+        if self.show_clear_button != enabled {
+            self.show_clear_button = enabled;
+            self.invalidate_layout();
+            self.base.update();
+        }
+    }
+
+    /// Enable clear button using builder pattern.
+    pub fn with_clear_button(mut self, enabled: bool) -> Self {
+        self.show_clear_button = enabled;
+        self
+    }
+
+    /// Get the size of the clear button.
+    const CLEAR_BUTTON_SIZE: f32 = 16.0;
+
+    /// Get the margin around the clear button.
+    const CLEAR_BUTTON_MARGIN: f32 = 4.0;
+
+    /// Check if clear button should be visible.
+    ///
+    /// Returns true if clear button is enabled, text is not empty,
+    /// and the widget is not read-only.
+    fn should_show_clear_button(&self) -> bool {
+        self.show_clear_button && !self.text.is_empty() && !self.read_only
+    }
+
+    /// Get the rectangle for the clear button.
+    ///
+    /// Returns None if the clear button is not visible.
+    fn clear_button_rect(&self, widget_rect: Rect) -> Option<Rect> {
+        if !self.should_show_clear_button() {
+            return None;
+        }
+
+        let button_size = Self::CLEAR_BUTTON_SIZE;
+        let margin = Self::CLEAR_BUTTON_MARGIN;
+
+        // Position on the right side, vertically centered
+        let x = widget_rect.origin.x + widget_rect.width() - button_size - margin;
+        let y = widget_rect.origin.y + (widget_rect.height() - button_size) / 2.0;
+
+        Some(Rect::new(x, y, button_size, button_size))
     }
 
     // =========================================================================
@@ -2351,6 +2428,13 @@ impl LineEdit {
                 true
             }
 
+            // Escape: Clear text when clear button is enabled
+            Key::Escape if self.show_clear_button && !self.text.is_empty() => {
+                self.clear();
+                self.cleared.emit(());
+                true
+            }
+
             // Character input
             _ => {
                 if !event.text.is_empty() && !ctrl && !event.modifiers.alt {
@@ -2367,6 +2451,18 @@ impl LineEdit {
     fn handle_mouse_press(&mut self, event: &MousePressEvent) -> bool {
         if event.button != MouseButton::Left {
             return false;
+        }
+
+        // Check if click is on clear button
+        let widget_size = self.base.size();
+        let local_rect = Rect::new(0.0, 0.0, widget_size.width, widget_size.height);
+        if let Some(btn_rect) = self.clear_button_rect(local_rect) {
+            if btn_rect.contains(event.local_pos) {
+                // Clear the text
+                self.clear();
+                self.cleared.emit(());
+                return true;
+            }
         }
 
         // Calculate cursor position from click
@@ -2415,8 +2511,24 @@ impl LineEdit {
 
     /// Handle a mouse move event.
     fn handle_mouse_move(&mut self, event: &MouseMoveEvent) -> bool {
+        // Track clear button hover state
+        let widget_size = self.base.size();
+        let local_rect = Rect::new(0.0, 0.0, widget_size.width, widget_size.height);
+        let was_hovered = self.clear_button_hovered;
+
+        self.clear_button_hovered = if let Some(btn_rect) = self.clear_button_rect(local_rect) {
+            btn_rect.contains(event.local_pos)
+        } else {
+            false
+        };
+
+        // Request repaint if hover state changed
+        if was_hovered != self.clear_button_hovered {
+            self.base.update();
+        }
+
         if !self.is_dragging {
-            return false;
+            return self.clear_button_hovered; // Return true if hovering button to indicate we handled it
         }
 
         // Calculate cursor position from drag
@@ -2446,6 +2558,7 @@ impl LineEdit {
     fn handle_focus_out(&mut self) {
         self.cursor_visible = false;
         self.is_dragging = false;
+        self.clear_button_hovered = false;
 
         // Try to fixup if we have a validator and input is not acceptable
         if !self.has_acceptable_input() {
@@ -2503,8 +2616,18 @@ impl Widget for LineEdit {
         // LineEdit has a fixed height based on font, expanding width
         let line_height = self.font.size() * 1.2;
         let padding = 8.0;
-        let min_width = 80.0;
-        let preferred_width = 200.0;
+        let base_min_width = 80.0;
+        let base_preferred_width = 200.0;
+
+        // Add extra space for clear button if enabled
+        let clear_button_space = if self.show_clear_button {
+            Self::CLEAR_BUTTON_SIZE + Self::CLEAR_BUTTON_MARGIN * 2.0
+        } else {
+            0.0
+        };
+
+        let min_width = base_min_width + clear_button_space;
+        let preferred_width = base_preferred_width + clear_button_space;
 
         SizeHint::new(Size::new(preferred_width, line_height + padding))
             .with_minimum_dimensions(min_width, line_height + padding)
@@ -2513,10 +2636,18 @@ impl Widget for LineEdit {
     fn paint(&self, ctx: &mut PaintContext<'_>) {
         let rect = ctx.rect();
         let padding = 2.0;
+
+        // Calculate space needed for clear button
+        let clear_button_space = if self.should_show_clear_button() {
+            Self::CLEAR_BUTTON_SIZE + Self::CLEAR_BUTTON_MARGIN * 2.0
+        } else {
+            0.0
+        };
+
         let text_rect = Rect::new(
             rect.origin.x + padding,
             rect.origin.y,
-            rect.width() - padding * 2.0,
+            rect.width() - padding * 2.0 - clear_button_space,
             rect.height(),
         );
 
@@ -2651,6 +2782,34 @@ impl Widget for LineEdit {
                 );
                 ctx.renderer().fill_rect(cursor_rect, self.text_color);
             }
+        }
+
+        // Draw clear button if visible
+        if let Some(btn_rect) = self.clear_button_rect(rect) {
+            // Draw button background on hover
+            if self.clear_button_hovered {
+                let hover_bg = Color::from_rgba8(0, 0, 0, 20);
+                ctx.renderer().fill_rect(btn_rect, hover_bg);
+            }
+
+            // Draw X icon
+            let icon_margin = 4.0;
+            let x1 = btn_rect.origin.x + icon_margin;
+            let y1 = btn_rect.origin.y + icon_margin;
+            let x2 = btn_rect.origin.x + btn_rect.width() - icon_margin;
+            let y2 = btn_rect.origin.y + btn_rect.height() - icon_margin;
+
+            let icon_color = if self.clear_button_hovered {
+                Color::from_rgb8(60, 60, 60)
+            } else {
+                Color::from_rgb8(120, 120, 120)
+            };
+            let stroke = Stroke::new(icon_color, 1.5);
+
+            ctx.renderer()
+                .draw_line(Point::new(x1, y1), Point::new(x2, y2), &stroke);
+            ctx.renderer()
+                .draw_line(Point::new(x2, y1), Point::new(x1, y2), &stroke);
         }
     }
 
@@ -3589,5 +3748,62 @@ mod tests {
 
         assert!(edit.has_input_mask());
         assert_eq!(edit.placeholder(), "Enter code...");
+    }
+
+    // =========================================================================
+    // Clear Button Tests
+    // =========================================================================
+
+    #[test]
+    fn test_clear_button_disabled_by_default() {
+        setup();
+        let edit = LineEdit::new();
+        assert!(!edit.is_clear_button_enabled());
+    }
+
+    #[test]
+    fn test_clear_button_enable() {
+        setup();
+        let mut edit = LineEdit::new();
+        edit.set_clear_button_enabled(true);
+        assert!(edit.is_clear_button_enabled());
+
+        edit.set_clear_button_enabled(false);
+        assert!(!edit.is_clear_button_enabled());
+    }
+
+    #[test]
+    fn test_clear_button_builder() {
+        setup();
+        let edit = LineEdit::new().with_clear_button(true);
+        assert!(edit.is_clear_button_enabled());
+    }
+
+    #[test]
+    fn test_clear_button_visibility() {
+        setup();
+        let mut edit = LineEdit::new().with_clear_button(true);
+
+        // Should not show when text is empty
+        assert!(!edit.should_show_clear_button());
+
+        // Should show when text is present
+        edit.set_text("hello");
+        assert!(edit.should_show_clear_button());
+
+        // Should not show when read-only
+        edit.set_read_only(true);
+        assert!(!edit.should_show_clear_button());
+    }
+
+    #[test]
+    fn test_clear_button_clears_text() {
+        setup();
+        let mut edit = LineEdit::new().with_clear_button(true);
+        edit.set_text("hello world");
+
+        assert_eq!(edit.text(), "hello world");
+        edit.clear();
+        assert_eq!(edit.text(), "");
     }
 }

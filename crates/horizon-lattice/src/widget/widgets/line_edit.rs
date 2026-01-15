@@ -7,11 +7,13 @@
 //! - Read-only mode
 //! - Maximum length constraint
 //! - Undo/redo with coalescing for character input
+//! - Input validation with visual feedback
 //!
 //! # Example
 //!
 //! ```ignore
 //! use horizon_lattice::widget::widgets::LineEdit;
+//! use horizon_lattice::widget::validator::{IntValidator, ValidationState};
 //!
 //! // Create a simple text input
 //! let mut edit = LineEdit::new();
@@ -21,9 +23,18 @@
 //! let mut password = LineEdit::new()
 //!     .with_echo_mode(EchoMode::Password);
 //!
+//! // Create a validated numeric input
+//! let mut age_input = LineEdit::new();
+//! age_input.set_validator(IntValidator::new(0, 150));
+//! age_input.set_placeholder("Enter age (0-150)...");
+//!
 //! // Connect to signals
 //! edit.text_changed.connect(|text| {
 //!     println!("Text changed: {}", text);
+//! });
+//!
+//! edit.text_edited.connect(|text| {
+//!     println!("Text edited (before validation): {}", text);
 //! });
 //!
 //! edit.return_pressed.connect(|| {
@@ -31,10 +42,13 @@
 //! });
 //! ```
 
+use std::sync::Arc;
+
 use parking_lot::RwLock;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::platform::Clipboard;
+use crate::widget::validator::{ValidationState, Validator};
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
     Color, Font, FontFamily, FontSystem, Point, Rect, Renderer, Size, Stroke, TextLayout,
@@ -251,12 +265,15 @@ pub enum EchoMode {
 /// - Password masking mode
 /// - Read-only mode
 /// - Maximum length constraint
+/// - Input validation with visual feedback
 ///
 /// # Signals
 ///
 /// - `text_changed`: Emitted when the text content changes
+/// - `text_edited`: Emitted on any text change (emits before validation, unlike text_changed)
 /// - `editing_finished`: Emitted when editing is finished (focus lost or Enter pressed)
 /// - `return_pressed`: Emitted when Enter is pressed
+/// - `input_rejected`: Emitted when input is rejected by the validator
 ///
 /// # Keyboard Shortcuts
 ///
@@ -329,16 +346,30 @@ pub struct LineEdit {
     /// Undo/redo stack for edit operations.
     undo_stack: UndoStack,
 
+    /// Optional validator for input validation.
+    validator: Option<Arc<dyn Validator>>,
+
+    /// Current validation state.
+    validation_state: ValidationState,
+
     // Signals
 
-    /// Signal emitted when text changes.
+    /// Signal emitted when text changes (and validation passes, if a validator is set).
     pub text_changed: Signal<String>,
 
+    /// Signal emitted on any text edit, before validation.
+    /// This is useful for tracking all edits regardless of validation state.
+    pub text_edited: Signal<String>,
+
     /// Signal emitted when editing is finished (focus lost or Enter pressed).
+    /// With a validator, this is only emitted if input is acceptable.
     pub editing_finished: Signal<()>,
 
     /// Signal emitted when Enter/Return is pressed.
     pub return_pressed: Signal<()>,
+
+    /// Signal emitted when input is rejected by the validator.
+    pub input_rejected: Signal<()>,
 }
 
 /// Cached text layout data.
@@ -374,9 +405,13 @@ impl LineEdit {
             cached_layout: RwLock::new(None),
             is_dragging: false,
             undo_stack: UndoStack::new(),
+            validator: None,
+            validation_state: ValidationState::Acceptable,
             text_changed: Signal::new(),
+            text_edited: Signal::new(),
             editing_finished: Signal::new(),
             return_pressed: Signal::new(),
+            input_rejected: Signal::new(),
         }
     }
 
@@ -421,6 +456,10 @@ impl LineEdit {
             self.invalidate_layout();
             self.ensure_cursor_visible();
             self.base.update();
+            // Emit text_edited signal
+            self.text_edited.emit(new_text.clone());
+            // Validate and emit text_changed
+            self.revalidate();
             self.text_changed.emit(new_text);
         }
     }
@@ -541,6 +580,83 @@ impl LineEdit {
     pub fn with_max_length(mut self, max: usize) -> Self {
         self.max_length = Some(max);
         self
+    }
+
+    // =========================================================================
+    // Input Validation
+    // =========================================================================
+
+    /// Get the current validator, if any.
+    pub fn validator(&self) -> Option<&Arc<dyn Validator>> {
+        self.validator.as_ref()
+    }
+
+    /// Set a validator for this LineEdit.
+    ///
+    /// The validator will be used to validate input in real-time.
+    /// Invalid input will be indicated visually.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice::widget::validator::IntValidator;
+    ///
+    /// let mut edit = LineEdit::new();
+    /// edit.set_validator(IntValidator::new(0, 100));
+    /// ```
+    pub fn set_validator<V: Validator + 'static>(&mut self, validator: V) {
+        self.validator = Some(Arc::new(validator));
+        self.revalidate();
+    }
+
+    /// Set a validator using a shared Arc.
+    ///
+    /// This is useful when you want to share a validator between multiple widgets.
+    pub fn set_validator_arc(&mut self, validator: Arc<dyn Validator>) {
+        self.validator = Some(validator);
+        self.revalidate();
+    }
+
+    /// Remove the validator.
+    pub fn clear_validator(&mut self) {
+        self.validator = None;
+        self.validation_state = ValidationState::Acceptable;
+        self.base.update();
+    }
+
+    /// Set validator using builder pattern.
+    pub fn with_validator<V: Validator + 'static>(mut self, validator: V) -> Self {
+        self.set_validator(validator);
+        self
+    }
+
+    /// Get the current validation state.
+    ///
+    /// Returns `Acceptable` if no validator is set.
+    pub fn validation_state(&self) -> ValidationState {
+        self.validation_state
+    }
+
+    /// Check if the current input is acceptable.
+    ///
+    /// Returns `true` if no validator is set, or if the validator
+    /// returns `Acceptable` for the current text.
+    pub fn has_acceptable_input(&self) -> bool {
+        self.validation_state == ValidationState::Acceptable
+    }
+
+    /// Re-validate the current text against the validator.
+    fn revalidate(&mut self) {
+        let new_state = if let Some(ref validator) = self.validator {
+            validator.validate(&self.text)
+        } else {
+            ValidationState::Acceptable
+        };
+
+        if self.validation_state != new_state {
+            self.validation_state = new_state;
+            self.base.update();
+        }
     }
 
     // =========================================================================
@@ -726,6 +842,12 @@ impl LineEdit {
         self.invalidate_layout();
         self.ensure_cursor_visible();
         self.base.update();
+
+        // Emit text_edited signal (fires on any change, before validation)
+        self.text_edited.emit(self.text.clone());
+
+        // Validate and emit text_changed
+        self.revalidate();
         self.text_changed.emit(self.text.clone());
     }
 
@@ -756,6 +878,12 @@ impl LineEdit {
 
             self.invalidate_layout();
             self.base.update();
+
+            // Emit text_edited signal (fires on any change, before validation)
+            self.text_edited.emit(self.text.clone());
+
+            // Validate and emit text_changed
+            self.revalidate();
             self.text_changed.emit(self.text.clone());
         }
     }
@@ -795,6 +923,12 @@ impl LineEdit {
             self.invalidate_layout();
             self.ensure_cursor_visible();
             self.base.update();
+
+            // Emit text_edited signal (fires on any change, before validation)
+            self.text_edited.emit(self.text.clone());
+
+            // Validate and emit text_changed
+            self.revalidate();
             self.text_changed.emit(self.text.clone());
         }
     }
@@ -832,6 +966,12 @@ impl LineEdit {
 
             self.invalidate_layout();
             self.base.update();
+
+            // Emit text_edited signal (fires on any change, before validation)
+            self.text_edited.emit(self.text.clone());
+
+            // Validate and emit text_changed
+            self.revalidate();
             self.text_changed.emit(self.text.clone());
         }
     }
@@ -872,6 +1012,12 @@ impl LineEdit {
             self.invalidate_layout();
             self.ensure_cursor_visible();
             self.base.update();
+
+            // Emit text_edited signal (fires on any change, before validation)
+            self.text_edited.emit(self.text.clone());
+
+            // Validate and emit text_changed
+            self.revalidate();
             self.text_changed.emit(self.text.clone());
         }
     }
@@ -910,6 +1056,12 @@ impl LineEdit {
 
             self.invalidate_layout();
             self.base.update();
+
+            // Emit text_edited signal (fires on any change, before validation)
+            self.text_edited.emit(self.text.clone());
+
+            // Validate and emit text_changed
+            self.revalidate();
             self.text_changed.emit(self.text.clone());
         }
     }
@@ -1082,6 +1234,8 @@ impl LineEdit {
                         self.invalidate_layout();
                         self.ensure_cursor_visible();
                         self.base.update();
+                        self.text_edited.emit(self.text.clone());
+                        self.revalidate();
                         self.text_changed.emit(self.text.clone());
                     }
                 }
@@ -1093,6 +1247,8 @@ impl LineEdit {
                     self.invalidate_layout();
                     self.ensure_cursor_visible();
                     self.base.update();
+                    self.text_edited.emit(self.text.clone());
+                    self.revalidate();
                     self.text_changed.emit(self.text.clone());
                 }
             }
@@ -1136,6 +1292,8 @@ impl LineEdit {
                     self.invalidate_layout();
                     self.ensure_cursor_visible();
                     self.base.update();
+                    self.text_edited.emit(self.text.clone());
+                    self.revalidate();
                     self.text_changed.emit(self.text.clone());
                 }
                 EditCommand::Delete { pos, text } => {
@@ -1148,6 +1306,8 @@ impl LineEdit {
                         self.invalidate_layout();
                         self.ensure_cursor_visible();
                         self.base.update();
+                        self.text_edited.emit(self.text.clone());
+                        self.revalidate();
                         self.text_changed.emit(self.text.clone());
                     }
                 }
@@ -1563,8 +1723,23 @@ impl LineEdit {
 
             // Enter
             Key::Enter => {
-                self.return_pressed.emit(());
-                self.editing_finished.emit(());
+                // Try to fixup if we have a validator and input is not acceptable
+                if !self.has_acceptable_input() {
+                    if let Some(ref validator) = self.validator {
+                        if let Some(fixed) = validator.fixup(&self.text) {
+                            self.set_text(fixed);
+                        }
+                    }
+                }
+
+                // Only emit signals if input is acceptable (or no validator)
+                if self.has_acceptable_input() {
+                    self.return_pressed.emit(());
+                    self.editing_finished.emit(());
+                } else {
+                    // Input rejected - emit input_rejected signal
+                    self.input_rejected.emit(());
+                }
                 true
             }
 
@@ -1700,7 +1875,21 @@ impl LineEdit {
     fn handle_focus_out(&mut self) {
         self.cursor_visible = false;
         self.is_dragging = false;
-        self.editing_finished.emit(());
+
+        // Try to fixup if we have a validator and input is not acceptable
+        if !self.has_acceptable_input() {
+            if let Some(ref validator) = self.validator {
+                if let Some(fixed) = validator.fixup(&self.text) {
+                    self.set_text(fixed);
+                }
+            }
+        }
+
+        // Only emit editing_finished if input is acceptable (or no validator)
+        if self.has_acceptable_input() {
+            self.editing_finished.emit(());
+        }
+
         self.base.update();
     }
 
@@ -1760,19 +1949,31 @@ impl Widget for LineEdit {
             rect.height(),
         );
 
-        // Draw background
-        let bg_color = if self.base.is_effectively_enabled() {
-            Color::WHITE
-        } else {
+        // Draw background - tint based on validation state
+        let bg_color = if !self.base.is_effectively_enabled() {
             Color::from_rgb8(245, 245, 245)
+        } else {
+            match self.validation_state {
+                ValidationState::Invalid => Color::from_rgb8(255, 245, 245), // Light red tint
+                ValidationState::Intermediate => Color::WHITE,
+                ValidationState::Acceptable => Color::WHITE,
+            }
         };
         ctx.renderer().fill_rect(rect, bg_color);
 
-        // Draw border
+        // Draw border - color based on validation state and focus
         let border_color = if self.base.has_focus() {
-            Color::from_rgb8(51, 153, 255)
+            match self.validation_state {
+                ValidationState::Invalid => Color::from_rgb8(220, 53, 69),    // Red for invalid
+                ValidationState::Intermediate => Color::from_rgb8(255, 193, 7), // Yellow/amber for intermediate
+                ValidationState::Acceptable => Color::from_rgb8(51, 153, 255),  // Blue for acceptable
+            }
         } else {
-            Color::from_rgb8(200, 200, 200)
+            match self.validation_state {
+                ValidationState::Invalid => Color::from_rgb8(220, 53, 69),    // Red for invalid
+                ValidationState::Intermediate => Color::from_rgb8(200, 200, 200), // Gray for intermediate (unfocused)
+                ValidationState::Acceptable => Color::from_rgb8(200, 200, 200),   // Gray for acceptable (unfocused)
+            }
         };
         ctx.renderer()
             .stroke_rect(rect, &Stroke::new(border_color, 1.0));
@@ -2490,5 +2691,176 @@ mod tests {
         // Undo should restore "World"
         assert!(edit.undo());
         assert_eq!(edit.text(), "Hello World");
+    }
+
+    // =========================================================================
+    // Input Validation Tests
+    // =========================================================================
+
+    #[test]
+    fn test_no_validator_always_acceptable() {
+        setup();
+        let edit = LineEdit::new();
+        assert_eq!(edit.validation_state(), ValidationState::Acceptable);
+        assert!(edit.has_acceptable_input());
+    }
+
+    #[test]
+    fn test_int_validator_basic() {
+        setup();
+        use crate::widget::validator::IntValidator;
+
+        let mut edit = LineEdit::new();
+        edit.set_validator(IntValidator::new(0, 100));
+
+        // Empty input is intermediate
+        assert_eq!(edit.validation_state(), ValidationState::Intermediate);
+
+        // Valid input
+        edit.set_text("50");
+        assert_eq!(edit.validation_state(), ValidationState::Acceptable);
+        assert!(edit.has_acceptable_input());
+
+        // Out of range (too high)
+        edit.set_text("150");
+        assert_eq!(edit.validation_state(), ValidationState::Invalid);
+        assert!(!edit.has_acceptable_input());
+
+        // Out of range (negative)
+        edit.set_text("-5");
+        assert_eq!(edit.validation_state(), ValidationState::Invalid);
+    }
+
+    #[test]
+    fn test_int_validator_intermediate() {
+        setup();
+        use crate::widget::validator::IntValidator;
+
+        let mut edit = LineEdit::new();
+        edit.set_validator(IntValidator::new(10, 100));
+
+        // Single digit that could become valid
+        edit.set_text("5");
+        assert_eq!(edit.validation_state(), ValidationState::Intermediate);
+    }
+
+    #[test]
+    fn test_double_validator_basic() {
+        setup();
+        use crate::widget::validator::DoubleValidator;
+
+        let mut edit = LineEdit::new();
+        edit.set_validator(DoubleValidator::new(0.0, 10.0, 2));
+
+        // Valid input
+        edit.set_text("5.5");
+        assert_eq!(edit.validation_state(), ValidationState::Acceptable);
+
+        // Trailing decimal is intermediate
+        edit.set_text("5.");
+        assert_eq!(edit.validation_state(), ValidationState::Intermediate);
+
+        // Out of range
+        edit.set_text("15.0");
+        assert_eq!(edit.validation_state(), ValidationState::Invalid);
+
+        // Too many decimal places
+        edit.set_text("5.555");
+        assert_eq!(edit.validation_state(), ValidationState::Invalid);
+    }
+
+    #[test]
+    fn test_regex_validator_basic() {
+        setup();
+        use crate::widget::validator::RegexValidator;
+
+        let mut edit = LineEdit::new();
+        // Simple pattern: exactly 3 digits
+        edit.set_validator(RegexValidator::new(r"^\d{3}$").unwrap());
+
+        // Empty is intermediate
+        assert_eq!(edit.validation_state(), ValidationState::Intermediate);
+
+        // Valid input
+        edit.set_text("123");
+        assert_eq!(edit.validation_state(), ValidationState::Acceptable);
+
+        // Partial input is intermediate
+        edit.set_text("12");
+        assert_eq!(edit.validation_state(), ValidationState::Intermediate);
+    }
+
+    #[test]
+    fn test_clear_validator() {
+        setup();
+        use crate::widget::validator::IntValidator;
+
+        let mut edit = LineEdit::new();
+        edit.set_validator(IntValidator::new(0, 10));
+
+        edit.set_text("abc");
+        assert_eq!(edit.validation_state(), ValidationState::Invalid);
+
+        // Clear validator - should become acceptable
+        edit.clear_validator();
+        assert_eq!(edit.validation_state(), ValidationState::Acceptable);
+    }
+
+    #[test]
+    fn test_with_validator_builder() {
+        setup();
+        use crate::widget::validator::IntValidator;
+
+        let edit = LineEdit::with_text("50")
+            .with_validator(IntValidator::new(0, 100));
+
+        assert_eq!(edit.validation_state(), ValidationState::Acceptable);
+    }
+
+    #[test]
+    fn test_validation_on_edit_operations() {
+        setup();
+        use crate::widget::validator::IntValidator;
+
+        let mut edit = LineEdit::new();
+        // Use range [10, 100] so single digit "5" is intermediate, not acceptable
+        edit.set_validator(IntValidator::new(10, 100));
+
+        // Insert text - "5" is intermediate (could become "50")
+        edit.insert_text("5");
+        assert_eq!(edit.validation_state(), ValidationState::Intermediate);
+
+        edit.insert_text("0");
+        assert_eq!(edit.text(), "50");
+        assert_eq!(edit.validation_state(), ValidationState::Acceptable);
+
+        // Delete makes it incomplete again
+        edit.delete_char_before();
+        assert_eq!(edit.text(), "5");
+        assert_eq!(edit.validation_state(), ValidationState::Intermediate);
+    }
+
+    #[test]
+    fn test_text_edited_signal() {
+        setup();
+        use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+
+        let mut edit = LineEdit::new();
+        let counter = Arc::new(AtomicUsize::new(0));
+        let counter_clone = counter.clone();
+
+        edit.text_edited.connect(move |_| {
+            counter_clone.fetch_add(1, Ordering::SeqCst);
+        });
+
+        // Text edits should trigger the signal
+        edit.insert_text("Hello");
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        edit.delete_char_before();
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+
+        edit.set_text("New");
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
     }
 }

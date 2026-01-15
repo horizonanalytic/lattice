@@ -63,6 +63,10 @@ pub use dock_widget::{DockArea, DockAreas, DockWidget, DockWidgetFeatures};
 pub use frame::{Frame, FrameShadow, FrameShape};
 pub use label::{ElideMode, Label};
 pub use line_edit::{EchoMode, LineEdit};
+// Re-export validation types for convenience
+pub use super::validator::{
+    CustomValidator, DoubleValidator, IntValidator, RegexValidator, ValidationState, Validator,
+};
 pub use main_window::MainWindow;
 pub use popup::{Popup, PopupFlags, PopupPlacement};
 pub use progress_bar::{Orientation, ProgressBar};

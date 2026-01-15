@@ -50,6 +50,83 @@ use crate::widget::{
 };
 
 // =========================================================================
+// Line Numbers Configuration
+// =========================================================================
+
+/// Configuration for line number display in the gutter.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LineNumberConfig {
+    /// Whether line numbers are visible.
+    pub visible: bool,
+    /// Background color for the gutter area.
+    pub background_color: Color,
+    /// Text color for line numbers.
+    pub text_color: Color,
+    /// Text color for the current line number.
+    pub current_line_color: Color,
+    /// Background color for the current line in the gutter.
+    pub current_line_background: Color,
+    /// Minimum number of digits to display (pads with spaces).
+    pub min_digits: usize,
+    /// Padding on the left side of line numbers.
+    pub padding_left: f32,
+    /// Padding on the right side of line numbers.
+    pub padding_right: f32,
+}
+
+impl Default for LineNumberConfig {
+    fn default() -> Self {
+        Self {
+            visible: false,
+            background_color: Color::from_rgb8(245, 245, 245),
+            text_color: Color::from_rgb8(128, 128, 128),
+            current_line_color: Color::from_rgb8(64, 64, 64),
+            current_line_background: Color::from_rgb8(232, 232, 232),
+            min_digits: 3,
+            padding_left: 8.0,
+            padding_right: 8.0,
+        }
+    }
+}
+
+impl LineNumberConfig {
+    /// Create a new LineNumberConfig with default values.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set whether line numbers are visible.
+    pub fn with_visible(mut self, visible: bool) -> Self {
+        self.visible = visible;
+        self
+    }
+
+    /// Set the gutter background color.
+    pub fn with_background_color(mut self, color: Color) -> Self {
+        self.background_color = color;
+        self
+    }
+
+    /// Set the line number text color.
+    pub fn with_text_color(mut self, color: Color) -> Self {
+        self.text_color = color;
+        self
+    }
+
+    /// Set the current line number text color.
+    pub fn with_current_line_color(mut self, color: Color) -> Self {
+        self.current_line_color = color;
+        self
+    }
+
+    /// Set the current line background color in the gutter.
+    pub fn with_current_line_background(mut self, color: Color) -> Self {
+        self.current_line_background = color;
+        self
+    }
+}
+
+// =========================================================================
 // Syntax Highlighting
 // =========================================================================
 
@@ -419,6 +496,15 @@ pub struct PlainTextEdit {
     /// Cached line height.
     line_height: f32,
 
+    /// Line number configuration.
+    line_number_config: LineNumberConfig,
+
+    /// Cached gutter width (recalculated when line count changes significantly).
+    cached_gutter_width: f32,
+
+    /// Line count when gutter width was last calculated.
+    cached_line_count_for_gutter: usize,
+
     // Signals
 
     /// Signal emitted when text changes.
@@ -465,6 +551,9 @@ impl PlainTextEdit {
             tab_width: 4,
             highlighter: None,
             line_height,
+            line_number_config: LineNumberConfig::default(),
+            cached_gutter_width: 0.0,
+            cached_line_count_for_gutter: 0,
             text_changed: Signal::new(),
             cursor_position_changed: Signal::new(),
             selection_changed: Signal::new(),
@@ -1382,23 +1471,138 @@ impl PlainTextEdit {
     }
 
     // =========================================================================
+    // Line Numbers
+    // =========================================================================
+
+    /// Check if line numbers are visible.
+    pub fn line_numbers_visible(&self) -> bool {
+        self.line_number_config.visible
+    }
+
+    /// Set whether line numbers are visible.
+    pub fn set_line_numbers_visible(&mut self, visible: bool) {
+        if self.line_number_config.visible != visible {
+            self.line_number_config.visible = visible;
+            self.invalidate_gutter_width();
+            self.base.update();
+        }
+    }
+
+    /// Set line numbers visible using builder pattern.
+    pub fn with_line_numbers(mut self, visible: bool) -> Self {
+        self.line_number_config.visible = visible;
+        self
+    }
+
+    /// Get the line number configuration.
+    pub fn line_number_config(&self) -> &LineNumberConfig {
+        &self.line_number_config
+    }
+
+    /// Set the line number configuration.
+    pub fn set_line_number_config(&mut self, config: LineNumberConfig) {
+        self.line_number_config = config;
+        self.invalidate_gutter_width();
+        self.base.update();
+    }
+
+    /// Set line number configuration using builder pattern.
+    pub fn with_line_number_config(mut self, config: LineNumberConfig) -> Self {
+        self.line_number_config = config;
+        self
+    }
+
+    /// Invalidate the cached gutter width.
+    fn invalidate_gutter_width(&mut self) {
+        self.cached_line_count_for_gutter = 0;
+        self.cached_gutter_width = 0.0;
+    }
+
+    /// Calculate the width needed for line numbers.
+    ///
+    /// This caches the result and only recalculates when the number of digits
+    /// in the line count changes.
+    #[allow(dead_code)]
+    fn gutter_width(&mut self) -> f32 {
+        if !self.line_number_config.visible {
+            return 0.0;
+        }
+
+        let line_count = self.rope.len_lines();
+
+        // Check if we need to recalculate (when digit count changes)
+        let current_digits = Self::digit_count(line_count);
+        let cached_digits = Self::digit_count(self.cached_line_count_for_gutter);
+
+        if current_digits != cached_digits || self.cached_gutter_width == 0.0 {
+            let display_digits = current_digits.max(self.line_number_config.min_digits);
+            let char_width = self.font.size() * 0.6;
+            self.cached_gutter_width = self.line_number_config.padding_left
+                + (display_digits as f32 * char_width)
+                + self.line_number_config.padding_right;
+            self.cached_line_count_for_gutter = line_count;
+        }
+
+        self.cached_gutter_width
+    }
+
+    /// Get the gutter width without mutating (for const contexts).
+    fn gutter_width_const(&self) -> f32 {
+        if !self.line_number_config.visible {
+            return 0.0;
+        }
+
+        let line_count = self.rope.len_lines();
+        let display_digits = Self::digit_count(line_count).max(self.line_number_config.min_digits);
+        let char_width = self.font.size() * 0.6;
+
+        self.line_number_config.padding_left
+            + (display_digits as f32 * char_width)
+            + self.line_number_config.padding_right
+    }
+
+    /// Count the number of digits in a number.
+    fn digit_count(n: usize) -> usize {
+        if n == 0 {
+            1
+        } else {
+            ((n as f64).log10().floor() as usize) + 1
+        }
+    }
+
+    // =========================================================================
     // Scrolling
     // =========================================================================
 
-    /// Get the content rectangle (excluding scrollbars).
+    /// Get the content rectangle (excluding scrollbars and gutter).
     fn content_rect(&self) -> Rect {
         let rect = self.base.rect();
         let padding = 4.0;
+        let gutter_width = self.gutter_width_const();
 
-        // Reserve space for scrollbars
-        let width = rect.width() - padding * 2.0 - self.scrollbar_thickness;
+        // Reserve space for scrollbars and gutter
+        let width = rect.width() - padding * 2.0 - self.scrollbar_thickness - gutter_width;
         let height = rect.height() - padding * 2.0 - self.scrollbar_thickness;
+
+        Rect::new(
+            rect.origin.x + padding + gutter_width,
+            rect.origin.y + padding,
+            width.max(0.0),
+            height.max(0.0),
+        )
+    }
+
+    /// Get the gutter rectangle.
+    fn gutter_rect(&self) -> Rect {
+        let rect = self.base.rect();
+        let padding = 4.0;
+        let gutter_width = self.gutter_width_const();
 
         Rect::new(
             rect.origin.x + padding,
             rect.origin.y + padding,
-            width.max(0.0),
-            height.max(0.0),
+            gutter_width,
+            rect.height() - padding * 2.0 - self.scrollbar_thickness,
         )
     }
 
@@ -1830,6 +2034,86 @@ impl PlainTextEdit {
         }
     }
 
+    fn paint_line_numbers(&self, ctx: &mut PaintContext<'_>, font_system: &mut FontSystem) {
+        if !self.line_number_config.visible {
+            return;
+        }
+
+        let gutter_rect = self.gutter_rect();
+        let config = &self.line_number_config;
+
+        // Paint gutter background
+        ctx.renderer().fill_rect(gutter_rect, config.background_color);
+
+        // Get the current line for highlighting
+        let (current_line, _) = self.char_pos_to_line_col(self.cursor_pos);
+
+        // Get visible line range
+        let (first_line, last_line) = self.visible_line_range();
+
+        // Calculate number formatting
+        let line_count = self.rope.len_lines();
+        let display_digits = Self::digit_count(line_count).max(config.min_digits);
+
+        // Paint each visible line number
+        ctx.renderer().save();
+        ctx.renderer().translate(
+            gutter_rect.origin.x,
+            gutter_rect.origin.y - self.scroll_y,
+        );
+
+        for line_idx in first_line..last_line {
+            let y = line_idx as f32 * self.line_height;
+            let is_current_line = line_idx == current_line;
+
+            // Paint current line background highlight
+            if is_current_line {
+                let highlight_rect = Rect::new(
+                    0.0,
+                    y,
+                    gutter_rect.width(),
+                    self.line_height,
+                );
+                ctx.renderer().fill_rect(highlight_rect, config.current_line_background);
+            }
+
+            // Format line number (1-indexed, right-aligned)
+            let line_num = line_idx + 1;
+            let line_num_str = format!("{:>width$}", line_num, width = display_digits);
+
+            // Choose color based on whether this is the current line
+            let text_color = if is_current_line {
+                config.current_line_color
+            } else {
+                config.text_color
+            };
+
+            // Render line number text
+            let layout = TextLayout::new(font_system, &line_num_str, &self.font);
+            if let Ok(mut text_renderer) = TextRenderer::new() {
+                let x = config.padding_left;
+                let _ = text_renderer.prepare_layout(
+                    font_system,
+                    &layout,
+                    Point::new(x, y),
+                    text_color,
+                );
+            }
+        }
+
+        ctx.renderer().restore();
+
+        // Draw a subtle separator line between gutter and text
+        let separator_x = gutter_rect.origin.x + gutter_rect.width() - 1.0;
+        let separator_rect = Rect::new(
+            separator_x,
+            gutter_rect.origin.y,
+            1.0,
+            gutter_rect.height(),
+        );
+        ctx.renderer().fill_rect(separator_rect, Color::from_rgb8(220, 220, 220));
+    }
+
     fn paint_highlighted_line(
         &self,
         _ctx: &mut PaintContext<'_>,
@@ -2014,6 +2298,9 @@ impl Widget for PlainTextEdit {
 
         // Get font system for text rendering
         let mut font_system = FontSystem::new();
+
+        // Paint line numbers gutter (before text so it appears behind)
+        self.paint_line_numbers(ctx, &mut font_system);
 
         self.paint_text(ctx, &mut font_system);
         self.paint_scrollbars(ctx);
@@ -2306,5 +2593,99 @@ mod tests {
 
         // The highlighter should be set
         assert!(edit.highlighter.is_some());
+    }
+
+    // =========================================================================
+    // Line Number Tests
+    // =========================================================================
+
+    #[test]
+    fn test_line_numbers_default_disabled() {
+        setup();
+        let edit = PlainTextEdit::new();
+        assert!(!edit.line_numbers_visible());
+    }
+
+    #[test]
+    fn test_line_numbers_enable_disable() {
+        setup();
+        let mut edit = PlainTextEdit::new();
+
+        edit.set_line_numbers_visible(true);
+        assert!(edit.line_numbers_visible());
+
+        edit.set_line_numbers_visible(false);
+        assert!(!edit.line_numbers_visible());
+    }
+
+    #[test]
+    fn test_line_numbers_builder_pattern() {
+        setup();
+        let edit = PlainTextEdit::new().with_line_numbers(true);
+        assert!(edit.line_numbers_visible());
+    }
+
+    #[test]
+    fn test_line_number_config() {
+        setup();
+        let mut edit = PlainTextEdit::new();
+
+        let config = LineNumberConfig::new()
+            .with_visible(true)
+            .with_text_color(Color::from_rgb8(100, 100, 100))
+            .with_current_line_color(Color::from_rgb8(50, 50, 50));
+
+        edit.set_line_number_config(config);
+
+        assert!(edit.line_numbers_visible());
+        assert_eq!(edit.line_number_config().text_color, Color::from_rgb8(100, 100, 100));
+        assert_eq!(edit.line_number_config().current_line_color, Color::from_rgb8(50, 50, 50));
+    }
+
+    #[test]
+    fn test_digit_count() {
+        assert_eq!(PlainTextEdit::digit_count(0), 1);
+        assert_eq!(PlainTextEdit::digit_count(1), 1);
+        assert_eq!(PlainTextEdit::digit_count(9), 1);
+        assert_eq!(PlainTextEdit::digit_count(10), 2);
+        assert_eq!(PlainTextEdit::digit_count(99), 2);
+        assert_eq!(PlainTextEdit::digit_count(100), 3);
+        assert_eq!(PlainTextEdit::digit_count(999), 3);
+        assert_eq!(PlainTextEdit::digit_count(1000), 4);
+    }
+
+    #[test]
+    fn test_gutter_width_when_disabled() {
+        setup();
+        let edit = PlainTextEdit::new();
+        assert_eq!(edit.gutter_width_const(), 0.0);
+    }
+
+    #[test]
+    fn test_gutter_width_when_enabled() {
+        setup();
+        let edit = PlainTextEdit::new().with_line_numbers(true);
+        // Gutter width should be > 0 when enabled
+        assert!(edit.gutter_width_const() > 0.0);
+    }
+
+    #[test]
+    fn test_gutter_width_increases_with_lines() {
+        setup();
+        // Small document (< 1000 lines)
+        let small_doc = PlainTextEdit::with_text("line 1\nline 2\nline 3")
+            .with_line_numbers(true);
+        let small_width = small_doc.gutter_width_const();
+
+        // Large document (> 1000 lines)
+        let large_lines: String = (0..1500)
+            .map(|i| format!("Line {}\n", i))
+            .collect();
+        let large_doc = PlainTextEdit::with_text(&large_lines)
+            .with_line_numbers(true);
+        let large_width = large_doc.gutter_width_const();
+
+        // Large document needs more space for 4-digit line numbers
+        assert!(large_width > small_width);
     }
 }

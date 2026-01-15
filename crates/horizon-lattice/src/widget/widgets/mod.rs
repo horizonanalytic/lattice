@@ -120,7 +120,7 @@ pub use splitter::Splitter;
 pub use stacked_widget::StackedWidget;
 pub use tab_bar::{TabBar, TabPosition};
 pub use tab_widget::TabWidget;
-pub use plain_text_edit::{HighlightSpan, PlainTextEdit, SyntaxHighlighter};
+pub use plain_text_edit::{HighlightSpan, LineNumberConfig, PlainTextEdit, SyntaxHighlighter};
 pub use text_edit::{TextEdit, TextWrapMode};
 pub use double_spin_box::DoubleSpinBox;
 pub use font_combo_box::{FontComboBox, FontFilter};

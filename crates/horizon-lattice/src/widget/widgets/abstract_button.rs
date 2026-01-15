@@ -28,6 +28,75 @@ use crate::widget::{
     WidgetBase,
 };
 
+// =========================================================================
+// Button Variant
+// =========================================================================
+
+/// Visual variant/style of a button.
+///
+/// Button variants combine visual style with semantic meaning to provide
+/// consistent, accessible button appearances. Each variant uses colors
+/// from the application's color palette automatically.
+///
+/// # Variants
+///
+/// - **Primary**: High emphasis, filled button for main actions
+/// - **Secondary**: Medium emphasis, outlined button for alternative actions
+/// - **Danger**: Filled red button for destructive actions (delete, remove)
+/// - **Flat**: Low emphasis, text-only button for tertiary actions
+/// - **Outlined**: Neutral outlined button with subtle styling
+///
+/// # Example
+///
+/// ```ignore
+/// use horizon_lattice::widget::widgets::{PushButton, ButtonVariant};
+///
+/// // Primary action button
+/// let save_btn = PushButton::new("Save")
+///     .with_variant(ButtonVariant::Primary);
+///
+/// // Destructive action
+/// let delete_btn = PushButton::new("Delete")
+///     .with_variant(ButtonVariant::Danger);
+///
+/// // Less prominent action
+/// let cancel_btn = PushButton::new("Cancel")
+///     .with_variant(ButtonVariant::Flat);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ButtonVariant {
+    /// High emphasis filled button with primary color.
+    ///
+    /// Use for the main action in a view or dialog.
+    /// Only one primary button should typically appear in a given context.
+    #[default]
+    Primary,
+
+    /// Medium emphasis outlined button with primary color border.
+    ///
+    /// Use for important but not primary actions.
+    /// Good for "Cancel" or alternative actions alongside a primary button.
+    Secondary,
+
+    /// Filled button with error/red color for destructive actions.
+    ///
+    /// Use for delete, remove, or other irreversible actions.
+    /// Should be used sparingly and positioned away from primary actions.
+    Danger,
+
+    /// Text-only button with no background or border.
+    ///
+    /// Use for low-priority actions or in space-constrained contexts.
+    /// Good for "Learn more", "Skip", or tertiary actions.
+    Flat,
+
+    /// Outlined button with neutral border color.
+    ///
+    /// Use when you want an outlined style without the primary color emphasis.
+    /// Good for neutral actions that don't fit primary/secondary hierarchy.
+    Outlined,
+}
+
 /// Common functionality for all button widgets.
 ///
 /// This struct encapsulates the shared behavior of buttons:
@@ -43,6 +112,9 @@ pub struct AbstractButton {
 
     /// The button's text label.
     text: String,
+
+    /// Visual variant/style of the button.
+    variant: ButtonVariant,
 
     /// Whether the button is checkable (toggle button).
     checkable: bool,
@@ -62,8 +134,8 @@ pub struct AbstractButton {
     /// The font to use for text rendering.
     font: Font,
 
-    /// Text color.
-    text_color: Color,
+    /// Text color (used as override; if None, derived from variant).
+    text_color: Option<Color>,
 
     /// Optional icon to display.
     icon: Option<Icon>,
@@ -104,13 +176,14 @@ impl AbstractButton {
         Self {
             base,
             text: text.into(),
+            variant: ButtonVariant::Primary,
             checkable: false,
             checked: false,
             auto_repeat: false,
             auto_repeat_delay: 300,
             auto_repeat_interval: 100,
             font: Font::new(FontFamily::SansSerif, 14.0),
-            text_color: Color::BLACK,
+            text_color: None,
             icon: None,
             icon_position: IconPosition::Left,
             icon_mode: IconMode::IconAndText,
@@ -276,13 +349,16 @@ impl AbstractButton {
         self
     }
 
-    /// Get the text color.
-    pub fn text_color(&self) -> Color {
+    /// Get the explicit text color override, if set.
+    pub fn text_color(&self) -> Option<Color> {
         self.text_color
     }
 
-    /// Set the text color.
-    pub fn set_text_color(&mut self, color: Color) {
+    /// Set an explicit text color override.
+    ///
+    /// If set, this color will be used instead of the variant's default text color.
+    /// Pass `None` to use the default color for the current variant.
+    pub fn set_text_color(&mut self, color: Option<Color>) {
         if self.text_color != color {
             self.text_color = color;
             self.base.update();
@@ -291,7 +367,30 @@ impl AbstractButton {
 
     /// Set text color using builder pattern.
     pub fn with_text_color(mut self, color: Color) -> Self {
-        self.text_color = color;
+        self.text_color = Some(color);
+        self
+    }
+
+    // =========================================================================
+    // Variant
+    // =========================================================================
+
+    /// Get the button's visual variant.
+    pub fn variant(&self) -> ButtonVariant {
+        self.variant
+    }
+
+    /// Set the button's visual variant.
+    pub fn set_variant(&mut self, variant: ButtonVariant) {
+        if self.variant != variant {
+            self.variant = variant;
+            self.base.update();
+        }
+    }
+
+    /// Set variant using builder pattern.
+    pub fn with_variant(mut self, variant: ButtonVariant) -> Self {
+        self.variant = variant;
         self
     }
 
@@ -575,12 +674,29 @@ impl AbstractButton {
         }
     }
 
-    /// Get the text color based on current state.
+    /// Get the text color based on current state and variant.
+    ///
+    /// Returns the explicit text_color if set, otherwise derives the color from variant.
     pub fn effective_text_color(&self) -> Color {
         if !self.base.is_effectively_enabled() {
             Color::from_rgb8(128, 128, 128)
+        } else if let Some(color) = self.text_color {
+            color
         } else {
-            self.text_color
+            // Derive from variant
+            self.variant_text_color()
+        }
+    }
+
+    /// Get the default text color for the current variant.
+    fn variant_text_color(&self) -> Color {
+        match self.variant {
+            // Filled buttons use white text
+            ButtonVariant::Primary | ButtonVariant::Danger => Color::WHITE,
+            // Transparent/outlined buttons use dark text
+            ButtonVariant::Secondary | ButtonVariant::Flat | ButtonVariant::Outlined => {
+                Color::from_rgb8(33, 37, 41) // text_primary from light palette
+            }
         }
     }
 

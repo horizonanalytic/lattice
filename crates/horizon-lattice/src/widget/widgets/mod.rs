@@ -4,6 +4,7 @@
 //!
 //! - [`Label`]: Text display widget
 //! - [`PushButton`]: Standard clickable button
+//! - [`ButtonVariant`]: Visual variants for buttons (Primary, Secondary, Danger, Flat, Outlined)
 //! - [`CheckBox`]: Checkbox for boolean/tri-state selection
 //! - [`RadioButton`]: Radio button for exclusive selection
 //! - [`ButtonGroup`]: Non-visual container for exclusive button groups
@@ -50,7 +51,7 @@ mod tab_widget;
 mod tool_box;
 mod window;
 
-pub use abstract_button::AbstractButton;
+pub use abstract_button::{AbstractButton, ButtonVariant};
 pub use button_group::ButtonGroup;
 pub use checkbox::{CheckBox, CheckState};
 pub use container::ContainerWidget;

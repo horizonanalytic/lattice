@@ -153,7 +153,7 @@ impl CheckBox {
         // Checkboxes are always checkable
         inner.set_checkable(true);
         // Default text color to near-black for readability
-        inner.set_text_color(Color::from_rgb8(33, 33, 33));
+        inner.set_text_color(Some(Color::from_rgb8(33, 33, 33)));
 
         Self {
             inner,
@@ -323,19 +323,19 @@ impl CheckBox {
         self
     }
 
-    /// Get the text color.
+    /// Get the effective text color.
     pub fn text_color(&self) -> Color {
-        self.inner.text_color()
+        self.inner.effective_text_color()
     }
 
     /// Set the text color.
     pub fn set_text_color(&mut self, color: Color) {
-        self.inner.set_text_color(color);
+        self.inner.set_text_color(Some(color));
     }
 
     /// Set text color using builder pattern.
     pub fn with_text_color(mut self, color: Color) -> Self {
-        self.inner.set_text_color(color);
+        self.inner.set_text_color(Some(color));
         self
     }
 

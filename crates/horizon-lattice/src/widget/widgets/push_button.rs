@@ -27,10 +27,10 @@
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
     icon_tint_for_state, Color, Font, FontSystem, Icon, IconMode, IconPosition, ImageScaleMode,
-    Point, Rect, Renderer, RoundedRect, TextLayout, TextRenderer,
+    Point, Rect, Renderer, RoundedRect, Stroke, TextLayout, TextRenderer,
 };
 
-use super::abstract_button::AbstractButton;
+use super::abstract_button::{AbstractButton, ButtonVariant};
 use crate::widget::{PaintContext, SizeHint, Widget, WidgetBase, WidgetEvent};
 
 /// A standard push button widget.
@@ -61,19 +61,17 @@ pub struct PushButton {
     /// The underlying abstract button implementation.
     inner: AbstractButton,
 
-    /// Base color for the button background.
-    base_color: Color,
-
     /// Border radius for rounded corners.
     border_radius: f32,
 }
 
 impl PushButton {
     /// Create a new push button with the specified text.
+    ///
+    /// By default, buttons use [`ButtonVariant::Primary`].
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             inner: AbstractButton::new(text),
-            base_color: Color::from_rgb8(66, 133, 244), // Google Blue
             border_radius: 4.0,
         }
     }
@@ -179,14 +177,21 @@ impl PushButton {
         self
     }
 
-    /// Get the text color.
-    pub fn text_color(&self) -> Color {
+    /// Get the explicit text color override, if set.
+    pub fn text_color(&self) -> Option<Color> {
         self.inner.text_color()
     }
 
-    /// Set the text color.
+    /// Set an explicit text color override.
+    ///
+    /// If set, this color will be used instead of the variant's default text color.
     pub fn set_text_color(&mut self, color: Color) {
-        self.inner.set_text_color(color);
+        self.inner.set_text_color(Some(color));
+    }
+
+    /// Clear the text color override, using the variant's default.
+    pub fn clear_text_color(&mut self) {
+        self.inner.set_text_color(None);
     }
 
     /// Set text color using builder pattern.
@@ -264,27 +269,35 @@ impl PushButton {
     }
 
     // =========================================================================
-    // PushButton-Specific Methods
+    // Variant Methods
     // =========================================================================
 
-    /// Get the base color.
-    pub fn base_color(&self) -> Color {
-        self.base_color
+    /// Get the button's visual variant.
+    pub fn variant(&self) -> ButtonVariant {
+        self.inner.variant()
     }
 
-    /// Set the base background color.
-    pub fn set_base_color(&mut self, color: Color) {
-        if self.base_color != color {
-            self.base_color = color;
-            self.inner.widget_base_mut().update();
-        }
+    /// Set the button's visual variant.
+    ///
+    /// The variant determines the button's colors and visual style:
+    /// - [`ButtonVariant::Primary`]: Filled with primary color (default)
+    /// - [`ButtonVariant::Secondary`]: Outlined with primary color border
+    /// - [`ButtonVariant::Danger`]: Filled with error/red color
+    /// - [`ButtonVariant::Flat`]: Text only, no background
+    /// - [`ButtonVariant::Outlined`]: Outlined with neutral border
+    pub fn set_variant(&mut self, variant: ButtonVariant) {
+        self.inner.set_variant(variant);
     }
 
-    /// Set base color using builder pattern.
-    pub fn with_base_color(mut self, color: Color) -> Self {
-        self.base_color = color;
+    /// Set variant using builder pattern.
+    pub fn with_variant(mut self, variant: ButtonVariant) -> Self {
+        self.inner = self.inner.with_variant(variant);
         self
     }
+
+    // =========================================================================
+    // PushButton-Specific Methods
+    // =========================================================================
 
     /// Get the border radius.
     pub fn border_radius(&self) -> f32 {
@@ -308,6 +321,113 @@ impl PushButton {
     /// Programmatically click the button.
     pub fn click(&mut self) {
         self.inner.click();
+    }
+
+    // =========================================================================
+    // Private Rendering Helpers
+    // =========================================================================
+
+    /// Get background and border colors based on variant and state.
+    ///
+    /// Returns (background_color, Option<border_color>).
+    fn variant_colors(
+        &self,
+        is_disabled: bool,
+        is_pressed: bool,
+        is_hovered: bool,
+        is_checked: bool,
+    ) -> (Color, Option<Color>) {
+        // Palette colors (from light theme)
+        // Primary blue
+        let primary = Color::from_rgb8(0, 122, 255);
+        let primary_light = Color::from_rgb8(77, 163, 255);
+        let primary_dark = Color::from_rgb8(0, 86, 179);
+        // Error red (for danger)
+        let error = Color::from_rgb8(220, 53, 69);
+        let error_light = Color::from_rgb8(235, 100, 113);
+        let error_dark = Color::from_rgb8(176, 42, 55);
+        // Neutral colors
+        let border = Color::from_rgb8(222, 226, 230);
+        let disabled_bg = Color::from_rgb8(200, 200, 200);
+        let transparent = Color::from_rgba8(0, 0, 0, 0);
+
+        // Disabled state overrides variant
+        if is_disabled {
+            return match self.inner.variant() {
+                ButtonVariant::Primary | ButtonVariant::Danger => (disabled_bg, None),
+                ButtonVariant::Secondary | ButtonVariant::Outlined => {
+                    (transparent, Some(disabled_bg))
+                }
+                ButtonVariant::Flat => (transparent, None),
+            };
+        }
+
+        match self.inner.variant() {
+            ButtonVariant::Primary => {
+                let bg = if is_pressed {
+                    primary_dark
+                } else if is_hovered {
+                    primary_light
+                } else if is_checked {
+                    primary_dark
+                } else {
+                    primary
+                };
+                (bg, None)
+            }
+
+            ButtonVariant::Secondary => {
+                let bg = if is_pressed {
+                    Color::from_rgba8(0, 122, 255, 51) // 20% primary
+                } else if is_hovered {
+                    Color::from_rgba8(0, 122, 255, 26) // 10% primary
+                } else if is_checked {
+                    Color::from_rgba8(0, 122, 255, 38) // 15% primary
+                } else {
+                    transparent
+                };
+                (bg, Some(primary))
+            }
+
+            ButtonVariant::Danger => {
+                let bg = if is_pressed {
+                    error_dark
+                } else if is_hovered {
+                    error_light
+                } else if is_checked {
+                    error_dark
+                } else {
+                    error
+                };
+                (bg, None)
+            }
+
+            ButtonVariant::Flat => {
+                let bg = if is_pressed {
+                    Color::from_rgba8(0, 122, 255, 38) // 15% primary
+                } else if is_hovered {
+                    Color::from_rgba8(0, 122, 255, 20) // 8% primary
+                } else if is_checked {
+                    Color::from_rgba8(0, 122, 255, 26) // 10% primary
+                } else {
+                    transparent
+                };
+                (bg, None)
+            }
+
+            ButtonVariant::Outlined => {
+                let bg = if is_pressed {
+                    Color::from_rgba8(0, 0, 0, 26) // 10% black
+                } else if is_hovered {
+                    Color::from_rgba8(0, 0, 0, 13) // 5% black
+                } else if is_checked {
+                    Color::from_rgba8(0, 0, 0, 20) // 8% black
+                } else {
+                    transparent
+                };
+                (bg, Some(border))
+            }
+        }
     }
 
     // =========================================================================
@@ -366,17 +486,29 @@ impl Widget for PushButton {
     fn paint(&self, ctx: &mut PaintContext<'_>) {
         let rect = ctx.rect();
 
-        // Calculate background color based on state
-        let bg_color = self.inner.background_color(self.base_color);
-
-        // Draw rounded rectangle background
-        let rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(rrect, bg_color);
-
-        // Get state info for icon tinting
+        // Get state info
         let is_disabled = !self.inner.widget_base().is_effectively_enabled();
         let is_pressed = self.inner.widget_base().is_pressed();
         let is_hovered = self.inner.widget_base().is_hovered();
+        let is_checked = self.inner.is_checked();
+
+        // Get variant-specific colors
+        let (bg_color, border_color) =
+            self.variant_colors(is_disabled, is_pressed, is_hovered, is_checked);
+
+        // Draw rounded rectangle background and/or border based on variant
+        let rrect = RoundedRect::new(rect, self.border_radius);
+
+        // Fill background if not transparent
+        if bg_color.a > 0.0 {
+            ctx.renderer().fill_rounded_rect(rrect, bg_color);
+        }
+
+        // Draw border if color is specified (non-transparent)
+        if let Some(border) = border_color {
+            let stroke = Stroke::new(border, 1.0);
+            ctx.renderer().stroke_rounded_rect(rrect, &stroke);
+        }
 
         // Calculate content sizes
         let shows_icon = self.inner.shows_icon();
@@ -583,7 +715,7 @@ mod tests {
         assert!(button.is_checkable());
         assert!(button.is_checked());
         assert_eq!(button.border_radius(), 8.0);
-        assert_eq!(button.text_color(), Color::WHITE);
+        assert_eq!(button.text_color(), Some(Color::WHITE));
     }
 
     #[test]
@@ -702,5 +834,51 @@ mod tests {
         let icon = Icon::from_path("test/icon.png");
         let button = PushButton::new("Test").with_icon(icon);
         assert!(button.icon().is_some());
+    }
+
+    // =========================================================================
+    // Button Variant Tests
+    // =========================================================================
+
+    #[test]
+    fn test_default_variant_is_primary() {
+        setup();
+        let button = PushButton::new("Test");
+        assert_eq!(button.variant(), ButtonVariant::Primary);
+    }
+
+    #[test]
+    fn test_variant_builder() {
+        setup();
+        let button = PushButton::new("Delete")
+            .with_variant(ButtonVariant::Danger);
+        assert_eq!(button.variant(), ButtonVariant::Danger);
+    }
+
+    #[test]
+    fn test_set_variant() {
+        setup();
+        let mut button = PushButton::new("Action");
+        assert_eq!(button.variant(), ButtonVariant::Primary);
+
+        button.set_variant(ButtonVariant::Secondary);
+        assert_eq!(button.variant(), ButtonVariant::Secondary);
+
+        button.set_variant(ButtonVariant::Flat);
+        assert_eq!(button.variant(), ButtonVariant::Flat);
+
+        button.set_variant(ButtonVariant::Outlined);
+        assert_eq!(button.variant(), ButtonVariant::Outlined);
+    }
+
+    #[test]
+    fn test_all_variants_accessible() {
+        setup();
+        // Ensure all variants can be set via builder
+        let _primary = PushButton::new("Primary").with_variant(ButtonVariant::Primary);
+        let _secondary = PushButton::new("Secondary").with_variant(ButtonVariant::Secondary);
+        let _danger = PushButton::new("Danger").with_variant(ButtonVariant::Danger);
+        let _flat = PushButton::new("Flat").with_variant(ButtonVariant::Flat);
+        let _outlined = PushButton::new("Outlined").with_variant(ButtonVariant::Outlined);
     }
 }

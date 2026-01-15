@@ -36,6 +36,7 @@
 //! - [`ColorButton`]: Button that displays a color swatch
 //! - [`ColorPicker`]: Inline HSV color picker with saturation/value square and hue bar
 //! - [`FontComboBox`]: Dropdown for selecting font families with preview
+//! - [`KeySequenceEdit`]: Keyboard shortcut capture and editing widget
 
 mod abstract_button;
 mod button_group;
@@ -77,6 +78,7 @@ mod time_edit;
 mod tool_box;
 mod tool_button;
 mod window;
+mod key_sequence_edit;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
 pub use button_group::ButtonGroup;
@@ -127,3 +129,4 @@ pub use time_edit::{TimeEdit, TimeFormat};
 pub use tool_box::ToolBox;
 pub use tool_button::{ToolButton, ToolButtonPopupMode, ToolButtonStyle};
 pub use window::{Window, WindowFlags, WindowModality, WindowState};
+pub use key_sequence_edit::KeySequenceEdit;

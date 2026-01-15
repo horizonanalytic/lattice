@@ -15,6 +15,7 @@
 //! - [`ProgressBar`]: Progress indicator widget
 //! - [`ContainerWidget`]: Generic container widget with layout support
 //! - [`Frame`]: Container widget with border decoration
+//! - [`GroupBox`]: Titled container with optional checkbox mode
 //! - [`Separator`]: Visual dividing line
 //! - [`Spacer`]: Invisible widget for layout spacing
 //! - [`ScrollBar`]: Standalone scrollbar widget
@@ -35,6 +36,7 @@ mod checkbox;
 mod container;
 mod dock_widget;
 mod frame;
+mod group_box;
 mod label;
 mod line_edit;
 mod main_window;
@@ -61,6 +63,7 @@ pub use checkbox::{CheckBox, CheckState};
 pub use container::ContainerWidget;
 pub use dock_widget::{DockArea, DockAreas, DockWidget, DockWidgetFeatures};
 pub use frame::{Frame, FrameShadow, FrameShape};
+pub use group_box::GroupBox;
 pub use label::{ElideMode, Label};
 pub use line_edit::{EchoMode, LineEdit};
 // Re-export validation types for convenience

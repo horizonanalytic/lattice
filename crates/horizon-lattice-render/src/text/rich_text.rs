@@ -13,6 +13,7 @@
 //! - `<s>`, `<del>`, `<strike>` - Strikethrough text
 //! - `<br>`, `<br/>` - Line break
 //! - `<font size="..." color="...">` - Font size and color
+//! - `<a href="...">` - Hyperlinks (styled with blue color and underline)
 //!
 //! # Example
 //!
@@ -57,6 +58,8 @@ pub struct RichTextSpan {
     pub color: Option<[u8; 4]>,
     /// Optional font size override.
     pub font_size: Option<f32>,
+    /// Optional link URL. When set, this span represents a hyperlink.
+    pub link_url: Option<String>,
 }
 
 impl RichTextSpan {
@@ -70,7 +73,24 @@ impl RichTextSpan {
             strikethrough: false,
             color: None,
             font_size: None,
+            link_url: None,
         }
+    }
+
+    /// Check if this span is a hyperlink.
+    pub fn is_link(&self) -> bool {
+        self.link_url.is_some()
+    }
+
+    /// Get the link URL if this span is a hyperlink.
+    pub fn link(&self) -> Option<&str> {
+        self.link_url.as_deref()
+    }
+
+    /// Set this span as a hyperlink with the given URL.
+    pub fn with_link(mut self, url: impl Into<String>) -> Self {
+        self.link_url = Some(url.into());
+        self
     }
 
     /// Create a line break span.
@@ -84,6 +104,10 @@ impl RichTextSpan {
     }
 
     /// Convert to a `TextSpan` using the given base font.
+    ///
+    /// If this span is a hyperlink (has `link_url` set), it will be styled
+    /// with blue color and underline by default, unless explicitly overridden
+    /// by the span's own color/underline settings.
     pub fn to_text_span<'a>(&'a self, base_font: &Font) -> TextSpan<'a> {
         let mut span = TextSpan::new(&self.text);
 
@@ -110,12 +134,27 @@ impl RichTextSpan {
             span = span.with_font(font);
         }
 
-        if let Some(color) = self.color {
-            span = span.with_color(color);
-        }
+        // Apply link styling: blue color and underline by default
+        if self.link_url.is_some() {
+            // Use explicit color if set, otherwise default link blue
+            if let Some(color) = self.color {
+                span = span.with_color(color);
+            } else {
+                // Standard link blue: #0066CC
+                span = span.with_color([0, 102, 204, 255]);
+            }
+            // Always underline links unless explicitly disabled
+            if !self.strikethrough {
+                span = span.with_decoration(TextDecoration::underline());
+            }
+        } else {
+            if let Some(color) = self.color {
+                span = span.with_color(color);
+            }
 
-        if self.underline {
-            span = span.with_decoration(TextDecoration::underline());
+            if self.underline {
+                span = span.with_decoration(TextDecoration::underline());
+            }
         }
 
         if self.strikethrough {
@@ -158,6 +197,10 @@ impl RichText {
     /// - `<s>`, `<del>`, `<strike>` for strikethrough
     /// - `<br>`, `<br/>` for line breaks
     /// - `<font size="..." color="...">` for font size and color
+    /// - `<a href="...">` for hyperlinks
+    ///
+    /// Hyperlinks are automatically styled with blue color and underline.
+    /// Use `has_links()`, `links()`, or `link_at_offset()` to query link information.
     ///
     /// Unsupported tags are ignored (their content is still rendered).
     /// HTML entities `&lt;`, `&gt;`, `&amp;`, `&quot;`, `&nbsp;` are decoded.
@@ -203,6 +246,60 @@ impl RichText {
     pub fn push_line_break(&mut self) {
         self.spans.push(RichTextSpan::line_break());
     }
+
+    /// Check if this rich text contains any hyperlinks.
+    pub fn has_links(&self) -> bool {
+        self.spans.iter().any(|s| s.link_url.is_some())
+    }
+
+    /// Get all hyperlinks with their byte ranges in the plain text.
+    ///
+    /// Returns a vector of (start_offset, end_offset, url) tuples where the
+    /// offsets are byte positions in the plain text representation.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let rich = RichText::from_html("Visit <a href=\"https://example.com\">example</a>!");
+    /// let links = rich.links();
+    /// // links = [(6, 13, "https://example.com")]
+    /// // "example" spans bytes 6..13 in "Visit example!"
+    /// ```
+    pub fn links(&self) -> Vec<(usize, usize, &str)> {
+        let mut result = Vec::new();
+        let mut byte_offset = 0;
+
+        for span in &self.spans {
+            let span_len = span.text.len();
+            if let Some(ref url) = span.link_url {
+                result.push((byte_offset, byte_offset + span_len, url.as_str()));
+            }
+            byte_offset += span_len;
+        }
+
+        result
+    }
+
+    /// Find the hyperlink URL at a given byte offset in the plain text.
+    ///
+    /// Returns `Some(url)` if the offset is within a link span, `None` otherwise.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset` - Byte offset in the plain text representation.
+    pub fn link_at_offset(&self, offset: usize) -> Option<&str> {
+        let mut byte_offset = 0;
+
+        for span in &self.spans {
+            let span_end = byte_offset + span.text.len();
+            if offset >= byte_offset && offset < span_end {
+                return span.link_url.as_deref();
+            }
+            byte_offset = span_end;
+        }
+
+        None
+    }
 }
 
 /// Current formatting state during HTML parsing.
@@ -214,6 +311,7 @@ struct FormatState {
     strikethrough: bool,
     color: Option<[u8; 4]>,
     font_size: Option<f32>,
+    link_url: Option<String>,
 }
 
 impl FormatState {
@@ -224,6 +322,7 @@ impl FormatState {
         span.strikethrough = self.strikethrough;
         span.color = self.color;
         span.font_size = self.font_size;
+        span.link_url = self.link_url.clone();
     }
 }
 
@@ -380,6 +479,16 @@ impl HtmlParser {
                     }
                 });
             }
+            "a" => {
+                // Extract href attribute for hyperlinks
+                let href = attrs
+                    .iter()
+                    .find(|(key, _)| key == "href")
+                    .map(|(_, value)| value.clone());
+                self.push_format(|f| {
+                    f.link_url = href;
+                });
+            }
             _ => {
                 // Unknown tag - ignore but process children
                 if !is_self_closing {
@@ -393,7 +502,7 @@ impl HtmlParser {
 
     fn handle_closing_tag(&mut self, tag_name: &str) {
         match tag_name {
-            "b" | "strong" | "i" | "em" | "u" | "s" | "del" | "strike" | "font" => {
+            "b" | "strong" | "i" | "em" | "u" | "s" | "del" | "strike" | "font" | "a" => {
                 self.pop_format();
             }
             _ => {
@@ -912,5 +1021,114 @@ mod tests {
     fn test_nbsp_entity() {
         let rich = RichText::from_html("Hello&nbsp;World");
         assert_eq!(rich.plain_text(), "Hello\u{00A0}World");
+    }
+
+    // =========================================================================
+    // Link Tests
+    // =========================================================================
+
+    #[test]
+    fn test_link_basic() {
+        let rich = RichText::from_html("<a href=\"https://example.com\">Click here</a>");
+        assert_eq!(rich.plain_text(), "Click here");
+        assert_eq!(rich.spans().len(), 1);
+        assert_eq!(
+            rich.spans()[0].link_url,
+            Some("https://example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn test_link_with_text() {
+        let rich = RichText::from_html("Visit <a href=\"https://example.com\">example</a>!");
+        assert_eq!(rich.plain_text(), "Visit example!");
+        assert_eq!(rich.spans().len(), 3);
+        assert_eq!(rich.spans()[0].link_url, None); // "Visit "
+        assert_eq!(
+            rich.spans()[1].link_url,
+            Some("https://example.com".to_string())
+        ); // "example"
+        assert_eq!(rich.spans()[2].link_url, None); // "!"
+    }
+
+    #[test]
+    fn test_link_nested_formatting() {
+        let rich = RichText::from_html("<a href=\"url\"><b>Bold link</b></a>");
+        assert_eq!(rich.plain_text(), "Bold link");
+        assert_eq!(rich.spans().len(), 1);
+        assert!(rich.spans()[0].bold);
+        assert_eq!(rich.spans()[0].link_url, Some("url".to_string()));
+    }
+
+    #[test]
+    fn test_link_has_links() {
+        let with_link = RichText::from_html("<a href=\"url\">text</a>");
+        assert!(with_link.has_links());
+
+        let without_link = RichText::from_html("<b>Bold text</b>");
+        assert!(!without_link.has_links());
+    }
+
+    #[test]
+    fn test_link_links_method() {
+        let rich = RichText::from_html("A <a href=\"url1\">link1</a> and <a href=\"url2\">link2</a>.");
+        assert_eq!(rich.plain_text(), "A link1 and link2.");
+
+        let links = rich.links();
+        assert_eq!(links.len(), 2);
+
+        // "A " is 2 bytes, "link1" is at 2..7
+        assert_eq!(links[0], (2, 7, "url1"));
+
+        // "A link1 and " is 12 bytes, "link2" is at 12..17
+        assert_eq!(links[1], (12, 17, "url2"));
+    }
+
+    #[test]
+    fn test_link_at_offset() {
+        let rich = RichText::from_html("Start <a href=\"url\">link</a> end");
+        assert_eq!(rich.plain_text(), "Start link end");
+
+        // "Start " is 6 bytes
+        assert_eq!(rich.link_at_offset(5), None); // In "Start "
+        assert_eq!(rich.link_at_offset(6), Some("url")); // Start of "link"
+        assert_eq!(rich.link_at_offset(9), Some("url")); // End of "link" - 1
+        assert_eq!(rich.link_at_offset(10), None); // In " end"
+    }
+
+    #[test]
+    fn test_link_empty_href() {
+        let rich = RichText::from_html("<a href=\"\">text</a>");
+        assert_eq!(rich.spans()[0].link_url, Some("".to_string()));
+    }
+
+    #[test]
+    fn test_link_no_href() {
+        // Link without href attribute should still parse
+        let rich = RichText::from_html("<a>text</a>");
+        assert_eq!(rich.plain_text(), "text");
+        // No href means link_url is None
+        assert_eq!(rich.spans()[0].link_url, None);
+    }
+
+    #[test]
+    fn test_link_single_quotes() {
+        let rich = RichText::from_html("<a href='https://example.com'>text</a>");
+        assert_eq!(
+            rich.spans()[0].link_url,
+            Some("https://example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn test_multiple_links() {
+        let rich = RichText::from_html(
+            "<a href=\"url1\">One</a> <a href=\"url2\">Two</a> <a href=\"url3\">Three</a>"
+        );
+        let links = rich.links();
+        assert_eq!(links.len(), 3);
+        assert_eq!(links[0].2, "url1");
+        assert_eq!(links[1].2, "url2");
+        assert_eq!(links[2].2, "url3");
     }
 }

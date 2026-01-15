@@ -178,6 +178,25 @@ pub struct Label {
 
     /// Signal emitted when text is copied to clipboard.
     pub copy_available: Signal<bool>,
+
+    // =========================================================================
+    // Link Handling Support
+    // =========================================================================
+    /// The URL of the link currently under the mouse cursor, if any.
+    current_hovered_link: Option<String>,
+
+    /// The URL of the link where a mouse press started, for click detection.
+    link_click_pending: Option<String>,
+
+    /// Signal emitted when a hyperlink is activated (clicked).
+    ///
+    /// The signal payload is the URL of the activated link.
+    pub link_activated: Signal<String>,
+
+    /// Signal emitted when the mouse hovers over or leaves a hyperlink.
+    ///
+    /// The signal payload is `Some(url)` when entering a link, or `None` when leaving.
+    pub link_hovered: Signal<Option<String>>,
 }
 
 /// Cached text layout data.
@@ -299,6 +318,11 @@ impl Label {
             click_count: 0,
             selection_changed: Signal::new(),
             copy_available: Signal::new(),
+            // Link handling state
+            current_hovered_link: None,
+            link_click_pending: None,
+            link_activated: Signal::new(),
+            link_hovered: Signal::new(),
         }
     }
 
@@ -311,6 +335,11 @@ impl Label {
     /// - `<s>`, `<del>` for strikethrough
     /// - `<font color="..." size="...">` for color and size
     /// - `<br>` for line breaks
+    /// - `<a href="...">` for hyperlinks
+    ///
+    /// Hyperlinks are automatically styled with blue color and underline.
+    /// Connect to the `link_activated` and `link_hovered` signals to handle
+    /// link interactions.
     ///
     /// Note: Rich text labels do not support mnemonics. Use plain text
     /// with `&` prefix for mnemonic support.
@@ -318,7 +347,10 @@ impl Label {
     /// # Example
     ///
     /// ```ignore
-    /// let label = Label::from_html("Hello <b>bold</b> and <i>italic</i>!");
+    /// let label = Label::from_html("Visit <a href=\"https://example.com\">example</a>!");
+    /// label.link_activated.connect(|url| {
+    ///     println!("Link clicked: {}", url);
+    /// });
     /// ```
     pub fn from_html(html: impl AsRef<str>) -> Self {
         let rich = RichText::from_html(html.as_ref());
@@ -353,6 +385,11 @@ impl Label {
             click_count: 0,
             selection_changed: Signal::new(),
             copy_available: Signal::new(),
+            // Link handling state
+            current_hovered_link: None,
+            link_click_pending: None,
+            link_activated: Signal::new(),
+            link_hovered: Signal::new(),
         }
     }
 
@@ -842,6 +879,34 @@ impl Label {
     }
 
     // =========================================================================
+    // Link API
+    // =========================================================================
+
+    /// Check if this label contains any hyperlinks.
+    ///
+    /// Returns `true` if the label has rich text with `<a href="...">` tags.
+    pub fn has_links(&self) -> bool {
+        self.rich_text.as_ref().map_or(false, |rt| rt.has_links())
+    }
+
+    /// Get the URL of the link currently under the mouse cursor.
+    ///
+    /// Returns `None` if the mouse is not over a link or the label has no links.
+    pub fn hovered_link(&self) -> Option<&str> {
+        self.current_hovered_link.as_deref()
+    }
+
+    /// Find the link URL at a given byte offset in the text.
+    ///
+    /// This is useful for determining which link (if any) is at a specific
+    /// text position, such as when converting mouse coordinates to text offsets.
+    ///
+    /// Returns `None` if there is no link at the given offset.
+    pub fn link_at_offset(&self, offset: usize) -> Option<&str> {
+        self.rich_text.as_ref()?.link_at_offset(offset)
+    }
+
+    // =========================================================================
     // Selection Event Handlers (Internal)
     // =========================================================================
 
@@ -1008,6 +1073,86 @@ impl Label {
         self.click_count = 0;
         // Optionally clear selection on focus loss - for now keep it
         self.base.update();
+    }
+
+    // =========================================================================
+    // Link Event Handlers (Internal)
+    // =========================================================================
+
+    /// Update the hovered link state based on mouse position.
+    ///
+    /// This is called during mouse move events to detect when the cursor
+    /// enters or leaves a hyperlink. Emits `link_hovered` signal when the
+    /// hovered link changes.
+    fn update_hovered_link(&mut self, x: f32, y: f32) {
+        if !self.has_links() {
+            // No links, clear any stale hover state
+            if self.current_hovered_link.is_some() {
+                self.current_hovered_link = None;
+                self.link_hovered.emit(None);
+            }
+            return;
+        }
+
+        let mut font_system = FontSystem::new();
+        let layout = self.ensure_layout(&mut font_system, None, false);
+
+        let offset = layout.offset_at_point(x, y);
+        let offset = offset.min(self.text.len());
+
+        // Check if there's a link at this offset
+        let new_link = self.link_at_offset(offset).map(|s| s.to_string());
+
+        // Only emit signal if the hovered link changed
+        if new_link != self.current_hovered_link {
+            self.current_hovered_link = new_link.clone();
+            self.link_hovered.emit(new_link);
+            self.base.update(); // Redraw for potential cursor change
+        }
+    }
+
+    /// Handle mouse press for link click detection.
+    ///
+    /// Returns true if the press is on a link (to track for click completion).
+    fn handle_link_press(&mut self, event: &MousePressEvent) -> bool {
+        if event.button != MouseButton::Left || !self.has_links() {
+            self.link_click_pending = None;
+            return false;
+        }
+
+        let mut font_system = FontSystem::new();
+        let layout = self.ensure_layout(&mut font_system, None, false);
+
+        let offset = layout.offset_at_point(event.local_pos.x, event.local_pos.y);
+        let offset = offset.min(self.text.len());
+
+        // Track which link (if any) was pressed
+        self.link_click_pending = self.link_at_offset(offset).map(|s| s.to_string());
+        self.link_click_pending.is_some()
+    }
+
+    /// Handle mouse release for link click completion.
+    ///
+    /// Emits `link_activated` if the release is on the same link that was pressed.
+    fn handle_link_release(&mut self, event: &MouseReleaseEvent) -> bool {
+        if event.button != MouseButton::Left {
+            return false;
+        }
+
+        let pending_link = self.link_click_pending.take();
+
+        if let Some(pressed_link) = pending_link {
+            // Check if we're still on the same link
+            if let Some(current_link) = &self.current_hovered_link {
+                if current_link == &pressed_link {
+                    // Complete click - emit link_activated
+                    self.link_activated.emit(pressed_link);
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
     // =========================================================================
@@ -1672,38 +1817,75 @@ impl Widget for Label {
     }
 
     fn event(&mut self, event: &mut WidgetEvent) -> bool {
-        // Only handle events if the label is selectable
-        if !self.selectable {
-            return false;
-        }
+        // Handle link events even when not selectable
+        let has_links = self.has_links();
 
         match event {
             WidgetEvent::MousePress(e) => {
-                if self.handle_mouse_press(e) {
-                    event.accept();
-                    true
-                } else {
-                    false
+                let mut handled = false;
+
+                // Track link press for click detection
+                if has_links {
+                    self.handle_link_press(e);
+                    handled = true;
                 }
+
+                // Handle selection if selectable
+                if self.selectable && self.handle_mouse_press(e) {
+                    handled = true;
+                }
+
+                if handled {
+                    event.accept();
+                }
+                handled
             }
             WidgetEvent::MouseRelease(e) => {
-                if self.handle_mouse_release(e) {
-                    event.accept();
-                    true
+                let mut handled = false;
+
+                // Check for link click completion (before selection handling)
+                // Only activate link if we didn't drag to select
+                if has_links && !self.has_selection() {
+                    if self.handle_link_release(e) {
+                        handled = true;
+                    }
                 } else {
-                    false
+                    // Clear pending link if we have a selection
+                    self.link_click_pending = None;
                 }
+
+                // Handle selection if selectable
+                if self.selectable && self.handle_mouse_release(e) {
+                    handled = true;
+                }
+
+                if handled {
+                    event.accept();
+                }
+                handled
             }
             WidgetEvent::MouseMove(e) => {
-                if self.handle_mouse_move(e) {
-                    event.accept();
-                    true
-                } else {
-                    false
+                let mut handled = false;
+
+                // Always update link hover state when we have links
+                if has_links {
+                    self.update_hovered_link(e.local_pos.x, e.local_pos.y);
+                    handled = true;
                 }
+
+                // Handle selection drag if selectable and selecting
+                if self.selectable && self.handle_mouse_move(e) {
+                    handled = true;
+                }
+
+                if handled {
+                    event.accept();
+                }
+                handled
             }
             WidgetEvent::DoubleClick(e) => {
-                if self.handle_double_click(e) {
+                // Double-click is only for selection
+                if self.selectable && self.handle_double_click(e) {
                     event.accept();
                     true
                 } else {
@@ -1711,7 +1893,8 @@ impl Widget for Label {
                 }
             }
             WidgetEvent::KeyPress(e) => {
-                if self.handle_key_press(e) {
+                // Key press is only for selection
+                if self.selectable && self.handle_key_press(e) {
                     event.accept();
                     true
                 } else {
@@ -1719,11 +1902,22 @@ impl Widget for Label {
                 }
             }
             WidgetEvent::FocusIn(_) => {
-                self.handle_focus_in();
-                true
+                if self.selectable {
+                    self.handle_focus_in();
+                    true
+                } else {
+                    false
+                }
             }
             WidgetEvent::FocusOut(_) => {
-                self.handle_focus_out();
+                if self.selectable {
+                    self.handle_focus_out();
+                }
+                // Clear link hover state on focus out
+                if self.current_hovered_link.is_some() {
+                    self.current_hovered_link = None;
+                    self.link_hovered.emit(None);
+                }
                 true
             }
             _ => false,
@@ -2289,5 +2483,120 @@ mod tests {
 
         label.set_selectable(false);
         assert!(!label.has_selection());
+    }
+
+    // =========================================================================
+    // Link Tests
+    // =========================================================================
+
+    #[test]
+    fn test_label_has_links() {
+        setup();
+        let label_without_links = Label::new("Plain text");
+        assert!(!label_without_links.has_links());
+
+        let label_with_links = Label::from_html("Visit <a href=\"url\">here</a>!");
+        assert!(label_with_links.has_links());
+    }
+
+    #[test]
+    fn test_label_link_at_offset() {
+        setup();
+        let label = Label::from_html("Click <a href=\"https://example.com\">here</a>!");
+        // "Click " is 6 bytes, "here" is at 6..10
+
+        assert_eq!(label.link_at_offset(0), None); // In "Click "
+        assert_eq!(label.link_at_offset(6), Some("https://example.com")); // Start of "here"
+        assert_eq!(label.link_at_offset(9), Some("https://example.com")); // In "here"
+        assert_eq!(label.link_at_offset(10), None); // In "!"
+    }
+
+    #[test]
+    fn test_label_hovered_link_initially_none() {
+        setup();
+        let label = Label::from_html("Visit <a href=\"url\">here</a>!");
+        assert_eq!(label.hovered_link(), None);
+    }
+
+    #[test]
+    fn test_label_from_html_with_links() {
+        setup();
+        let label = Label::from_html("Click <a href=\"https://example.com\">here</a> to visit.");
+        assert_eq!(label.text(), "Click here to visit.");
+        assert!(label.has_links());
+        assert!(label.has_rich_text());
+    }
+
+    #[test]
+    fn test_label_multiple_links() {
+        setup();
+        let label = Label::from_html(
+            "<a href=\"url1\">Link 1</a> and <a href=\"url2\">Link 2</a>"
+        );
+        assert_eq!(label.text(), "Link 1 and Link 2");
+        assert!(label.has_links());
+
+        // Check link at different positions
+        assert_eq!(label.link_at_offset(0), Some("url1")); // In "Link 1"
+        assert_eq!(label.link_at_offset(7), None); // In " and "
+        assert_eq!(label.link_at_offset(12), Some("url2")); // In "Link 2"
+    }
+
+    #[test]
+    fn test_label_link_activated_signal() {
+        setup();
+        use std::sync::{Arc, Mutex};
+
+        let label = Label::from_html("<a href=\"https://example.com\">Click</a>");
+        let activated_url = Arc::new(Mutex::new(None::<String>));
+        let activated_url_clone = activated_url.clone();
+
+        label.link_activated.connect(move |url| {
+            *activated_url_clone.lock().unwrap() = Some(url.clone());
+        });
+
+        // Signal is emitted when link_activated.emit() is called
+        // (In actual usage, this happens when a link is clicked)
+        label.link_activated.emit("https://example.com".to_string());
+
+        let result = activated_url.lock().unwrap();
+        assert_eq!(*result, Some("https://example.com".to_string()));
+    }
+
+    #[test]
+    fn test_label_link_hovered_signal() {
+        setup();
+        use std::sync::{Arc, Mutex};
+
+        let label = Label::from_html("<a href=\"url\">Link</a>");
+        let hovered_url = Arc::new(Mutex::new(None::<Option<String>>));
+        let hovered_url_clone = hovered_url.clone();
+
+        label.link_hovered.connect(move |url| {
+            *hovered_url_clone.lock().unwrap() = Some(url.clone());
+        });
+
+        // Signal is emitted when link_hovered.emit() is called
+        label.link_hovered.emit(Some("url".to_string()));
+
+        let result = hovered_url.lock().unwrap();
+        assert_eq!(*result, Some(Some("url".to_string())));
+    }
+
+    #[test]
+    fn test_label_plain_text_no_links() {
+        setup();
+        let label = Label::new("Plain text without links");
+        assert!(!label.has_links());
+        assert_eq!(label.link_at_offset(0), None);
+    }
+
+    #[test]
+    fn test_label_link_with_formatting() {
+        setup();
+        let label = Label::from_html("<a href=\"url\"><b>Bold link</b></a>");
+        assert_eq!(label.text(), "Bold link");
+        assert!(label.has_links());
+        assert_eq!(label.link_at_offset(0), Some("url"));
     }
 }

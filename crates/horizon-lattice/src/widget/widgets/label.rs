@@ -33,8 +33,8 @@ use parking_lot::RwLock;
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, Font, FontFamily, FontSystem, HorizontalAlign, Point, RichText, Size, TextLayout,
-    TextLayoutOptions, TextRenderer, VerticalAlign, WrapMode,
+    Color, Font, FontFamily, FontSystem, HorizontalAlign, Point, RichText, RichTextSpan, Size,
+    TextLayout, TextLayoutOptions, TextRenderer, VerticalAlign, WrapMode,
 };
 
 use crate::widget::{FocusPolicy, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase};
@@ -125,8 +125,28 @@ pub struct Label {
     /// Uses RwLock for thread-safe interior mutability since Widget requires Sync.
     cached_layout: RwLock<Option<CachedLayout>>,
 
+    // =========================================================================
+    // Mnemonic and Buddy Support
+    // =========================================================================
+    /// The mnemonic character (lowercase) for keyboard activation.
+    ///
+    /// This is extracted from text containing `&` prefix (e.g., "&Name" has mnemonic 'n').
+    mnemonic_char: Option<char>,
+
+    /// Byte position of the mnemonic character in the display text (for underlining).
+    mnemonic_byte_pos: Option<usize>,
+
+    /// The buddy widget that receives focus when the mnemonic is activated.
+    buddy: Option<ObjectId>,
+
     /// Signal emitted when the text changes.
     pub text_changed: Signal<String>,
+
+    /// Signal emitted when the mnemonic is activated (Alt+key pressed).
+    ///
+    /// Listeners can use this to perform custom actions when the mnemonic
+    /// is triggered. The default behavior transfers focus to the buddy widget.
+    pub mnemonic_activated: Signal<()>,
 }
 
 /// Cached text layout data.
@@ -135,6 +155,64 @@ struct CachedLayout {
     layout: TextLayout,
     /// The width constraint used for this layout (None = unconstrained).
     width_constraint: Option<f32>,
+}
+
+/// Parsed mnemonic information from text containing `&` characters.
+struct MnemonicParseResult {
+    /// The display text with `&` characters removed (except `&&` → `&`).
+    display_text: String,
+    /// The mnemonic character (lowercase), if found.
+    mnemonic_char: Option<char>,
+    /// Byte position of the mnemonic character in display_text.
+    mnemonic_byte_pos: Option<usize>,
+}
+
+/// Parse text for mnemonic character.
+///
+/// The `&` character marks the following character as a mnemonic.
+/// Use `&&` to display a literal `&` character.
+///
+/// Examples:
+/// - `"&Name"` → display "Name", mnemonic 'n' at position 0
+/// - `"Save && Exit"` → display "Save & Exit", no mnemonic
+/// - `"&Save && &Exit"` → display "Save & Exit", mnemonic 's' at position 0
+fn parse_mnemonic_text(text: &str) -> MnemonicParseResult {
+    let mut display_text = String::with_capacity(text.len());
+    let mut mnemonic_char = None;
+    let mut mnemonic_byte_pos = None;
+    let mut chars = text.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '&' {
+            if let Some(&next_ch) = chars.peek() {
+                if next_ch == '&' {
+                    // `&&` → literal `&`
+                    display_text.push('&');
+                    chars.next(); // consume second `&`
+                } else if mnemonic_char.is_none() {
+                    // First `&X` → mnemonic
+                    mnemonic_byte_pos = Some(display_text.len());
+                    // Use unicode-aware lowercase for mnemonic character
+                    mnemonic_char = next_ch.to_lowercase().next();
+                    display_text.push(next_ch);
+                    chars.next(); // consume mnemonic char
+                } else {
+                    // Already have a mnemonic, just add the character
+                    display_text.push(next_ch);
+                    chars.next();
+                }
+            }
+            // Trailing `&` at end of string is ignored
+        } else {
+            display_text.push(ch);
+        }
+    }
+
+    MnemonicParseResult {
+        display_text,
+        mnemonic_char,
+        mnemonic_byte_pos,
+    }
 }
 
 impl Label {
@@ -146,14 +224,26 @@ impl Label {
     /// - No elision
     /// - System sans-serif font at 14pt
     /// - Black text color
+    ///
+    /// # Mnemonic Support
+    ///
+    /// The text can contain `&` to mark a mnemonic character:
+    /// - `"&Name"` displays "Name" with 'N' underlined, mnemonic is Alt+N
+    /// - `"&&"` displays a literal `&` character
+    ///
+    /// To activate the mnemonic functionality, set a buddy widget with
+    /// [`set_buddy`](Self::set_buddy).
     pub fn new(text: impl Into<String>) -> Self {
         let mut base = WidgetBase::new::<Self>();
         // Labels don't receive focus by default
         base.set_focus_policy(FocusPolicy::NoFocus);
 
+        let raw_text = text.into();
+        let parsed = parse_mnemonic_text(&raw_text);
+
         Self {
             base,
-            text: text.into(),
+            text: parsed.display_text,
             rich_text: None,
             horizontal_align: HorizontalAlign::Left,
             vertical_align: VerticalAlign::Top,
@@ -162,7 +252,11 @@ impl Label {
             font: Font::new(FontFamily::SansSerif, 14.0),
             text_color: Color::BLACK,
             cached_layout: RwLock::new(None),
+            mnemonic_char: parsed.mnemonic_char,
+            mnemonic_byte_pos: parsed.mnemonic_byte_pos,
+            buddy: None,
             text_changed: Signal::new(),
+            mnemonic_activated: Signal::new(),
         }
     }
 
@@ -175,6 +269,9 @@ impl Label {
     /// - `<s>`, `<del>` for strikethrough
     /// - `<font color="..." size="...">` for color and size
     /// - `<br>` for line breaks
+    ///
+    /// Note: Rich text labels do not support mnemonics. Use plain text
+    /// with `&` prefix for mnemonic support.
     ///
     /// # Example
     ///
@@ -199,7 +296,12 @@ impl Label {
             font: Font::new(FontFamily::SansSerif, 14.0),
             text_color: Color::BLACK,
             cached_layout: RwLock::new(None),
+            // Rich text does not support mnemonics
+            mnemonic_char: None,
+            mnemonic_byte_pos: None,
+            buddy: None,
             text_changed: Signal::new(),
+            mnemonic_activated: Signal::new(),
         }
     }
 
@@ -213,21 +315,32 @@ impl Label {
     /// Set the text to display (as plain text).
     ///
     /// This clears any rich text formatting and invalidates the cached layout.
+    /// The text is parsed for mnemonic characters (`&` prefix).
     pub fn set_text(&mut self, text: impl Into<String>) {
-        let new_text = text.into();
-        if self.text != new_text || self.rich_text.is_some() {
-            self.text = new_text.clone();
+        let raw_text = text.into();
+        let parsed = parse_mnemonic_text(&raw_text);
+
+        if self.text != parsed.display_text || self.rich_text.is_some() {
+            self.text = parsed.display_text.clone();
             self.rich_text = None;
+            self.mnemonic_char = parsed.mnemonic_char;
+            self.mnemonic_byte_pos = parsed.mnemonic_byte_pos;
             self.invalidate_layout();
             self.base.update();
-            self.text_changed.emit(new_text);
+            self.text_changed.emit(parsed.display_text);
         }
     }
 
     /// Set the text using builder pattern.
+    ///
+    /// The text is parsed for mnemonic characters (`&` prefix).
     pub fn with_text(mut self, text: impl Into<String>) -> Self {
-        self.text = text.into();
+        let raw_text = text.into();
+        let parsed = parse_mnemonic_text(&raw_text);
+        self.text = parsed.display_text;
         self.rich_text = None;
+        self.mnemonic_char = parsed.mnemonic_char;
+        self.mnemonic_byte_pos = parsed.mnemonic_byte_pos;
         self.invalidate_layout();
         self
     }
@@ -245,9 +358,12 @@ impl Label {
     /// Set rich text content.
     ///
     /// This replaces any existing plain text or rich text.
+    /// Note: Rich text clears any mnemonic information.
     pub fn set_rich_text(&mut self, rich_text: RichText) {
         self.text = rich_text.plain_text();
         self.rich_text = Some(rich_text);
+        self.mnemonic_char = None;
+        self.mnemonic_byte_pos = None;
         self.invalidate_layout();
         self.base.update();
         self.text_changed.emit(self.text.clone());
@@ -264,6 +380,8 @@ impl Label {
     pub fn with_rich_text(mut self, rich_text: RichText) -> Self {
         self.text = rich_text.plain_text();
         self.rich_text = Some(rich_text);
+        self.mnemonic_char = None;
+        self.mnemonic_byte_pos = None;
         self.invalidate_layout();
         self
     }
@@ -271,6 +389,91 @@ impl Label {
     /// Set rich text from HTML using builder pattern.
     pub fn with_html(self, html: impl AsRef<str>) -> Self {
         self.with_rich_text(RichText::from_html(html.as_ref()))
+    }
+
+    // =========================================================================
+    // Mnemonic and Buddy Widget Support
+    // =========================================================================
+
+    /// Get the mnemonic character for this label.
+    ///
+    /// Returns the lowercase character that triggers the mnemonic when
+    /// pressed with Alt (e.g., Alt+N for a label with text "&Name").
+    /// Returns `None` if no mnemonic is defined.
+    pub fn mnemonic(&self) -> Option<char> {
+        self.mnemonic_char
+    }
+
+    /// Check if this label has a mnemonic character.
+    pub fn has_mnemonic(&self) -> bool {
+        self.mnemonic_char.is_some()
+    }
+
+    /// Get the buddy widget that receives focus when the mnemonic is activated.
+    pub fn buddy(&self) -> Option<ObjectId> {
+        self.buddy
+    }
+
+    /// Set the buddy widget.
+    ///
+    /// When the label's mnemonic is activated (Alt+key), focus will be
+    /// transferred to this widget. This is commonly used in forms to
+    /// associate a label with its input field.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Create a label with mnemonic and an input field
+    /// let label = Label::new("&Name:");
+    /// let input = LineEdit::new();
+    ///
+    /// // Associate the label with the input field
+    /// label.set_buddy(Some(input.object_id()));
+    ///
+    /// // Now Alt+N will focus the input field
+    /// ```
+    pub fn set_buddy(&mut self, buddy: Option<ObjectId>) {
+        self.buddy = buddy;
+    }
+
+    /// Set buddy widget using builder pattern.
+    pub fn with_buddy(mut self, buddy: ObjectId) -> Self {
+        self.buddy = Some(buddy);
+        self
+    }
+
+    /// Activate this label's mnemonic.
+    ///
+    /// This method is typically called by the window or application when
+    /// Alt+mnemonic is pressed. It:
+    /// 1. Emits the `mnemonic_activated` signal
+    /// 2. Returns the buddy widget ID for focus transfer (if set)
+    ///
+    /// Returns `Some(buddy_id)` if a buddy is set and should receive focus,
+    /// `None` otherwise.
+    ///
+    /// # Usage
+    ///
+    /// Applications should call this when handling Alt+key events and the
+    /// key matches the label's mnemonic character.
+    pub fn activate_mnemonic(&self) -> Option<ObjectId> {
+        if self.mnemonic_char.is_some() {
+            self.mnemonic_activated.emit(());
+            self.buddy
+        } else {
+            None
+        }
+    }
+
+    /// Check if a given key matches this label's mnemonic.
+    ///
+    /// This compares the key (converted to lowercase) with the mnemonic character.
+    /// Supports unicode characters.
+    pub fn matches_mnemonic_key(&self, key: char) -> bool {
+        match (self.mnemonic_char, key.to_lowercase().next()) {
+            (Some(m), Some(k)) => m == k,
+            _ => false,
+        }
     }
 
     /// Get the horizontal alignment.
@@ -435,6 +638,44 @@ impl Label {
         self.base.set_size_policy(policy);
     }
 
+    /// Create rich text with the mnemonic character underlined.
+    ///
+    /// This splits the text into three spans:
+    /// 1. Text before the mnemonic (plain)
+    /// 2. The mnemonic character (underlined)
+    /// 3. Text after the mnemonic (plain)
+    fn create_mnemonic_rich_text(&self, text: &str, mnemonic_byte_pos: usize) -> RichText {
+        let mut rich = RichText::new();
+
+        // Find the character at mnemonic_byte_pos and its byte length
+        if let Some(mnemonic_char) = text[mnemonic_byte_pos..].chars().next() {
+            let mnemonic_len = mnemonic_char.len_utf8();
+
+            // Text before mnemonic
+            if mnemonic_byte_pos > 0 {
+                let before = &text[..mnemonic_byte_pos];
+                rich.push(RichTextSpan::new(before));
+            }
+
+            // Mnemonic character (underlined)
+            let mut mnemonic_span = RichTextSpan::new(mnemonic_char.to_string());
+            mnemonic_span.underline = true;
+            rich.push(mnemonic_span);
+
+            // Text after mnemonic
+            let after_pos = mnemonic_byte_pos + mnemonic_len;
+            if after_pos < text.len() {
+                let after = &text[after_pos..];
+                rich.push(RichTextSpan::new(after));
+            }
+        } else {
+            // Fallback: just use plain text
+            rich.push(RichTextSpan::new(text));
+        }
+
+        rich
+    }
+
     /// Build layout options based on current label settings.
     fn build_layout_options(&self, width_constraint: Option<f32>) -> TextLayoutOptions {
         let mut options = TextLayoutOptions::new()
@@ -486,8 +727,25 @@ impl Label {
                 let spans = rich.to_spans(&self.font);
                 TextLayout::rich_text(font_system, &spans, &self.font, options)
             }
+        } else if let Some(mnemonic_pos) = self.mnemonic_byte_pos {
+            // Plain text with mnemonic - create rich text to underline the mnemonic char
+            let display_text = if self.elide_mode != ElideMode::None && width_constraint.is_some() {
+                self.compute_elided_text(font_system, width_constraint.unwrap())
+            } else {
+                self.text.clone()
+            };
+
+            // Only apply mnemonic underlining if the position is still valid
+            if mnemonic_pos < display_text.len() {
+                let mnemonic_rich = self.create_mnemonic_rich_text(&display_text, mnemonic_pos);
+                let spans = mnemonic_rich.to_spans(&self.font);
+                TextLayout::rich_text(font_system, &spans, &self.font, options)
+            } else {
+                // Mnemonic position invalid (e.g., text was elided), render as plain text
+                TextLayout::with_options(font_system, &display_text, &self.font, options)
+            }
         } else {
-            // Plain text rendering
+            // Plain text rendering without mnemonic
             let display_text = if self.elide_mode != ElideMode::None && width_constraint.is_some() {
                 self.compute_elided_text(font_system, width_constraint.unwrap())
             } else {
@@ -1004,5 +1262,188 @@ mod tests {
         setup();
         let label = Label::from_html("Line 1<br>Line 2<br/>Line 3");
         assert_eq!(label.text(), "Line 1\nLine 2\nLine 3");
+    }
+
+    // =========================================================================
+    // Mnemonic Tests
+    // =========================================================================
+
+    #[test]
+    fn test_mnemonic_parsing_simple() {
+        setup();
+        let label = Label::new("&Name");
+        assert_eq!(label.text(), "Name");
+        assert_eq!(label.mnemonic(), Some('n'));
+        assert!(label.has_mnemonic());
+    }
+
+    #[test]
+    fn test_mnemonic_parsing_middle() {
+        setup();
+        let label = Label::new("Fi&le");
+        assert_eq!(label.text(), "File");
+        assert_eq!(label.mnemonic(), Some('l'));
+    }
+
+    #[test]
+    fn test_mnemonic_parsing_escaped_ampersand() {
+        setup();
+        let label = Label::new("Save && Exit");
+        assert_eq!(label.text(), "Save & Exit");
+        assert_eq!(label.mnemonic(), None);
+        assert!(!label.has_mnemonic());
+    }
+
+    #[test]
+    fn test_mnemonic_parsing_mixed() {
+        setup();
+        let label = Label::new("&Save && Exit");
+        assert_eq!(label.text(), "Save & Exit");
+        assert_eq!(label.mnemonic(), Some('s'));
+    }
+
+    #[test]
+    fn test_mnemonic_parsing_trailing_ampersand() {
+        setup();
+        let label = Label::new("Test&");
+        assert_eq!(label.text(), "Test");
+        assert_eq!(label.mnemonic(), None);
+    }
+
+    #[test]
+    fn test_mnemonic_parsing_only_first_counted() {
+        setup();
+        // Only the first & should be treated as mnemonic
+        let label = Label::new("&File &Edit");
+        assert_eq!(label.text(), "File Edit");
+        assert_eq!(label.mnemonic(), Some('f'));
+    }
+
+    #[test]
+    fn test_mnemonic_with_unicode() {
+        setup();
+        let label = Label::new("&Ünïcödé");
+        assert_eq!(label.text(), "Ünïcödé");
+        assert_eq!(label.mnemonic(), Some('ü'));
+    }
+
+    #[test]
+    fn test_set_text_updates_mnemonic() {
+        setup();
+        let mut label = Label::new("&First");
+        assert_eq!(label.mnemonic(), Some('f'));
+
+        label.set_text("&Second");
+        assert_eq!(label.text(), "Second");
+        assert_eq!(label.mnemonic(), Some('s'));
+    }
+
+    #[test]
+    fn test_rich_text_clears_mnemonic() {
+        setup();
+        let mut label = Label::new("&Name");
+        assert_eq!(label.mnemonic(), Some('n'));
+
+        label.set_html("<b>Bold</b>");
+        assert_eq!(label.mnemonic(), None);
+    }
+
+    #[test]
+    fn test_buddy_widget() {
+        setup();
+        use horizon_lattice_core::Object;
+
+        let mut label = Label::new("&Name:");
+        assert_eq!(label.buddy(), None);
+
+        // Use another label as a dummy buddy
+        let buddy_label = Label::new("Buddy");
+        let buddy_id = buddy_label.object_id();
+
+        label.set_buddy(Some(buddy_id));
+        assert_eq!(label.buddy(), Some(buddy_id));
+
+        label.set_buddy(None);
+        assert_eq!(label.buddy(), None);
+    }
+
+    #[test]
+    fn test_with_buddy_builder() {
+        setup();
+        use horizon_lattice_core::Object;
+
+        let buddy_label = Label::new("Buddy");
+        let buddy_id = buddy_label.object_id();
+
+        let label = Label::new("&Name:").with_buddy(buddy_id);
+        assert_eq!(label.buddy(), Some(buddy_id));
+    }
+
+    #[test]
+    fn test_matches_mnemonic_key() {
+        setup();
+        let label = Label::new("&Name");
+
+        assert!(label.matches_mnemonic_key('n'));
+        assert!(label.matches_mnemonic_key('N'));
+        assert!(!label.matches_mnemonic_key('m'));
+    }
+
+    #[test]
+    fn test_activate_mnemonic_without_buddy() {
+        setup();
+        let label = Label::new("&Name");
+
+        // Should emit signal but return None (no buddy)
+        let result = label.activate_mnemonic();
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_activate_mnemonic_with_buddy() {
+        setup();
+        use horizon_lattice_core::Object;
+
+        let buddy_label = Label::new("Buddy");
+        let buddy_id = buddy_label.object_id();
+        let label = Label::new("&Name").with_buddy(buddy_id);
+
+        let result = label.activate_mnemonic();
+        assert_eq!(result, Some(buddy_id));
+    }
+
+    #[test]
+    fn test_activate_mnemonic_signal() {
+        setup();
+        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+
+        let label = Label::new("&Name");
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let signal_received_clone = signal_received.clone();
+
+        label.mnemonic_activated.connect(move |()| {
+            signal_received_clone.store(true, Ordering::SeqCst);
+        });
+
+        label.activate_mnemonic();
+        assert!(signal_received.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_mnemonic_no_signal_without_mnemonic() {
+        setup();
+        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+
+        let label = Label::new("No mnemonic");
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let signal_received_clone = signal_received.clone();
+
+        label.mnemonic_activated.connect(move |()| {
+            signal_received_clone.store(true, Ordering::SeqCst);
+        });
+
+        let result = label.activate_mnemonic();
+        assert_eq!(result, None);
+        assert!(!signal_received.load(Ordering::SeqCst));
     }
 }

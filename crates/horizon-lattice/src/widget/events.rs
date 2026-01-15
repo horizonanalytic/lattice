@@ -510,6 +510,8 @@ pub enum FocusReason {
     Tab,
     /// Focus changed due to Shift+Tab (backtab).
     Backtab,
+    /// Focus changed due to keyboard shortcut/mnemonic (Alt+key).
+    Shortcut,
     /// Focus changed programmatically.
     #[default]
     Other,
@@ -674,6 +676,52 @@ impl Key {
                 | Key::Digit8
                 | Key::Digit9
         )
+    }
+
+    /// Convert this key to a lowercase ASCII character, if applicable.
+    ///
+    /// Returns `Some(char)` for letter keys (A-Z) and digit keys (0-9),
+    /// `None` for other keys. Letters are returned in lowercase.
+    pub fn to_ascii_char(&self) -> Option<char> {
+        match self {
+            Key::A => Some('a'),
+            Key::B => Some('b'),
+            Key::C => Some('c'),
+            Key::D => Some('d'),
+            Key::E => Some('e'),
+            Key::F => Some('f'),
+            Key::G => Some('g'),
+            Key::H => Some('h'),
+            Key::I => Some('i'),
+            Key::J => Some('j'),
+            Key::K => Some('k'),
+            Key::L => Some('l'),
+            Key::M => Some('m'),
+            Key::N => Some('n'),
+            Key::O => Some('o'),
+            Key::P => Some('p'),
+            Key::Q => Some('q'),
+            Key::R => Some('r'),
+            Key::S => Some('s'),
+            Key::T => Some('t'),
+            Key::U => Some('u'),
+            Key::V => Some('v'),
+            Key::W => Some('w'),
+            Key::X => Some('x'),
+            Key::Y => Some('y'),
+            Key::Z => Some('z'),
+            Key::Digit0 => Some('0'),
+            Key::Digit1 => Some('1'),
+            Key::Digit2 => Some('2'),
+            Key::Digit3 => Some('3'),
+            Key::Digit4 => Some('4'),
+            Key::Digit5 => Some('5'),
+            Key::Digit6 => Some('6'),
+            Key::Digit7 => Some('7'),
+            Key::Digit8 => Some('8'),
+            Key::Digit9 => Some('9'),
+            _ => None,
+        }
     }
 }
 

@@ -508,6 +508,119 @@ impl Color {
     pub const GRAY: Self = Self::from_rgb(0.5, 0.5, 0.5);
     pub const DARK_GRAY: Self = Self::from_rgb(0.25, 0.25, 0.25);
     pub const LIGHT_GRAY: Self = Self::from_rgb(0.75, 0.75, 0.75);
+
+    /// Create an opaque color from HSV components.
+    ///
+    /// - `h`: Hue in degrees (0.0-360.0)
+    /// - `s`: Saturation (0.0-1.0)
+    /// - `v`: Value/brightness (0.0-1.0)
+    pub fn from_hsv(h: f32, s: f32, v: f32) -> Self {
+        Self::from_hsva(h, s, v, 1.0)
+    }
+
+    /// Create a color from HSVA components.
+    ///
+    /// - `h`: Hue in degrees (0.0-360.0)
+    /// - `s`: Saturation (0.0-1.0)
+    /// - `v`: Value/brightness (0.0-1.0)
+    /// - `a`: Alpha (0.0-1.0)
+    pub fn from_hsva(h: f32, s: f32, v: f32, a: f32) -> Self {
+        let s = s.clamp(0.0, 1.0);
+        let v = v.clamp(0.0, 1.0);
+        let h = h.rem_euclid(360.0);
+
+        let c = v * s;
+        let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+        let m = v - c;
+
+        let (r, g, b) = if h < 60.0 {
+            (c, x, 0.0)
+        } else if h < 120.0 {
+            (x, c, 0.0)
+        } else if h < 180.0 {
+            (0.0, c, x)
+        } else if h < 240.0 {
+            (0.0, x, c)
+        } else if h < 300.0 {
+            (x, 0.0, c)
+        } else {
+            (c, 0.0, x)
+        };
+
+        Self::from_rgba(r + m, g + m, b + m, a)
+    }
+
+    /// Convert this color to HSV components.
+    ///
+    /// Returns `(h, s, v)` where:
+    /// - `h`: Hue in degrees (0.0-360.0)
+    /// - `s`: Saturation (0.0-1.0)
+    /// - `v`: Value/brightness (0.0-1.0)
+    pub fn to_hsv(&self) -> (f32, f32, f32) {
+        let (h, s, v, _) = self.to_hsva();
+        (h, s, v)
+    }
+
+    /// Convert this color to HSVA components.
+    ///
+    /// Returns `(h, s, v, a)` where:
+    /// - `h`: Hue in degrees (0.0-360.0)
+    /// - `s`: Saturation (0.0-1.0)
+    /// - `v`: Value/brightness (0.0-1.0)
+    /// - `a`: Alpha (0.0-1.0)
+    pub fn to_hsva(&self) -> (f32, f32, f32, f32) {
+        // Unpremultiply alpha to get actual RGB values
+        let (r, g, b) = if self.a > 0.0 {
+            (self.r / self.a, self.g / self.a, self.b / self.a)
+        } else {
+            (0.0, 0.0, 0.0)
+        };
+
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let delta = max - min;
+
+        let v = max;
+
+        let s = if max > 0.0 { delta / max } else { 0.0 };
+
+        let h = if delta == 0.0 {
+            0.0
+        } else if max == r {
+            60.0 * (((g - b) / delta) % 6.0)
+        } else if max == g {
+            60.0 * (((b - r) / delta) + 2.0)
+        } else {
+            60.0 * (((r - g) / delta) + 4.0)
+        };
+
+        let h = if h < 0.0 { h + 360.0 } else { h };
+
+        (h, s, v, self.a)
+    }
+
+    /// Convert to hex string representation (e.g., "#FF0000" or "#FF000080").
+    ///
+    /// If alpha is 1.0, returns 6-character hex. Otherwise returns 8-character hex with alpha.
+    pub fn to_hex(&self) -> String {
+        // Unpremultiply alpha
+        let (r, g, b) = if self.a > 0.0 {
+            (
+                (self.r / self.a * 255.0).round() as u8,
+                (self.g / self.a * 255.0).round() as u8,
+                (self.b / self.a * 255.0).round() as u8,
+            )
+        } else {
+            (0, 0, 0)
+        };
+        let a = (self.a * 255.0).round() as u8;
+
+        if a == 255 {
+            format!("#{:02X}{:02X}{:02X}", r, g, b)
+        } else {
+            format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a)
+        }
+    }
 }
 
 /// A 2D path for complex vector shapes.
@@ -1057,5 +1170,91 @@ mod tests {
 
         // Last command should be Close
         assert!(matches!(path.commands().last(), Some(PathCommand::Close)));
+    }
+
+    #[test]
+    fn test_color_hsv_red() {
+        // Red: H=0, S=1, V=1
+        let red = Color::from_hsv(0.0, 1.0, 1.0);
+        assert!((red.r - 1.0).abs() < 0.001);
+        assert!(red.g.abs() < 0.001);
+        assert!(red.b.abs() < 0.001);
+
+        // Round-trip conversion
+        let (h, s, v) = red.to_hsv();
+        assert!(h.abs() < 0.1 || (h - 360.0).abs() < 0.1); // Hue can be 0 or 360
+        assert!((s - 1.0).abs() < 0.01);
+        assert!((v - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_color_hsv_green() {
+        // Green: H=120, S=1, V=1
+        let green = Color::from_hsv(120.0, 1.0, 1.0);
+        assert!(green.r.abs() < 0.001);
+        assert!((green.g - 1.0).abs() < 0.001);
+        assert!(green.b.abs() < 0.001);
+
+        let (h, s, v) = green.to_hsv();
+        assert!((h - 120.0).abs() < 0.1);
+        assert!((s - 1.0).abs() < 0.01);
+        assert!((v - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_color_hsv_blue() {
+        // Blue: H=240, S=1, V=1
+        let blue = Color::from_hsv(240.0, 1.0, 1.0);
+        assert!(blue.r.abs() < 0.001);
+        assert!(blue.g.abs() < 0.001);
+        assert!((blue.b - 1.0).abs() < 0.001);
+
+        let (h, s, v) = blue.to_hsv();
+        assert!((h - 240.0).abs() < 0.1);
+        assert!((s - 1.0).abs() < 0.01);
+        assert!((v - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_color_hsv_white_black_gray() {
+        // White: any H, S=0, V=1
+        let white = Color::from_hsv(0.0, 0.0, 1.0);
+        assert!((white.r - 1.0).abs() < 0.001);
+        assert!((white.g - 1.0).abs() < 0.001);
+        assert!((white.b - 1.0).abs() < 0.001);
+
+        // Black: any H, any S, V=0
+        let black = Color::from_hsv(0.0, 0.0, 0.0);
+        assert!(black.r.abs() < 0.001);
+        assert!(black.g.abs() < 0.001);
+        assert!(black.b.abs() < 0.001);
+
+        // Gray: any H, S=0, V=0.5
+        let gray = Color::from_hsv(0.0, 0.0, 0.5);
+        assert!((gray.r - 0.5).abs() < 0.001);
+        assert!((gray.g - 0.5).abs() < 0.001);
+        assert!((gray.b - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_color_hsv_with_alpha() {
+        let color = Color::from_hsva(60.0, 1.0, 1.0, 0.5);
+        let (h, s, v, a) = color.to_hsva();
+        assert!((h - 60.0).abs() < 0.1);
+        assert!((s - 1.0).abs() < 0.01);
+        assert!((v - 1.0).abs() < 0.01);
+        assert!((a - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_color_to_hex() {
+        let red = Color::from_rgb8(255, 0, 0);
+        assert_eq!(red.to_hex(), "#FF0000");
+
+        let green = Color::from_rgb8(0, 255, 0);
+        assert_eq!(green.to_hex(), "#00FF00");
+
+        let blue_semi = Color::from_rgba8(0, 0, 255, 128);
+        assert_eq!(blue_semi.to_hex(), "#0000FF80");
     }
 }

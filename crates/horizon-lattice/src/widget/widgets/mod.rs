@@ -33,11 +33,15 @@
 //! - [`MainWindow`]: Main application window with dock areas
 //! - [`Popup`]: Temporary floating container widget
 //! - [`Window`]: Top-level window widget
+//! - [`ColorButton`]: Button that displays a color swatch
+//! - [`ColorPicker`]: Inline HSV color picker with saturation/value square and hue bar
 
 mod abstract_button;
 mod button_group;
 mod calendar;
 mod checkbox;
+mod color_button;
+mod color_picker;
 mod combo_box;
 mod container;
 mod date_edit;
@@ -76,6 +80,8 @@ pub use abstract_button::{AbstractButton, ButtonVariant};
 pub use button_group::ButtonGroup;
 pub use calendar::CalendarWidget;
 pub use checkbox::{CheckBox, CheckState};
+pub use color_button::ColorButton;
+pub use color_picker::ColorPicker;
 pub use combo_box::{
     ComboBox, ComboBoxItem, ComboBoxItemDelegate, ComboBoxModel, DefaultComboBoxDelegate,
     IconListComboModel, StringListComboModel,

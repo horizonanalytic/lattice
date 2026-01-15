@@ -97,6 +97,7 @@ mod context;
 pub mod damage;
 mod error;
 mod gpu_renderer;
+mod embedded_icon;
 mod icon;
 mod image;
 pub mod layer;
@@ -143,7 +144,14 @@ pub use atlas::{ImageManager, TextureAtlas};
 pub use image::{Image, ImageLoader, ImageScaleMode, NinePatch};
 
 // Icon types
-pub use icon::{icon_tint_for_state, Icon, IconMode, IconPosition, IconSource};
+pub use icon::{
+    icon_tint_for_state, icon_tint_for_state_full, icon_tint_for_state_with_hover, Icon, IconMode,
+    IconPosition, IconSize, IconSource, IconState, IconThemeMode, SizedIconSet, StatefulIconSet,
+    ThemedIconSet,
+};
+
+// Embedded icon support
+pub use embedded_icon::{EmbeddedIconData, EmbeddedIconSet, ImageFormat};
 
 // Damage tracking
 pub use damage::DamageTracker;

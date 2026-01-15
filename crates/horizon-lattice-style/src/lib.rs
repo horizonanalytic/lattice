@@ -32,6 +32,7 @@ pub mod resolve;
 pub mod parser;
 pub mod theme;
 pub mod widget;
+pub mod icon_theme;
 
 #[cfg(feature = "hot-reload")]
 pub mod hot_reload;
@@ -53,6 +54,7 @@ pub mod prelude {
         paint_styled_box, paint_background, paint_border,
         content_rect, border_box_size, margin_rect,
     };
+    pub use crate::icon_theme::{IconContext, IconLookup, IconName, IconResolver, IconThemeLoader};
 
     #[cfg(feature = "hot-reload")]
     pub use crate::hot_reload::StylesheetWatcher;

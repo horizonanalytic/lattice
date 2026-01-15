@@ -31,6 +31,9 @@ pollster = "0.4"
 image = "0.25"
 lyon = "1.0"
 
+# Clipboard support
+arboard = "3"
+
 # Text rendering dependencies
 cosmic-text = "0.12"
 fontdb = "0.16"

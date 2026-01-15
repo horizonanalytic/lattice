@@ -33,11 +33,15 @@ use parking_lot::RwLock;
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, Font, FontFamily, FontSystem, HorizontalAlign, Point, RichText, RichTextSpan, Size,
-    TextLayout, TextLayoutOptions, TextRenderer, VerticalAlign, WrapMode,
+    Color, Font, FontFamily, FontSystem, HorizontalAlign, Point, Rect, Renderer, RichText,
+    RichTextSpan, Size, TextLayout, TextLayoutOptions, TextRenderer, VerticalAlign, WrapMode,
 };
 
-use crate::widget::{FocusPolicy, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase};
+use crate::widget::{
+    FocusPolicy, Key, KeyPressEvent, MouseButton, MouseDoubleClickEvent, MouseMoveEvent,
+    MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget,
+    WidgetBase, WidgetEvent,
+};
 
 /// Text elision mode for truncating text that doesn't fit.
 ///
@@ -147,6 +151,33 @@ pub struct Label {
     /// Listeners can use this to perform custom actions when the mnemonic
     /// is triggered. The default behavior transfers focus to the buddy widget.
     pub mnemonic_activated: Signal<()>,
+
+    // =========================================================================
+    // Text Selection Support
+    // =========================================================================
+    /// Whether the label text can be selected with mouse/keyboard.
+    selectable: bool,
+
+    /// Current cursor position in text (byte offset).
+    cursor_pos: usize,
+
+    /// Selection anchor position (byte offset). If Some, selection extends from anchor to cursor.
+    selection_anchor: Option<usize>,
+
+    /// Whether we're currently dragging to select text.
+    is_selecting: bool,
+
+    /// Background color for selected text.
+    selection_color: Color,
+
+    /// Number of consecutive clicks for multi-click detection.
+    click_count: u8,
+
+    /// Signal emitted when the selection changes.
+    pub selection_changed: Signal<()>,
+
+    /// Signal emitted when text is copied to clipboard.
+    pub copy_available: Signal<bool>,
 }
 
 /// Cached text layout data.
@@ -259,6 +290,15 @@ impl Label {
             buddy: None,
             text_changed: Signal::new(),
             mnemonic_activated: Signal::new(),
+            // Selection state (disabled by default)
+            selectable: false,
+            cursor_pos: 0,
+            selection_anchor: None,
+            is_selecting: false,
+            selection_color: Color::from_rgba8(51, 153, 255, 128),
+            click_count: 0,
+            selection_changed: Signal::new(),
+            copy_available: Signal::new(),
         }
     }
 
@@ -304,6 +344,15 @@ impl Label {
             buddy: None,
             text_changed: Signal::new(),
             mnemonic_activated: Signal::new(),
+            // Selection state (disabled by default)
+            selectable: false,
+            cursor_pos: 0,
+            selection_anchor: None,
+            is_selecting: false,
+            selection_color: Color::from_rgba8(51, 153, 255, 128),
+            click_count: 0,
+            selection_changed: Signal::new(),
+            copy_available: Signal::new(),
         }
     }
 
@@ -622,6 +671,515 @@ impl Label {
     pub fn with_text_color(mut self, color: Color) -> Self {
         self.text_color = color;
         self
+    }
+
+    // =========================================================================
+    // Selection API
+    // =========================================================================
+
+    /// Check if text selection is enabled.
+    pub fn is_selectable(&self) -> bool {
+        self.selectable
+    }
+
+    /// Enable or disable text selection.
+    ///
+    /// When enabled, the user can:
+    /// - Click to position the cursor
+    /// - Click and drag to select text
+    /// - Double-click to select a word
+    /// - Triple-click to select a line
+    /// - Use keyboard shortcuts (Shift+arrows, Ctrl+A, Ctrl+C)
+    ///
+    /// When selection is enabled, the label becomes focusable.
+    pub fn set_selectable(&mut self, selectable: bool) {
+        if self.selectable != selectable {
+            self.selectable = selectable;
+            // Update focus policy based on selectability
+            if selectable {
+                self.base.set_focus_policy(FocusPolicy::StrongFocus);
+            } else {
+                self.base.set_focus_policy(FocusPolicy::NoFocus);
+                // Clear selection when disabling
+                self.clear_selection();
+            }
+            self.base.update();
+        }
+    }
+
+    /// Set selectable using builder pattern.
+    pub fn with_selectable(mut self, selectable: bool) -> Self {
+        self.selectable = selectable;
+        if selectable {
+            self.base.set_focus_policy(FocusPolicy::StrongFocus);
+        } else {
+            self.base.set_focus_policy(FocusPolicy::NoFocus);
+        }
+        self
+    }
+
+    /// Get the selection background color.
+    pub fn selection_color(&self) -> Color {
+        self.selection_color
+    }
+
+    /// Set the selection background color.
+    pub fn set_selection_color(&mut self, color: Color) {
+        if self.selection_color != color {
+            self.selection_color = color;
+            if self.has_selection() {
+                self.base.update();
+            }
+        }
+    }
+
+    /// Set selection color using builder pattern.
+    pub fn with_selection_color(mut self, color: Color) -> Self {
+        self.selection_color = color;
+        self
+    }
+
+    /// Check if there is any text selected.
+    pub fn has_selection(&self) -> bool {
+        if let Some(anchor) = self.selection_anchor {
+            anchor != self.cursor_pos
+        } else {
+            false
+        }
+    }
+
+    /// Get the selection range as (start, end) byte offsets.
+    ///
+    /// Returns None if no text is selected.
+    /// The returned range is always ordered (start < end).
+    pub fn selection_range(&self) -> Option<(usize, usize)> {
+        self.selection_anchor.map(|anchor| {
+            if anchor < self.cursor_pos {
+                (anchor, self.cursor_pos)
+            } else {
+                (self.cursor_pos, anchor)
+            }
+        })
+    }
+
+    /// Get the currently selected text.
+    ///
+    /// Returns an empty string if no text is selected.
+    pub fn selected_text(&self) -> &str {
+        if let Some((start, end)) = self.selection_range() {
+            &self.text[start..end]
+        } else {
+            ""
+        }
+    }
+
+    /// Select all text in the label.
+    pub fn select_all(&mut self) {
+        if !self.selectable || self.text.is_empty() {
+            return;
+        }
+        self.selection_anchor = Some(0);
+        self.cursor_pos = self.text.len();
+        self.base.update();
+        self.selection_changed.emit(());
+        self.copy_available.emit(true);
+    }
+
+    /// Clear the current selection.
+    pub fn deselect(&mut self) {
+        self.clear_selection();
+    }
+
+    /// Clear selection without emitting signals (internal use).
+    fn clear_selection(&mut self) {
+        if self.selection_anchor.is_some() {
+            self.selection_anchor = None;
+            self.base.update();
+            self.selection_changed.emit(());
+            self.copy_available.emit(false);
+        }
+    }
+
+    /// Set selection to a specific range.
+    ///
+    /// The cursor will be positioned at `end`.
+    pub fn set_selection(&mut self, start: usize, end: usize) {
+        if !self.selectable {
+            return;
+        }
+        let start = start.min(self.text.len());
+        let end = end.min(self.text.len());
+
+        self.selection_anchor = Some(start);
+        self.cursor_pos = end;
+        self.base.update();
+        self.selection_changed.emit(());
+        self.copy_available.emit(start != end);
+    }
+
+    /// Get the current cursor position (byte offset).
+    pub fn cursor_position(&self) -> usize {
+        self.cursor_pos
+    }
+
+    /// Copy selected text to clipboard.
+    ///
+    /// Returns true if text was copied, false if no selection or clipboard error.
+    pub fn copy_selection(&self) -> bool {
+        if !self.has_selection() {
+            return false;
+        }
+
+        let text = self.selected_text().to_string();
+        if text.is_empty() {
+            return false;
+        }
+
+        match arboard::Clipboard::new() {
+            Ok(mut clipboard) => clipboard.set_text(text).is_ok(),
+            Err(_) => false,
+        }
+    }
+
+    // =========================================================================
+    // Selection Event Handlers (Internal)
+    // =========================================================================
+
+    /// Handle mouse press for selection.
+    fn handle_mouse_press(&mut self, event: &MousePressEvent) -> bool {
+        if !self.selectable || event.button != MouseButton::Left {
+            return false;
+        }
+
+        // Track click count for double/triple click detection
+        self.click_count = self.click_count.saturating_add(1);
+
+        let mut font_system = FontSystem::new();
+        let layout = self.ensure_layout(&mut font_system, None, false);
+
+        // Convert click position to text offset
+        let offset = layout.offset_at_point(event.local_pos.x, event.local_pos.y);
+        let offset = offset.min(self.text.len());
+
+        if event.modifiers.shift {
+            // Extend selection from current anchor
+            if self.selection_anchor.is_none() {
+                self.selection_anchor = Some(self.cursor_pos);
+            }
+        } else {
+            // Start new selection
+            self.selection_anchor = Some(offset);
+        }
+
+        self.cursor_pos = offset;
+        self.is_selecting = true;
+        self.base.update();
+        self.selection_changed.emit(());
+        self.copy_available.emit(self.has_selection());
+
+        true
+    }
+
+    /// Handle mouse release for selection.
+    fn handle_mouse_release(&mut self, event: &MouseReleaseEvent) -> bool {
+        if !self.selectable || event.button != MouseButton::Left {
+            return false;
+        }
+
+        self.is_selecting = false;
+
+        // Clear selection if it's empty (single click)
+        if let Some(anchor) = self.selection_anchor {
+            if anchor == self.cursor_pos {
+                self.selection_anchor = None;
+                self.selection_changed.emit(());
+                self.copy_available.emit(false);
+            }
+        }
+
+        true
+    }
+
+    /// Handle mouse move for drag selection.
+    fn handle_mouse_move(&mut self, event: &MouseMoveEvent) -> bool {
+        if !self.selectable || !self.is_selecting {
+            return false;
+        }
+
+        let mut font_system = FontSystem::new();
+        let layout = self.ensure_layout(&mut font_system, None, false);
+
+        let offset = layout.offset_at_point(event.local_pos.x, event.local_pos.y);
+        let offset = offset.min(self.text.len());
+
+        if self.cursor_pos != offset {
+            self.cursor_pos = offset;
+            self.base.update();
+            self.selection_changed.emit(());
+            self.copy_available.emit(self.has_selection());
+        }
+
+        true
+    }
+
+    /// Handle double-click for word selection.
+    fn handle_double_click(&mut self, event: &MouseDoubleClickEvent) -> bool {
+        if !self.selectable || event.button != MouseButton::Left {
+            return false;
+        }
+
+        let mut font_system = FontSystem::new();
+        let layout = self.ensure_layout(&mut font_system, None, false);
+
+        let offset = layout.offset_at_point(event.local_pos.x, event.local_pos.y);
+        let offset = offset.min(self.text.len());
+
+        // Select the word at the click position
+        let word_range = layout.word_at_offset(offset);
+        if !word_range.is_empty() {
+            self.selection_anchor = Some(word_range.start);
+            self.cursor_pos = word_range.end;
+            self.base.update();
+            self.selection_changed.emit(());
+            self.copy_available.emit(true);
+        }
+
+        self.click_count = 2;
+        true
+    }
+
+    /// Handle key press for selection navigation and copy.
+    fn handle_key_press(&mut self, event: &KeyPressEvent) -> bool {
+        if !self.selectable {
+            return false;
+        }
+
+        let shift = event.modifiers.shift;
+        let ctrl = event.modifiers.control || event.modifiers.meta;
+
+        match event.key {
+            // Select all
+            Key::A if ctrl => {
+                self.select_all();
+                true
+            }
+            // Copy
+            Key::C if ctrl => {
+                self.copy_selection();
+                true
+            }
+            // Navigation with optional selection extension
+            Key::ArrowLeft => {
+                self.move_cursor_left(shift, ctrl);
+                true
+            }
+            Key::ArrowRight => {
+                self.move_cursor_right(shift, ctrl);
+                true
+            }
+            Key::ArrowUp => {
+                self.move_cursor_up(shift);
+                true
+            }
+            Key::ArrowDown => {
+                self.move_cursor_down(shift);
+                true
+            }
+            Key::Home => {
+                self.move_cursor_to_start(shift, ctrl);
+                true
+            }
+            Key::End => {
+                self.move_cursor_to_end(shift, ctrl);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Handle focus gained.
+    fn handle_focus_in(&mut self) {
+        self.base.update();
+    }
+
+    /// Handle focus lost.
+    fn handle_focus_out(&mut self) {
+        self.is_selecting = false;
+        self.click_count = 0;
+        // Optionally clear selection on focus loss - for now keep it
+        self.base.update();
+    }
+
+    // =========================================================================
+    // Cursor Movement (Internal)
+    // =========================================================================
+
+    /// Move cursor left by one grapheme (or word if ctrl).
+    fn move_cursor_left(&mut self, extend_selection: bool, word: bool) {
+        if extend_selection && self.selection_anchor.is_none() {
+            self.selection_anchor = Some(self.cursor_pos);
+        } else if !extend_selection && self.has_selection() {
+            // Move to start of selection and clear
+            if let Some((start, _)) = self.selection_range() {
+                self.cursor_pos = start;
+            }
+            self.selection_anchor = None;
+            self.base.update();
+            self.selection_changed.emit(());
+            self.copy_available.emit(false);
+            return;
+        }
+
+        if self.cursor_pos > 0 {
+            let mut font_system = FontSystem::new();
+            let layout = self.ensure_layout(&mut font_system, None, false);
+
+            self.cursor_pos = if word {
+                layout.move_cursor_word_left(self.cursor_pos)
+            } else {
+                layout.move_cursor_left(self.cursor_pos)
+            };
+            self.base.update();
+
+            if extend_selection {
+                self.selection_changed.emit(());
+                self.copy_available.emit(self.has_selection());
+            }
+        }
+    }
+
+    /// Move cursor right by one grapheme (or word if ctrl).
+    fn move_cursor_right(&mut self, extend_selection: bool, word: bool) {
+        if extend_selection && self.selection_anchor.is_none() {
+            self.selection_anchor = Some(self.cursor_pos);
+        } else if !extend_selection && self.has_selection() {
+            // Move to end of selection and clear
+            if let Some((_, end)) = self.selection_range() {
+                self.cursor_pos = end;
+            }
+            self.selection_anchor = None;
+            self.base.update();
+            self.selection_changed.emit(());
+            self.copy_available.emit(false);
+            return;
+        }
+
+        if self.cursor_pos < self.text.len() {
+            let mut font_system = FontSystem::new();
+            let layout = self.ensure_layout(&mut font_system, None, false);
+
+            self.cursor_pos = if word {
+                layout.move_cursor_word_right(self.cursor_pos)
+            } else {
+                layout.move_cursor_right(self.cursor_pos)
+            };
+            self.base.update();
+
+            if extend_selection {
+                self.selection_changed.emit(());
+                self.copy_available.emit(self.has_selection());
+            }
+        }
+    }
+
+    /// Move cursor up by one line.
+    fn move_cursor_up(&mut self, extend_selection: bool) {
+        if extend_selection && self.selection_anchor.is_none() {
+            self.selection_anchor = Some(self.cursor_pos);
+        } else if !extend_selection {
+            self.selection_anchor = None;
+        }
+
+        let mut font_system = FontSystem::new();
+        let layout = self.ensure_layout(&mut font_system, None, false);
+
+        let preferred_x = layout.cursor_x_at_offset(self.cursor_pos);
+        let new_pos = layout.move_cursor_up(self.cursor_pos, preferred_x);
+
+        if new_pos != self.cursor_pos {
+            self.cursor_pos = new_pos;
+            self.base.update();
+            if extend_selection {
+                self.selection_changed.emit(());
+                self.copy_available.emit(self.has_selection());
+            }
+        }
+    }
+
+    /// Move cursor down by one line.
+    fn move_cursor_down(&mut self, extend_selection: bool) {
+        if extend_selection && self.selection_anchor.is_none() {
+            self.selection_anchor = Some(self.cursor_pos);
+        } else if !extend_selection {
+            self.selection_anchor = None;
+        }
+
+        let mut font_system = FontSystem::new();
+        let layout = self.ensure_layout(&mut font_system, None, false);
+
+        let preferred_x = layout.cursor_x_at_offset(self.cursor_pos);
+        let new_pos = layout.move_cursor_down(self.cursor_pos, preferred_x);
+
+        if new_pos != self.cursor_pos {
+            self.cursor_pos = new_pos;
+            self.base.update();
+            if extend_selection {
+                self.selection_changed.emit(());
+                self.copy_available.emit(self.has_selection());
+            }
+        }
+    }
+
+    /// Move cursor to start of line (or document if ctrl).
+    fn move_cursor_to_start(&mut self, extend_selection: bool, document: bool) {
+        if extend_selection && self.selection_anchor.is_none() {
+            self.selection_anchor = Some(self.cursor_pos);
+        } else if !extend_selection {
+            self.selection_anchor = None;
+        }
+
+        let new_pos = if document {
+            0
+        } else {
+            let mut font_system = FontSystem::new();
+            let layout = self.ensure_layout(&mut font_system, None, false);
+            layout.move_cursor_to_line_start(self.cursor_pos)
+        };
+
+        if new_pos != self.cursor_pos {
+            self.cursor_pos = new_pos;
+            self.base.update();
+            if extend_selection {
+                self.selection_changed.emit(());
+                self.copy_available.emit(self.has_selection());
+            }
+        }
+    }
+
+    /// Move cursor to end of line (or document if ctrl).
+    fn move_cursor_to_end(&mut self, extend_selection: bool, document: bool) {
+        if extend_selection && self.selection_anchor.is_none() {
+            self.selection_anchor = Some(self.cursor_pos);
+        } else if !extend_selection {
+            self.selection_anchor = None;
+        }
+
+        let new_pos = if document {
+            self.text.len()
+        } else {
+            let mut font_system = FontSystem::new();
+            let layout = self.ensure_layout(&mut font_system, None, false);
+            layout.move_cursor_to_line_end(self.cursor_pos)
+        };
+
+        if new_pos != self.cursor_pos {
+            self.cursor_pos = new_pos;
+            self.base.update();
+            if extend_selection {
+                self.selection_changed.emit(());
+                self.copy_available.emit(self.has_selection());
+            }
+        }
     }
 
     /// Invalidate the cached text layout.
@@ -1075,6 +1633,24 @@ impl Widget for Label {
 
         let position = Point::new(rect.origin.x + x_offset, rect.origin.y + y_offset);
 
+        // Draw selection background if we have a selection and label is selectable
+        if self.selectable && self.has_selection() {
+            if let Some((start, end)) = self.selection_range() {
+                let selection_rects = layout.selection_rects(start, end);
+                for sel_rect in selection_rects {
+                    ctx.renderer().fill_rect(
+                        Rect::new(
+                            position.x + sel_rect.x,
+                            position.y + sel_rect.y,
+                            sel_rect.width,
+                            sel_rect.height,
+                        ),
+                        self.selection_color,
+                    );
+                }
+            }
+        }
+
         // Create text renderer and prepare glyphs
         if let Ok(mut text_renderer) = TextRenderer::new() {
             if let Ok(prepared_glyphs) = text_renderer.prepare_layout(
@@ -1092,6 +1668,65 @@ impl Widget for Label {
                 // application's render pass system. The prepared_glyphs would be
                 // submitted to a TextRenderPass during the frame render.
             }
+        }
+    }
+
+    fn event(&mut self, event: &mut WidgetEvent) -> bool {
+        // Only handle events if the label is selectable
+        if !self.selectable {
+            return false;
+        }
+
+        match event {
+            WidgetEvent::MousePress(e) => {
+                if self.handle_mouse_press(e) {
+                    event.accept();
+                    true
+                } else {
+                    false
+                }
+            }
+            WidgetEvent::MouseRelease(e) => {
+                if self.handle_mouse_release(e) {
+                    event.accept();
+                    true
+                } else {
+                    false
+                }
+            }
+            WidgetEvent::MouseMove(e) => {
+                if self.handle_mouse_move(e) {
+                    event.accept();
+                    true
+                } else {
+                    false
+                }
+            }
+            WidgetEvent::DoubleClick(e) => {
+                if self.handle_double_click(e) {
+                    event.accept();
+                    true
+                } else {
+                    false
+                }
+            }
+            WidgetEvent::KeyPress(e) => {
+                if self.handle_key_press(e) {
+                    event.accept();
+                    true
+                } else {
+                    false
+                }
+            }
+            WidgetEvent::FocusIn(_) => {
+                self.handle_focus_in();
+                true
+            }
+            WidgetEvent::FocusOut(_) => {
+                self.handle_focus_out();
+                true
+            }
+            _ => false,
         }
     }
 
@@ -1485,5 +2120,174 @@ mod tests {
         let result = label.activate_mnemonic();
         assert_eq!(result, None);
         assert!(!signal_received.load(Ordering::SeqCst));
+    }
+
+    // =========================================================================
+    // Selection Tests
+    // =========================================================================
+
+    #[test]
+    fn test_label_not_selectable_by_default() {
+        setup();
+        let label = Label::new("Hello, World!");
+        assert!(!label.is_selectable());
+        assert!(!label.has_selection());
+    }
+
+    #[test]
+    fn test_label_selectable_mode() {
+        setup();
+        let mut label = Label::new("Hello, World!");
+
+        label.set_selectable(true);
+        assert!(label.is_selectable());
+
+        label.set_selectable(false);
+        assert!(!label.is_selectable());
+    }
+
+    #[test]
+    fn test_label_selectable_builder() {
+        setup();
+        let label = Label::new("Hello, World!").with_selectable(true);
+        assert!(label.is_selectable());
+    }
+
+    #[test]
+    fn test_label_select_all() {
+        setup();
+        let mut label = Label::new("Hello, World!").with_selectable(true);
+
+        label.select_all();
+        assert!(label.has_selection());
+        assert_eq!(label.selected_text(), "Hello, World!");
+        assert_eq!(label.selection_range(), Some((0, 13)));
+    }
+
+    #[test]
+    fn test_label_select_all_not_selectable() {
+        setup();
+        let mut label = Label::new("Hello, World!");
+
+        // Should not select when not selectable
+        label.select_all();
+        assert!(!label.has_selection());
+    }
+
+    #[test]
+    fn test_label_deselect() {
+        setup();
+        let mut label = Label::new("Hello, World!").with_selectable(true);
+
+        label.select_all();
+        assert!(label.has_selection());
+
+        label.deselect();
+        assert!(!label.has_selection());
+        assert_eq!(label.selected_text(), "");
+    }
+
+    #[test]
+    fn test_label_set_selection() {
+        setup();
+        let mut label = Label::new("Hello, World!").with_selectable(true);
+
+        label.set_selection(0, 5);
+        assert!(label.has_selection());
+        assert_eq!(label.selected_text(), "Hello");
+        assert_eq!(label.selection_range(), Some((0, 5)));
+    }
+
+    #[test]
+    fn test_label_set_selection_range_clamped() {
+        setup();
+        let mut label = Label::new("Hello").with_selectable(true);
+
+        // Setting selection beyond text length should be clamped
+        label.set_selection(0, 100);
+        assert_eq!(label.selected_text(), "Hello");
+        assert_eq!(label.selection_range(), Some((0, 5)));
+    }
+
+    #[test]
+    fn test_label_selection_color() {
+        setup();
+        let mut label = Label::new("Hello").with_selectable(true);
+
+        let custom_color = Color::from_rgba8(255, 0, 0, 128);
+        label.set_selection_color(custom_color);
+        assert_eq!(label.selection_color(), custom_color);
+    }
+
+    #[test]
+    fn test_label_selection_color_builder() {
+        setup();
+        let custom_color = Color::from_rgba8(255, 0, 0, 128);
+        let label = Label::new("Hello")
+            .with_selectable(true)
+            .with_selection_color(custom_color);
+        assert_eq!(label.selection_color(), custom_color);
+    }
+
+    #[test]
+    fn test_label_cursor_position() {
+        setup();
+        let mut label = Label::new("Hello, World!").with_selectable(true);
+
+        // After set_selection, cursor should be at end position
+        label.set_selection(0, 5);
+        assert_eq!(label.cursor_position(), 5);
+    }
+
+    #[test]
+    fn test_label_selection_changed_signal() {
+        setup();
+        use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+
+        let mut label = Label::new("Hello, World!").with_selectable(true);
+        let signal_count = Arc::new(AtomicUsize::new(0));
+        let signal_count_clone = signal_count.clone();
+
+        label.selection_changed.connect(move |()| {
+            signal_count_clone.fetch_add(1, Ordering::SeqCst);
+        });
+
+        label.select_all();
+        assert_eq!(signal_count.load(Ordering::SeqCst), 1);
+
+        label.deselect();
+        assert_eq!(signal_count.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_label_copy_available_signal() {
+        setup();
+        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+
+        let mut label = Label::new("Hello, World!").with_selectable(true);
+        let copy_available = Arc::new(AtomicBool::new(false));
+        let copy_available_clone = copy_available.clone();
+
+        label.copy_available.connect(move |available| {
+            copy_available_clone.store(*available, Ordering::SeqCst);
+        });
+
+        label.select_all();
+        assert!(copy_available.load(Ordering::SeqCst));
+
+        label.deselect();
+        assert!(!copy_available.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_label_disabling_selectable_clears_selection() {
+        setup();
+        let mut label = Label::new("Hello, World!").with_selectable(true);
+
+        label.select_all();
+        assert!(label.has_selection());
+
+        label.set_selectable(false);
+        assert!(!label.has_selection());
     }
 }

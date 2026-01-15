@@ -49,6 +49,7 @@ use parking_lot::RwLock;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::platform::Clipboard;
+use crate::widget::completer::Completer;
 use crate::widget::input_mask::InputMask;
 use crate::widget::validator::{ValidationState, Validator};
 use horizon_lattice_core::{Object, ObjectId, Signal};
@@ -369,6 +370,9 @@ pub struct LineEdit {
     /// Whether the clear button is currently hovered.
     clear_button_hovered: bool,
 
+    /// Optional completer for autocomplete functionality.
+    completer: Option<Completer>,
+
     // Signals
 
     /// Signal emitted when text changes (and validation passes, if a validator is set).
@@ -431,6 +435,7 @@ impl LineEdit {
             mask_input: String::new(),
             show_clear_button: false,
             clear_button_hovered: false,
+            completer: None,
             text_changed: Signal::new(),
             text_edited: Signal::new(),
             editing_finished: Signal::new(),
@@ -738,6 +743,90 @@ impl LineEdit {
         let y = widget_rect.origin.y + (widget_rect.height() - button_size) / 2.0;
 
         Some(Rect::new(x, y, button_size, button_size))
+    }
+
+    // =========================================================================
+    // Completer / Autocomplete
+    // =========================================================================
+
+    /// Get a reference to the completer, if any.
+    pub fn completer(&self) -> Option<&Completer> {
+        self.completer.as_ref()
+    }
+
+    /// Get a mutable reference to the completer, if any.
+    pub fn completer_mut(&mut self) -> Option<&mut Completer> {
+        self.completer.as_mut()
+    }
+
+    /// Set a completer for this LineEdit.
+    ///
+    /// The completer provides autocomplete suggestions as the user types.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice::widget::completer::{Completer, StringListModel};
+    ///
+    /// let mut edit = LineEdit::new();
+    /// let model = StringListModel::new(vec!["apple".to_string(), "banana".to_string()]);
+    /// edit.set_completer(Some(Completer::new(Box::new(model))));
+    /// ```
+    pub fn set_completer(&mut self, completer: Option<Completer>) {
+        self.completer = completer;
+    }
+
+    /// Set a completer using builder pattern.
+    pub fn with_completer(mut self, completer: Completer) -> Self {
+        self.completer = Some(completer);
+        self
+    }
+
+    /// Check if a completer is set.
+    pub fn has_completer(&self) -> bool {
+        self.completer.is_some()
+    }
+
+    /// Show the completer popup with current completions.
+    ///
+    /// This is called automatically when text changes, but can also be
+    /// called manually to force the popup to show.
+    fn show_completer_popup(&mut self) {
+        if let Some(ref mut completer) = self.completer {
+            let text = if self.input_mask.is_some() {
+                &self.mask_input
+            } else {
+                &self.text
+            };
+
+            let rect = self.base.rect();
+            completer.show_popup(text, rect);
+            self.base.update();
+        }
+    }
+
+    /// Hide the completer popup.
+    fn hide_completer_popup(&mut self) {
+        if let Some(ref mut completer) = self.completer {
+            if completer.is_popup_visible() {
+                completer.hide_popup();
+                self.base.update();
+            }
+        }
+    }
+
+    /// Accept the currently selected completion.
+    ///
+    /// Returns true if a completion was accepted.
+    fn accept_completion(&mut self) -> bool {
+        if let Some(ref mut completer) = self.completer {
+            if let Some(text) = completer.complete() {
+                self.set_text(text);
+                self.base.update();
+                return true;
+            }
+        }
+        false
     }
 
     // =========================================================================
@@ -2324,6 +2413,56 @@ impl LineEdit {
         let shift = event.modifiers.shift;
         let ctrl = event.modifiers.control || event.modifiers.meta;
 
+        // Check if completer popup is visible and handle navigation
+        let completer_visible = self
+            .completer
+            .as_ref()
+            .is_some_and(|c| c.is_popup_visible());
+
+        if completer_visible {
+            match event.key {
+                Key::ArrowUp => {
+                    if let Some(ref mut completer) = self.completer {
+                        completer.move_up();
+                        self.base.update();
+                    }
+                    return true;
+                }
+                Key::ArrowDown => {
+                    if let Some(ref mut completer) = self.completer {
+                        completer.move_down();
+                        self.base.update();
+                    }
+                    return true;
+                }
+                Key::Enter => {
+                    if self.accept_completion() {
+                        return true;
+                    }
+                    // If no completion was accepted, fall through to normal Enter handling
+                }
+                Key::Escape => {
+                    self.hide_completer_popup();
+                    return true;
+                }
+                Key::PageUp => {
+                    if let Some(ref mut completer) = self.completer {
+                        completer.page_up();
+                        self.base.update();
+                    }
+                    return true;
+                }
+                Key::PageDown => {
+                    if let Some(ref mut completer) = self.completer {
+                        completer.page_down();
+                        self.base.update();
+                    }
+                    return true;
+                }
+                _ => {} // Fall through to normal key handling
+            }
+        }
+
         match event.key {
             // Navigation
             Key::ArrowLeft => {
@@ -2358,6 +2497,8 @@ impl LineEdit {
                 } else {
                     self.delete_char_before();
                 }
+                // Update completer after deletion
+                self.show_completer_popup();
                 true
             }
             Key::Delete => {
@@ -2366,6 +2507,8 @@ impl LineEdit {
                 } else {
                     self.delete_char_after();
                 }
+                // Update completer after deletion
+                self.show_completer_popup();
                 true
             }
 
@@ -2439,6 +2582,8 @@ impl LineEdit {
             _ => {
                 if !event.text.is_empty() && !ctrl && !event.modifiers.alt {
                     self.insert_text(&event.text);
+                    // Show completer popup after text insertion
+                    self.show_completer_popup();
                     true
                 } else {
                     false
@@ -2559,6 +2704,9 @@ impl LineEdit {
         self.cursor_visible = false;
         self.is_dragging = false;
         self.clear_button_hovered = false;
+
+        // Hide completer popup on focus loss
+        self.hide_completer_popup();
 
         // Try to fixup if we have a validator and input is not acceptable
         if !self.has_acceptable_input() {
@@ -2810,6 +2958,11 @@ impl Widget for LineEdit {
                 .draw_line(Point::new(x1, y1), Point::new(x2, y2), &stroke);
             ctx.renderer()
                 .draw_line(Point::new(x2, y1), Point::new(x1, y2), &stroke);
+        }
+
+        // Draw completer popup if visible
+        if let Some(ref completer) = self.completer {
+            completer.paint(ctx.renderer());
         }
     }
 

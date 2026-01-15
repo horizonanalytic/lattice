@@ -67,6 +67,8 @@ pub use line_edit::{EchoMode, LineEdit};
 pub use super::validator::{
     CustomValidator, DoubleValidator, IntValidator, RegexValidator, ValidationState, Validator,
 };
+// Re-export completer types for convenience
+pub use super::completer::{CaseSensitivity, Completer, CompleterModel, StringListModel};
 pub use main_window::MainWindow;
 pub use popup::{Popup, PopupFlags, PopupPlacement};
 pub use progress_bar::{Orientation, ProgressBar};

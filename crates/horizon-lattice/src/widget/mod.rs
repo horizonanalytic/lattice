@@ -119,6 +119,7 @@
 
 pub mod animation;
 mod base;
+pub mod completer;
 mod dispatcher;
 mod events;
 mod focus;

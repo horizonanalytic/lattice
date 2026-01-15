@@ -14,6 +14,8 @@
 //! - [`LineEdit`]: Single-line text input
 //! - [`TextEdit`]: Multi-line text editor with scrolling and word wrap
 //! - [`PlainTextEdit`]: Plain text editor optimized for large documents with syntax highlighting
+//! - [`SpinBox`]: Integer input with increment/decrement buttons
+//! - [`DoubleSpinBox`]: Floating-point input with increment/decrement buttons
 //! - [`ProgressBar`]: Progress indicator widget
 //! - [`ContainerWidget`]: Generic container widget with layout support
 //! - [`Frame`]: Container widget with border decoration
@@ -37,6 +39,7 @@ mod button_group;
 mod checkbox;
 mod container;
 mod dock_widget;
+mod double_spin_box;
 mod frame;
 mod group_box;
 mod label;
@@ -51,6 +54,7 @@ mod scroll_area;
 mod scroll_bar;
 mod separator;
 mod spacer;
+mod spin_box;
 mod splitter;
 mod stacked_widget;
 mod tab_bar;
@@ -92,6 +96,8 @@ pub use tab_bar::{TabBar, TabPosition};
 pub use tab_widget::TabWidget;
 pub use plain_text_edit::{HighlightSpan, PlainTextEdit, SyntaxHighlighter};
 pub use text_edit::{TextEdit, TextWrapMode};
+pub use double_spin_box::DoubleSpinBox;
+pub use spin_box::SpinBox;
 pub use tool_box::ToolBox;
 pub use tool_button::{ToolButton, ToolButtonPopupMode, ToolButtonStyle};
 pub use window::{Window, WindowFlags, WindowModality, WindowState};

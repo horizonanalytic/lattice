@@ -65,6 +65,7 @@
 //! Views query models using `ModelIndex` and `ItemRole` to get `ItemData`.
 //! Models emit signals when data changes, which views listen to for updates.
 
+mod delegate;
 mod index;
 mod list_model;
 mod proxy_model;
@@ -73,6 +74,10 @@ mod table_model;
 mod traits;
 mod tree_model;
 
+pub use delegate::{
+    ClickRegion, DefaultItemDelegate, DelegatePaintContext, DelegateTheme, DecorationPosition,
+    ItemDelegate, StyleOptionViewItem, ViewItemFeatures, ViewItemState,
+};
 pub use index::ModelIndex;
 pub use list_model::{DataExtractor, ExtractorListModel, FlagsExtractor, ListItem, ListModel};
 pub use proxy_model::{CompareFn, FilterFn, ProxyModel, ProxyModelBuilder};

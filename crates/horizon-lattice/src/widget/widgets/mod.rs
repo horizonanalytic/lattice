@@ -35,6 +35,7 @@
 //! - [`Window`]: Top-level window widget
 //! - [`Dialog`]: Modal dialog with accept/reject semantics
 //! - [`DialogButtonBox`]: Container for standard dialog buttons
+//! - [`MessageBox`]: Modal dialog for displaying messages with icons
 //! - [`ColorButton`]: Button that displays a color swatch
 //! - [`ColorPicker`]: Inline HSV color picker with saturation/value square and hue bar
 //! - [`FontComboBox`]: Dropdown for selecting font families with preview
@@ -53,6 +54,7 @@ mod date_time_edit;
 mod dial;
 mod dialog;
 mod dialog_button_box;
+mod message_box;
 mod dock_widget;
 mod double_spin_box;
 mod font_combo_box;
@@ -165,6 +167,7 @@ pub use dialog::{Dialog, DialogResult};
 pub use dialog_button_box::{
     ButtonOrder, ButtonRole, DialogButtonBox, StandardButton, ButtonBoxOrientation,
 };
+pub use message_box::{CustomButtonInfo, MessageBox, MessageIcon};
 pub use key_sequence_edit::KeySequenceEdit;
 pub use find_replace::{FindOptions, FindReplaceBar, FindReplaceMode, SearchMatch, Searchable};
 pub use list_widget::{ListWidget, ListWidgetItem, MatchFlags};

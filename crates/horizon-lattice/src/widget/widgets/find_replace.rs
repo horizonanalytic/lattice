@@ -271,9 +271,9 @@ pub trait Searchable {
 
         let cursor = self.cursor_position();
 
-        // Find last match before cursor
+        // Find last match before cursor (a match is "before" if it starts before cursor)
         for (i, m) in matches.iter().enumerate().rev() {
-            if m.end <= cursor {
+            if m.start < cursor {
                 return Some(i);
             }
         }

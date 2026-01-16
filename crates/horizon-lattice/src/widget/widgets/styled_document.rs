@@ -213,19 +213,34 @@ impl FormatRun {
 pub struct BlockFormat {
     /// Horizontal text alignment.
     pub alignment: HorizontalAlign,
+    /// Left margin indent in pixels.
+    /// This shifts the entire paragraph to the right.
+    pub left_indent: f32,
+    /// First line indent in pixels (relative to left_indent).
+    /// Positive values indent the first line further right.
+    /// Negative values create a "hanging indent" where the first line
+    /// starts to the left of subsequent lines.
+    pub first_line_indent: f32,
 }
 
 impl BlockFormat {
+    /// Default indent step size in pixels for increase/decrease operations.
+    pub const INDENT_STEP: f32 = 40.0;
+
     /// Create a new default block format.
     pub fn new() -> Self {
         Self {
             alignment: HorizontalAlign::Left,
+            left_indent: 0.0,
+            first_line_indent: 0.0,
         }
     }
 
     /// Check if this format has any non-default styling.
     pub fn is_styled(&self) -> bool {
         self.alignment != HorizontalAlign::Left
+            || self.left_indent != 0.0
+            || self.first_line_indent != 0.0
     }
 
     /// Builder method to set alignment.
@@ -236,15 +251,14 @@ impl BlockFormat {
 
     /// Create a left-aligned block format.
     pub fn left() -> Self {
-        Self {
-            alignment: HorizontalAlign::Left,
-        }
+        Self::new()
     }
 
     /// Create a center-aligned block format.
     pub fn center() -> Self {
         Self {
             alignment: HorizontalAlign::Center,
+            ..Self::new()
         }
     }
 
@@ -252,6 +266,7 @@ impl BlockFormat {
     pub fn right() -> Self {
         Self {
             alignment: HorizontalAlign::Right,
+            ..Self::new()
         }
     }
 
@@ -259,7 +274,30 @@ impl BlockFormat {
     pub fn justified() -> Self {
         Self {
             alignment: HorizontalAlign::Justified,
+            ..Self::new()
         }
+    }
+
+    /// Builder method to set left indent.
+    pub fn with_left_indent(mut self, indent: f32) -> Self {
+        self.left_indent = indent;
+        self
+    }
+
+    /// Builder method to set first line indent.
+    pub fn with_first_line_indent(mut self, indent: f32) -> Self {
+        self.first_line_indent = indent;
+        self
+    }
+
+    /// Get the effective indent for the first line of the paragraph.
+    pub fn first_line_effective_indent(&self) -> f32 {
+        self.left_indent + self.first_line_indent
+    }
+
+    /// Get the effective indent for subsequent lines of the paragraph.
+    pub fn subsequent_lines_indent(&self) -> f32 {
+        self.left_indent
     }
 }
 
@@ -912,6 +950,91 @@ impl StyledDocument {
         self.set_block_format(range, BlockFormat::new().with_alignment(alignment));
     }
 
+    /// Set left indent for a range of paragraphs.
+    pub fn set_left_indent(&mut self, range: Range<usize>, indent: f32) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            let new_format = BlockFormat {
+                left_indent: indent,
+                ..existing
+            };
+            self.set_block_format(para_idx..para_idx + 1, new_format);
+        }
+    }
+
+    /// Set first line indent for a range of paragraphs.
+    pub fn set_first_line_indent(&mut self, range: Range<usize>, indent: f32) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            let new_format = BlockFormat {
+                first_line_indent: indent,
+                ..existing
+            };
+            self.set_block_format(para_idx..para_idx + 1, new_format);
+        }
+    }
+
+    /// Increase left indent for a range of paragraphs by the standard step.
+    pub fn increase_indent(&mut self, range: Range<usize>) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            let new_indent = existing.left_indent + BlockFormat::INDENT_STEP;
+            let new_format = BlockFormat {
+                left_indent: new_indent,
+                ..existing
+            };
+            self.set_block_format(para_idx..para_idx + 1, new_format);
+        }
+    }
+
+    /// Decrease left indent for a range of paragraphs by the standard step.
+    /// Indent cannot go below zero.
+    pub fn decrease_indent(&mut self, range: Range<usize>) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            let new_indent = (existing.left_indent - BlockFormat::INDENT_STEP).max(0.0);
+            let new_format = BlockFormat {
+                left_indent: new_indent,
+                ..existing
+            };
+            self.set_block_format(para_idx..para_idx + 1, new_format);
+        }
+    }
+
+    /// Get the uniform left indent if all paragraphs in the document have the same indent.
+    /// Returns `None` if different paragraphs have different indents.
+    pub fn uniform_left_indent(&self) -> Option<f32> {
+        let para_count = self.paragraph_count();
+        if para_count == 0 {
+            return Some(0.0);
+        }
+
+        let first_indent = self.block_format_at(0).left_indent;
+        for para_idx in 1..para_count {
+            if self.block_format_at(para_idx).left_indent != first_indent {
+                return None;
+            }
+        }
+        Some(first_indent)
+    }
+
+    /// Get the uniform first line indent if all paragraphs have the same.
+    /// Returns `None` if different paragraphs have different first line indents.
+    pub fn uniform_first_line_indent(&self) -> Option<f32> {
+        let para_count = self.paragraph_count();
+        if para_count == 0 {
+            return Some(0.0);
+        }
+
+        let first_indent = self.block_format_at(0).first_line_indent;
+        for para_idx in 1..para_count {
+            if self.block_format_at(para_idx).first_line_indent != first_indent {
+                return None;
+            }
+        }
+        Some(first_indent)
+    }
+
     /// Normalize block runs: sort by position and merge adjacent runs with same format.
     fn normalize_block_runs(&mut self) {
         // Sort by start position
@@ -1346,5 +1469,119 @@ mod tests {
         assert!(BlockFormat::center().is_styled());
         assert!(BlockFormat::right().is_styled());
         assert!(BlockFormat::justified().is_styled());
+    }
+
+    #[test]
+    fn test_block_format_indentation_is_styled() {
+        // Default indent (0) is not styled
+        let default = BlockFormat::new();
+        assert!(!default.is_styled());
+
+        // With left indent
+        let with_left = BlockFormat::new().with_left_indent(40.0);
+        assert!(with_left.is_styled());
+
+        // With first line indent
+        let with_first = BlockFormat::new().with_first_line_indent(20.0);
+        assert!(with_first.is_styled());
+
+        // Negative first line indent (hanging)
+        let with_hanging = BlockFormat::new().with_first_line_indent(-20.0);
+        assert!(with_hanging.is_styled());
+    }
+
+    #[test]
+    fn test_block_format_indent_effective_values() {
+        let format = BlockFormat::new()
+            .with_left_indent(40.0)
+            .with_first_line_indent(20.0);
+
+        assert_eq!(format.first_line_effective_indent(), 60.0);
+        assert_eq!(format.subsequent_lines_indent(), 40.0);
+
+        // Hanging indent (negative first line)
+        let hanging = BlockFormat::new()
+            .with_left_indent(40.0)
+            .with_first_line_indent(-20.0);
+
+        assert_eq!(hanging.first_line_effective_indent(), 20.0);
+        assert_eq!(hanging.subsequent_lines_indent(), 40.0);
+    }
+
+    #[test]
+    fn test_set_left_indent() {
+        let mut doc = StyledDocument::from_text("First paragraph.\nSecond paragraph.\n");
+        doc.set_left_indent(0..2, 40.0);
+
+        assert_eq!(doc.block_format_at(0).left_indent, 40.0);
+        assert_eq!(doc.block_format_at(1).left_indent, 40.0);
+    }
+
+    #[test]
+    fn test_set_first_line_indent() {
+        let mut doc = StyledDocument::from_text("First paragraph.\nSecond paragraph.\n");
+        doc.set_first_line_indent(0..1, 20.0);
+
+        assert_eq!(doc.block_format_at(0).first_line_indent, 20.0);
+        assert_eq!(doc.block_format_at(1).first_line_indent, 0.0);
+    }
+
+    #[test]
+    fn test_increase_indent() {
+        let mut doc = StyledDocument::from_text("First paragraph.\n");
+        assert_eq!(doc.block_format_at(0).left_indent, 0.0);
+
+        doc.increase_indent(0..1);
+        assert_eq!(doc.block_format_at(0).left_indent, BlockFormat::INDENT_STEP);
+
+        doc.increase_indent(0..1);
+        assert_eq!(doc.block_format_at(0).left_indent, BlockFormat::INDENT_STEP * 2.0);
+    }
+
+    #[test]
+    fn test_decrease_indent() {
+        let mut doc = StyledDocument::from_text("First paragraph.\n");
+        doc.set_left_indent(0..1, 80.0);
+
+        doc.decrease_indent(0..1);
+        assert_eq!(doc.block_format_at(0).left_indent, 80.0 - BlockFormat::INDENT_STEP);
+
+        doc.decrease_indent(0..1);
+        assert_eq!(doc.block_format_at(0).left_indent, 0.0);
+
+        // Cannot go below 0
+        doc.decrease_indent(0..1);
+        assert_eq!(doc.block_format_at(0).left_indent, 0.0);
+    }
+
+    #[test]
+    fn test_uniform_indent() {
+        // Note: "First.\nSecond.\nThird." has 3 paragraphs (no trailing newline)
+        let mut doc = StyledDocument::from_text("First.\nSecond.\nThird.");
+
+        // All paragraphs have same (default) indent
+        assert_eq!(doc.uniform_left_indent(), Some(0.0));
+        assert_eq!(doc.uniform_first_line_indent(), Some(0.0));
+
+        // Set same indent on all 3 paragraphs
+        doc.set_left_indent(0..3, 40.0);
+        assert_eq!(doc.uniform_left_indent(), Some(40.0));
+
+        // Set different indent on one
+        doc.set_left_indent(1..2, 80.0);
+        assert_eq!(doc.uniform_left_indent(), None);
+    }
+
+    #[test]
+    fn test_indent_preserves_alignment() {
+        let mut doc = StyledDocument::from_text("Centered paragraph.\n");
+        doc.set_alignment(0..1, HorizontalAlign::Center);
+
+        // Add indentation
+        doc.set_left_indent(0..1, 40.0);
+
+        // Alignment should be preserved
+        assert_eq!(doc.block_format_at(0).alignment, HorizontalAlign::Center);
+        assert_eq!(doc.block_format_at(0).left_indent, 40.0);
     }
 }

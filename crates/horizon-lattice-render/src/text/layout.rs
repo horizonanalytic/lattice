@@ -134,6 +134,13 @@ pub struct TextLayoutOptions {
     /// - `TextDirection::LeftToRight`: Force LTR direction.
     /// - `TextDirection::RightToLeft`: Force RTL direction.
     pub direction: TextDirection,
+    /// Left margin indent in pixels.
+    /// This shifts the entire text block to the right.
+    pub left_indent: f32,
+    /// First line indent in pixels (relative to left_indent).
+    /// Positive values indent the first line further right.
+    /// Negative values create a "hanging indent".
+    pub first_line_indent: f32,
 }
 
 impl Default for TextLayoutOptions {
@@ -149,6 +156,8 @@ impl Default for TextLayoutOptions {
             ellipsis: false,
             ellipsis_string: "…".to_string(),
             direction: TextDirection::Auto,
+            left_indent: 0.0,
+            first_line_indent: 0.0,
         }
     }
 }
@@ -242,6 +251,18 @@ impl TextLayoutOptions {
     /// Set right-to-left direction.
     pub fn rtl(self) -> Self {
         self.direction(TextDirection::RightToLeft)
+    }
+
+    /// Set left margin indent in pixels.
+    pub fn left_indent(mut self, indent: f32) -> Self {
+        self.left_indent = indent;
+        self
+    }
+
+    /// Set first line indent in pixels (relative to left_indent).
+    pub fn first_line_indent(mut self, indent: f32) -> Self {
+        self.first_line_indent = indent;
+        self
     }
 }
 
@@ -1342,6 +1363,53 @@ impl TextLayout {
             if line.text_range.start == usize::MAX {
                 line.text_range = 0..0;
             }
+        }
+
+        // Determine paragraph boundaries and set is_hard_break
+        for line in &mut self.lines {
+            if !line.text_range.is_empty() && line.text_range.end <= self.text.len() {
+                // Check if line ends with newline
+                line.is_hard_break = self.text[..line.text_range.end].ends_with('\n');
+            }
+        }
+
+        // Apply indentation if configured
+        if self.options.left_indent != 0.0 || self.options.first_line_indent != 0.0 {
+            self.apply_indentation();
+        }
+    }
+
+    /// Apply left and first-line indentation to the layout.
+    fn apply_indentation(&mut self) {
+        let left_indent = self.options.left_indent;
+        let first_line_indent = self.options.first_line_indent;
+
+        // Track whether the next line is the first line of a paragraph
+        let mut is_first_line_of_paragraph = true;
+
+        for line in &mut self.lines {
+            // Calculate the indent for this line
+            let indent = if is_first_line_of_paragraph {
+                left_indent + first_line_indent
+            } else {
+                left_indent
+            };
+
+            // Apply indent to all glyphs
+            for glyph in &mut line.glyphs {
+                glyph.x += indent;
+            }
+
+            // Update line width to include indent
+            if !line.glyphs.is_empty() {
+                line.width += indent;
+            }
+
+            // Update overall layout width
+            self.width = self.width.max(line.width);
+
+            // The next line is a first line of paragraph if this line has a hard break
+            is_first_line_of_paragraph = line.is_hard_break;
         }
     }
 

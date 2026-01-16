@@ -438,6 +438,10 @@ pub struct TextEdit {
 
     /// Signal emitted when paragraph alignment changes.
     pub alignment_changed: Signal<HorizontalAlign>,
+
+    /// Signal emitted when paragraph indentation changes.
+    /// Tuple contains (left_indent, first_line_indent).
+    pub indent_changed: Signal<(f32, f32)>,
 }
 
 impl TextEdit {
@@ -485,6 +489,7 @@ impl TextEdit {
             find_previous_requested: Signal::new(),
             format_changed: Signal::new(),
             alignment_changed: Signal::new(),
+            indent_changed: Signal::new(),
         }
     }
 
@@ -1211,6 +1216,109 @@ impl TextEdit {
             }
         }
         Some(first_alignment)
+    }
+
+    // =========================================================================
+    // Paragraph Indentation
+    // =========================================================================
+
+    /// Get the current paragraph's left indent.
+    ///
+    /// If there's a selection spanning multiple paragraphs with different indents,
+    /// returns the indent of the first paragraph in the selection.
+    pub fn paragraph_left_indent(&self) -> f32 {
+        let para_idx = self.document.paragraph_at(self.cursor_pos);
+        self.document.block_format_at(para_idx).left_indent
+    }
+
+    /// Get the current paragraph's first line indent.
+    pub fn paragraph_first_line_indent(&self) -> f32 {
+        let para_idx = self.document.paragraph_at(self.cursor_pos);
+        self.document.block_format_at(para_idx).first_line_indent
+    }
+
+    /// Set the left indent for the current paragraph(s).
+    ///
+    /// If there's no selection, sets the indent for the paragraph containing the cursor.
+    /// If there's a selection, sets the indent for all paragraphs that the selection spans.
+    pub fn set_paragraph_left_indent(&mut self, indent: f32) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.set_left_indent(start_para..end_para, indent);
+        self.invalidate_layout();
+        self.base.update();
+        self.indent_changed.emit((indent, self.paragraph_first_line_indent()));
+    }
+
+    /// Set the first line indent for the current paragraph(s).
+    pub fn set_paragraph_first_line_indent(&mut self, indent: f32) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.set_first_line_indent(start_para..end_para, indent);
+        self.invalidate_layout();
+        self.base.update();
+        self.indent_changed.emit((self.paragraph_left_indent(), indent));
+    }
+
+    /// Increase the left indent of the current paragraph(s) by the standard step.
+    pub fn increase_indent(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.increase_indent(start_para..end_para);
+        self.invalidate_layout();
+        self.base.update();
+        let left_indent = self.paragraph_left_indent();
+        self.indent_changed.emit((left_indent, self.paragraph_first_line_indent()));
+    }
+
+    /// Decrease the left indent of the current paragraph(s) by the standard step.
+    /// The indent cannot go below zero.
+    pub fn decrease_indent(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.decrease_indent(start_para..end_para);
+        self.invalidate_layout();
+        self.base.update();
+        let left_indent = self.paragraph_left_indent();
+        self.indent_changed.emit((left_indent, self.paragraph_first_line_indent()));
+    }
+
+    /// Get the range of paragraphs currently selected or containing the cursor.
+    /// Returns (start_para_idx, end_para_idx) where end is exclusive.
+    fn selected_paragraph_range(&self) -> (usize, usize) {
+        if let Some((start, end)) = self.selection_range() {
+            let start_para = self.document.paragraph_at(start);
+            let end_para = self.document.paragraph_at(end);
+            (start_para, end_para + 1)
+        } else {
+            let para = self.document.paragraph_at(self.cursor_pos);
+            (para, para + 1)
+        }
+    }
+
+    /// Get the uniform left indent for the entire document.
+    ///
+    /// Returns `Some(indent)` if all paragraphs have the same left indent,
+    /// or `None` if different paragraphs have different indents.
+    fn uniform_left_indent(&self) -> Option<f32> {
+        self.document.uniform_left_indent()
+    }
+
+    /// Get the uniform first line indent for the entire document.
+    fn uniform_first_line_indent(&self) -> Option<f32> {
+        self.document.uniform_first_line_indent()
     }
 
     /// Apply font family to a range, preserving other formatting.
@@ -2718,8 +2826,8 @@ impl TextEdit {
                     }
                 }
             }
-        } else if self.has_formatting() {
-            // Rich text rendering: use styled spans
+        } else if self.has_formatting() || self.has_block_formatting() {
+            // Rich text rendering: use styled spans (also used when there's block formatting)
             let styled_spans = self.styled_spans_for_rendering();
             let text_spans: Vec<TextSpan<'_>> = styled_spans
                 .iter()
@@ -2784,9 +2892,15 @@ impl TextEdit {
             // Get alignment (use uniform alignment if all paragraphs have the same, otherwise left)
             let alignment = self.uniform_alignment().unwrap_or(HorizontalAlign::Left);
 
+            // Get indentation (use uniform indent if all paragraphs have the same, otherwise 0)
+            let left_indent = self.uniform_left_indent().unwrap_or(0.0);
+            let first_line_indent = self.uniform_first_line_indent().unwrap_or(0.0);
+
             let options = TextLayoutOptions::default()
                 .wrap(self.wrap_mode.to_render_wrap())
-                .horizontal_align(alignment);
+                .horizontal_align(alignment)
+                .left_indent(left_indent)
+                .first_line_indent(first_line_indent);
             let options = if self.wrap_mode != TextWrapMode::NoWrap {
                 options.max_width(content_rect.width())
             } else {

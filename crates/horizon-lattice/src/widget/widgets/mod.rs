@@ -54,6 +54,7 @@ mod date_time_edit;
 mod dial;
 mod dialog;
 mod dialog_button_box;
+mod file_dialog;
 mod message_box;
 mod dock_widget;
 mod double_spin_box;
@@ -168,6 +169,10 @@ pub use dialog_button_box::{
     ButtonOrder, ButtonRole, DialogButtonBox, StandardButton, ButtonBoxOrientation,
 };
 pub use message_box::{CustomButtonInfo, MessageBox, MessageIcon};
+pub use file_dialog::{
+    BookmarkEntry, BookmarkIcon, FileDialog, FileDialogMode, FileEntry, FileFilter, FileViewMode,
+    native_dialog_available,
+};
 pub use key_sequence_edit::KeySequenceEdit;
 pub use find_replace::{FindOptions, FindReplaceBar, FindReplaceMode, SearchMatch, Searchable};
 pub use list_widget::{ListWidget, ListWidgetItem, MatchFlags};

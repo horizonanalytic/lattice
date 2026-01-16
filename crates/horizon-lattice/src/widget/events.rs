@@ -34,6 +34,7 @@
 
 use std::any::{Any, TypeId};
 
+use horizon_lattice_core::TimerId;
 use horizon_lattice_render::{Point, Rect, Size};
 
 /// Keyboard modifiers that may be held during input events.
@@ -910,6 +911,46 @@ impl std::fmt::Debug for CustomEvent {
     }
 }
 
+/// Timer event, sent when a widget-owned timer fires.
+///
+/// Widgets can start timers using the widget timer API. When a timer fires,
+/// the owning widget receives a `TimerEvent` through the normal event dispatch.
+///
+/// # Example
+///
+/// ```ignore
+/// fn event(&mut self, event: &mut WidgetEvent) -> bool {
+///     match event {
+///         WidgetEvent::Timer(e) => {
+///             if e.id == self.repeat_timer_id {
+///                 self.perform_repeat_action();
+///                 event.accept();
+///                 return true;
+///             }
+///         }
+///         _ => {}
+///     }
+///     false
+/// }
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct TimerEvent {
+    /// Base event data.
+    pub base: EventBase,
+    /// The ID of the timer that fired.
+    pub id: TimerId,
+}
+
+impl TimerEvent {
+    /// Create a new timer event.
+    pub fn new(id: TimerId) -> Self {
+        Self {
+            base: EventBase::new(),
+            id,
+        }
+    }
+}
+
 /// Enumeration of all widget event types.
 ///
 /// This allows passing events through a unified interface while preserving
@@ -959,6 +1000,11 @@ pub enum WidgetEvent {
     /// event system like built-in events. Use [`CustomEvent::downcast_ref`]
     /// to extract the payload in your event handler.
     Custom(CustomEvent),
+    /// Timer event.
+    ///
+    /// Sent when a widget-owned timer fires. Widgets can start timers
+    /// using the widget timer API and receive events when they fire.
+    Timer(TimerEvent),
 }
 
 impl WidgetEvent {
@@ -982,6 +1028,7 @@ impl WidgetEvent {
             Self::KeyPress(e) => e.base.is_accepted(),
             Self::KeyRelease(e) => e.base.is_accepted(),
             Self::Custom(e) => e.base.is_accepted(),
+            Self::Timer(e) => e.base.is_accepted(),
         }
     }
 
@@ -1005,6 +1052,7 @@ impl WidgetEvent {
             Self::KeyPress(e) => e.base.accept(),
             Self::KeyRelease(e) => e.base.accept(),
             Self::Custom(e) => e.base.accept(),
+            Self::Timer(e) => e.base.accept(),
         }
     }
 
@@ -1028,6 +1076,7 @@ impl WidgetEvent {
             Self::KeyPress(e) => e.base.ignore(),
             Self::KeyRelease(e) => e.base.ignore(),
             Self::Custom(e) => e.base.ignore(),
+            Self::Timer(e) => e.base.ignore(),
         }
     }
 
@@ -1055,6 +1104,8 @@ impl WidgetEvent {
             Self::Enter(_) | Self::Leave(_) => false,
             // Custom events propagate by default (if not accepted)
             Self::Custom(_) => !self.is_accepted(),
+            // Timer events are specific to the widget that owns the timer
+            Self::Timer(_) => false,
         }
     }
 

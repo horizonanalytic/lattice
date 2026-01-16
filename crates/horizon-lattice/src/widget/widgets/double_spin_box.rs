@@ -34,7 +34,9 @@
 //! });
 //! ```
 
-use horizon_lattice_core::{Object, ObjectId, Signal};
+use std::time::{Duration, Instant};
+
+use horizon_lattice_core::{Object, ObjectId, Signal, TimerId};
 use horizon_lattice_render::{
     Color, Font, FontFamily, FontSystem, HorizontalAlign, Point, Rect, Renderer, RoundedRect,
     Stroke, TextLayout, TextLayoutOptions, TextRenderer, VerticalAlign,
@@ -42,8 +44,8 @@ use horizon_lattice_render::{
 
 use crate::widget::{
     FocusPolicy, Key, KeyPressEvent, MouseButton, MouseMoveEvent, MousePressEvent,
-    MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, WheelEvent, Widget,
-    WidgetBase, WidgetEvent,
+    MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, TimerEvent, WheelEvent,
+    Widget, WidgetBase, WidgetEvent,
 };
 
 /// A widget for entering and modifying floating-point values.
@@ -139,6 +141,35 @@ pub struct DoubleSpinBox {
 
     /// Signal emitted when editing is finished.
     pub editing_finished: Signal<()>,
+
+    // =========================================================================
+    // Acceleration on Hold
+    // =========================================================================
+    /// Whether acceleration is enabled for button holds.
+    acceleration_enabled: bool,
+
+    /// Delay before acceleration starts (default: 300ms).
+    acceleration_delay: Duration,
+
+    /// Current repeat interval for acceleration.
+    /// Starts at acceleration_delay, decreases with acceleration.
+    current_repeat_interval: Duration,
+
+    /// Minimum repeat interval (maximum speed, default: 20ms).
+    min_repeat_interval: Duration,
+
+    /// Speed multiplier for acceleration (default: 1.5).
+    /// Each repeat, interval is divided by this factor.
+    acceleration_multiplier: f32,
+
+    /// Timer ID for the repeat timer, if active.
+    repeat_timer_id: Option<TimerId>,
+
+    /// When the button press started (for acceleration timing).
+    press_start_time: Option<Instant>,
+
+    /// Number of repeats since button press (for acceleration curve).
+    repeat_count: u32,
 }
 
 /// Parts of the spinbox for hit testing.
@@ -198,6 +229,15 @@ impl DoubleSpinBox {
             selection_start: None,
             value_changed: Signal::new(),
             editing_finished: Signal::new(),
+            // Acceleration defaults
+            acceleration_enabled: true,
+            acceleration_delay: Duration::from_millis(300),
+            current_repeat_interval: Duration::from_millis(300),
+            min_repeat_interval: Duration::from_millis(20),
+            acceleration_multiplier: 1.5,
+            repeat_timer_id: None,
+            press_start_time: None,
+            repeat_count: 0,
         }
     }
 
@@ -526,6 +566,73 @@ impl DoubleSpinBox {
     }
 
     // =========================================================================
+    // Acceleration on Hold
+    // =========================================================================
+
+    /// Check if acceleration is enabled.
+    ///
+    /// When enabled, holding the up/down buttons will repeat the action
+    /// with increasing speed.
+    pub fn acceleration(&self) -> bool {
+        self.acceleration_enabled
+    }
+
+    /// Set whether acceleration is enabled.
+    ///
+    /// When enabled, holding the up/down buttons will repeat the action
+    /// with increasing speed. Default is `true`.
+    pub fn set_acceleration(&mut self, enabled: bool) {
+        self.acceleration_enabled = enabled;
+    }
+
+    /// Set acceleration using builder pattern.
+    pub fn with_acceleration(mut self, enabled: bool) -> Self {
+        self.acceleration_enabled = enabled;
+        self
+    }
+
+    /// Get the acceleration delay (initial delay before repeating starts).
+    pub fn acceleration_delay(&self) -> Duration {
+        self.acceleration_delay
+    }
+
+    /// Set the acceleration delay.
+    ///
+    /// This is the initial delay before the button action starts repeating
+    /// when held down. Default is 300ms.
+    pub fn set_acceleration_delay(&mut self, delay: Duration) {
+        self.acceleration_delay = delay;
+    }
+
+    /// Set acceleration delay using builder pattern.
+    pub fn with_acceleration_delay(mut self, delay: Duration) -> Self {
+        self.acceleration_delay = delay;
+        self
+    }
+
+    /// Get the acceleration multiplier.
+    pub fn acceleration_multiplier(&self) -> f32 {
+        self.acceleration_multiplier
+    }
+
+    /// Set the acceleration multiplier.
+    ///
+    /// Each time the timer fires, the repeat interval is divided by this factor,
+    /// causing the repeat rate to increase. Default is 1.5.
+    ///
+    /// Higher values = faster acceleration. A value of 1.0 disables acceleration
+    /// (constant repeat rate). Values less than 1.0 would slow down (not recommended).
+    pub fn set_acceleration_multiplier(&mut self, multiplier: f32) {
+        self.acceleration_multiplier = multiplier.max(1.0);
+    }
+
+    /// Set acceleration multiplier using builder pattern.
+    pub fn with_acceleration_multiplier(mut self, multiplier: f32) -> Self {
+        self.acceleration_multiplier = multiplier.max(1.0);
+        self
+    }
+
+    // =========================================================================
     // Actions
     // =========================================================================
 
@@ -707,6 +814,79 @@ impl DoubleSpinBox {
     }
 
     // =========================================================================
+    // Repeat Timer (for acceleration)
+    // =========================================================================
+
+    /// Start the repeat timer for button hold acceleration.
+    fn start_repeat_timer(&mut self) {
+        if !self.acceleration_enabled {
+            return;
+        }
+
+        // Reset acceleration state
+        self.current_repeat_interval = self.acceleration_delay;
+        self.press_start_time = Some(Instant::now());
+        self.repeat_count = 0;
+
+        // Start the timer with the initial delay
+        let timer_id = self.base.start_timer(self.acceleration_delay);
+        self.repeat_timer_id = Some(timer_id);
+    }
+
+    /// Stop the repeat timer.
+    fn stop_repeat_timer(&mut self) {
+        if let Some(timer_id) = self.repeat_timer_id.take() {
+            self.base.stop_timer(timer_id);
+        }
+        self.press_start_time = None;
+        self.repeat_count = 0;
+        self.current_repeat_interval = self.acceleration_delay;
+    }
+
+    /// Handle a timer event for button repeat.
+    fn handle_timer(&mut self, event: &TimerEvent) -> bool {
+        // Check if this is our repeat timer
+        if self.repeat_timer_id != Some(event.id) {
+            return false;
+        }
+
+        // Perform the repeat action based on which button is pressed
+        match self.pressed_part {
+            DoubleSpinBoxPart::UpButton => {
+                self.step_up();
+            }
+            DoubleSpinBoxPart::DownButton => {
+                self.step_down();
+            }
+            _ => {
+                // Button was released, stop the timer
+                self.stop_repeat_timer();
+                return true;
+            }
+        }
+
+        self.repeat_count += 1;
+
+        // Calculate the next interval with acceleration
+        if self.acceleration_multiplier > 1.0 {
+            let new_interval = Duration::from_secs_f64(
+                self.current_repeat_interval.as_secs_f64() / self.acceleration_multiplier as f64,
+            );
+            self.current_repeat_interval = new_interval.max(self.min_repeat_interval);
+        }
+
+        // Stop the old timer and start a new one with the updated interval
+        if let Some(timer_id) = self.repeat_timer_id.take() {
+            self.base.stop_timer(timer_id);
+        }
+        let timer_id = self.base.start_timer(self.current_repeat_interval);
+        self.repeat_timer_id = Some(timer_id);
+
+        self.base.update();
+        true
+    }
+
+    // =========================================================================
     // Event Handlers
     // =========================================================================
 
@@ -721,6 +901,7 @@ impl DoubleSpinBox {
                 if !self.read_only {
                     self.pressed_part = DoubleSpinBoxPart::UpButton;
                     self.step_up();
+                    self.start_repeat_timer();
                     self.base.update();
                     return true;
                 }
@@ -729,6 +910,7 @@ impl DoubleSpinBox {
                 if !self.read_only {
                     self.pressed_part = DoubleSpinBoxPart::DownButton;
                     self.step_down();
+                    self.start_repeat_timer();
                     self.base.update();
                     return true;
                 }
@@ -751,6 +933,7 @@ impl DoubleSpinBox {
 
         if self.pressed_part != DoubleSpinBoxPart::None {
             self.pressed_part = DoubleSpinBoxPart::None;
+            self.stop_repeat_timer();
             self.base.update();
             return true;
         }
@@ -1238,6 +1421,12 @@ impl Widget for DoubleSpinBox {
             }
             WidgetEvent::KeyPress(e) => {
                 if self.handle_key_press(e) {
+                    event.accept();
+                    return true;
+                }
+            }
+            WidgetEvent::Timer(e) => {
+                if self.handle_timer(e) {
                     event.accept();
                     return true;
                 }

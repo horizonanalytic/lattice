@@ -983,6 +983,79 @@ impl WidgetBase {
     pub fn clear_event_filters(&mut self) {
         self.event_filters.clear();
     }
+
+    // =========================================================================
+    // Timers
+    // =========================================================================
+
+    /// Start a one-shot timer owned by this widget.
+    ///
+    /// When the timer fires, this widget will receive a `WidgetEvent::Timer` event.
+    ///
+    /// # Arguments
+    ///
+    /// * `duration` - How long until the timer fires
+    ///
+    /// # Returns
+    ///
+    /// The TimerId that can be used to stop the timer.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Start a 500ms timer
+    /// let timer_id = self.base.start_timer(Duration::from_millis(500));
+    ///
+    /// // Later, in event handler:
+    /// fn event(&mut self, event: &mut WidgetEvent) -> bool {
+    ///     if let WidgetEvent::Timer(e) = event {
+    ///         if e.id == self.my_timer_id {
+    ///             // Timer fired!
+    ///         }
+    ///     }
+    ///     false
+    /// }
+    /// ```
+    pub fn start_timer(&self, duration: std::time::Duration) -> horizon_lattice_core::TimerId {
+        super::widget_timer::start_widget_timer(self.object_id(), duration)
+    }
+
+    /// Start a repeating timer owned by this widget.
+    ///
+    /// When the timer fires, this widget will receive a `WidgetEvent::Timer` event.
+    /// The timer will continue firing at the specified interval until stopped.
+    ///
+    /// # Arguments
+    ///
+    /// * `interval` - The interval between timer firings
+    ///
+    /// # Returns
+    ///
+    /// The TimerId that can be used to stop the timer.
+    pub fn start_repeating_timer(
+        &self,
+        interval: std::time::Duration,
+    ) -> horizon_lattice_core::TimerId {
+        super::widget_timer::start_widget_repeating_timer(self.object_id(), interval)
+    }
+
+    /// Stop a timer owned by this widget.
+    ///
+    /// # Arguments
+    ///
+    /// * `timer_id` - The timer to stop
+    ///
+    /// # Returns
+    ///
+    /// `true` if the timer was found and stopped, `false` otherwise.
+    pub fn stop_timer(&self, timer_id: horizon_lattice_core::TimerId) -> bool {
+        super::widget_timer::stop_widget_timer(timer_id)
+    }
+
+    /// Check if a timer is currently active.
+    pub fn is_timer_active(&self, timer_id: horizon_lattice_core::TimerId) -> bool {
+        super::widget_timer::is_widget_timer_active(timer_id)
+    }
 }
 
 impl Object for WidgetBase {
@@ -997,6 +1070,9 @@ impl Drop for WidgetBase {
         // This allows connected slots to clean up references to this widget.
         let id = self.object_base.id();
         self.destroyed.emit(id);
+
+        // Clean up any timers owned by this widget.
+        super::widget_timer::remove_timers_for_widget(id);
 
         // ObjectBase::drop() will run after this, which removes the object from
         // the registry. The signal was emitted while the object was still valid.

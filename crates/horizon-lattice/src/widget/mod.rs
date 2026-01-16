@@ -130,6 +130,7 @@ mod shortcut;
 mod traits;
 pub mod input_mask;
 pub mod validator;
+pub mod widget_timer;
 pub mod widgets;
 
 #[cfg(test)]
@@ -142,7 +143,7 @@ pub use events::{
     CustomEvent, EnterEvent, EventBase, FocusInEvent, FocusOutEvent, FocusReason, HideEvent, Key,
     KeyPressEvent, KeyReleaseEvent, KeyboardModifiers, LeaveEvent, MouseButton,
     MouseDoubleClickEvent, MouseMoveEvent, MousePressEvent, MouseReleaseEvent, MoveEvent,
-    PaintEvent, ResizeEvent, ShowEvent, WheelEvent, WidgetEvent,
+    PaintEvent, ResizeEvent, ShowEvent, TimerEvent, WheelEvent, WidgetEvent,
 };
 pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
 pub use layout::{ContentMargins, Layout, LayoutBase, LayoutInvalidator, LayoutItem, SpacerItem};

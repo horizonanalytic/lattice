@@ -39,6 +39,7 @@
 //! - [`ColorButton`]: Button that displays a color swatch
 //! - [`ColorPicker`]: Inline HSV color picker with saturation/value square and hue bar
 //! - [`ColorDialog`]: Modal dialog for color selection with HSV picker and palettes
+//! - [`FontDialog`]: Modal dialog for font selection with family, style, size, and preview
 //! - [`FontComboBox`]: Dropdown for selecting font families with preview
 //! - [`KeySequenceEdit`]: Keyboard shortcut capture and editing widget
 
@@ -57,6 +58,7 @@ mod dial;
 mod dialog;
 mod dialog_button_box;
 mod file_dialog;
+mod font_dialog;
 mod message_box;
 mod dock_widget;
 mod double_spin_box;
@@ -176,6 +178,7 @@ pub use file_dialog::{
     BookmarkEntry, BookmarkIcon, FileDialog, FileDialogMode, FileEntry, FileFilter, FileViewMode,
     native_dialog_available,
 };
+pub use font_dialog::{FontDialog, FontDialogOptions};
 pub use key_sequence_edit::KeySequenceEdit;
 pub use find_replace::{FindOptions, FindReplaceBar, FindReplaceMode, SearchMatch, Searchable};
 pub use list_widget::{ListWidget, ListWidgetItem, MatchFlags};

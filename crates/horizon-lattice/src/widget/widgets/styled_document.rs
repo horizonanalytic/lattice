@@ -233,6 +233,217 @@ impl LineSpacing {
     }
 }
 
+/// List marker styles for bulleted and numbered lists.
+///
+/// Modeled after Qt's QTextListFormat::Style, with negative values
+/// for bullets and positive values for numbered lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListStyle {
+    // Bullet styles (unordered lists)
+    /// Filled circle bullet (•)
+    Disc,
+    /// Empty circle bullet (○)
+    Circle,
+    /// Filled square bullet (■)
+    Square,
+
+    // Numbered styles (ordered lists)
+    /// Decimal numbers (1, 2, 3, ...)
+    Decimal,
+    /// Lowercase letters (a, b, c, ...)
+    LowerAlpha,
+    /// Uppercase letters (A, B, C, ...)
+    UpperAlpha,
+    /// Lowercase Roman numerals (i, ii, iii, ...)
+    LowerRoman,
+    /// Uppercase Roman numerals (I, II, III, ...)
+    UpperRoman,
+}
+
+impl ListStyle {
+    /// Check if this is a bullet (unordered) list style.
+    pub fn is_bullet(&self) -> bool {
+        matches!(self, ListStyle::Disc | ListStyle::Circle | ListStyle::Square)
+    }
+
+    /// Check if this is a numbered (ordered) list style.
+    pub fn is_numbered(&self) -> bool {
+        !self.is_bullet()
+    }
+
+    /// Get the marker string for a bullet style.
+    /// Returns None for numbered styles.
+    pub fn bullet_marker(&self) -> Option<&'static str> {
+        match self {
+            ListStyle::Disc => Some("•"),
+            ListStyle::Circle => Some("○"),
+            ListStyle::Square => Some("■"),
+            _ => None,
+        }
+    }
+
+    /// Get the marker string for a numbered style at a given index.
+    /// Index is 0-based (first item = 0).
+    pub fn number_marker(&self, index: usize, start: usize) -> Option<String> {
+        let n = start + index;
+        match self {
+            ListStyle::Decimal => Some(format!("{}.", n)),
+            ListStyle::LowerAlpha => Some(format!("{}.", Self::to_alpha(n, false))),
+            ListStyle::UpperAlpha => Some(format!("{}.", Self::to_alpha(n, true))),
+            ListStyle::LowerRoman => Some(format!("{}.", Self::to_roman(n, false))),
+            ListStyle::UpperRoman => Some(format!("{}.", Self::to_roman(n, true))),
+            _ => None,
+        }
+    }
+
+    /// Convert a number to alphabetic representation (1=a, 2=b, ..., 26=z, 27=aa, ...).
+    fn to_alpha(n: usize, uppercase: bool) -> String {
+        if n == 0 {
+            return if uppercase { "A".to_string() } else { "a".to_string() };
+        }
+        let mut result = String::new();
+        let mut num = n;
+        let base = if uppercase { b'A' } else { b'a' };
+        while num > 0 {
+            let digit = ((num - 1) % 26) as u8;
+            result.insert(0, (base + digit) as char);
+            num = (num - 1) / 26;
+        }
+        result
+    }
+
+    /// Convert a number to Roman numeral representation.
+    /// Supports numbers up to 4999.
+    fn to_roman(n: usize, uppercase: bool) -> String {
+        if n == 0 || n > 4999 {
+            return n.to_string(); // Fallback for out-of-range
+        }
+
+        let numerals = if uppercase {
+            [
+                (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+                (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+                (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+            ]
+        } else {
+            [
+                (1000, "m"), (900, "cm"), (500, "d"), (400, "cd"),
+                (100, "c"), (90, "xc"), (50, "l"), (40, "xl"),
+                (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i"),
+            ]
+        };
+
+        let mut result = String::new();
+        let mut num = n;
+        for (value, symbol) in numerals {
+            while num >= value {
+                result.push_str(symbol);
+                num -= value;
+            }
+        }
+        result
+    }
+
+    /// Get the default bullet styles for each nesting level.
+    /// Level 0 = Disc, Level 1 = Circle, Level 2+ = Square.
+    pub fn bullet_for_level(level: usize) -> Self {
+        match level {
+            0 => ListStyle::Disc,
+            1 => ListStyle::Circle,
+            _ => ListStyle::Square,
+        }
+    }
+
+    /// Get the default numbered styles for each nesting level.
+    /// Level 0 = Decimal, Level 1 = LowerAlpha, Level 2 = LowerRoman, Level 3+ = Decimal.
+    pub fn number_for_level(level: usize) -> Self {
+        match level {
+            0 => ListStyle::Decimal,
+            1 => ListStyle::LowerAlpha,
+            2 => ListStyle::LowerRoman,
+            _ => ListStyle::Decimal,
+        }
+    }
+}
+
+impl Default for ListStyle {
+    fn default() -> Self {
+        ListStyle::Disc
+    }
+}
+
+/// List formatting information for a paragraph.
+///
+/// Contains the style, nesting level, and starting number for list items.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ListFormat {
+    /// The list marker style (bullet or number type).
+    pub style: ListStyle,
+    /// The nesting level (0 = top level, 1 = first indent, etc.).
+    pub indent_level: usize,
+    /// The starting number for numbered lists (default: 1).
+    /// Ignored for bullet lists.
+    pub start: usize,
+}
+
+impl ListFormat {
+    /// Standard indent step for each list level in pixels.
+    pub const INDENT_STEP: f32 = 24.0;
+
+    /// Create a new list format with the given style.
+    pub fn new(style: ListStyle) -> Self {
+        Self {
+            style,
+            indent_level: 0,
+            start: 1,
+        }
+    }
+
+    /// Create a bullet list format.
+    pub fn bullet() -> Self {
+        Self::new(ListStyle::Disc)
+    }
+
+    /// Create a numbered list format.
+    pub fn numbered() -> Self {
+        Self::new(ListStyle::Decimal)
+    }
+
+    /// Builder method to set the indent level.
+    pub fn with_indent_level(mut self, level: usize) -> Self {
+        self.indent_level = level;
+        self
+    }
+
+    /// Builder method to set the start number.
+    pub fn with_start(mut self, start: usize) -> Self {
+        self.start = start;
+        self
+    }
+
+    /// Get the left indent in pixels for this list level.
+    pub fn left_indent(&self) -> f32 {
+        (self.indent_level + 1) as f32 * Self::INDENT_STEP
+    }
+
+    /// Get the marker for this list item.
+    /// For bullets, returns the bullet character.
+    /// For numbered lists, returns the formatted number with the given index.
+    pub fn marker(&self, item_index: usize) -> String {
+        if self.style.is_bullet() {
+            self.style.bullet_marker().unwrap_or("•").to_string()
+        } else {
+            self.style.number_marker(item_index, self.start).unwrap_or_default()
+        }
+    }
+}
+
+impl Default for ListFormat {
+    fn default() -> Self {
+        Self::bullet()
+    }
+}
+
 /// Paragraph/block-level formatting attributes.
 ///
 /// Represents the styling applied to a paragraph of text.
@@ -255,6 +466,8 @@ pub struct BlockFormat {
     pub spacing_before: f32,
     /// Extra space after the paragraph in pixels.
     pub spacing_after: f32,
+    /// List formatting. None means this is not a list item.
+    pub list_format: Option<ListFormat>,
 }
 
 impl BlockFormat {
@@ -270,6 +483,7 @@ impl BlockFormat {
             line_spacing: LineSpacing::Single,
             spacing_before: 0.0,
             spacing_after: 0.0,
+            list_format: None,
         }
     }
 
@@ -281,6 +495,34 @@ impl BlockFormat {
             || self.line_spacing != LineSpacing::Single
             || self.spacing_before != 0.0
             || self.spacing_after != 0.0
+            || self.list_format.is_some()
+    }
+
+    /// Check if this paragraph is a list item.
+    pub fn is_list_item(&self) -> bool {
+        self.list_format.is_some()
+    }
+
+    /// Builder method to set list format.
+    pub fn with_list_format(mut self, list_format: Option<ListFormat>) -> Self {
+        self.list_format = list_format;
+        self
+    }
+
+    /// Create a bullet list item block format.
+    pub fn bullet_list() -> Self {
+        Self {
+            list_format: Some(ListFormat::bullet()),
+            ..Self::new()
+        }
+    }
+
+    /// Create a numbered list item block format.
+    pub fn numbered_list() -> Self {
+        Self {
+            list_format: Some(ListFormat::numbered()),
+            ..Self::new()
+        }
     }
 
     /// Builder method to set alignment.
@@ -1185,6 +1427,194 @@ impl StyledDocument {
         Some(first_spacing)
     }
 
+    // =========================================================================
+    // List Formatting
+    // =========================================================================
+
+    /// Get the list format for a paragraph.
+    /// Returns `None` if the paragraph is not a list item.
+    pub fn list_format_at(&self, para_idx: usize) -> Option<ListFormat> {
+        self.block_format_at(para_idx).list_format
+    }
+
+    /// Check if a paragraph is a list item.
+    pub fn is_list_item(&self, para_idx: usize) -> bool {
+        self.block_format_at(para_idx).list_format.is_some()
+    }
+
+    /// Set the list format for a range of paragraphs.
+    /// Pass `None` to remove list formatting.
+    pub fn set_list_format(&mut self, range: Range<usize>, list_format: Option<ListFormat>) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            let new_format = BlockFormat {
+                list_format: list_format.clone(),
+                ..existing
+            };
+            self.set_block_format(para_idx..para_idx + 1, new_format);
+        }
+    }
+
+    /// Toggle bullet list on a range of paragraphs.
+    /// If all paragraphs are bullet list items, removes the list.
+    /// Otherwise, makes all paragraphs bullet list items.
+    pub fn toggle_bullet_list(&mut self, range: Range<usize>) {
+        let all_are_bullet_lists = range.clone().all(|para_idx| {
+            self.block_format_at(para_idx)
+                .list_format
+                .as_ref()
+                .map_or(false, |lf| lf.style.is_bullet())
+        });
+
+        if all_are_bullet_lists {
+            // Remove list formatting
+            self.set_list_format(range, None);
+        } else {
+            // Add bullet list formatting
+            for para_idx in range {
+                let existing = self.block_format_at(para_idx);
+                let indent_level = existing.list_format.as_ref().map_or(0, |lf| lf.indent_level);
+                let list_format = ListFormat::new(ListStyle::bullet_for_level(indent_level))
+                    .with_indent_level(indent_level);
+                let new_format = BlockFormat {
+                    list_format: Some(list_format),
+                    ..existing
+                };
+                self.set_block_format(para_idx..para_idx + 1, new_format);
+            }
+        }
+    }
+
+    /// Toggle numbered list on a range of paragraphs.
+    /// If all paragraphs are numbered list items, removes the list.
+    /// Otherwise, makes all paragraphs numbered list items.
+    pub fn toggle_numbered_list(&mut self, range: Range<usize>) {
+        let all_are_numbered_lists = range.clone().all(|para_idx| {
+            self.block_format_at(para_idx)
+                .list_format
+                .as_ref()
+                .map_or(false, |lf| lf.style.is_numbered())
+        });
+
+        if all_are_numbered_lists {
+            // Remove list formatting
+            self.set_list_format(range, None);
+        } else {
+            // Add numbered list formatting
+            for para_idx in range {
+                let existing = self.block_format_at(para_idx);
+                let indent_level = existing.list_format.as_ref().map_or(0, |lf| lf.indent_level);
+                let list_format = ListFormat::new(ListStyle::number_for_level(indent_level))
+                    .with_indent_level(indent_level);
+                let new_format = BlockFormat {
+                    list_format: Some(list_format),
+                    ..existing
+                };
+                self.set_block_format(para_idx..para_idx + 1, new_format);
+            }
+        }
+    }
+
+    /// Increase the indent level for list items in a range.
+    /// Non-list paragraphs are not affected.
+    pub fn increase_list_indent(&mut self, range: Range<usize>) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            if let Some(mut list_format) = existing.list_format.clone() {
+                list_format.indent_level += 1;
+                // Update the style for the new indent level
+                if list_format.style.is_bullet() {
+                    list_format.style = ListStyle::bullet_for_level(list_format.indent_level);
+                } else {
+                    list_format.style = ListStyle::number_for_level(list_format.indent_level);
+                }
+                let new_format = BlockFormat {
+                    list_format: Some(list_format),
+                    ..existing
+                };
+                self.set_block_format(para_idx..para_idx + 1, new_format);
+            }
+        }
+    }
+
+    /// Decrease the indent level for list items in a range.
+    /// Non-list paragraphs are not affected.
+    /// If indent level is already 0, the paragraph stays at level 0.
+    pub fn decrease_list_indent(&mut self, range: Range<usize>) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            if let Some(mut list_format) = existing.list_format.clone() {
+                if list_format.indent_level > 0 {
+                    list_format.indent_level -= 1;
+                    // Update the style for the new indent level
+                    if list_format.style.is_bullet() {
+                        list_format.style = ListStyle::bullet_for_level(list_format.indent_level);
+                    } else {
+                        list_format.style = ListStyle::number_for_level(list_format.indent_level);
+                    }
+                    let new_format = BlockFormat {
+                        list_format: Some(list_format),
+                        ..existing
+                    };
+                    self.set_block_format(para_idx..para_idx + 1, new_format);
+                }
+            }
+        }
+    }
+
+    /// Set the list style for a range of list items.
+    /// Non-list paragraphs are not affected.
+    pub fn set_list_style(&mut self, range: Range<usize>, style: ListStyle) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            if let Some(mut list_format) = existing.list_format.clone() {
+                list_format.style = style;
+                let new_format = BlockFormat {
+                    list_format: Some(list_format),
+                    ..existing
+                };
+                self.set_block_format(para_idx..para_idx + 1, new_format);
+            }
+        }
+    }
+
+    /// Get the list item number for a paragraph within its list context.
+    /// This counts the items at the same indent level preceding this paragraph.
+    /// Returns 0 for non-list items or the first item in a list sequence.
+    pub fn list_item_number(&self, para_idx: usize) -> usize {
+        let format = self.block_format_at(para_idx);
+        let Some(list_format) = &format.list_format else {
+            return 0;
+        };
+
+        // Count backwards to find how many items at the same level precede this one
+        let mut count = 0;
+        let target_level = list_format.indent_level;
+
+        for idx in (0..para_idx).rev() {
+            let prev_format = self.block_format_at(idx);
+            match &prev_format.list_format {
+                Some(prev_list) if prev_list.indent_level == target_level => {
+                    // Same level - count it
+                    count += 1;
+                }
+                Some(prev_list) if prev_list.indent_level < target_level => {
+                    // Higher level (less indented) - this is a parent, stop counting
+                    break;
+                }
+                None => {
+                    // Not a list item - break the sequence
+                    break;
+                }
+                _ => {
+                    // More indented - skip but continue looking
+                }
+            }
+        }
+
+        count
+    }
+
     /// Normalize block runs: sort by position and merge adjacent runs with same format.
     fn normalize_block_runs(&mut self) {
         // Sort by start position
@@ -1930,5 +2360,287 @@ mod tests {
         assert_eq!(format.left_indent, 40.0);
         assert_eq!(format.line_spacing, LineSpacing::Double);
         assert_eq!(format.spacing_after, 12.0);
+    }
+
+    // =========================================================================
+    // List Formatting Tests
+    // =========================================================================
+
+    #[test]
+    fn test_list_style_is_bullet() {
+        assert!(ListStyle::Disc.is_bullet());
+        assert!(ListStyle::Circle.is_bullet());
+        assert!(ListStyle::Square.is_bullet());
+        assert!(!ListStyle::Decimal.is_bullet());
+        assert!(!ListStyle::LowerAlpha.is_bullet());
+        assert!(!ListStyle::UpperAlpha.is_bullet());
+        assert!(!ListStyle::LowerRoman.is_bullet());
+        assert!(!ListStyle::UpperRoman.is_bullet());
+    }
+
+    #[test]
+    fn test_list_style_is_numbered() {
+        assert!(!ListStyle::Disc.is_numbered());
+        assert!(!ListStyle::Circle.is_numbered());
+        assert!(!ListStyle::Square.is_numbered());
+        assert!(ListStyle::Decimal.is_numbered());
+        assert!(ListStyle::LowerAlpha.is_numbered());
+        assert!(ListStyle::UpperAlpha.is_numbered());
+        assert!(ListStyle::LowerRoman.is_numbered());
+        assert!(ListStyle::UpperRoman.is_numbered());
+    }
+
+    #[test]
+    fn test_list_style_bullet_markers() {
+        assert_eq!(ListStyle::Disc.bullet_marker(), Some("•"));
+        assert_eq!(ListStyle::Circle.bullet_marker(), Some("○"));
+        assert_eq!(ListStyle::Square.bullet_marker(), Some("■"));
+        assert_eq!(ListStyle::Decimal.bullet_marker(), None);
+    }
+
+    #[test]
+    fn test_list_style_number_markers() {
+        // Decimal
+        assert_eq!(ListStyle::Decimal.number_marker(0, 1), Some("1.".to_string()));
+        assert_eq!(ListStyle::Decimal.number_marker(1, 1), Some("2.".to_string()));
+        assert_eq!(ListStyle::Decimal.number_marker(9, 1), Some("10.".to_string()));
+
+        // Lower alpha
+        assert_eq!(ListStyle::LowerAlpha.number_marker(0, 1), Some("a.".to_string()));
+        assert_eq!(ListStyle::LowerAlpha.number_marker(1, 1), Some("b.".to_string()));
+        assert_eq!(ListStyle::LowerAlpha.number_marker(25, 1), Some("z.".to_string()));
+        assert_eq!(ListStyle::LowerAlpha.number_marker(26, 1), Some("aa.".to_string()));
+
+        // Upper alpha
+        assert_eq!(ListStyle::UpperAlpha.number_marker(0, 1), Some("A.".to_string()));
+        assert_eq!(ListStyle::UpperAlpha.number_marker(25, 1), Some("Z.".to_string()));
+
+        // Lower roman
+        assert_eq!(ListStyle::LowerRoman.number_marker(0, 1), Some("i.".to_string()));
+        assert_eq!(ListStyle::LowerRoman.number_marker(1, 1), Some("ii.".to_string()));
+        assert_eq!(ListStyle::LowerRoman.number_marker(3, 1), Some("iv.".to_string()));
+        assert_eq!(ListStyle::LowerRoman.number_marker(8, 1), Some("ix.".to_string()));
+
+        // Upper roman
+        assert_eq!(ListStyle::UpperRoman.number_marker(0, 1), Some("I.".to_string()));
+        assert_eq!(ListStyle::UpperRoman.number_marker(9, 1), Some("X.".to_string()));
+    }
+
+    #[test]
+    fn test_list_style_for_level() {
+        // Bullet styles by level
+        assert_eq!(ListStyle::bullet_for_level(0), ListStyle::Disc);
+        assert_eq!(ListStyle::bullet_for_level(1), ListStyle::Circle);
+        assert_eq!(ListStyle::bullet_for_level(2), ListStyle::Square);
+        assert_eq!(ListStyle::bullet_for_level(3), ListStyle::Square);
+
+        // Number styles by level
+        assert_eq!(ListStyle::number_for_level(0), ListStyle::Decimal);
+        assert_eq!(ListStyle::number_for_level(1), ListStyle::LowerAlpha);
+        assert_eq!(ListStyle::number_for_level(2), ListStyle::LowerRoman);
+        assert_eq!(ListStyle::number_for_level(3), ListStyle::Decimal);
+    }
+
+    #[test]
+    fn test_list_format_creation() {
+        let bullet = ListFormat::bullet();
+        assert_eq!(bullet.style, ListStyle::Disc);
+        assert_eq!(bullet.indent_level, 0);
+        assert_eq!(bullet.start, 1);
+
+        let numbered = ListFormat::numbered();
+        assert_eq!(numbered.style, ListStyle::Decimal);
+        assert_eq!(numbered.indent_level, 0);
+        assert_eq!(numbered.start, 1);
+
+        let custom = ListFormat::new(ListStyle::LowerAlpha)
+            .with_indent_level(2)
+            .with_start(5);
+        assert_eq!(custom.style, ListStyle::LowerAlpha);
+        assert_eq!(custom.indent_level, 2);
+        assert_eq!(custom.start, 5);
+    }
+
+    #[test]
+    fn test_list_format_left_indent() {
+        let level0 = ListFormat::bullet().with_indent_level(0);
+        assert_eq!(level0.left_indent(), ListFormat::INDENT_STEP);
+
+        let level1 = ListFormat::bullet().with_indent_level(1);
+        assert_eq!(level1.left_indent(), ListFormat::INDENT_STEP * 2.0);
+
+        let level2 = ListFormat::bullet().with_indent_level(2);
+        assert_eq!(level2.left_indent(), ListFormat::INDENT_STEP * 3.0);
+    }
+
+    #[test]
+    fn test_list_format_marker() {
+        let bullet = ListFormat::bullet();
+        assert_eq!(bullet.marker(0), "•");
+        assert_eq!(bullet.marker(5), "•");
+
+        let numbered = ListFormat::numbered();
+        assert_eq!(numbered.marker(0), "1.");
+        assert_eq!(numbered.marker(1), "2.");
+        assert_eq!(numbered.marker(9), "10.");
+
+        let numbered_start5 = ListFormat::numbered().with_start(5);
+        assert_eq!(numbered_start5.marker(0), "5.");
+        assert_eq!(numbered_start5.marker(1), "6.");
+    }
+
+    #[test]
+    fn test_block_format_list() {
+        let default = BlockFormat::new();
+        assert!(default.list_format.is_none());
+        assert!(!default.is_list_item());
+
+        let bullet = BlockFormat::bullet_list();
+        assert!(bullet.list_format.is_some());
+        assert!(bullet.is_list_item());
+        assert!(bullet.list_format.as_ref().unwrap().style.is_bullet());
+
+        let numbered = BlockFormat::numbered_list();
+        assert!(numbered.list_format.is_some());
+        assert!(numbered.is_list_item());
+        assert!(numbered.list_format.as_ref().unwrap().style.is_numbered());
+    }
+
+    #[test]
+    fn test_document_toggle_bullet_list() {
+        let mut doc = StyledDocument::from_text("Item 1\nItem 2\nItem 3");
+
+        // All paragraphs start without list formatting
+        assert!(!doc.is_list_item(0));
+        assert!(!doc.is_list_item(1));
+        assert!(!doc.is_list_item(2));
+
+        // Toggle bullet list on all paragraphs
+        doc.toggle_bullet_list(0..3);
+        assert!(doc.is_list_item(0));
+        assert!(doc.is_list_item(1));
+        assert!(doc.is_list_item(2));
+
+        // Verify they're bullet lists
+        assert!(doc.list_format_at(0).unwrap().style.is_bullet());
+        assert!(doc.list_format_at(1).unwrap().style.is_bullet());
+        assert!(doc.list_format_at(2).unwrap().style.is_bullet());
+
+        // Toggle again to remove
+        doc.toggle_bullet_list(0..3);
+        assert!(!doc.is_list_item(0));
+        assert!(!doc.is_list_item(1));
+        assert!(!doc.is_list_item(2));
+    }
+
+    #[test]
+    fn test_document_toggle_numbered_list() {
+        let mut doc = StyledDocument::from_text("Item 1\nItem 2\nItem 3");
+
+        // Toggle numbered list on all paragraphs
+        doc.toggle_numbered_list(0..3);
+        assert!(doc.is_list_item(0));
+        assert!(doc.is_list_item(1));
+        assert!(doc.is_list_item(2));
+
+        // Verify they're numbered lists
+        assert!(doc.list_format_at(0).unwrap().style.is_numbered());
+        assert!(doc.list_format_at(1).unwrap().style.is_numbered());
+        assert!(doc.list_format_at(2).unwrap().style.is_numbered());
+
+        // Toggle again to remove
+        doc.toggle_numbered_list(0..3);
+        assert!(!doc.is_list_item(0));
+        assert!(!doc.is_list_item(1));
+        assert!(!doc.is_list_item(2));
+    }
+
+    #[test]
+    fn test_document_list_indent() {
+        let mut doc = StyledDocument::from_text("Item 1\nItem 2");
+        doc.toggle_bullet_list(0..2);
+
+        // Initial indent level is 0
+        assert_eq!(doc.list_format_at(0).unwrap().indent_level, 0);
+        assert_eq!(doc.list_format_at(1).unwrap().indent_level, 0);
+
+        // Increase indent
+        doc.increase_list_indent(0..1);
+        assert_eq!(doc.list_format_at(0).unwrap().indent_level, 1);
+        assert_eq!(doc.list_format_at(1).unwrap().indent_level, 0); // Not affected
+
+        // Increase again
+        doc.increase_list_indent(0..1);
+        assert_eq!(doc.list_format_at(0).unwrap().indent_level, 2);
+
+        // Decrease indent
+        doc.decrease_list_indent(0..1);
+        assert_eq!(doc.list_format_at(0).unwrap().indent_level, 1);
+
+        // Decrease to 0
+        doc.decrease_list_indent(0..1);
+        assert_eq!(doc.list_format_at(0).unwrap().indent_level, 0);
+
+        // Cannot go below 0
+        doc.decrease_list_indent(0..1);
+        assert_eq!(doc.list_format_at(0).unwrap().indent_level, 0);
+    }
+
+    #[test]
+    fn test_document_set_list_style() {
+        let mut doc = StyledDocument::from_text("Item 1\nItem 2");
+        doc.toggle_bullet_list(0..2);
+
+        // Change to circle
+        doc.set_list_style(0..2, ListStyle::Circle);
+        assert_eq!(doc.list_format_at(0).unwrap().style, ListStyle::Circle);
+        assert_eq!(doc.list_format_at(1).unwrap().style, ListStyle::Circle);
+
+        // Change first to numbered
+        doc.set_list_style(0..1, ListStyle::Decimal);
+        assert_eq!(doc.list_format_at(0).unwrap().style, ListStyle::Decimal);
+        assert_eq!(doc.list_format_at(1).unwrap().style, ListStyle::Circle);
+    }
+
+    #[test]
+    fn test_document_list_item_number() {
+        let mut doc = StyledDocument::from_text("Item 1\nItem 2\nItem 3\nNot a list\nItem 4\nItem 5");
+
+        // Make first three items a numbered list
+        doc.toggle_numbered_list(0..3);
+
+        // Item numbers (0-indexed count within the list)
+        assert_eq!(doc.list_item_number(0), 0);
+        assert_eq!(doc.list_item_number(1), 1);
+        assert_eq!(doc.list_item_number(2), 2);
+
+        // Non-list item
+        assert_eq!(doc.list_item_number(3), 0);
+
+        // Make items 4-5 a separate list
+        doc.toggle_numbered_list(4..6);
+
+        // New list starts at 0
+        assert_eq!(doc.list_item_number(4), 0);
+        assert_eq!(doc.list_item_number(5), 1);
+    }
+
+    #[test]
+    fn test_nested_list_numbering() {
+        let mut doc = StyledDocument::from_text("Item 1\nSub 1\nSub 2\nItem 2");
+
+        // Create list
+        doc.toggle_numbered_list(0..4);
+
+        // Indent sub-items
+        doc.increase_list_indent(1..3);
+
+        // Top-level items
+        assert_eq!(doc.list_item_number(0), 0);
+        assert_eq!(doc.list_item_number(3), 1); // After the nested items
+
+        // Nested items have their own numbering
+        assert_eq!(doc.list_item_number(1), 0);
+        assert_eq!(doc.list_item_number(2), 1);
     }
 }

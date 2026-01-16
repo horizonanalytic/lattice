@@ -34,7 +34,7 @@
 use parking_lot::RwLock;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::styled_document::{CharFormat, LineSpacing, StyledDocument};
+use super::styled_document::{CharFormat, LineSpacing, ListFormat, ListStyle, StyledDocument};
 use crate::platform::Clipboard;
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
@@ -1199,6 +1199,16 @@ impl TextEdit {
         !self.document.block_runs().is_empty()
     }
 
+    /// Check if any paragraph has list formatting.
+    pub fn has_list_formatting(&self) -> bool {
+        for run in self.document.block_runs() {
+            if run.format.list_format.is_some() {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Get the uniform alignment for the entire document.
     ///
     /// Returns `Some(alignment)` if all paragraphs have the same alignment,
@@ -1347,6 +1357,108 @@ impl TextEdit {
     pub fn paragraph_spacing_after(&self) -> f32 {
         let para_idx = self.document.paragraph_at(self.cursor_position());
         self.document.block_format_at(para_idx).spacing_after
+    }
+
+    // =========================================================================
+    // List Formatting
+    // =========================================================================
+
+    /// Check if the current paragraph is a list item.
+    pub fn is_list_item(&self) -> bool {
+        let para_idx = self.document.paragraph_at(self.cursor_position());
+        self.document.is_list_item(para_idx)
+    }
+
+    /// Get the list format for the current paragraph.
+    /// Returns `None` if the paragraph is not a list item.
+    pub fn list_format(&self) -> Option<ListFormat> {
+        let para_idx = self.document.paragraph_at(self.cursor_position());
+        self.document.list_format_at(para_idx)
+    }
+
+    /// Toggle bullet list for the selected paragraphs.
+    ///
+    /// If all selected paragraphs are bullet list items, removes the list formatting.
+    /// Otherwise, makes all selected paragraphs bullet list items.
+    pub fn toggle_bullet_list(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.toggle_bullet_list(start_para..end_para);
+        self.invalidate_layout();
+        self.base.update();
+    }
+
+    /// Toggle numbered list for the selected paragraphs.
+    ///
+    /// If all selected paragraphs are numbered list items, removes the list formatting.
+    /// Otherwise, makes all selected paragraphs numbered list items.
+    pub fn toggle_numbered_list(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.toggle_numbered_list(start_para..end_para);
+        self.invalidate_layout();
+        self.base.update();
+    }
+
+    /// Increase the indent level of list items in the selection.
+    ///
+    /// Only affects paragraphs that are already list items.
+    pub fn increase_list_indent(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.increase_list_indent(start_para..end_para);
+        self.invalidate_layout();
+        self.base.update();
+    }
+
+    /// Decrease the indent level of list items in the selection.
+    ///
+    /// Only affects paragraphs that are already list items.
+    /// Does nothing if indent level is already 0.
+    pub fn decrease_list_indent(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.decrease_list_indent(start_para..end_para);
+        self.invalidate_layout();
+        self.base.update();
+    }
+
+    /// Set the list style for list items in the selection.
+    ///
+    /// Only affects paragraphs that are already list items.
+    pub fn set_list_style(&mut self, style: ListStyle) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.set_list_style(start_para..end_para, style);
+        self.invalidate_layout();
+        self.base.update();
+    }
+
+    /// Remove list formatting from the selected paragraphs.
+    pub fn remove_list(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.set_list_format(start_para..end_para, None);
+        self.invalidate_layout();
+        self.base.update();
     }
 
     /// Get the range of paragraphs currently selected or containing the cursor.
@@ -2643,8 +2755,21 @@ impl TextEdit {
                 if self.read_only {
                     return true;
                 }
-                let spaces = " ".repeat(self.tab_width);
-                self.insert_text(&spaces);
+
+                // Check if we're in a list item
+                if self.is_list_item() {
+                    if shift {
+                        // Shift+Tab: decrease list indent (outdent)
+                        self.decrease_list_indent();
+                    } else {
+                        // Tab: increase list indent
+                        self.increase_list_indent();
+                    }
+                } else {
+                    // Not in a list: insert spaces
+                    let spaces = " ".repeat(self.tab_width);
+                    self.insert_text(&spaces);
+                }
                 true
             }
 
@@ -2873,6 +2998,9 @@ impl TextEdit {
             self.paint_selection(ctx, start, end, line_height);
         }
 
+        // Paint list markers (before text so markers appear in the margin)
+        self.paint_list_markers(ctx, font_system, line_height);
+
         // Paint text or placeholder
         if self.text.is_empty() {
             if !self.placeholder.is_empty() {
@@ -3093,6 +3221,92 @@ impl TextEdit {
                 ctx.renderer().fill_rect(match_rect, color);
             }
         }
+    }
+
+    /// Paint list markers for list items.
+    fn paint_list_markers(&self, _ctx: &mut PaintContext<'_>, font_system: &mut FontSystem, line_height: f32) {
+        if !self.has_list_formatting() {
+            return;
+        }
+
+        let para_count = self.document.paragraph_count();
+
+        // Track item numbers for numbered lists at each indent level
+        let mut item_counts: Vec<usize> = vec![0; 10]; // Support up to 10 nesting levels
+
+        for para_idx in 0..para_count {
+            let block_format = self.document.block_format_at(para_idx);
+            let Some(ref list_format) = block_format.list_format else {
+                // Reset item counts when we hit a non-list paragraph
+                for count in &mut item_counts {
+                    *count = 0;
+                }
+                continue;
+            };
+
+            // Get the paragraph's Y position
+            let para_y = self.paragraph_y_position(para_idx, line_height);
+
+            // Calculate the marker position
+            let indent_level = list_format.indent_level;
+            let list_indent = ListFormat::INDENT_STEP * (indent_level + 1) as f32;
+
+            // Get the marker text
+            let marker = if list_format.style.is_bullet() {
+                list_format.style.bullet_marker().unwrap_or("•").to_string()
+            } else {
+                // For numbered lists, track the count at this level
+                let item_number = item_counts.get(indent_level).copied().unwrap_or(0);
+                let marker = list_format.style.number_marker(item_number, list_format.start)
+                    .unwrap_or_else(|| format!("{}.", item_number + 1));
+
+                // Increment the count for this level
+                if let Some(count) = item_counts.get_mut(indent_level) {
+                    *count += 1;
+                }
+                // Reset counts for deeper levels
+                for level in (indent_level + 1)..item_counts.len() {
+                    item_counts[level] = 0;
+                }
+
+                marker
+            };
+
+            // Position the marker: left of the text, right-aligned within the indent space
+            let marker_x = list_indent - ListFormat::INDENT_STEP + 4.0; // Small padding from left
+
+            // Create a simple text layout for the marker
+            let layout = TextLayout::new(font_system, &marker, &self.font);
+
+            // Prepare and render the marker
+            if let Ok(mut text_renderer) = TextRenderer::new() {
+                if let Ok(_prepared_glyphs) = text_renderer.prepare_layout(
+                    font_system,
+                    &layout,
+                    Point::new(marker_x, para_y),
+                    self.text_color,
+                ) {
+                    // Note: Actual glyph rendering requires integration with the
+                    // application's render pass system.
+                }
+            }
+        }
+    }
+
+    /// Get the Y position of a paragraph.
+    fn paragraph_y_position(&self, para_idx: usize, line_height: f32) -> f32 {
+        // Count lines before this paragraph
+        let mut line_count = 0;
+        for idx in 0..para_idx {
+            if self.document.paragraph_range(idx).is_some() {
+                // Count wrapped lines (simplified: just count based on newlines for now)
+                // In a full implementation, this would account for word wrapping
+                line_count += 1;
+                // Add extra lines for long paragraphs if wrapping is enabled
+                // This is a simplification - proper implementation would use layout metrics
+            }
+        }
+        line_count as f32 * line_height
     }
 
     fn paint_scrollbars(&self, ctx: &mut PaintContext<'_>) {

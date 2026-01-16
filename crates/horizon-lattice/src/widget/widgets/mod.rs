@@ -75,6 +75,7 @@ mod stacked_widget;
 mod tab_bar;
 mod tab_widget;
 mod table_view;
+mod tree_view;
 mod plain_text_edit;
 mod styled_document;
 mod text_edit;
@@ -137,6 +138,7 @@ pub use stacked_widget::StackedWidget;
 pub use tab_bar::{TabBar, TabPosition};
 pub use tab_widget::TabWidget;
 pub use table_view::{GridStyle, TableView};
+pub use tree_view::{IndentationStyle, TreeView};
 pub use plain_text_edit::{HighlightSpan, LineNumberConfig, PlainTextEdit, SyntaxHighlighter};
 pub use styled_document::{
     BlockFormat, BlockRun, CharFormat, FormatRun, LineSpacing, ListFormat, ListStyle,

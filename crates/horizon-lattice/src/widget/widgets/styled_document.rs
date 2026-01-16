@@ -1685,6 +1685,1068 @@ impl StyledDocument {
 
         paragraphs
     }
+
+    // =========================================================================
+    // HTML Serialization
+    // =========================================================================
+
+    /// Convert the document to an HTML string.
+    ///
+    /// The generated HTML uses:
+    /// - `<p>` for paragraphs with inline styles for alignment and indentation
+    /// - `<ul>`, `<ol>`, `<li>` for lists with proper nesting
+    /// - `<b>`, `<i>`, `<u>`, `<s>` for basic character formatting
+    /// - `<span style="...">` for colors, fonts, and sizes
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut doc = StyledDocument::from_text("Hello world");
+    /// doc.set_format(0..5, CharFormat::bold());
+    /// let html = doc.to_html();
+    /// // Results in: "<p><b>Hello</b> world</p>"
+    /// ```
+    pub fn to_html(&self) -> String {
+        let mut html = String::new();
+        let paragraphs = self.to_paragraphs();
+
+        // Track list state for proper nesting
+        let mut list_stack: Vec<(bool, usize)> = Vec::new(); // (is_ordered, indent_level)
+
+        for (_para_idx, (text, char_spans, block_format)) in paragraphs.iter().enumerate() {
+            let is_list_item = block_format.list_format.is_some();
+            let list_format = block_format.list_format.as_ref();
+
+            if is_list_item {
+                let list_info = list_format.unwrap();
+                let is_ordered = list_info.style.is_numbered();
+                let indent_level = list_info.indent_level;
+
+                // Close lists that are deeper than current level
+                while let Some(&(_, stack_level)) = list_stack.last() {
+                    if stack_level > indent_level {
+                        let (was_ordered, _) = list_stack.pop().unwrap();
+                        html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
+                    } else {
+                        break;
+                    }
+                }
+
+                // Check if we need to change list type at current level
+                if let Some(&(stack_ordered, stack_level)) = list_stack.last() {
+                    if stack_level == indent_level && stack_ordered != is_ordered {
+                        // Close and reopen with different type
+                        let (was_ordered, _) = list_stack.pop().unwrap();
+                        html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
+                        html.push_str(if is_ordered { "<ol>" } else { "<ul>" });
+                        list_stack.push((is_ordered, indent_level));
+                    }
+                }
+
+                // Open new lists as needed
+                while list_stack.len() <= indent_level {
+                    let target_level = list_stack.len();
+                    html.push_str(if is_ordered { "<ol>" } else { "<ul>" });
+                    list_stack.push((is_ordered, target_level));
+                }
+
+                // Write the list item
+                html.push_str("<li>");
+                self.write_formatted_text(&mut html, text, char_spans);
+                html.push_str("</li>");
+            } else {
+                // Close all open lists before non-list paragraph
+                while let Some((was_ordered, _)) = list_stack.pop() {
+                    html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
+                }
+
+                // Write paragraph
+                html.push_str("<p");
+                self.write_paragraph_style(&mut html, block_format);
+                html.push('>');
+                self.write_formatted_text(&mut html, text, char_spans);
+                html.push_str("</p>");
+            }
+        }
+
+        // Close any remaining open lists
+        while let Some((was_ordered, _)) = list_stack.pop() {
+            html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
+        }
+
+        html
+    }
+
+    /// Write paragraph style attributes.
+    fn write_paragraph_style(&self, html: &mut String, format: &BlockFormat) {
+        let mut styles = Vec::new();
+
+        // Alignment
+        match format.alignment {
+            HorizontalAlign::Center => styles.push("text-align:center".to_string()),
+            HorizontalAlign::Right => styles.push("text-align:right".to_string()),
+            HorizontalAlign::Justified => styles.push("text-align:justify".to_string()),
+            HorizontalAlign::Left => {} // Default, no style needed
+        }
+
+        // Indentation
+        if format.left_indent > 0.0 {
+            styles.push(format!("margin-left:{}px", format.left_indent as i32));
+        }
+        if format.first_line_indent != 0.0 {
+            styles.push(format!("text-indent:{}px", format.first_line_indent as i32));
+        }
+
+        // Spacing
+        if format.spacing_before > 0.0 {
+            styles.push(format!("margin-top:{}px", format.spacing_before as i32));
+        }
+        if format.spacing_after > 0.0 {
+            styles.push(format!("margin-bottom:{}px", format.spacing_after as i32));
+        }
+
+        // Line spacing
+        match format.line_spacing {
+            LineSpacing::Single => {} // Default
+            LineSpacing::OnePointFive => styles.push("line-height:1.5".to_string()),
+            LineSpacing::Double => styles.push("line-height:2.0".to_string()),
+            LineSpacing::Custom(m) => styles.push(format!("line-height:{}", m)),
+        }
+
+        if !styles.is_empty() {
+            html.push_str(" style=\"");
+            html.push_str(&styles.join(";"));
+            html.push('"');
+        }
+    }
+
+    /// Write formatted text with character formatting tags.
+    fn write_formatted_text(
+        &self,
+        html: &mut String,
+        text: &str,
+        char_spans: &[(Range<usize>, CharFormat)],
+    ) {
+        if text.is_empty() {
+            return;
+        }
+
+        // Build a list of format changes at each position
+        let mut positions: Vec<usize> = vec![0, text.len()];
+        for (range, _) in char_spans {
+            if range.start < text.len() {
+                positions.push(range.start);
+            }
+            if range.end <= text.len() {
+                positions.push(range.end);
+            }
+        }
+        positions.sort();
+        positions.dedup();
+
+        // Write each segment with its format
+        for window in positions.windows(2) {
+            let start = window[0];
+            let end = window[1];
+            if start >= end || start >= text.len() {
+                continue;
+            }
+            let end = end.min(text.len());
+            let segment = &text[start..end];
+
+            // Find the format for this segment
+            let format = char_spans
+                .iter()
+                .find(|(range, _)| range.start <= start && range.end >= end)
+                .map(|(_, f)| f.clone())
+                .unwrap_or_default();
+
+            self.write_formatted_segment(html, segment, &format);
+        }
+    }
+
+    /// Write a single text segment with its formatting.
+    fn write_formatted_segment(&self, html: &mut String, text: &str, format: &CharFormat) {
+        // Collect opening and closing tags
+        let mut open_tags = Vec::new();
+
+        if format.bold {
+            open_tags.push("<b>");
+        }
+        if format.italic {
+            open_tags.push("<i>");
+        }
+        if format.underline {
+            open_tags.push("<u>");
+        }
+        if format.strikethrough {
+            open_tags.push("<s>");
+        }
+
+        // Check if we need a span for additional styling
+        let mut span_styles = Vec::new();
+
+        if let Some(color) = &format.foreground_color {
+            let r = (color.r * 255.0) as u8;
+            let g = (color.g * 255.0) as u8;
+            let b = (color.b * 255.0) as u8;
+            span_styles.push(format!("color:#{:02x}{:02x}{:02x}", r, g, b));
+        }
+        if let Some(color) = &format.background_color {
+            let r = (color.r * 255.0) as u8;
+            let g = (color.g * 255.0) as u8;
+            let b = (color.b * 255.0) as u8;
+            span_styles.push(format!("background-color:#{:02x}{:02x}{:02x}", r, g, b));
+        }
+        if let Some(size) = format.font_size {
+            span_styles.push(format!("font-size:{}px", size as i32));
+        }
+        if let Some(family) = &format.font_family {
+            let family_name = match family {
+                FontFamily::SansSerif => "sans-serif",
+                FontFamily::Serif => "serif",
+                FontFamily::Monospace => "monospace",
+                FontFamily::Cursive => "cursive",
+                FontFamily::Fantasy => "fantasy",
+                FontFamily::Name(name) => name.as_str(),
+            };
+            span_styles.push(format!("font-family:{}", family_name));
+        }
+        if let Some(weight) = &format.font_weight {
+            span_styles.push(format!("font-weight:{}", weight.0));
+        }
+
+        // Write opening tags
+        for tag in &open_tags {
+            html.push_str(tag);
+        }
+
+        // Write span if needed
+        let has_span = !span_styles.is_empty();
+        if has_span {
+            html.push_str("<span style=\"");
+            html.push_str(&span_styles.join(";"));
+            html.push_str("\">");
+        }
+
+        // Write escaped text
+        html.push_str(&html_escape(text));
+
+        // Write closing span
+        if has_span {
+            html.push_str("</span>");
+        }
+
+        // Write closing tags in reverse order
+        for tag in open_tags.iter().rev() {
+            let close_tag = match *tag {
+                "<b>" => "</b>",
+                "<i>" => "</i>",
+                "<u>" => "</u>",
+                "<s>" => "</s>",
+                _ => continue,
+            };
+            html.push_str(close_tag);
+        }
+    }
+
+    /// Parse HTML and create a StyledDocument.
+    ///
+    /// Supports the following HTML elements:
+    /// - `<p>` paragraphs with style attributes
+    /// - `<ul>`, `<ol>`, `<li>` lists
+    /// - `<b>`, `<strong>` bold
+    /// - `<i>`, `<em>` italic
+    /// - `<u>` underline
+    /// - `<s>`, `<del>`, `<strike>` strikethrough
+    /// - `<br>` line breaks
+    /// - `<span style="...">` inline styles
+    /// - `<font color="..." size="...">` legacy font styling
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let doc = StyledDocument::from_html("<p><b>Hello</b> world</p>");
+    /// assert_eq!(doc.text(), "Hello world");
+    /// ```
+    pub fn from_html(html: &str) -> Self {
+        HtmlDocumentParser::parse(html)
+    }
+}
+
+/// Escape special HTML characters.
+fn html_escape(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '<' => result.push_str("&lt;"),
+            '>' => result.push_str("&gt;"),
+            '&' => result.push_str("&amp;"),
+            '"' => result.push_str("&quot;"),
+            '\'' => result.push_str("&#39;"),
+            _ => result.push(c),
+        }
+    }
+    result
+}
+
+/// State for tracking format during HTML parsing.
+#[derive(Debug, Clone, Default)]
+struct HtmlFormatState {
+    bold: bool,
+    italic: bool,
+    underline: bool,
+    strikethrough: bool,
+    foreground_color: Option<Color>,
+    background_color: Option<Color>,
+    font_family: Option<FontFamily>,
+    font_size: Option<f32>,
+    font_weight: Option<FontWeight>,
+}
+
+impl HtmlFormatState {
+    fn to_char_format(&self) -> CharFormat {
+        CharFormat {
+            bold: self.bold,
+            italic: self.italic,
+            underline: self.underline,
+            strikethrough: self.strikethrough,
+            foreground_color: self.foreground_color.clone(),
+            background_color: self.background_color.clone(),
+            font_family: self.font_family.clone(),
+            font_size: self.font_size,
+            font_weight: self.font_weight.clone(),
+        }
+    }
+}
+
+/// Parser state for block-level elements.
+#[derive(Debug, Clone, Default)]
+struct HtmlBlockState {
+    alignment: HorizontalAlign,
+    left_indent: f32,
+    first_line_indent: f32,
+    line_spacing: LineSpacing,
+    spacing_before: f32,
+    spacing_after: f32,
+    list_format: Option<ListFormat>,
+}
+
+impl HtmlBlockState {
+    fn to_block_format(&self) -> BlockFormat {
+        BlockFormat {
+            alignment: self.alignment,
+            left_indent: self.left_indent,
+            first_line_indent: self.first_line_indent,
+            line_spacing: self.line_spacing,
+            spacing_before: self.spacing_before,
+            spacing_after: self.spacing_after,
+            list_format: self.list_format.clone(),
+        }
+    }
+}
+
+/// HTML parser for StyledDocument.
+struct HtmlDocumentParser {
+    text: String,
+    format_runs: Vec<FormatRun>,
+    block_runs: Vec<BlockRun>,
+    format_stack: Vec<HtmlFormatState>,
+    list_stack: Vec<(bool, usize)>, // (is_ordered, indent_level)
+    current_block: HtmlBlockState,
+    paragraph_start: usize,
+    current_paragraph: usize,
+}
+
+impl HtmlDocumentParser {
+    fn new() -> Self {
+        Self {
+            text: String::new(),
+            format_runs: Vec::new(),
+            block_runs: Vec::new(),
+            format_stack: vec![HtmlFormatState::default()],
+            list_stack: Vec::new(),
+            current_block: HtmlBlockState::default(),
+            paragraph_start: 0,
+            current_paragraph: 0,
+        }
+    }
+
+    fn current_format(&self) -> &HtmlFormatState {
+        self.format_stack.last().expect("format_stack should never be empty")
+    }
+
+    fn parse(html: &str) -> StyledDocument {
+        let mut parser = HtmlDocumentParser::new();
+        let mut chars = html.chars().peekable();
+
+        while let Some(c) = chars.next() {
+            if c == '<' {
+                // Parse tag
+                let mut tag_content = String::new();
+                while let Some(&tc) = chars.peek() {
+                    if tc == '>' {
+                        chars.next();
+                        break;
+                    }
+                    tag_content.push(chars.next().unwrap());
+                }
+                parser.handle_tag(&tag_content);
+            } else if c == '&' {
+                // Parse HTML entity
+                let mut entity = String::new();
+                while let Some(&ec) = chars.peek() {
+                    if ec == ';' {
+                        chars.next();
+                        break;
+                    }
+                    if ec == '<' || ec == ' ' || entity.len() > 10 {
+                        // Not a valid entity, treat as literal
+                        parser.add_text("&");
+                        parser.add_text(&entity);
+                        entity.clear();
+                        break;
+                    }
+                    entity.push(chars.next().unwrap());
+                }
+                if !entity.is_empty() {
+                    parser.add_text(&decode_html_entity(&entity));
+                }
+            } else {
+                parser.add_text(&c.to_string());
+            }
+        }
+
+        // Finalize any pending paragraph
+        parser.finalize_paragraph();
+
+        // Normalize the document
+        let mut doc = StyledDocument {
+            text: parser.text,
+            format_runs: parser.format_runs,
+            block_runs: parser.block_runs,
+        };
+        doc.normalize_runs();
+        doc.normalize_block_runs();
+
+        doc
+    }
+
+    fn add_text(&mut self, text: &str) {
+        if text.is_empty() {
+            return;
+        }
+
+        let start = self.text.len();
+        self.text.push_str(text);
+        let end = self.text.len();
+
+        // Add format run if styled
+        let format = self.current_format().to_char_format();
+        if format.is_styled() {
+            self.format_runs.push(FormatRun::new(start..end, format));
+        }
+    }
+
+    fn finalize_paragraph(&mut self) {
+        if self.text.len() > self.paragraph_start || self.current_block.list_format.is_some() {
+            // Add block format if styled
+            let block_format = self.current_block.to_block_format();
+            if block_format.is_styled() {
+                self.block_runs.push(BlockRun::new(
+                    self.current_paragraph..self.current_paragraph + 1,
+                    block_format,
+                ));
+            }
+        }
+        self.paragraph_start = self.text.len();
+        self.current_block = HtmlBlockState::default();
+    }
+
+    fn start_new_paragraph(&mut self) {
+        // Add newline if not at start and not already ending with newline
+        if !self.text.is_empty() && !self.text.ends_with('\n') {
+            self.text.push('\n');
+            self.current_paragraph += 1;
+        }
+        self.finalize_paragraph();
+    }
+
+    fn handle_tag(&mut self, tag_content: &str) {
+        let tag_content = tag_content.trim();
+
+        // Check for self-closing
+        let is_self_closing = tag_content.ends_with('/');
+        let tag_content = tag_content.trim_end_matches('/').trim();
+
+        // Check for closing tag
+        let is_closing = tag_content.starts_with('/');
+        let tag_content = tag_content.trim_start_matches('/').trim();
+
+        // Extract tag name and attributes
+        let (tag_name, attrs_str) = match tag_content.find(|c: char| c.is_whitespace()) {
+            Some(idx) => (&tag_content[..idx], tag_content[idx..].trim()),
+            None => (tag_content, ""),
+        };
+        let tag_name = tag_name.to_lowercase();
+
+        if is_closing {
+            self.handle_closing_tag(&tag_name);
+        } else {
+            let attrs = parse_html_attributes(attrs_str);
+            self.handle_opening_tag(&tag_name, &attrs, is_self_closing);
+        }
+    }
+
+    fn handle_opening_tag(
+        &mut self,
+        tag_name: &str,
+        attrs: &[(String, String)],
+        is_self_closing: bool,
+    ) {
+        match tag_name {
+            "b" | "strong" => {
+                self.push_format(|f| f.bold = true);
+            }
+            "i" | "em" => {
+                self.push_format(|f| f.italic = true);
+            }
+            "u" => {
+                self.push_format(|f| f.underline = true);
+            }
+            "s" | "del" | "strike" => {
+                self.push_format(|f| f.strikethrough = true);
+            }
+            "br" => {
+                self.text.push('\n');
+                self.current_paragraph += 1;
+            }
+            "p" | "div" => {
+                self.start_new_paragraph();
+                self.parse_block_style(attrs);
+                if !is_self_closing {
+                    // Push a dummy format for pairing with close tag
+                    let current = self.current_format().clone();
+                    self.format_stack.push(current);
+                }
+            }
+            "ul" => {
+                let indent_level = self.list_stack.len();
+                self.list_stack.push((false, indent_level));
+            }
+            "ol" => {
+                let indent_level = self.list_stack.len();
+                self.list_stack.push((true, indent_level));
+            }
+            "li" => {
+                self.start_new_paragraph();
+                if let Some(&(is_ordered, _)) = self.list_stack.last() {
+                    let indent_level = self.list_stack.len().saturating_sub(1);
+                    let style = if is_ordered {
+                        ListStyle::number_for_level(indent_level)
+                    } else {
+                        ListStyle::bullet_for_level(indent_level)
+                    };
+                    self.current_block.list_format = Some(ListFormat {
+                        style,
+                        indent_level,
+                        start: 1,
+                    });
+                }
+                // Push dummy format for close tag
+                let current = self.current_format().clone();
+                self.format_stack.push(current);
+            }
+            "span" => {
+                self.push_format(|_| {});
+                self.parse_inline_style(attrs);
+            }
+            "font" => {
+                let (size, color) = parse_font_tag_attrs(attrs);
+                self.push_format(|f| {
+                    if let Some(s) = size {
+                        f.font_size = Some(s);
+                    }
+                    if let Some(c) = color {
+                        f.foreground_color = Some(c);
+                    }
+                });
+            }
+            "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
+                self.start_new_paragraph();
+                let size = match tag_name {
+                    "h1" => 32.0,
+                    "h2" => 24.0,
+                    "h3" => 18.0,
+                    "h4" => 16.0,
+                    "h5" => 14.0,
+                    "h6" => 12.0,
+                    _ => 16.0,
+                };
+                self.push_format(|f| {
+                    f.bold = true;
+                    f.font_size = Some(size);
+                });
+            }
+            _ => {
+                // Unknown tag - push dummy format to balance stack
+                if !is_self_closing {
+                    let current = self.current_format().clone();
+                    self.format_stack.push(current);
+                }
+            }
+        }
+    }
+
+    fn handle_closing_tag(&mut self, tag_name: &str) {
+        match tag_name {
+            "b" | "strong" | "i" | "em" | "u" | "s" | "del" | "strike" | "span" | "font" => {
+                self.pop_format();
+            }
+            "p" | "div" | "li" => {
+                self.finalize_paragraph();
+                self.pop_format();
+            }
+            "ul" | "ol" => {
+                self.list_stack.pop();
+            }
+            "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
+                self.finalize_paragraph();
+                self.pop_format();
+            }
+            _ => {
+                self.pop_format();
+            }
+        }
+    }
+
+    fn push_format(&mut self, modifier: impl FnOnce(&mut HtmlFormatState)) {
+        let mut new_format = self.current_format().clone();
+        modifier(&mut new_format);
+        self.format_stack.push(new_format);
+    }
+
+    fn pop_format(&mut self) {
+        if self.format_stack.len() > 1 {
+            self.format_stack.pop();
+        }
+    }
+
+    fn parse_block_style(&mut self, attrs: &[(String, String)]) {
+        for (key, value) in attrs {
+            if key == "style" {
+                self.parse_style_attribute(value, true);
+            } else if key == "align" {
+                self.current_block.alignment = match value.to_lowercase().as_str() {
+                    "center" => HorizontalAlign::Center,
+                    "right" => HorizontalAlign::Right,
+                    "justify" => HorizontalAlign::Justified,
+                    _ => HorizontalAlign::Left,
+                };
+            }
+        }
+    }
+
+    fn parse_inline_style(&mut self, attrs: &[(String, String)]) {
+        for (key, value) in attrs {
+            if key == "style" {
+                self.parse_style_attribute(value, false);
+            }
+        }
+    }
+
+    fn parse_style_attribute(&mut self, style: &str, is_block: bool) {
+        for declaration in style.split(';') {
+            let declaration = declaration.trim();
+            if declaration.is_empty() {
+                continue;
+            }
+
+            let parts: Vec<&str> = declaration.splitn(2, ':').collect();
+            if parts.len() != 2 {
+                continue;
+            }
+
+            let prop = parts[0].trim().to_lowercase();
+            let value = parts[1].trim();
+
+            match prop.as_str() {
+                // Block-level styles
+                "text-align" if is_block => {
+                    self.current_block.alignment = match value.to_lowercase().as_str() {
+                        "center" => HorizontalAlign::Center,
+                        "right" => HorizontalAlign::Right,
+                        "justify" => HorizontalAlign::Justified,
+                        _ => HorizontalAlign::Left,
+                    };
+                }
+                "margin-left" if is_block => {
+                    if let Some(px) = parse_px_value(value) {
+                        self.current_block.left_indent = px;
+                    }
+                }
+                "text-indent" if is_block => {
+                    if let Some(px) = parse_px_value(value) {
+                        self.current_block.first_line_indent = px;
+                    }
+                }
+                "margin-top" if is_block => {
+                    if let Some(px) = parse_px_value(value) {
+                        self.current_block.spacing_before = px;
+                    }
+                }
+                "margin-bottom" if is_block => {
+                    if let Some(px) = parse_px_value(value) {
+                        self.current_block.spacing_after = px;
+                    }
+                }
+                "line-height" if is_block => {
+                    if let Ok(multiplier) = value.parse::<f32>() {
+                        self.current_block.line_spacing = if (multiplier - 1.2).abs() < 0.1 {
+                            LineSpacing::Single
+                        } else if (multiplier - 1.5).abs() < 0.1 {
+                            LineSpacing::OnePointFive
+                        } else if (multiplier - 2.0).abs() < 0.1 {
+                            LineSpacing::Double
+                        } else {
+                            LineSpacing::Custom(multiplier)
+                        };
+                    }
+                }
+                // Inline styles
+                "color" => {
+                    if let Some(color) = parse_css_color(value) {
+                        if let Some(f) = self.format_stack.last_mut() {
+                            f.foreground_color = Some(color);
+                        }
+                    }
+                }
+                "background-color" => {
+                    if let Some(color) = parse_css_color(value) {
+                        if let Some(f) = self.format_stack.last_mut() {
+                            f.background_color = Some(color);
+                        }
+                    }
+                }
+                "font-size" => {
+                    if let Some(px) = parse_px_value(value) {
+                        if let Some(f) = self.format_stack.last_mut() {
+                            f.font_size = Some(px);
+                        }
+                    }
+                }
+                "font-weight" => {
+                    if let Some(f) = self.format_stack.last_mut() {
+                        if value == "bold" || value == "700" || value == "800" || value == "900" {
+                            f.bold = true;
+                        } else if let Ok(weight) = value.parse::<u16>() {
+                            f.font_weight = Some(FontWeight(weight));
+                        }
+                    }
+                }
+                "font-style" => {
+                    if let Some(f) = self.format_stack.last_mut() {
+                        if value == "italic" || value == "oblique" {
+                            f.italic = true;
+                        }
+                    }
+                }
+                "text-decoration" => {
+                    if let Some(f) = self.format_stack.last_mut() {
+                        if value.contains("underline") {
+                            f.underline = true;
+                        }
+                        if value.contains("line-through") {
+                            f.strikethrough = true;
+                        }
+                    }
+                }
+                "font-family" => {
+                    if let Some(f) = self.format_stack.last_mut() {
+                        let family = value.trim_matches(|c| c == '"' || c == '\'');
+                        f.font_family = Some(match family.to_lowercase().as_str() {
+                            "sans-serif" => FontFamily::SansSerif,
+                            "serif" => FontFamily::Serif,
+                            "monospace" => FontFamily::Monospace,
+                            "cursive" => FontFamily::Cursive,
+                            "fantasy" => FontFamily::Fantasy,
+                            _ => FontFamily::name(family),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+/// Parse HTML attributes from a string.
+fn parse_html_attributes(attrs_str: &str) -> Vec<(String, String)> {
+    let mut result = Vec::new();
+    let mut chars = attrs_str.chars().peekable();
+
+    while chars.peek().is_some() {
+        // Skip whitespace
+        while chars.peek().map_or(false, |c| c.is_whitespace()) {
+            chars.next();
+        }
+
+        // Parse key
+        let mut key = String::new();
+        while let Some(&c) = chars.peek() {
+            if c == '=' || c.is_whitespace() {
+                break;
+            }
+            key.push(chars.next().unwrap());
+        }
+
+        if key.is_empty() {
+            break;
+        }
+
+        // Skip whitespace before =
+        while chars.peek().map_or(false, |c| c.is_whitespace()) {
+            chars.next();
+        }
+
+        // Check for =
+        if chars.peek() != Some(&'=') {
+            continue;
+        }
+        chars.next();
+
+        // Skip whitespace after =
+        while chars.peek().map_or(false, |c| c.is_whitespace()) {
+            chars.next();
+        }
+
+        // Parse value
+        let mut value = String::new();
+        let quote_char = chars.peek().copied();
+
+        if quote_char == Some('"') || quote_char == Some('\'') {
+            chars.next();
+            let quote = quote_char.unwrap();
+            while let Some(c) = chars.next() {
+                if c == quote {
+                    break;
+                }
+                value.push(c);
+            }
+        } else {
+            while let Some(&c) = chars.peek() {
+                if c.is_whitespace() {
+                    break;
+                }
+                value.push(chars.next().unwrap());
+            }
+        }
+
+        result.push((key.to_lowercase(), value));
+    }
+
+    result
+}
+
+/// Decode common HTML entities.
+fn decode_html_entity(entity: &str) -> String {
+    match entity {
+        "lt" => "<".to_string(),
+        "gt" => ">".to_string(),
+        "amp" => "&".to_string(),
+        "quot" => "\"".to_string(),
+        "apos" => "'".to_string(),
+        "nbsp" => "\u{00A0}".to_string(),
+        "ndash" => "–".to_string(),
+        "mdash" => "—".to_string(),
+        "copy" => "©".to_string(),
+        "reg" => "®".to_string(),
+        "trade" => "™".to_string(),
+        "hellip" => "…".to_string(),
+        _ => {
+            // Try numeric entity
+            if let Some(hex) = entity.strip_prefix('#') {
+                if let Some(hex_val) = hex.strip_prefix('x').or_else(|| hex.strip_prefix('X')) {
+                    if let Ok(code_point) = u32::from_str_radix(hex_val, 16) {
+                        if let Some(c) = char::from_u32(code_point) {
+                            return c.to_string();
+                        }
+                    }
+                } else if let Ok(code_point) = hex.parse::<u32>() {
+                    if let Some(c) = char::from_u32(code_point) {
+                        return c.to_string();
+                    }
+                }
+            }
+            format!("&{};", entity)
+        }
+    }
+}
+
+/// Parse pixel value from CSS (e.g., "40px" -> 40.0).
+fn parse_px_value(value: &str) -> Option<f32> {
+    let value = value.trim();
+    if let Some(px) = value.strip_suffix("px") {
+        px.trim().parse().ok()
+    } else if let Some(pt) = value.strip_suffix("pt") {
+        // Convert points to pixels (1pt ≈ 1.333px at 96dpi)
+        pt.trim().parse::<f32>().ok().map(|p| p * 1.333)
+    } else {
+        value.parse().ok()
+    }
+}
+
+/// Parse CSS color value.
+fn parse_css_color(value: &str) -> Option<Color> {
+    let value = value.trim();
+
+    // Hex color
+    if let Some(hex) = value.strip_prefix('#') {
+        return parse_hex_color_value(hex);
+    }
+
+    // RGB/RGBA function
+    if value.starts_with("rgb") {
+        return parse_rgb_color_function(value);
+    }
+
+    // Named colors
+    parse_named_color_value(value)
+}
+
+fn parse_hex_color_value(hex: &str) -> Option<Color> {
+    match hex.len() {
+        3 => {
+            let r = u8::from_str_radix(&hex[0..1], 16).ok()? * 17;
+            let g = u8::from_str_radix(&hex[1..2], 16).ok()? * 17;
+            let b = u8::from_str_radix(&hex[2..3], 16).ok()? * 17;
+            Some(Color::from_rgb8(r, g, b))
+        }
+        6 => {
+            let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+            Some(Color::from_rgb8(r, g, b))
+        }
+        8 => {
+            let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+            let a = u8::from_str_radix(&hex[6..8], 16).ok()?;
+            Some(Color::from_rgba8(r, g, b, a))
+        }
+        _ => None,
+    }
+}
+
+fn parse_rgb_color_function(value: &str) -> Option<Color> {
+    let start = value.find('(')?;
+    let end = value.rfind(')')?;
+    let content = &value[start + 1..end];
+
+    let parts: Vec<&str> = content.split(',').collect();
+
+    match parts.len() {
+        3 => {
+            let r: u8 = parts[0].trim().parse().ok()?;
+            let g: u8 = parts[1].trim().parse().ok()?;
+            let b: u8 = parts[2].trim().parse().ok()?;
+            Some(Color::from_rgb8(r, g, b))
+        }
+        4 => {
+            let r: u8 = parts[0].trim().parse().ok()?;
+            let g: u8 = parts[1].trim().parse().ok()?;
+            let b: u8 = parts[2].trim().parse().ok()?;
+            let a_str = parts[3].trim();
+            let a = if a_str.contains('.') {
+                let a_float: f32 = a_str.parse().ok()?;
+                (a_float * 255.0) as u8
+            } else {
+                a_str.parse().ok()?
+            };
+            Some(Color::from_rgba8(r, g, b, a))
+        }
+        _ => None,
+    }
+}
+
+fn parse_named_color_value(name: &str) -> Option<Color> {
+    match name.to_lowercase().as_str() {
+        "black" => Some(Color::from_rgb8(0, 0, 0)),
+        "white" => Some(Color::from_rgb8(255, 255, 255)),
+        "red" => Some(Color::from_rgb8(255, 0, 0)),
+        "green" => Some(Color::from_rgb8(0, 128, 0)),
+        "blue" => Some(Color::from_rgb8(0, 0, 255)),
+        "yellow" => Some(Color::from_rgb8(255, 255, 0)),
+        "cyan" | "aqua" => Some(Color::from_rgb8(0, 255, 255)),
+        "magenta" | "fuchsia" => Some(Color::from_rgb8(255, 0, 255)),
+        "gray" | "grey" => Some(Color::from_rgb8(128, 128, 128)),
+        "silver" => Some(Color::from_rgb8(192, 192, 192)),
+        "maroon" => Some(Color::from_rgb8(128, 0, 0)),
+        "olive" => Some(Color::from_rgb8(128, 128, 0)),
+        "lime" => Some(Color::from_rgb8(0, 255, 0)),
+        "navy" => Some(Color::from_rgb8(0, 0, 128)),
+        "purple" => Some(Color::from_rgb8(128, 0, 128)),
+        "teal" => Some(Color::from_rgb8(0, 128, 128)),
+        "orange" => Some(Color::from_rgb8(255, 165, 0)),
+        "pink" => Some(Color::from_rgb8(255, 192, 203)),
+        "brown" => Some(Color::from_rgb8(165, 42, 42)),
+        "gold" => Some(Color::from_rgb8(255, 215, 0)),
+        "coral" => Some(Color::from_rgb8(255, 127, 80)),
+        "crimson" => Some(Color::from_rgb8(220, 20, 60)),
+        "darkblue" => Some(Color::from_rgb8(0, 0, 139)),
+        "darkgreen" => Some(Color::from_rgb8(0, 100, 0)),
+        "darkred" => Some(Color::from_rgb8(139, 0, 0)),
+        "indigo" => Some(Color::from_rgb8(75, 0, 130)),
+        "violet" => Some(Color::from_rgb8(238, 130, 238)),
+        "transparent" => Some(Color::from_rgba8(0, 0, 0, 0)),
+        _ => None,
+    }
+}
+
+/// Parse font tag attributes.
+fn parse_font_tag_attrs(attrs: &[(String, String)]) -> (Option<f32>, Option<Color>) {
+    let mut size = None;
+    let mut color = None;
+
+    for (key, value) in attrs {
+        match key.as_str() {
+            "size" => {
+                size = parse_font_size_value(value);
+            }
+            "color" => {
+                color = parse_css_color(value);
+            }
+            _ => {}
+        }
+    }
+
+    (size, color)
+}
+
+/// Parse font size value (HTML font sizes 1-7 or px/pt values).
+fn parse_font_size_value(value: &str) -> Option<f32> {
+    let value = value.trim();
+
+    if let Some(px) = value.strip_suffix("px") {
+        return px.trim().parse().ok();
+    }
+
+    if let Some(pt) = value.strip_suffix("pt") {
+        return pt.trim().parse::<f32>().ok().map(|p| p * 1.333);
+    }
+
+    // HTML font size 1-7 mapping
+    match value {
+        "1" => Some(8.0),
+        "2" => Some(10.0),
+        "3" => Some(12.0),
+        "4" => Some(14.0),
+        "5" => Some(18.0),
+        "6" => Some(24.0),
+        "7" => Some(36.0),
+        _ => value.parse().ok(),
+    }
 }
 
 #[cfg(test)]
@@ -2642,5 +3704,166 @@ mod tests {
         // Nested items have their own numbering
         assert_eq!(doc.list_item_number(1), 0);
         assert_eq!(doc.list_item_number(2), 1);
+    }
+
+    // =========================================================================
+    // HTML Serialization Tests
+    // =========================================================================
+
+    #[test]
+    fn test_html_export_plain_text() {
+        let doc = StyledDocument::from_text("Hello, world!");
+        let html = doc.to_html();
+        assert_eq!(html, "<p>Hello, world!</p>");
+    }
+
+    #[test]
+    fn test_html_export_bold() {
+        let mut doc = StyledDocument::from_text("Hello world");
+        doc.set_format(0..5, CharFormat::bold());
+        let html = doc.to_html();
+        assert_eq!(html, "<p><b>Hello</b> world</p>");
+    }
+
+    #[test]
+    fn test_html_export_multiple_formats() {
+        let mut doc = StyledDocument::from_text("Hello world");
+        doc.set_format(0..5, CharFormat::bold());
+        doc.set_format(6..11, CharFormat::italic());
+        let html = doc.to_html();
+        assert_eq!(html, "<p><b>Hello</b> <i>world</i></p>");
+    }
+
+    #[test]
+    fn test_html_export_escapes_special_chars() {
+        let doc = StyledDocument::from_text("A < B & C > D");
+        let html = doc.to_html();
+        assert_eq!(html, "<p>A &lt; B &amp; C &gt; D</p>");
+    }
+
+    #[test]
+    fn test_html_export_multiple_paragraphs() {
+        let doc = StyledDocument::from_text("Line 1\nLine 2\nLine 3");
+        let html = doc.to_html();
+        assert_eq!(html, "<p>Line 1</p><p>Line 2</p><p>Line 3</p>");
+    }
+
+    #[test]
+    fn test_html_export_bullet_list() {
+        let mut doc = StyledDocument::from_text("Item 1\nItem 2");
+        doc.toggle_bullet_list(0..2);
+        let html = doc.to_html();
+        assert_eq!(html, "<ul><li>Item 1</li><li>Item 2</li></ul>");
+    }
+
+    #[test]
+    fn test_html_export_numbered_list() {
+        let mut doc = StyledDocument::from_text("First\nSecond");
+        doc.toggle_numbered_list(0..2);
+        let html = doc.to_html();
+        assert_eq!(html, "<ol><li>First</li><li>Second</li></ol>");
+    }
+
+    #[test]
+    fn test_html_import_plain_text() {
+        let doc = StyledDocument::from_html("<p>Hello, world!</p>");
+        assert_eq!(doc.text(), "Hello, world!");
+    }
+
+    #[test]
+    fn test_html_import_bold() {
+        let doc = StyledDocument::from_html("<p><b>Bold</b> text</p>");
+        assert_eq!(doc.text(), "Bold text");
+        assert!(doc.format_at(0).bold);
+        assert!(!doc.format_at(5).bold);
+    }
+
+    #[test]
+    fn test_html_import_italic() {
+        let doc = StyledDocument::from_html("<p><i>Italic</i> text</p>");
+        assert_eq!(doc.text(), "Italic text");
+        assert!(doc.format_at(0).italic);
+        assert!(!doc.format_at(7).italic);
+    }
+
+    #[test]
+    fn test_html_import_nested_formatting() {
+        let doc = StyledDocument::from_html("<p><b><i>Bold italic</i></b></p>");
+        assert_eq!(doc.text(), "Bold italic");
+        let format = doc.format_at(0);
+        assert!(format.bold);
+        assert!(format.italic);
+    }
+
+    #[test]
+    fn test_html_import_decodes_entities() {
+        let doc = StyledDocument::from_html("<p>&lt;tag&gt; &amp; &quot;text&quot;</p>");
+        assert_eq!(doc.text(), "<tag> & \"text\"");
+    }
+
+    #[test]
+    fn test_html_import_bullet_list() {
+        let doc = StyledDocument::from_html("<ul><li>One</li><li>Two</li></ul>");
+        assert_eq!(doc.text(), "One\nTwo");
+        assert!(doc.is_list_item(0));
+        assert!(doc.is_list_item(1));
+        let list_format = doc.list_format_at(0).unwrap();
+        assert!(list_format.style.is_bullet());
+    }
+
+    #[test]
+    fn test_html_import_numbered_list() {
+        let doc = StyledDocument::from_html("<ol><li>First</li><li>Second</li></ol>");
+        assert_eq!(doc.text(), "First\nSecond");
+        let list_format = doc.list_format_at(0).unwrap();
+        assert!(list_format.style.is_numbered());
+    }
+
+    #[test]
+    fn test_html_roundtrip_basic() {
+        let mut original = StyledDocument::from_text("Hello world");
+        original.set_format(0..5, CharFormat::bold());
+        original.set_format(6..11, CharFormat::italic());
+
+        let html = original.to_html();
+        let restored = StyledDocument::from_html(&html);
+
+        assert_eq!(restored.text(), original.text());
+        assert!(restored.format_at(0).bold);
+        assert!(restored.format_at(6).italic);
+    }
+
+    #[test]
+    fn test_html_roundtrip_list() {
+        let mut original = StyledDocument::from_text("Item 1\nItem 2\nItem 3");
+        original.toggle_bullet_list(0..3);
+
+        let html = original.to_html();
+        let restored = StyledDocument::from_html(&html);
+
+        assert_eq!(restored.text(), original.text());
+        assert!(restored.is_list_item(0));
+        assert!(restored.is_list_item(1));
+        assert!(restored.is_list_item(2));
+    }
+
+    #[test]
+    fn test_html_import_color() {
+        let doc = StyledDocument::from_html("<p><span style=\"color:#ff0000\">Red</span></p>");
+        assert_eq!(doc.text(), "Red");
+        let format = doc.format_at(0);
+        assert!(format.foreground_color.is_some());
+        let color = format.foreground_color.unwrap();
+        // Colors are stored as f32 0.0-1.0
+        assert!((color.r - 1.0).abs() < 0.01);
+        assert!(color.g.abs() < 0.01);
+        assert!(color.b.abs() < 0.01);
+    }
+
+    #[test]
+    fn test_html_import_multiple_paragraphs() {
+        let doc = StyledDocument::from_html("<p>First</p><p>Second</p><p>Third</p>");
+        assert_eq!(doc.text(), "First\nSecond\nThird");
+        assert_eq!(doc.paragraph_count(), 3);
     }
 }

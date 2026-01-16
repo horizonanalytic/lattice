@@ -56,6 +56,7 @@ mod frame;
 mod group_box;
 mod label;
 mod line_edit;
+mod list_view;
 mod main_window;
 mod popup;
 mod progress_bar;
@@ -109,6 +110,7 @@ pub use frame::{Frame, FrameShadow, FrameShape};
 pub use group_box::GroupBox;
 pub use label::{ElideMode, Label};
 pub use line_edit::{EchoMode, LineEdit};
+pub use list_view::{Flow, ListView, ListViewMode};
 // Re-export validation types for convenience
 pub use super::validator::{
     CustomValidator, DoubleValidator, HexColorValidator, HexFormat, IntValidator, RegexValidator,

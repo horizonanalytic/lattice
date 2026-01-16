@@ -70,6 +70,7 @@ mod index;
 mod list_model;
 mod proxy_model;
 mod role;
+pub mod selection;
 mod table_model;
 mod traits;
 mod tree_model;
@@ -86,4 +87,5 @@ pub use role::{
 };
 pub use table_model::{CellExtractor, HeaderExtractor, SimpleTableModel, TableModel};
 pub use traits::{ItemFlags, ItemModel, ModelSignals, Orientation};
+pub use selection::{SelectionFlags, SelectionMode, SelectionModel};
 pub use tree_model::{ExtractorTreeModel, TreeModel, TreeNodeData};

@@ -6,7 +6,7 @@
 
 use std::ops::Range;
 
-use horizon_lattice_render::text::{FontFamily, FontWeight};
+use horizon_lattice_render::text::{FontFamily, FontWeight, HorizontalAlign};
 use horizon_lattice_render::Color;
 
 /// Character-level formatting attributes.
@@ -205,11 +205,109 @@ impl FormatRun {
     }
 }
 
+/// Paragraph/block-level formatting attributes.
+///
+/// Represents the styling applied to a paragraph of text.
+/// Paragraphs are defined by newline characters.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BlockFormat {
+    /// Horizontal text alignment.
+    pub alignment: HorizontalAlign,
+}
+
+impl BlockFormat {
+    /// Create a new default block format.
+    pub fn new() -> Self {
+        Self {
+            alignment: HorizontalAlign::Left,
+        }
+    }
+
+    /// Check if this format has any non-default styling.
+    pub fn is_styled(&self) -> bool {
+        self.alignment != HorizontalAlign::Left
+    }
+
+    /// Builder method to set alignment.
+    pub fn with_alignment(mut self, alignment: HorizontalAlign) -> Self {
+        self.alignment = alignment;
+        self
+    }
+
+    /// Create a left-aligned block format.
+    pub fn left() -> Self {
+        Self {
+            alignment: HorizontalAlign::Left,
+        }
+    }
+
+    /// Create a center-aligned block format.
+    pub fn center() -> Self {
+        Self {
+            alignment: HorizontalAlign::Center,
+        }
+    }
+
+    /// Create a right-aligned block format.
+    pub fn right() -> Self {
+        Self {
+            alignment: HorizontalAlign::Right,
+        }
+    }
+
+    /// Create a justified block format.
+    pub fn justified() -> Self {
+        Self {
+            alignment: HorizontalAlign::Justified,
+        }
+    }
+}
+
+/// A run of paragraphs with a specific block format.
+///
+/// Block runs track paragraph indices (0-based), not byte ranges.
+/// A paragraph is defined as text ending with a newline or end-of-document.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlockRun {
+    /// The paragraph range this run covers (start..end, 0-based indices).
+    pub range: Range<usize>,
+    /// The format applied to these paragraphs.
+    pub format: BlockFormat,
+}
+
+impl BlockRun {
+    /// Create a new block run.
+    pub fn new(range: Range<usize>, format: BlockFormat) -> Self {
+        Self { range, format }
+    }
+
+    /// Check if this run is empty.
+    pub fn is_empty(&self) -> bool {
+        self.range.is_empty()
+    }
+
+    /// Get the number of paragraphs in this run.
+    pub fn len(&self) -> usize {
+        self.range.len()
+    }
+
+    /// Check if this run overlaps with a paragraph range.
+    pub fn overlaps(&self, range: &Range<usize>) -> bool {
+        self.range.start < range.end && range.start < self.range.end
+    }
+
+    /// Check if this run contains a paragraph index.
+    pub fn contains(&self, para_idx: usize) -> bool {
+        self.range.contains(&para_idx)
+    }
+}
+
 /// A styled text document that maintains text content with formatting.
 ///
 /// The document stores:
 /// - Raw text content as a single String
 /// - Format runs that describe character-level formatting for ranges
+/// - Block runs that describe paragraph-level formatting
 ///
 /// Format runs are kept sorted by start position and non-overlapping.
 /// Unformatted text (default format) doesn't need explicit runs.
@@ -220,6 +318,9 @@ pub struct StyledDocument {
     /// Format runs sorted by start position.
     /// Runs are non-overlapping and only stored for non-default formats.
     format_runs: Vec<FormatRun>,
+    /// Block runs for paragraph-level formatting.
+    /// Paragraph indices are 0-based, with paragraphs delimited by newlines.
+    block_runs: Vec<BlockRun>,
 }
 
 impl Default for StyledDocument {
@@ -234,6 +335,7 @@ impl StyledDocument {
         Self {
             text: String::new(),
             format_runs: Vec::new(),
+            block_runs: Vec::new(),
         }
     }
 
@@ -242,6 +344,7 @@ impl StyledDocument {
         Self {
             text: text.into(),
             format_runs: Vec::new(),
+            block_runs: Vec::new(),
         }
     }
 
@@ -269,12 +372,19 @@ impl StyledDocument {
     pub fn set_text(&mut self, text: impl Into<String>) {
         self.text = text.into();
         self.format_runs.clear();
+        self.block_runs.clear();
     }
 
     /// Clear the document.
     pub fn clear(&mut self) {
         self.text.clear();
         self.format_runs.clear();
+        self.block_runs.clear();
+    }
+
+    /// Get the block runs.
+    pub fn block_runs(&self) -> &[BlockRun] {
+        &self.block_runs
     }
 
     /// Get the format at a specific byte position.
@@ -644,6 +754,234 @@ impl StyledDocument {
 
         spans
     }
+
+    // =========================================================================
+    // Paragraph/Block Formatting
+    // =========================================================================
+
+    /// Count the number of paragraphs in the document.
+    ///
+    /// Paragraphs are delimited by newline characters. An empty document
+    /// has 1 paragraph. Each newline creates a new paragraph.
+    pub fn paragraph_count(&self) -> usize {
+        if self.text.is_empty() {
+            return 1;
+        }
+        self.text.chars().filter(|&c| c == '\n').count() + 1
+    }
+
+    /// Get the byte range for a paragraph by index (0-based).
+    ///
+    /// Returns the byte range including the trailing newline if present.
+    /// Returns `None` if the paragraph index is out of bounds.
+    pub fn paragraph_range(&self, para_idx: usize) -> Option<Range<usize>> {
+        let mut start = 0;
+        let mut current_para = 0;
+
+        for (i, c) in self.text.char_indices() {
+            if c == '\n' {
+                if current_para == para_idx {
+                    return Some(start..i + 1);
+                }
+                current_para += 1;
+                start = i + 1;
+            }
+        }
+
+        // Handle the last paragraph (or only paragraph if no newlines)
+        if current_para == para_idx && start <= self.text.len() {
+            return Some(start..self.text.len());
+        }
+
+        None
+    }
+
+    /// Get the paragraph index for a byte position.
+    pub fn paragraph_at(&self, pos: usize) -> usize {
+        let pos = pos.min(self.text.len());
+        self.text[..pos].chars().filter(|&c| c == '\n').count()
+    }
+
+    /// Get the block format for a paragraph.
+    pub fn block_format_at(&self, para_idx: usize) -> BlockFormat {
+        for run in &self.block_runs {
+            if run.contains(para_idx) {
+                return run.format.clone();
+            }
+            if run.range.start > para_idx {
+                break;
+            }
+        }
+        BlockFormat::default()
+    }
+
+    /// Get the block format for a range of paragraphs.
+    ///
+    /// Returns `Some(format)` if all paragraphs have the same format,
+    /// or `None` if the formatting is mixed.
+    pub fn block_format_for_range(&self, range: &Range<usize>) -> Option<BlockFormat> {
+        if range.is_empty() {
+            return Some(self.block_format_at(range.start));
+        }
+
+        let first_format = self.block_format_at(range.start);
+        for para_idx in range.start + 1..range.end {
+            if self.block_format_at(para_idx) != first_format {
+                return None;
+            }
+        }
+        Some(first_format)
+    }
+
+    /// Set the block format for a range of paragraphs.
+    pub fn set_block_format(&mut self, range: Range<usize>, format: BlockFormat) {
+        if range.is_empty() {
+            return;
+        }
+
+        // Remove the default format case - just delete overlapping runs
+        if !format.is_styled() {
+            self.block_runs.retain(|run| !run.overlaps(&range));
+            // Split runs that partially overlap
+            let mut new_runs = Vec::new();
+            for run in &mut self.block_runs {
+                if run.range.start < range.start && run.range.end > range.end {
+                    // Run spans the range - split it
+                    new_runs.push(BlockRun::new(range.end..run.range.end, run.format.clone()));
+                    run.range.end = range.start;
+                } else if run.range.start < range.start && run.range.end > range.start {
+                    // Run overlaps start
+                    run.range.end = range.start;
+                } else if run.range.start < range.end && run.range.end > range.end {
+                    // Run overlaps end
+                    run.range.start = range.end;
+                }
+            }
+            self.block_runs.extend(new_runs);
+            self.normalize_block_runs();
+            return;
+        }
+
+        // Split and remove overlapping runs
+        let mut new_runs = Vec::new();
+        let mut to_remove = Vec::new();
+
+        for (i, run) in self.block_runs.iter_mut().enumerate() {
+            if !run.overlaps(&range) {
+                continue;
+            }
+
+            if run.format == format {
+                // Same format - will be merged later
+                continue;
+            }
+
+            if run.range.start < range.start && run.range.end > range.end {
+                // Run spans the entire range - split into three
+                new_runs.push(BlockRun::new(range.end..run.range.end, run.format.clone()));
+                run.range.end = range.start;
+            } else if run.range.start < range.start {
+                // Run overlaps start - truncate
+                run.range.end = range.start;
+            } else if run.range.end > range.end {
+                // Run overlaps end - truncate
+                run.range.start = range.end;
+            } else {
+                // Run is entirely within range - remove
+                to_remove.push(i);
+            }
+        }
+
+        // Remove fully overlapped runs
+        for i in to_remove.into_iter().rev() {
+            self.block_runs.remove(i);
+        }
+
+        // Add the new runs
+        self.block_runs.extend(new_runs);
+
+        // Add the block run for the range
+        self.block_runs.push(BlockRun::new(range, format));
+
+        // Normalize: sort and merge adjacent runs
+        self.normalize_block_runs();
+    }
+
+    /// Set alignment for a range of paragraphs.
+    pub fn set_alignment(&mut self, range: Range<usize>, alignment: HorizontalAlign) {
+        self.set_block_format(range, BlockFormat::new().with_alignment(alignment));
+    }
+
+    /// Normalize block runs: sort by position and merge adjacent runs with same format.
+    fn normalize_block_runs(&mut self) {
+        // Sort by start position
+        self.block_runs.sort_by_key(|r| r.range.start);
+
+        // Merge adjacent runs with same format
+        let mut i = 0;
+        while i + 1 < self.block_runs.len() {
+            if self.block_runs[i].range.end == self.block_runs[i + 1].range.start
+                && self.block_runs[i].format == self.block_runs[i + 1].format
+            {
+                self.block_runs[i].range.end = self.block_runs[i + 1].range.end;
+                self.block_runs.remove(i + 1);
+            } else {
+                i += 1;
+            }
+        }
+
+        // Remove empty runs and runs with default format
+        self.block_runs
+            .retain(|r| !r.is_empty() && r.format.is_styled());
+    }
+
+    /// Get all paragraphs with their text, char format spans, and block format.
+    ///
+    /// Returns a vector of (paragraph_text, char_format_spans, block_format) tuples.
+    /// This is useful for rendering with per-paragraph alignment.
+    pub fn to_paragraphs(&self) -> Vec<(String, Vec<(Range<usize>, CharFormat)>, BlockFormat)> {
+        let mut paragraphs = Vec::new();
+        let para_count = self.paragraph_count();
+
+        for para_idx in 0..para_count {
+            let Some(para_range) = self.paragraph_range(para_idx) else {
+                continue;
+            };
+
+            // Get paragraph text (without trailing newline for rendering)
+            let para_text = if self.text[para_range.clone()].ends_with('\n') {
+                self.text[para_range.start..para_range.end - 1].to_string()
+            } else {
+                self.text[para_range.clone()].to_string()
+            };
+
+            // Get char format spans for this paragraph
+            let mut char_spans = Vec::new();
+            let para_start = para_range.start;
+            let para_end = if self.text[para_range.clone()].ends_with('\n') {
+                para_range.end - 1
+            } else {
+                para_range.end
+            };
+
+            // Convert format runs to local paragraph offsets
+            for run in &self.format_runs {
+                if run.range.end <= para_start || run.range.start >= para_end {
+                    continue;
+                }
+                let local_start = run.range.start.saturating_sub(para_start).min(para_text.len());
+                let local_end = run.range.end.saturating_sub(para_start).min(para_text.len());
+                if local_start < local_end {
+                    char_spans.push((local_start..local_end, run.format.clone()));
+                }
+            }
+
+            let block_format = self.block_format_at(para_idx);
+            paragraphs.push((para_text, char_spans, block_format));
+        }
+
+        paragraphs
+    }
 }
 
 #[cfg(test)]
@@ -877,5 +1215,136 @@ mod tests {
         // Default is not styled
         let f4 = CharFormat::new();
         assert!(!f4.is_styled());
+    }
+
+    // =========================================================================
+    // Paragraph Alignment Tests
+    // =========================================================================
+
+    #[test]
+    fn test_paragraph_count() {
+        // Empty document has 1 paragraph
+        let doc = StyledDocument::new();
+        assert_eq!(doc.paragraph_count(), 1);
+
+        // Single line has 1 paragraph
+        let doc = StyledDocument::from_text("Hello");
+        assert_eq!(doc.paragraph_count(), 1);
+
+        // Two lines have 2 paragraphs
+        let doc = StyledDocument::from_text("Hello\nWorld");
+        assert_eq!(doc.paragraph_count(), 2);
+
+        // Three lines have 3 paragraphs
+        let doc = StyledDocument::from_text("Line 1\nLine 2\nLine 3");
+        assert_eq!(doc.paragraph_count(), 3);
+    }
+
+    #[test]
+    fn test_paragraph_range() {
+        let doc = StyledDocument::from_text("Hello\nWorld\nTest");
+
+        // First paragraph: "Hello\n" (bytes 0..6)
+        assert_eq!(doc.paragraph_range(0), Some(0..6));
+
+        // Second paragraph: "World\n" (bytes 6..12)
+        assert_eq!(doc.paragraph_range(1), Some(6..12));
+
+        // Third paragraph: "Test" (bytes 12..16, no trailing newline)
+        assert_eq!(doc.paragraph_range(2), Some(12..16));
+
+        // Out of bounds
+        assert_eq!(doc.paragraph_range(3), None);
+    }
+
+    #[test]
+    fn test_paragraph_at() {
+        let doc = StyledDocument::from_text("Hello\nWorld\nTest");
+
+        // Positions in first paragraph
+        assert_eq!(doc.paragraph_at(0), 0);
+        assert_eq!(doc.paragraph_at(5), 0);
+
+        // Positions in second paragraph
+        assert_eq!(doc.paragraph_at(6), 1);
+        assert_eq!(doc.paragraph_at(11), 1);
+
+        // Positions in third paragraph
+        assert_eq!(doc.paragraph_at(12), 2);
+        assert_eq!(doc.paragraph_at(15), 2);
+    }
+
+    #[test]
+    fn test_block_format_default() {
+        let doc = StyledDocument::from_text("Hello\nWorld");
+
+        // All paragraphs should have default (left) alignment
+        assert_eq!(doc.block_format_at(0).alignment, HorizontalAlign::Left);
+        assert_eq!(doc.block_format_at(1).alignment, HorizontalAlign::Left);
+    }
+
+    #[test]
+    fn test_set_alignment() {
+        let mut doc = StyledDocument::from_text("Hello\nWorld\nTest");
+
+        // Set second paragraph to center
+        doc.set_alignment(1..2, HorizontalAlign::Center);
+
+        assert_eq!(doc.block_format_at(0).alignment, HorizontalAlign::Left);
+        assert_eq!(doc.block_format_at(1).alignment, HorizontalAlign::Center);
+        assert_eq!(doc.block_format_at(2).alignment, HorizontalAlign::Left);
+    }
+
+    #[test]
+    fn test_set_alignment_range() {
+        let mut doc = StyledDocument::from_text("Line 1\nLine 2\nLine 3\nLine 4");
+
+        // Set paragraphs 1-2 to right alignment
+        doc.set_alignment(1..3, HorizontalAlign::Right);
+
+        assert_eq!(doc.block_format_at(0).alignment, HorizontalAlign::Left);
+        assert_eq!(doc.block_format_at(1).alignment, HorizontalAlign::Right);
+        assert_eq!(doc.block_format_at(2).alignment, HorizontalAlign::Right);
+        assert_eq!(doc.block_format_at(3).alignment, HorizontalAlign::Left);
+    }
+
+    #[test]
+    fn test_block_format_for_range() {
+        let mut doc = StyledDocument::from_text("Line 1\nLine 2\nLine 3");
+
+        // Set all to center
+        doc.set_alignment(0..3, HorizontalAlign::Center);
+
+        // Uniform range should return Some
+        let format = doc.block_format_for_range(&(0..3));
+        assert!(format.is_some());
+        assert_eq!(format.unwrap().alignment, HorizontalAlign::Center);
+
+        // Now make them mixed
+        doc.set_alignment(1..2, HorizontalAlign::Right);
+
+        // Mixed range should return None
+        let format = doc.block_format_for_range(&(0..3));
+        assert!(format.is_none());
+    }
+
+    #[test]
+    fn test_block_format_factories() {
+        assert_eq!(BlockFormat::left().alignment, HorizontalAlign::Left);
+        assert_eq!(BlockFormat::center().alignment, HorizontalAlign::Center);
+        assert_eq!(BlockFormat::right().alignment, HorizontalAlign::Right);
+        assert_eq!(BlockFormat::justified().alignment, HorizontalAlign::Justified);
+    }
+
+    #[test]
+    fn test_block_format_is_styled() {
+        // Default (left) is not styled
+        assert!(!BlockFormat::new().is_styled());
+        assert!(!BlockFormat::left().is_styled());
+
+        // Other alignments are styled
+        assert!(BlockFormat::center().is_styled());
+        assert!(BlockFormat::right().is_styled());
+        assert!(BlockFormat::justified().is_styled());
     }
 }

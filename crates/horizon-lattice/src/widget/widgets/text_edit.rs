@@ -38,8 +38,9 @@ use super::styled_document::{CharFormat, StyledDocument};
 use crate::platform::Clipboard;
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, Font, FontFamily, FontStyle, FontSystem, FontWeight, Point, Rect, Renderer, Size,
-    Stroke, TextDecoration, TextLayout, TextLayoutOptions, TextRenderer, TextSpan, WrapMode,
+    Color, Font, FontFamily, FontStyle, FontSystem, FontWeight, HorizontalAlign, Point, Rect,
+    Renderer, Size, Stroke, TextDecoration, TextLayout, TextLayoutOptions, TextRenderer, TextSpan,
+    WrapMode,
 };
 
 use crate::widget::{
@@ -434,6 +435,9 @@ pub struct TextEdit {
 
     /// Signal emitted when text format changes (bold state, italic state, underline state, strikethrough state).
     pub format_changed: Signal<(bool, bool, bool, bool)>,
+
+    /// Signal emitted when paragraph alignment changes.
+    pub alignment_changed: Signal<HorizontalAlign>,
 }
 
 impl TextEdit {
@@ -480,6 +484,7 @@ impl TextEdit {
             find_next_requested: Signal::new(),
             find_previous_requested: Signal::new(),
             format_changed: Signal::new(),
+            alignment_changed: Signal::new(),
         }
     }
 
@@ -1125,6 +1130,87 @@ impl TextEdit {
         self.invalidate_layout();
         self.base.update();
         self.emit_format_changed();
+    }
+
+    // =========================================================================
+    // Paragraph Alignment
+    // =========================================================================
+
+    /// Get the current paragraph alignment.
+    ///
+    /// If there's a selection spanning multiple paragraphs with different alignments,
+    /// returns the alignment of the first paragraph in the selection.
+    pub fn paragraph_alignment(&self) -> HorizontalAlign {
+        let para_idx = self.document.paragraph_at(self.cursor_pos);
+        self.document.block_format_at(para_idx).alignment
+    }
+
+    /// Set the alignment for the current paragraph(s).
+    ///
+    /// If there's no selection, sets the alignment for the paragraph containing the cursor.
+    /// If there's a selection, sets the alignment for all paragraphs that the selection spans.
+    pub fn set_paragraph_alignment(&mut self, alignment: HorizontalAlign) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = if let Some((start, end)) = self.selection_range() {
+            let start_para = self.document.paragraph_at(start);
+            let end_para = self.document.paragraph_at(end);
+            (start_para, end_para + 1)
+        } else {
+            let para = self.document.paragraph_at(self.cursor_pos);
+            (para, para + 1)
+        };
+
+        self.document.set_alignment(start_para..end_para, alignment);
+        self.invalidate_layout();
+        self.base.update();
+        self.alignment_changed.emit(alignment);
+    }
+
+    /// Align paragraphs to the left.
+    pub fn align_left(&mut self) {
+        self.set_paragraph_alignment(HorizontalAlign::Left);
+    }
+
+    /// Center-align paragraphs.
+    pub fn align_center(&mut self) {
+        self.set_paragraph_alignment(HorizontalAlign::Center);
+    }
+
+    /// Align paragraphs to the right.
+    pub fn align_right(&mut self) {
+        self.set_paragraph_alignment(HorizontalAlign::Right);
+    }
+
+    /// Justify paragraphs.
+    pub fn align_justify(&mut self) {
+        self.set_paragraph_alignment(HorizontalAlign::Justified);
+    }
+
+    /// Check if any paragraph has non-default block formatting (alignment != Left).
+    pub fn has_block_formatting(&self) -> bool {
+        !self.document.block_runs().is_empty()
+    }
+
+    /// Get the uniform alignment for the entire document.
+    ///
+    /// Returns `Some(alignment)` if all paragraphs have the same alignment,
+    /// or `None` if different paragraphs have different alignments.
+    fn uniform_alignment(&self) -> Option<HorizontalAlign> {
+        let para_count = self.document.paragraph_count();
+        if para_count == 0 {
+            return Some(HorizontalAlign::Left);
+        }
+
+        let first_alignment = self.document.block_format_at(0).alignment;
+        for para_idx in 1..para_count {
+            if self.document.block_format_at(para_idx).alignment != first_alignment {
+                return None;
+            }
+        }
+        Some(first_alignment)
     }
 
     /// Apply font family to a range, preserving other formatting.
@@ -2430,6 +2516,24 @@ impl TextEdit {
                 true
             }
 
+            // Paragraph alignment shortcuts
+            Key::L if ctrl => {
+                self.align_left();
+                true
+            }
+            Key::E if ctrl => {
+                self.align_center();
+                true
+            }
+            Key::R if ctrl => {
+                self.align_right();
+                true
+            }
+            Key::J if ctrl => {
+                self.align_justify();
+                true
+            }
+
             // Find/Replace shortcuts
             Key::F if ctrl => {
                 self.find_requested.emit(());
@@ -2677,8 +2781,12 @@ impl TextEdit {
                 })
                 .collect();
 
+            // Get alignment (use uniform alignment if all paragraphs have the same, otherwise left)
+            let alignment = self.uniform_alignment().unwrap_or(HorizontalAlign::Left);
+
             let options = TextLayoutOptions::default()
-                .wrap(self.wrap_mode.to_render_wrap());
+                .wrap(self.wrap_mode.to_render_wrap())
+                .horizontal_align(alignment);
             let options = if self.wrap_mode != TextWrapMode::NoWrap {
                 options.max_width(content_rect.width())
             } else {

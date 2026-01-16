@@ -1821,15 +1821,29 @@ impl TextEdit {
     // Clipboard Operations
     // =========================================================================
 
-    /// Copy selected text to clipboard.
+    /// Copy selected text to clipboard with formatting.
+    ///
+    /// Places both HTML (with formatting) and plain text on the clipboard,
+    /// allowing rich text editors to paste the formatted version while
+    /// plain text editors receive unformatted text.
     pub fn copy(&self) {
         if !self.has_selection() {
             return;
         }
 
-        let selected = self.selected_text();
+        let Some((start, end)) = self.selection_range() else {
+            return;
+        };
+
+        let plain_text = self.selected_text();
+        let html = self.document.range_to_html(start..end);
+
         if let Ok(mut clipboard) = Clipboard::new() {
-            let _ = clipboard.set_text(&selected);
+            // Try to set HTML with plain text fallback
+            // If HTML fails, fall back to plain text only
+            if clipboard.set_html(&html, &plain_text).is_err() {
+                let _ = clipboard.set_text(&plain_text);
+            }
         }
     }
 
@@ -1843,8 +1857,43 @@ impl TextEdit {
         self.delete_selection();
     }
 
-    /// Paste text from clipboard.
+    /// Paste from clipboard with formatting preserved.
+    ///
+    /// This method first tries to get HTML content from the clipboard and
+    /// paste it with formatting intact. If no HTML is available, it falls
+    /// back to pasting plain text.
+    ///
+    /// # See Also
+    ///
+    /// - [`paste_plain_text`](Self::paste_plain_text) - Always pastes as plain text
     pub fn paste(&mut self) {
+        if self.read_only {
+            return;
+        }
+
+        if let Ok(mut clipboard) = Clipboard::new() {
+            // Try to get HTML first for formatted paste
+            if let Ok(html) = clipboard.get_html() {
+                self.insert_styled_document(&StyledDocument::from_html(&html));
+                return;
+            }
+
+            // Fall back to plain text
+            if let Ok(text) = clipboard.get_text() {
+                self.insert_text(&text);
+            }
+        }
+    }
+
+    /// Paste from clipboard as plain text, ignoring any formatting.
+    ///
+    /// Use this method when you want to paste without preserving any
+    /// formatting from the source application.
+    ///
+    /// # See Also
+    ///
+    /// - [`paste`](Self::paste) - Pastes with formatting preserved
+    pub fn paste_plain_text(&mut self) {
         if self.read_only {
             return;
         }
@@ -1854,6 +1903,91 @@ impl TextEdit {
                 self.insert_text(&text);
             }
         }
+    }
+
+    /// Insert content from a StyledDocument at the current cursor position.
+    ///
+    /// This preserves all character and paragraph formatting from the source
+    /// document. Used internally for paste operations with formatting.
+    fn insert_styled_document(&mut self, source: &StyledDocument) {
+        if self.read_only {
+            return;
+        }
+
+        let text = source.text();
+        if text.is_empty() {
+            return;
+        }
+
+        // Delete selection first if any
+        if self.has_selection() {
+            self.delete_selection_internal();
+        }
+
+        let insert_pos = self.cursor_pos;
+
+        // Insert the plain text first (this handles undo stack)
+        self.text.insert_str(insert_pos, text);
+        self.document.insert(insert_pos, text, CharFormat::default());
+
+        // Apply all format runs from the source document, shifted by insert position
+        for run in source.format_runs() {
+            let adjusted_range = (run.range.start + insert_pos)..(run.range.end + insert_pos);
+            self.document.set_format(adjusted_range, run.format.clone());
+        }
+
+        // Apply block formatting for paragraphs
+        // We need to identify which paragraphs the inserted text affects
+        // and apply the source document's block formats to them
+        let source_paras = source.to_paragraphs();
+        let mut current_offset = insert_pos;
+
+        for (_para_text, _char_spans, block_format) in source_paras.iter() {
+            // Find the paragraph index at current_offset in our document
+            let para_idx = self.document.paragraph_at(current_offset);
+
+            // Get the paragraph range for applying block formatting
+            let Some(para_range) = self.document.paragraph_range(para_idx) else {
+                break;
+            };
+
+            // Apply list format if present
+            if let Some(list_fmt) = &block_format.list_format {
+                self.document.set_list_format(para_range.clone(), Some(list_fmt.clone()));
+            }
+            // Apply alignment
+            self.document.set_alignment(para_range.clone(), block_format.alignment);
+            // Apply indentation
+            self.document.set_left_indent(para_range.clone(), block_format.left_indent);
+            if block_format.first_line_indent != 0.0 {
+                self.document.set_first_line_indent(para_range.clone(), block_format.first_line_indent);
+            }
+            // Apply spacing
+            if block_format.spacing_before != 0.0 {
+                self.document.set_spacing_before(para_range.clone(), block_format.spacing_before);
+            }
+            if block_format.spacing_after != 0.0 {
+                self.document.set_spacing_after(para_range.clone(), block_format.spacing_after);
+            }
+            // Apply line spacing
+            self.document.set_line_spacing(para_range.clone(), block_format.line_spacing);
+
+            // Move to next paragraph
+            current_offset = para_range.end;
+        }
+
+        self.undo_stack.push(EditCommand::Insert {
+            pos: insert_pos,
+            text: text.to_string(),
+        });
+        self.cursor_pos = insert_pos + text.len();
+        self.selection_anchor = None;
+
+        self.invalidate_layout();
+        self.ensure_cursor_visible();
+        self.base.update();
+        self.text_changed.emit(self.text.clone());
+        self.emit_cursor_position();
     }
 
     // =========================================================================

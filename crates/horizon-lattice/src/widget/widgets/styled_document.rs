@@ -1972,6 +1972,141 @@ impl StyledDocument {
     pub fn from_html(html: &str) -> Self {
         HtmlDocumentParser::parse(html)
     }
+
+    /// Convert a range of the document to an HTML string.
+    ///
+    /// This extracts the specified byte range with all its formatting and
+    /// converts it to HTML. Useful for clipboard operations where only
+    /// the selected text needs to be exported.
+    ///
+    /// # Arguments
+    ///
+    /// * `range` - The byte range to export (start..end)
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut doc = StyledDocument::from_text("Hello world");
+    /// doc.set_format(0..5, CharFormat::bold());
+    /// let html = doc.range_to_html(0..5);
+    /// // Results in: "<p><b>Hello</b></p>"
+    /// ```
+    pub fn range_to_html(&self, range: std::ops::Range<usize>) -> String {
+        if range.start >= range.end || range.start >= self.text.len() {
+            return String::new();
+        }
+
+        let start = range.start.min(self.text.len());
+        let end = range.end.min(self.text.len());
+
+        // Find which paragraphs intersect with the range
+        let para_count = self.paragraph_count();
+        let mut html = String::new();
+        let mut list_stack: Vec<(bool, usize)> = Vec::new();
+
+        for para_idx in 0..para_count {
+            let Some(para_range) = self.paragraph_range(para_idx) else {
+                continue;
+            };
+
+            // Skip paragraphs that don't intersect with our range
+            if para_range.end <= start || para_range.start >= end {
+                continue;
+            }
+
+            // Calculate the intersection
+            let intersect_start = para_range.start.max(start);
+            let intersect_end = para_range.end.min(end);
+
+            // Get the text within the intersection (excluding trailing newline if at para end)
+            let para_text = if intersect_end == para_range.end
+                && self.text[para_range.clone()].ends_with('\n')
+            {
+                let adjusted_end = (intersect_end - 1).max(intersect_start);
+                &self.text[intersect_start..adjusted_end]
+            } else {
+                &self.text[intersect_start..intersect_end]
+            };
+
+            if para_text.is_empty() && intersect_start >= intersect_end {
+                continue;
+            }
+
+            // Get char format spans for this intersection, adjusted to local offsets
+            let mut char_spans = Vec::new();
+            for run in &self.format_runs {
+                if run.range.end <= intersect_start || run.range.start >= intersect_end {
+                    continue;
+                }
+                let local_start = run.range.start.saturating_sub(intersect_start);
+                let local_end = (run.range.end - intersect_start).min(para_text.len());
+                if local_start < local_end {
+                    char_spans.push((local_start..local_end, run.format.clone()));
+                }
+            }
+
+            let block_format = self.block_format_at(para_idx);
+            let is_list_item = block_format.list_format.is_some();
+            let list_format = block_format.list_format.as_ref();
+
+            if is_list_item {
+                let list_info = list_format.unwrap();
+                let is_ordered = list_info.style.is_numbered();
+                let indent_level = list_info.indent_level;
+
+                // Close lists that are deeper than current level
+                while let Some(&(_, stack_level)) = list_stack.last() {
+                    if stack_level > indent_level {
+                        let (was_ordered, _) = list_stack.pop().unwrap();
+                        html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
+                    } else {
+                        break;
+                    }
+                }
+
+                // Check if we need to change list type at current level
+                if let Some(&(stack_ordered, stack_level)) = list_stack.last() {
+                    if stack_level == indent_level && stack_ordered != is_ordered {
+                        let (was_ordered, _) = list_stack.pop().unwrap();
+                        html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
+                        html.push_str(if is_ordered { "<ol>" } else { "<ul>" });
+                        list_stack.push((is_ordered, indent_level));
+                    }
+                }
+
+                // Open new lists as needed
+                while list_stack.len() <= indent_level {
+                    let target_level = list_stack.len();
+                    html.push_str(if is_ordered { "<ol>" } else { "<ul>" });
+                    list_stack.push((is_ordered, target_level));
+                }
+
+                // Write the list item
+                html.push_str("<li>");
+                self.write_formatted_text(&mut html, para_text, &char_spans);
+                html.push_str("</li>");
+            } else {
+                // Close all open lists before non-list paragraph
+                while let Some((was_ordered, _)) = list_stack.pop() {
+                    html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
+                }
+
+                // Write paragraph
+                html.push_str("<p");
+                self.write_paragraph_style(&mut html, &block_format);
+                html.push('>');
+                self.write_formatted_text(&mut html, para_text, &char_spans);
+                html.push_str("</p>");
+            }
+        }
+
+        // Close any remaining open lists
+        while let Some((was_ordered, _)) = list_stack.pop() {
+            html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
+        }
+
+        html
+    }
 }
 
 /// Escape special HTML characters.
@@ -3865,5 +4000,89 @@ mod tests {
         let doc = StyledDocument::from_html("<p>First</p><p>Second</p><p>Third</p>");
         assert_eq!(doc.text(), "First\nSecond\nThird");
         assert_eq!(doc.paragraph_count(), 3);
+    }
+
+    // =========================================================================
+    // Range to HTML Tests (Clipboard Support)
+    // =========================================================================
+
+    #[test]
+    fn test_range_to_html_empty_range() {
+        let doc = StyledDocument::from_text("Hello, world!");
+        let html = doc.range_to_html(5..5);
+        assert_eq!(html, "");
+    }
+
+    #[test]
+    fn test_range_to_html_invalid_range() {
+        let doc = StyledDocument::from_text("Hello");
+        let html = doc.range_to_html(10..20);
+        assert_eq!(html, "");
+    }
+
+    #[test]
+    fn test_range_to_html_plain_text() {
+        let doc = StyledDocument::from_text("Hello, world!");
+        let html = doc.range_to_html(0..5);
+        assert!(html.contains("Hello"));
+        assert!(html.contains("<p>"));
+    }
+
+    #[test]
+    fn test_range_to_html_with_formatting() {
+        let mut doc = StyledDocument::from_text("Hello, world!");
+        doc.set_format(0..5, CharFormat::bold());
+
+        let html = doc.range_to_html(0..5);
+        assert!(html.contains("<b>"));
+        assert!(html.contains("Hello"));
+    }
+
+    #[test]
+    fn test_range_to_html_partial_format_run() {
+        let mut doc = StyledDocument::from_text("Hello, world!");
+        doc.set_format(0..5, CharFormat::bold());
+
+        // Select only part of the bold range
+        let html = doc.range_to_html(2..5);
+        assert!(html.contains("<b>"));
+        assert!(html.contains("llo"));
+    }
+
+    #[test]
+    fn test_range_to_html_multiple_paragraphs() {
+        let doc = StyledDocument::from_text("First\nSecond\nThird");
+
+        // Select across two paragraphs
+        let html = doc.range_to_html(0..12);
+        assert!(html.contains("First"));
+        assert!(html.contains("Second"));
+    }
+
+    #[test]
+    fn test_range_to_html_preserves_list_format() {
+        let mut doc = StyledDocument::from_text("Item 1\nItem 2\n");
+        doc.toggle_bullet_list(0..2);
+
+        let html = doc.range_to_html(0..14);
+        assert!(html.contains("<ul>"));
+        assert!(html.contains("<li>"));
+    }
+
+    #[test]
+    fn test_range_to_html_roundtrip() {
+        let mut original = StyledDocument::from_text("Hello, world!");
+        original.set_format(0..5, CharFormat::bold());
+        original.set_format(7..12, CharFormat::italic());
+
+        // Export range to HTML
+        let html = original.range_to_html(0..13);
+
+        // Parse back
+        let restored = StyledDocument::from_html(&html);
+
+        // Verify formatting preserved
+        assert!(restored.format_at(0).bold);
+        assert!(restored.format_at(7).italic);
     }
 }

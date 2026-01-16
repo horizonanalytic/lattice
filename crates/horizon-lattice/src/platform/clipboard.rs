@@ -144,6 +144,60 @@ impl Clipboard {
     pub fn clear(&mut self) -> Result<(), ClipboardError> {
         self.inner.clear().map_err(Into::into)
     }
+
+    /// Set HTML content on the clipboard with a plain text fallback.
+    ///
+    /// This places both HTML and plain text versions on the clipboard, allowing
+    /// applications that support rich text to paste the formatted version while
+    /// others receive the plain text fallback.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the content cannot be written to the clipboard.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice::platform::Clipboard;
+    ///
+    /// let mut clipboard = Clipboard::new()?;
+    /// clipboard.set_html("<b>Hello</b>", "Hello")?;
+    /// ```
+    pub fn set_html(
+        &mut self,
+        html: impl AsRef<str>,
+        alt_text: impl AsRef<str>,
+    ) -> Result<(), ClipboardError> {
+        self.inner
+            .set_html(html.as_ref(), Some(alt_text.as_ref()))
+            .map_err(Into::into)
+    }
+
+    /// Get HTML content from the clipboard.
+    ///
+    /// Returns the HTML content if available. Many applications place HTML
+    /// on the clipboard when copying formatted text.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The clipboard doesn't contain HTML
+    /// - The clipboard cannot be accessed
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice::platform::Clipboard;
+    ///
+    /// let mut clipboard = Clipboard::new()?;
+    /// match clipboard.get_html() {
+    ///     Ok(html) => println!("HTML: {}", html),
+    ///     Err(_) => println!("No HTML in clipboard"),
+    /// }
+    /// ```
+    pub fn get_html(&mut self) -> Result<String, ClipboardError> {
+        self.inner.get().html().map_err(Into::into)
+    }
 }
 
 impl fmt::Debug for Clipboard {

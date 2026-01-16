@@ -25,7 +25,8 @@
 //! });
 //! ```
 
-use chrono::{Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
+use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike, Utc};
+use chrono_tz::Tz;
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
     Color, Font, FontFamily, FontSystem, HorizontalAlign, Point, Rect, Renderer, RoundedRect,
@@ -39,8 +40,26 @@ use crate::widget::{
 };
 
 use super::calendar::CalendarWidget;
+use super::combo_box::ComboBox;
 use super::date_edit::DateFormat;
 use super::time_edit::TimeFormat;
+use super::timezone::{get_timezone_abbreviation, TimezoneComboModel};
+
+/// How to display the timezone in the DateTimeEdit widget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TimezoneDisplay {
+    /// Don't display timezone (default for backward compatibility).
+    #[default]
+    Hidden,
+    /// Display timezone abbreviation (e.g., "PST", "EST", "UTC").
+    Abbreviation,
+    /// Display UTC offset (e.g., "+08:00", "-05:00").
+    UtcOffset,
+    /// Display both abbreviation and offset (e.g., "PST -08:00").
+    Full,
+    /// Display IANA name (e.g., "America/Los_Angeles").
+    IanaName,
+}
 
 /// Parts of the DateTimeEdit for hit testing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -56,12 +75,16 @@ enum DateTimeEditPart {
     MinuteSection,
     SecondSection,
     AmPmSection,
+    // Timezone section
+    TimezoneSection,
     // Buttons
     CalendarButton,
+    TimezoneButton,
     UpButton,
     DownButton,
-    // Popup
+    // Popups
     PopupCalendar,
+    PopupTimezone,
 }
 
 /// Which section is currently focused for editing.
@@ -78,6 +101,8 @@ enum EditSection {
     Minute,
     Second,
     AmPm,
+    // Timezone
+    Timezone,
 }
 
 impl EditSection {
@@ -90,6 +115,10 @@ impl EditSection {
             self,
             EditSection::Hour | EditSection::Minute | EditSection::Second | EditSection::AmPm
         )
+    }
+
+    fn is_timezone_section(&self) -> bool {
+        matches!(self, EditSection::Timezone)
     }
 }
 
@@ -155,11 +184,25 @@ pub struct DateTimeEdit {
     hover_part: DateTimeEditPart,
     /// Which part is currently pressed.
     pressed_part: DateTimeEditPart,
-    /// Whether the popup is visible.
+    /// Whether the calendar popup is visible.
     popup_visible: bool,
 
     /// Internal calendar widget for popup.
     calendar: CalendarWidget,
+
+    // Timezone support
+    /// Current timezone (None = naive/local time).
+    timezone: Option<Tz>,
+    /// How to display the timezone.
+    timezone_display: TimezoneDisplay,
+    /// Whether to show the timezone picker button.
+    show_timezone_picker: bool,
+    /// Timezone picker button width.
+    timezone_button_width: f32,
+    /// Internal ComboBox for timezone selection.
+    timezone_combo: ComboBox,
+    /// Whether the timezone popup is visible.
+    timezone_popup_visible: bool,
 
     /// Signal emitted when datetime changes.
     pub datetime_changed: Signal<NaiveDateTime>,
@@ -167,6 +210,8 @@ pub struct DateTimeEdit {
     pub date_changed: Signal<NaiveDate>,
     /// Signal emitted when time changes.
     pub time_changed: Signal<NaiveTime>,
+    /// Signal emitted when timezone changes.
+    pub timezone_changed: Signal<Option<Tz>>,
     /// Signal emitted when editing is finished.
     pub editing_finished: Signal<()>,
 }
@@ -182,6 +227,13 @@ impl DateTimeEdit {
 
         let mut calendar = CalendarWidget::new();
         calendar.set_selected_date(Some(now.date()));
+
+        // Create timezone combo with all IANA timezones
+        let mut timezone_combo = ComboBox::new()
+            .with_editable(true)
+            .with_case_insensitive(true)
+            .with_placeholder("Select timezone...");
+        timezone_combo.set_model(Box::new(TimezoneComboModel::new()));
 
         Self {
             base,
@@ -216,9 +268,17 @@ impl DateTimeEdit {
             pressed_part: DateTimeEditPart::None,
             popup_visible: false,
             calendar,
+            // Timezone fields (default: disabled for backward compatibility)
+            timezone: None,
+            timezone_display: TimezoneDisplay::Hidden,
+            show_timezone_picker: false,
+            timezone_button_width: 24.0,
+            timezone_combo,
+            timezone_popup_visible: false,
             datetime_changed: Signal::new(),
             date_changed: Signal::new(),
             time_changed: Signal::new(),
+            timezone_changed: Signal::new(),
             editing_finished: Signal::new(),
         }
     }
@@ -508,6 +568,190 @@ impl DateTimeEdit {
     }
 
     // =========================================================================
+    // Timezone Popup
+    // =========================================================================
+
+    /// Show the timezone picker popup.
+    pub fn show_timezone_popup(&mut self) {
+        if !self.show_timezone_picker || self.read_only {
+            return;
+        }
+        self.timezone_popup_visible = true;
+        // Sync the combo selection with current timezone
+        if let Some(tz) = self.timezone {
+            // Search by IANA name in the combo's model
+            if let Some(idx) = self.timezone_combo.find_text(tz.name()) {
+                self.timezone_combo.set_current_index(idx as i32);
+            }
+        }
+        self.base.update();
+    }
+
+    /// Hide the timezone picker popup.
+    pub fn hide_timezone_popup(&mut self) {
+        if self.timezone_popup_visible {
+            self.timezone_popup_visible = false;
+            self.base.update();
+        }
+    }
+
+    /// Toggle the timezone picker popup.
+    pub fn toggle_timezone_popup(&mut self) {
+        if self.timezone_popup_visible {
+            self.hide_timezone_popup();
+        } else {
+            self.show_timezone_popup();
+        }
+    }
+
+    // =========================================================================
+    // Timezone Access
+    // =========================================================================
+
+    /// Get the current timezone (None = naive/local time).
+    pub fn timezone(&self) -> Option<Tz> {
+        self.timezone
+    }
+
+    /// Set the current timezone.
+    ///
+    /// Setting a timezone enables timezone-aware display and conversions.
+    /// Use `None` to return to naive/local time mode.
+    pub fn set_timezone(&mut self, tz: Option<Tz>) {
+        if self.timezone != tz {
+            self.timezone = tz;
+            // Sync combo selection
+            if let Some(tz) = tz {
+                if let Some(idx) = self.timezone_combo.find_text(tz.name()) {
+                    self.timezone_combo.set_current_index(idx as i32);
+                }
+            }
+            self.base.update();
+            self.timezone_changed.emit(tz);
+        }
+    }
+
+    /// Set timezone using builder pattern.
+    pub fn with_timezone(mut self, tz: Tz) -> Self {
+        self.timezone = Some(tz);
+        self
+    }
+
+    /// Set to local system timezone using builder pattern.
+    pub fn with_local_timezone(mut self) -> Self {
+        if let Some(tz) = super::timezone::local_timezone() {
+            self.timezone = Some(tz);
+        }
+        self
+    }
+
+    /// Set to UTC using builder pattern.
+    pub fn with_utc(self) -> Self {
+        self.with_timezone(chrono_tz::UTC)
+    }
+
+    /// Get the datetime with timezone applied.
+    ///
+    /// Returns `None` if no timezone is set.
+    pub fn datetime_with_timezone(&self) -> Option<DateTime<Tz>> {
+        self.timezone.map(|tz| {
+            tz.from_local_datetime(&self.datetime)
+                .single()
+                .unwrap_or_else(|| tz.from_utc_datetime(&self.datetime))
+        })
+    }
+
+    /// Get the datetime converted to UTC.
+    ///
+    /// Returns `None` if no timezone is set.
+    pub fn datetime_utc(&self) -> Option<DateTime<Utc>> {
+        self.datetime_with_timezone().map(|dt| dt.with_timezone(&Utc))
+    }
+
+    /// Set datetime from a timezone-aware value.
+    ///
+    /// The timezone is also updated to match the input.
+    pub fn set_datetime_with_timezone<T: TimeZone>(&mut self, dt: DateTime<T>)
+    where
+        T::Offset: std::fmt::Display,
+    {
+        // Convert to naive local time
+        let naive = dt.naive_local();
+        self.set_datetime(naive);
+    }
+
+    /// Get how timezone is displayed.
+    pub fn timezone_display(&self) -> TimezoneDisplay {
+        self.timezone_display
+    }
+
+    /// Set how timezone is displayed.
+    pub fn set_timezone_display(&mut self, display: TimezoneDisplay) {
+        if self.timezone_display != display {
+            self.timezone_display = display;
+            self.base.update();
+        }
+    }
+
+    /// Set timezone display using builder pattern.
+    pub fn with_timezone_display(mut self, display: TimezoneDisplay) -> Self {
+        self.timezone_display = display;
+        self
+    }
+
+    /// Check if timezone picker is enabled.
+    pub fn timezone_picker_enabled(&self) -> bool {
+        self.show_timezone_picker
+    }
+
+    /// Enable or disable the timezone picker button.
+    pub fn set_timezone_picker(&mut self, enabled: bool) {
+        if self.show_timezone_picker != enabled {
+            self.show_timezone_picker = enabled;
+            self.base.update();
+        }
+    }
+
+    /// Set timezone picker enabled using builder pattern.
+    pub fn with_timezone_picker(mut self, enabled: bool) -> Self {
+        self.show_timezone_picker = enabled;
+        self
+    }
+
+    // =========================================================================
+    // Timezone Conversion
+    // =========================================================================
+
+    /// Convert the current datetime to a different timezone.
+    ///
+    /// This updates both the displayed datetime and the timezone.
+    pub fn convert_to_timezone(&mut self, tz: Tz) {
+        if let Some(current_dt) = self.datetime_with_timezone() {
+            let new_dt = current_dt.with_timezone(&tz);
+            self.datetime = new_dt.naive_local();
+            self.timezone = Some(tz);
+            self.base.update();
+            self.datetime_changed.emit(self.datetime);
+            self.timezone_changed.emit(Some(tz));
+        } else {
+            // Just set the timezone without conversion
+            self.set_timezone(Some(tz));
+        }
+    }
+
+    /// Convert the current datetime to UTC.
+    pub fn convert_to_utc(&mut self) {
+        self.convert_to_timezone(chrono_tz::UTC);
+    }
+
+    /// Convert the current datetime to local system timezone.
+    pub fn convert_to_local(&mut self) {
+        if let Some(tz) = super::timezone::local_timezone() {
+            self.convert_to_timezone(tz);
+        }
+    }
+
+    // =========================================================================
     // Section Navigation
     // =========================================================================
 
@@ -540,6 +784,11 @@ impl DateTimeEdit {
         }
         if self.is_12_hour() {
             sections.push(EditSection::AmPm);
+        }
+
+        // Add timezone section if timezone display is not hidden
+        if self.timezone_display != TimezoneDisplay::Hidden {
+            sections.push(EditSection::Timezone);
         }
 
         sections
@@ -630,6 +879,11 @@ impl DateTimeEdit {
                 NaiveTime::from_hms_opt(new_hour, self.datetime.time().minute(), self.datetime.time().second())
                     .map(|t| NaiveDateTime::new(self.datetime.date(), t))
             }
+            EditSection::Timezone => {
+                // Open the timezone picker instead of stepping
+                self.show_timezone_popup();
+                return;
+            }
         };
 
         if let Some(dt) = new_datetime {
@@ -695,6 +949,11 @@ impl DateTimeEdit {
                 let new_hour = (self.datetime.time().hour() + 12) % 24;
                 NaiveTime::from_hms_opt(new_hour, self.datetime.time().minute(), self.datetime.time().second())
                     .map(|t| NaiveDateTime::new(self.datetime.date(), t))
+            }
+            EditSection::Timezone => {
+                // Open the timezone picker instead of stepping
+                self.show_timezone_popup();
+                return;
             }
         };
 
@@ -774,7 +1033,45 @@ impl DateTimeEdit {
             }
         };
 
-        format!("{}{}{}", date_str, self.separator, time_str)
+        // Format timezone if display is not hidden
+        let tz_str = self.format_timezone_display();
+
+        if tz_str.is_empty() {
+            format!("{}{}{}", date_str, self.separator, time_str)
+        } else {
+            format!("{}{}{} {}", date_str, self.separator, time_str, tz_str)
+        }
+    }
+
+    /// Format the timezone for display based on the current display mode.
+    fn format_timezone_display(&self) -> String {
+        let tz = match self.timezone {
+            Some(tz) => tz,
+            None => return String::new(),
+        };
+
+        match self.timezone_display {
+            TimezoneDisplay::Hidden => String::new(),
+            TimezoneDisplay::Abbreviation => get_timezone_abbreviation(tz),
+            TimezoneDisplay::UtcOffset => {
+                let offset_secs = super::timezone::get_utc_offset_seconds(tz);
+                let sign = if offset_secs >= 0 { '+' } else { '-' };
+                let abs_secs = offset_secs.abs();
+                let hours = abs_secs / 3600;
+                let mins = (abs_secs % 3600) / 60;
+                format!("{}{:02}:{:02}", sign, hours, mins)
+            }
+            TimezoneDisplay::Full => {
+                let abbrev = get_timezone_abbreviation(tz);
+                let offset_secs = super::timezone::get_utc_offset_seconds(tz);
+                let sign = if offset_secs >= 0 { '+' } else { '-' };
+                let abs_secs = offset_secs.abs();
+                let hours = abs_secs / 3600;
+                let mins = (abs_secs % 3600) / 60;
+                format!("{} {}{:02}:{:02}", abbrev, sign, hours, mins)
+            }
+            TimezoneDisplay::IanaName => tz.name().to_string(),
+        }
     }
 
     // =========================================================================
@@ -785,6 +1082,9 @@ impl DateTimeEdit {
         let mut width = self.button_width;
         if self.calendar_popup {
             width += self.calendar_button_width;
+        }
+        if self.show_timezone_picker {
+            width += self.timezone_button_width;
         }
         width
     }
@@ -804,10 +1104,27 @@ impl DateTimeEdit {
             return None;
         }
         let rect = self.base.rect();
+        // Calendar button is positioned before timezone button (if present)
+        let x = rect.width() - self.right_buttons_width();
         Some(Rect::new(
-            rect.width() - self.right_buttons_width(),
+            x,
             0.0,
             self.calendar_button_width,
+            rect.height(),
+        ))
+    }
+
+    fn timezone_button_rect(&self) -> Option<Rect> {
+        if !self.show_timezone_picker {
+            return None;
+        }
+        let rect = self.base.rect();
+        // Timezone button is between calendar button and up/down buttons
+        let x = rect.width() - self.button_width - self.timezone_button_width;
+        Some(Rect::new(
+            x,
+            0.0,
+            self.timezone_button_width,
             rect.height(),
         ))
     }
@@ -857,6 +1174,11 @@ impl DateTimeEdit {
                 return DateTimeEditPart::CalendarButton;
             }
         }
+        if let Some(tz_rect) = self.timezone_button_rect() {
+            if tz_rect.contains(pos) {
+                return DateTimeEditPart::TimezoneButton;
+            }
+        }
 
         let text_rect = self.text_field_rect();
         if text_rect.contains(pos) {
@@ -876,6 +1198,7 @@ impl DateTimeEdit {
                 EditSection::Minute => DateTimeEditPart::MinuteSection,
                 EditSection::Second => DateTimeEditPart::SecondSection,
                 EditSection::AmPm => DateTimeEditPart::AmPmSection,
+                EditSection::Timezone => DateTimeEditPart::TimezoneSection,
                 EditSection::None => DateTimeEditPart::None,
             };
         }
@@ -968,9 +1291,25 @@ impl DateTimeEdit {
                 self.base.update();
                 true
             }
+            DateTimeEditPart::TimezoneSection => {
+                self.current_section = EditSection::Timezone;
+                self.base.update();
+                true
+            }
+            DateTimeEditPart::TimezoneButton => {
+                self.toggle_timezone_popup();
+                true
+            }
+            DateTimeEditPart::PopupTimezone => {
+                // Handled by the timezone combo box
+                true
+            }
             DateTimeEditPart::None => {
                 if self.popup_visible {
                     self.hide_popup();
+                    true
+                } else if self.timezone_popup_visible {
+                    self.hide_timezone_popup();
                     true
                 } else {
                     false

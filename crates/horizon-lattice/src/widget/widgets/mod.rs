@@ -81,6 +81,7 @@ mod tool_button;
 mod window;
 mod key_sequence_edit;
 mod find_replace;
+mod timezone;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
 pub use button_group::ButtonGroup;
@@ -94,7 +95,11 @@ pub use combo_box::{
 };
 pub use container::ContainerWidget;
 pub use date_edit::{DateEdit, DateFormat};
-pub use date_time_edit::DateTimeEdit;
+pub use date_time_edit::{DateTimeEdit, TimezoneDisplay};
+pub use timezone::{
+    format_timezone, format_utc_offset, get_timezone_abbreviation, get_utc_offset_seconds,
+    local_timezone, TimezoneComboModel, TimezoneDisplayFormat, COMMON_TIMEZONES,
+};
 pub use dial::Dial;
 pub use dock_widget::{DockArea, DockAreas, DockWidget, DockWidgetFeatures};
 pub use frame::{Frame, FrameShadow, FrameShape};

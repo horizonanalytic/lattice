@@ -34,7 +34,7 @@
 use parking_lot::RwLock;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::styled_document::{CharFormat, StyledDocument};
+use super::styled_document::{CharFormat, LineSpacing, StyledDocument};
 use crate::platform::Clipboard;
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
@@ -1295,6 +1295,60 @@ impl TextEdit {
         self.indent_changed.emit((left_indent, self.paragraph_first_line_indent()));
     }
 
+    /// Set the line spacing for the current paragraph(s).
+    pub fn set_paragraph_line_spacing(&mut self, spacing: LineSpacing) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.set_line_spacing(start_para..end_para, spacing);
+        self.invalidate_layout();
+        self.base.update();
+    }
+
+    /// Get the line spacing of the paragraph at the cursor position.
+    pub fn paragraph_line_spacing(&self) -> LineSpacing {
+        let para_idx = self.document.paragraph_at(self.cursor_position());
+        self.document.block_format_at(para_idx).line_spacing
+    }
+
+    /// Set the spacing before the current paragraph(s).
+    pub fn set_paragraph_spacing_before(&mut self, spacing: f32) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.set_spacing_before(start_para..end_para, spacing);
+        self.invalidate_layout();
+        self.base.update();
+    }
+
+    /// Get the spacing before the paragraph at the cursor position.
+    pub fn paragraph_spacing_before(&self) -> f32 {
+        let para_idx = self.document.paragraph_at(self.cursor_position());
+        self.document.block_format_at(para_idx).spacing_before
+    }
+
+    /// Set the spacing after the current paragraph(s).
+    pub fn set_paragraph_spacing_after(&mut self, spacing: f32) {
+        if self.read_only {
+            return;
+        }
+
+        let (start_para, end_para) = self.selected_paragraph_range();
+        self.document.set_spacing_after(start_para..end_para, spacing);
+        self.invalidate_layout();
+        self.base.update();
+    }
+
+    /// Get the spacing after the paragraph at the cursor position.
+    pub fn paragraph_spacing_after(&self) -> f32 {
+        let para_idx = self.document.paragraph_at(self.cursor_position());
+        self.document.block_format_at(para_idx).spacing_after
+    }
+
     /// Get the range of paragraphs currently selected or containing the cursor.
     /// Returns (start_para_idx, end_para_idx) where end is exclusive.
     fn selected_paragraph_range(&self) -> (usize, usize) {
@@ -1319,6 +1373,24 @@ impl TextEdit {
     /// Get the uniform first line indent for the entire document.
     fn uniform_first_line_indent(&self) -> Option<f32> {
         self.document.uniform_first_line_indent()
+    }
+
+    /// Get the uniform line spacing for the entire document.
+    ///
+    /// Returns `Some(spacing)` if all paragraphs have the same line spacing,
+    /// or `None` if different paragraphs have different line spacing.
+    fn uniform_line_spacing(&self) -> Option<LineSpacing> {
+        self.document.uniform_line_spacing()
+    }
+
+    /// Get the uniform paragraph spacing (combined before + after).
+    ///
+    /// For rendering, we use a combined paragraph spacing value.
+    /// Returns `Some(spacing)` if all paragraphs have uniform spacing_after,
+    /// or `None` if different paragraphs have different spacing.
+    fn uniform_paragraph_spacing(&self) -> Option<f32> {
+        // Use spacing_after for inter-paragraph spacing in uniform mode
+        self.document.uniform_spacing_after()
     }
 
     /// Apply font family to a range, preserving other formatting.
@@ -2896,11 +2968,20 @@ impl TextEdit {
             let left_indent = self.uniform_left_indent().unwrap_or(0.0);
             let first_line_indent = self.uniform_first_line_indent().unwrap_or(0.0);
 
+            // Get spacing (use uniform values if all paragraphs have the same, otherwise defaults)
+            let line_height = self
+                .uniform_line_spacing()
+                .unwrap_or(LineSpacing::Single)
+                .to_multiplier();
+            let paragraph_spacing = self.uniform_paragraph_spacing().unwrap_or(0.0);
+
             let options = TextLayoutOptions::default()
                 .wrap(self.wrap_mode.to_render_wrap())
                 .horizontal_align(alignment)
                 .left_indent(left_indent)
-                .first_line_indent(first_line_indent);
+                .first_line_indent(first_line_indent)
+                .line_height(line_height)
+                .paragraph_spacing(paragraph_spacing);
             let options = if self.wrap_mode != TextWrapMode::NoWrap {
                 options.max_width(content_rect.width())
             } else {

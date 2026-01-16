@@ -1377,6 +1377,11 @@ impl TextLayout {
         if self.options.left_indent != 0.0 || self.options.first_line_indent != 0.0 {
             self.apply_indentation();
         }
+
+        // Apply paragraph spacing if configured
+        if self.options.paragraph_spacing != 0.0 {
+            self.apply_paragraph_spacing();
+        }
     }
 
     /// Apply left and first-line indentation to the layout.
@@ -1410,6 +1415,45 @@ impl TextLayout {
 
             // The next line is a first line of paragraph if this line has a hard break
             is_first_line_of_paragraph = line.is_hard_break;
+        }
+    }
+
+    /// Apply paragraph spacing to the layout.
+    ///
+    /// This adds extra vertical space between paragraphs by shifting
+    /// the y positions of lines that start a new paragraph.
+    fn apply_paragraph_spacing(&mut self) {
+        let paragraph_spacing = self.options.paragraph_spacing;
+        if paragraph_spacing == 0.0 || self.lines.is_empty() {
+            return;
+        }
+
+        // Track cumulative offset and whether previous line was a paragraph break
+        let mut y_offset = 0.0;
+        let mut previous_was_hard_break = false;
+
+        for (i, line) in self.lines.iter_mut().enumerate() {
+            // Add paragraph spacing before lines that start a new paragraph
+            // (except the very first line)
+            if i > 0 && previous_was_hard_break {
+                y_offset += paragraph_spacing;
+            }
+
+            // Apply accumulated offset
+            if y_offset != 0.0 {
+                line.baseline_y += y_offset;
+                line.top_y += y_offset;
+                for glyph in &mut line.glyphs {
+                    glyph.y += y_offset;
+                }
+            }
+
+            previous_was_hard_break = line.is_hard_break;
+        }
+
+        // Update overall height
+        if let Some(last_line) = self.lines.last() {
+            self.height = last_line.top_y + last_line.height;
         }
     }
 

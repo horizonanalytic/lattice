@@ -123,7 +123,7 @@ pub use stacked_widget::StackedWidget;
 pub use tab_bar::{TabBar, TabPosition};
 pub use tab_widget::TabWidget;
 pub use plain_text_edit::{HighlightSpan, LineNumberConfig, PlainTextEdit, SyntaxHighlighter};
-pub use styled_document::{BlockFormat, BlockRun, CharFormat, FormatRun, StyledDocument};
+pub use styled_document::{BlockFormat, BlockRun, CharFormat, FormatRun, LineSpacing, StyledDocument};
 pub use text_edit::{TextEdit, TextWrapMode};
 // Re-export font and text types for rich text formatting
 pub use horizon_lattice_render::text::{FontFamily, FontWeight, HorizontalAlign};

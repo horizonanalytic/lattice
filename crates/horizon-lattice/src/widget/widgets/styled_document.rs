@@ -205,6 +205,34 @@ impl FormatRun {
     }
 }
 
+/// Line spacing options for paragraphs.
+///
+/// Controls the vertical space between lines within a paragraph.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum LineSpacing {
+    /// Single line spacing (1.2x line height multiplier).
+    #[default]
+    Single,
+    /// 1.5x line spacing (1.5x line height multiplier).
+    OnePointFive,
+    /// Double line spacing (2.0x line height multiplier).
+    Double,
+    /// Custom line height multiplier.
+    Custom(f32),
+}
+
+impl LineSpacing {
+    /// Convert line spacing to a line height multiplier.
+    pub fn to_multiplier(self) -> f32 {
+        match self {
+            LineSpacing::Single => 1.2,
+            LineSpacing::OnePointFive => 1.5,
+            LineSpacing::Double => 2.0,
+            LineSpacing::Custom(m) => m,
+        }
+    }
+}
+
 /// Paragraph/block-level formatting attributes.
 ///
 /// Represents the styling applied to a paragraph of text.
@@ -221,6 +249,12 @@ pub struct BlockFormat {
     /// Negative values create a "hanging indent" where the first line
     /// starts to the left of subsequent lines.
     pub first_line_indent: f32,
+    /// Line spacing within the paragraph.
+    pub line_spacing: LineSpacing,
+    /// Extra space before the paragraph in pixels.
+    pub spacing_before: f32,
+    /// Extra space after the paragraph in pixels.
+    pub spacing_after: f32,
 }
 
 impl BlockFormat {
@@ -233,6 +267,9 @@ impl BlockFormat {
             alignment: HorizontalAlign::Left,
             left_indent: 0.0,
             first_line_indent: 0.0,
+            line_spacing: LineSpacing::Single,
+            spacing_before: 0.0,
+            spacing_after: 0.0,
         }
     }
 
@@ -241,6 +278,9 @@ impl BlockFormat {
         self.alignment != HorizontalAlign::Left
             || self.left_indent != 0.0
             || self.first_line_indent != 0.0
+            || self.line_spacing != LineSpacing::Single
+            || self.spacing_before != 0.0
+            || self.spacing_after != 0.0
     }
 
     /// Builder method to set alignment.
@@ -290,6 +330,24 @@ impl BlockFormat {
         self
     }
 
+    /// Builder method to set line spacing.
+    pub fn with_line_spacing(mut self, spacing: LineSpacing) -> Self {
+        self.line_spacing = spacing;
+        self
+    }
+
+    /// Builder method to set spacing before paragraph.
+    pub fn with_spacing_before(mut self, spacing: f32) -> Self {
+        self.spacing_before = spacing;
+        self
+    }
+
+    /// Builder method to set spacing after paragraph.
+    pub fn with_spacing_after(mut self, spacing: f32) -> Self {
+        self.spacing_after = spacing;
+        self
+    }
+
     /// Get the effective indent for the first line of the paragraph.
     pub fn first_line_effective_indent(&self) -> f32 {
         self.left_indent + self.first_line_indent
@@ -298,6 +356,11 @@ impl BlockFormat {
     /// Get the effective indent for subsequent lines of the paragraph.
     pub fn subsequent_lines_indent(&self) -> f32 {
         self.left_indent
+    }
+
+    /// Get the line height multiplier for this paragraph.
+    pub fn line_height_multiplier(&self) -> f32 {
+        self.line_spacing.to_multiplier()
     }
 }
 
@@ -1001,6 +1064,42 @@ impl StyledDocument {
         }
     }
 
+    /// Set line spacing for a range of paragraphs.
+    pub fn set_line_spacing(&mut self, range: Range<usize>, spacing: LineSpacing) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            let new_format = BlockFormat {
+                line_spacing: spacing,
+                ..existing
+            };
+            self.set_block_format(para_idx..para_idx + 1, new_format);
+        }
+    }
+
+    /// Set spacing before a range of paragraphs.
+    pub fn set_spacing_before(&mut self, range: Range<usize>, spacing: f32) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            let new_format = BlockFormat {
+                spacing_before: spacing,
+                ..existing
+            };
+            self.set_block_format(para_idx..para_idx + 1, new_format);
+        }
+    }
+
+    /// Set spacing after a range of paragraphs.
+    pub fn set_spacing_after(&mut self, range: Range<usize>, spacing: f32) {
+        for para_idx in range {
+            let existing = self.block_format_at(para_idx);
+            let new_format = BlockFormat {
+                spacing_after: spacing,
+                ..existing
+            };
+            self.set_block_format(para_idx..para_idx + 1, new_format);
+        }
+    }
+
     /// Get the uniform left indent if all paragraphs in the document have the same indent.
     /// Returns `None` if different paragraphs have different indents.
     pub fn uniform_left_indent(&self) -> Option<f32> {
@@ -1033,6 +1132,57 @@ impl StyledDocument {
             }
         }
         Some(first_indent)
+    }
+
+    /// Get the uniform line spacing if all paragraphs have the same.
+    /// Returns `None` if different paragraphs have different line spacing.
+    pub fn uniform_line_spacing(&self) -> Option<LineSpacing> {
+        let para_count = self.paragraph_count();
+        if para_count == 0 {
+            return Some(LineSpacing::Single);
+        }
+
+        let first_spacing = self.block_format_at(0).line_spacing;
+        for para_idx in 1..para_count {
+            if self.block_format_at(para_idx).line_spacing != first_spacing {
+                return None;
+            }
+        }
+        Some(first_spacing)
+    }
+
+    /// Get the uniform spacing before if all paragraphs have the same.
+    /// Returns `None` if different paragraphs have different spacing before.
+    pub fn uniform_spacing_before(&self) -> Option<f32> {
+        let para_count = self.paragraph_count();
+        if para_count == 0 {
+            return Some(0.0);
+        }
+
+        let first_spacing = self.block_format_at(0).spacing_before;
+        for para_idx in 1..para_count {
+            if self.block_format_at(para_idx).spacing_before != first_spacing {
+                return None;
+            }
+        }
+        Some(first_spacing)
+    }
+
+    /// Get the uniform spacing after if all paragraphs have the same.
+    /// Returns `None` if different paragraphs have different spacing after.
+    pub fn uniform_spacing_after(&self) -> Option<f32> {
+        let para_count = self.paragraph_count();
+        if para_count == 0 {
+            return Some(0.0);
+        }
+
+        let first_spacing = self.block_format_at(0).spacing_after;
+        for para_idx in 1..para_count {
+            if self.block_format_at(para_idx).spacing_after != first_spacing {
+                return None;
+            }
+        }
+        Some(first_spacing)
     }
 
     /// Normalize block runs: sort by position and merge adjacent runs with same format.
@@ -1583,5 +1733,202 @@ mod tests {
         // Alignment should be preserved
         assert_eq!(doc.block_format_at(0).alignment, HorizontalAlign::Center);
         assert_eq!(doc.block_format_at(0).left_indent, 40.0);
+    }
+
+    // =========================================================================
+    // Line Spacing Tests
+    // =========================================================================
+
+    #[test]
+    fn test_line_spacing_enum_to_multiplier() {
+        assert_eq!(LineSpacing::Single.to_multiplier(), 1.2);
+        assert_eq!(LineSpacing::OnePointFive.to_multiplier(), 1.5);
+        assert_eq!(LineSpacing::Double.to_multiplier(), 2.0);
+        assert_eq!(LineSpacing::Custom(1.8).to_multiplier(), 1.8);
+    }
+
+    #[test]
+    fn test_line_spacing_equality() {
+        // Verify PartialEq works as expected
+        assert_eq!(LineSpacing::Single, LineSpacing::Single);
+        assert_eq!(LineSpacing::OnePointFive, LineSpacing::OnePointFive);
+        assert_eq!(LineSpacing::Double, LineSpacing::Double);
+        assert_ne!(LineSpacing::Single, LineSpacing::OnePointFive);
+        assert_ne!(LineSpacing::OnePointFive, LineSpacing::Double);
+
+        // Verify inequality
+        let a = LineSpacing::OnePointFive;
+        let b = LineSpacing::OnePointFive;
+        assert!(!(a != b), "OnePointFive should equal OnePointFive");
+    }
+
+    #[test]
+    fn test_line_spacing_default() {
+        let format = BlockFormat::new();
+        assert_eq!(format.line_spacing, LineSpacing::Single);
+    }
+
+    #[test]
+    fn test_set_line_spacing() {
+        let mut doc = StyledDocument::from_text("First paragraph.\nSecond paragraph.\n");
+        doc.set_line_spacing(0..1, LineSpacing::Double);
+
+        assert_eq!(doc.block_format_at(0).line_spacing, LineSpacing::Double);
+        assert_eq!(doc.block_format_at(1).line_spacing, LineSpacing::Single);
+    }
+
+    #[test]
+    fn test_uniform_line_spacing_same() {
+        // Use text without trailing newline to get exactly 2 paragraphs
+        let mut doc = StyledDocument::from_text("First.\nSecond.");
+
+        // Check initial state - "First.\nSecond." has 2 paragraphs
+        assert_eq!(doc.paragraph_count(), 2, "Should have 2 paragraphs");
+
+        doc.set_line_spacing(0..2, LineSpacing::OnePointFive);
+
+        // Verify each paragraph has the correct spacing
+        assert_eq!(doc.block_format_at(0).line_spacing, LineSpacing::OnePointFive);
+        assert_eq!(doc.block_format_at(1).line_spacing, LineSpacing::OnePointFive);
+
+        assert_eq!(
+            doc.uniform_line_spacing(),
+            Some(LineSpacing::OnePointFive)
+        );
+    }
+
+    #[test]
+    fn test_uniform_line_spacing_different() {
+        let mut doc = StyledDocument::from_text("First.\nSecond.\nThird.\n");
+        doc.set_line_spacing(0..1, LineSpacing::Double);
+        doc.set_line_spacing(1..2, LineSpacing::Single);
+
+        assert_eq!(doc.uniform_line_spacing(), None);
+    }
+
+    #[test]
+    fn test_line_spacing_with_builder() {
+        let format = BlockFormat::new()
+            .with_line_spacing(LineSpacing::OnePointFive);
+        assert_eq!(format.line_spacing, LineSpacing::OnePointFive);
+    }
+
+    // =========================================================================
+    // Paragraph Spacing Tests
+    // =========================================================================
+
+    #[test]
+    fn test_spacing_before_default() {
+        let format = BlockFormat::new();
+        assert_eq!(format.spacing_before, 0.0);
+        assert_eq!(format.spacing_after, 0.0);
+    }
+
+    #[test]
+    fn test_set_spacing_before() {
+        let mut doc = StyledDocument::from_text("First.\nSecond.\n");
+        doc.set_spacing_before(0..1, 12.0);
+
+        assert_eq!(doc.block_format_at(0).spacing_before, 12.0);
+        assert_eq!(doc.block_format_at(1).spacing_before, 0.0);
+    }
+
+    #[test]
+    fn test_set_spacing_after() {
+        let mut doc = StyledDocument::from_text("First.\nSecond.\n");
+        doc.set_spacing_after(0..1, 8.0);
+
+        assert_eq!(doc.block_format_at(0).spacing_after, 8.0);
+        assert_eq!(doc.block_format_at(1).spacing_after, 0.0);
+    }
+
+    #[test]
+    fn test_uniform_spacing_before_same() {
+        // Use text without trailing newline to get exactly 2 paragraphs
+        let mut doc = StyledDocument::from_text("First.\nSecond.");
+        doc.set_spacing_before(0..2, 10.0);
+
+        // Verify each paragraph
+        assert_eq!(doc.block_format_at(0).spacing_before, 10.0);
+        assert_eq!(doc.block_format_at(1).spacing_before, 10.0);
+
+        assert_eq!(doc.uniform_spacing_before(), Some(10.0));
+    }
+
+    #[test]
+    fn test_uniform_spacing_before_different() {
+        let mut doc = StyledDocument::from_text("First.\nSecond.\n");
+        doc.set_spacing_before(0..1, 10.0);
+        doc.set_spacing_before(1..2, 20.0);
+
+        assert_eq!(doc.uniform_spacing_before(), None);
+    }
+
+    #[test]
+    fn test_uniform_spacing_after_same() {
+        // Use text without trailing newline to get exactly 2 paragraphs
+        let mut doc = StyledDocument::from_text("First.\nSecond.");
+        doc.set_spacing_after(0..2, 5.0);
+
+        // Verify each paragraph
+        assert_eq!(doc.block_format_at(0).spacing_after, 5.0);
+        assert_eq!(doc.block_format_at(1).spacing_after, 5.0);
+
+        assert_eq!(doc.uniform_spacing_after(), Some(5.0));
+    }
+
+    #[test]
+    fn test_uniform_spacing_after_different() {
+        let mut doc = StyledDocument::from_text("First.\nSecond.\n");
+        doc.set_spacing_after(0..1, 5.0);
+        doc.set_spacing_after(1..2, 15.0);
+
+        assert_eq!(doc.uniform_spacing_after(), None);
+    }
+
+    #[test]
+    fn test_spacing_with_builder() {
+        let format = BlockFormat::new()
+            .with_spacing_before(12.0)
+            .with_spacing_after(8.0);
+        assert_eq!(format.spacing_before, 12.0);
+        assert_eq!(format.spacing_after, 8.0);
+    }
+
+    #[test]
+    fn test_spacing_is_styled() {
+        // Default should not be styled
+        let default = BlockFormat::new();
+        assert!(!default.is_styled());
+
+        // Line spacing should make it styled
+        let with_line_spacing = BlockFormat::new()
+            .with_line_spacing(LineSpacing::Double);
+        assert!(with_line_spacing.is_styled());
+
+        // Spacing before should make it styled
+        let with_spacing_before = BlockFormat::new()
+            .with_spacing_before(10.0);
+        assert!(with_spacing_before.is_styled());
+
+        // Spacing after should make it styled
+        let with_spacing_after = BlockFormat::new()
+            .with_spacing_after(10.0);
+        assert!(with_spacing_after.is_styled());
+    }
+
+    #[test]
+    fn test_spacing_preserves_other_formatting() {
+        let mut doc = StyledDocument::from_text("Centered with spacing.\n");
+        doc.set_alignment(0..1, HorizontalAlign::Center);
+        doc.set_left_indent(0..1, 40.0);
+        doc.set_line_spacing(0..1, LineSpacing::Double);
+        doc.set_spacing_after(0..1, 12.0);
+
+        let format = doc.block_format_at(0);
+        assert_eq!(format.alignment, HorizontalAlign::Center);
+        assert_eq!(format.left_indent, 40.0);
+        assert_eq!(format.line_spacing, LineSpacing::Double);
+        assert_eq!(format.spacing_after, 12.0);
     }
 }

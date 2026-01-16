@@ -33,6 +33,8 @@
 //! - [`MainWindow`]: Main application window with dock areas
 //! - [`Popup`]: Temporary floating container widget
 //! - [`Window`]: Top-level window widget
+//! - [`Dialog`]: Modal dialog with accept/reject semantics
+//! - [`DialogButtonBox`]: Container for standard dialog buttons
 //! - [`ColorButton`]: Button that displays a color swatch
 //! - [`ColorPicker`]: Inline HSV color picker with saturation/value square and hue bar
 //! - [`FontComboBox`]: Dropdown for selecting font families with preview
@@ -49,6 +51,8 @@ mod container;
 mod date_edit;
 mod date_time_edit;
 mod dial;
+mod dialog;
+mod dialog_button_box;
 mod dock_widget;
 mod double_spin_box;
 mod font_combo_box;
@@ -157,6 +161,10 @@ pub use time_edit::{TimeEdit, TimeFormat};
 pub use tool_box::ToolBox;
 pub use tool_button::{ToolButton, ToolButtonPopupMode, ToolButtonStyle};
 pub use window::{Window, WindowFlags, WindowModality, WindowState};
+pub use dialog::{Dialog, DialogResult};
+pub use dialog_button_box::{
+    ButtonOrder, ButtonRole, DialogButtonBox, StandardButton, ButtonBoxOrientation,
+};
 pub use key_sequence_edit::KeySequenceEdit;
 pub use find_replace::{FindOptions, FindReplaceBar, FindReplaceMode, SearchMatch, Searchable};
 pub use list_widget::{ListWidget, ListWidgetItem, MatchFlags};

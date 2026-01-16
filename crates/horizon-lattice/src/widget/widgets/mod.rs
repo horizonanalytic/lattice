@@ -38,6 +38,7 @@
 //! - [`MessageBox`]: Modal dialog for displaying messages with icons
 //! - [`ColorButton`]: Button that displays a color swatch
 //! - [`ColorPicker`]: Inline HSV color picker with saturation/value square and hue bar
+//! - [`ColorDialog`]: Modal dialog for color selection with HSV picker and palettes
 //! - [`FontComboBox`]: Dropdown for selecting font families with preview
 //! - [`KeySequenceEdit`]: Keyboard shortcut capture and editing widget
 
@@ -46,6 +47,7 @@ mod button_group;
 mod calendar;
 mod checkbox;
 mod color_button;
+mod color_dialog;
 mod color_picker;
 mod combo_box;
 mod container;
@@ -105,6 +107,7 @@ pub use calendar::{
 };
 pub use checkbox::{CheckBox, CheckState};
 pub use color_button::ColorButton;
+pub use color_dialog::ColorDialog;
 pub use color_picker::ColorPicker;
 pub use combo_box::{
     ComboBox, ComboBoxItem, ComboBoxItemDelegate, ComboBoxModel, DefaultComboBoxDelegate,

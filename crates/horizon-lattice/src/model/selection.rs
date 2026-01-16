@@ -45,6 +45,21 @@ pub enum SelectionMode {
     ExtendedSelection,
 }
 
+/// Selection behavior - what gets selected when user clicks.
+///
+/// This is distinct from [`SelectionMode`] which controls *how* selection works.
+/// SelectionBehavior controls *what* gets selected (cells, rows, or columns).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SelectionBehavior {
+    /// Select individual cells/items.
+    #[default]
+    SelectItems,
+    /// Select entire rows when any cell in the row is clicked.
+    SelectRows,
+    /// Select entire columns when any cell in the column is clicked.
+    SelectColumns,
+}
+
 /// Flags controlling selection operations.
 ///
 /// These flags can be combined to perform complex selection operations.
@@ -170,6 +185,9 @@ pub struct SelectionModel {
     /// Current selection mode.
     mode: SelectionMode,
 
+    /// Selection behavior (items, rows, or columns).
+    behavior: SelectionBehavior,
+
     /// The current index (has keyboard focus).
     current: ModelIndex,
 
@@ -200,6 +218,7 @@ impl SelectionModel {
     pub fn new() -> Self {
         Self {
             mode: SelectionMode::default(),
+            behavior: SelectionBehavior::default(),
             current: ModelIndex::invalid(),
             anchor: ModelIndex::invalid(),
             selected_ids: HashSet::new(),
@@ -224,6 +243,22 @@ impl SelectionModel {
     /// selections will follow the new mode's behavior.
     pub fn set_selection_mode(&mut self, mode: SelectionMode) {
         self.mode = mode;
+    }
+
+    // =========================================================================
+    // Selection Behavior
+    // =========================================================================
+
+    /// Gets the current selection behavior.
+    pub fn selection_behavior(&self) -> SelectionBehavior {
+        self.behavior
+    }
+
+    /// Sets the selection behavior (items, rows, or columns).
+    ///
+    /// Changing behavior does not clear existing selection.
+    pub fn set_selection_behavior(&mut self, behavior: SelectionBehavior) {
+        self.behavior = behavior;
     }
 
     // =========================================================================
@@ -308,6 +343,34 @@ impl SelectionModel {
         rows.sort_unstable();
         rows.dedup();
         rows
+    }
+
+    /// Checks if a column is selected (any cell in that column).
+    pub fn is_column_selected(&self, column: usize) -> bool {
+        self.selected_indices.iter().any(|idx| idx.column() == column)
+    }
+
+    /// Returns the selected columns.
+    pub fn selected_columns(&self) -> Vec<usize> {
+        let mut cols: Vec<usize> = self.selected_indices.iter().map(|idx| idx.column()).collect();
+        cols.sort_unstable();
+        cols.dedup();
+        cols
+    }
+
+    /// Checks if a specific cell (row, column) is selected.
+    pub fn is_cell_selected(&self, row: usize, column: usize) -> bool {
+        self.selected_indices
+            .iter()
+            .any(|idx| idx.row() == row && idx.column() == column)
+    }
+
+    /// Returns the selected cells as (row, column) tuples.
+    pub fn selected_cells(&self) -> Vec<(usize, usize)> {
+        self.selected_indices
+            .iter()
+            .map(|idx| (idx.row(), idx.column()))
+            .collect()
     }
 
     // =========================================================================
@@ -417,6 +480,173 @@ impl SelectionModel {
             if !self.selected_ids.contains(&id) {
                 self.add_to_selection(index.clone());
                 newly_selected.push(index);
+            }
+        }
+
+        // Remove from deselected any that were re-selected
+        newly_deselected.retain(|idx| !self.selected_ids.contains(&idx.internal_id()));
+
+        if !newly_selected.is_empty() || !newly_deselected.is_empty() {
+            self.selection_changed
+                .emit((newly_selected, newly_deselected));
+        }
+    }
+
+    /// Selects a 2D rectangular range of cells.
+    ///
+    /// This is used for Shift+click behavior in TableView with cell selection.
+    /// Selects all cells from (start_row, start_col) to (end_row, end_col) inclusive.
+    pub fn select_range_2d(
+        &mut self,
+        start_row: usize,
+        start_col: usize,
+        end_row: usize,
+        end_col: usize,
+        flags: SelectionFlags,
+    ) {
+        if self.mode == SelectionMode::NoSelection {
+            return;
+        }
+
+        let (first_row, last_row) = if start_row <= end_row {
+            (start_row, end_row)
+        } else {
+            (end_row, start_row)
+        };
+
+        let (first_col, last_col) = if start_col <= end_col {
+            (start_col, end_col)
+        } else {
+            (end_col, start_col)
+        };
+
+        let mut newly_selected = Vec::new();
+        let mut newly_deselected = Vec::new();
+
+        // Clear if requested
+        if flags.clear && !self.selected_indices.is_empty() {
+            newly_deselected = std::mem::take(&mut self.selected_indices);
+            self.selected_ids.clear();
+        }
+
+        // Select the rectangular range
+        for row in first_row..=last_row {
+            for col in first_col..=last_col {
+                let index = ModelIndex::new(row, col, ModelIndex::invalid());
+                let id = index.internal_id();
+
+                if !self.selected_ids.contains(&id) {
+                    self.add_to_selection(index.clone());
+                    newly_selected.push(index);
+                }
+            }
+        }
+
+        // Remove from deselected any that were re-selected
+        newly_deselected.retain(|idx| !self.selected_ids.contains(&idx.internal_id()));
+
+        if !newly_selected.is_empty() || !newly_deselected.is_empty() {
+            self.selection_changed
+                .emit((newly_selected, newly_deselected));
+        }
+    }
+
+    /// Selects an entire column (all cells in that column).
+    ///
+    /// Requires knowing the row count to select all cells in the column.
+    pub fn select_column(&mut self, column: usize, row_count: usize, flags: SelectionFlags) {
+        if self.mode == SelectionMode::NoSelection {
+            return;
+        }
+
+        let mut newly_selected = Vec::new();
+        let mut newly_deselected = Vec::new();
+
+        // Clear if requested
+        if flags.clear && !self.selected_indices.is_empty() {
+            newly_deselected = std::mem::take(&mut self.selected_indices);
+            self.selected_ids.clear();
+        }
+
+        // Select all cells in the column
+        for row in 0..row_count {
+            let index = ModelIndex::new(row, column, ModelIndex::invalid());
+            let id = index.internal_id();
+
+            if flags.toggle {
+                if self.selected_ids.contains(&id) {
+                    self.selected_ids.remove(&id);
+                    self.selected_indices.retain(|idx| idx.internal_id() != id);
+                    if !newly_deselected.iter().any(|idx| idx.internal_id() == id) {
+                        newly_deselected.push(index);
+                    }
+                } else {
+                    self.add_to_selection(index.clone());
+                    newly_selected.push(index);
+                }
+            } else if flags.select && !self.selected_ids.contains(&id) {
+                self.add_to_selection(index.clone());
+                newly_selected.push(index);
+            } else if flags.deselect && self.selected_ids.contains(&id) {
+                self.selected_ids.remove(&id);
+                self.selected_indices.retain(|idx| idx.internal_id() != id);
+                if !newly_deselected.iter().any(|idx| idx.internal_id() == id) {
+                    newly_deselected.push(index);
+                }
+            }
+        }
+
+        // Remove from deselected any that were re-selected
+        newly_deselected.retain(|idx| !self.selected_ids.contains(&idx.internal_id()));
+
+        if !newly_selected.is_empty() || !newly_deselected.is_empty() {
+            self.selection_changed
+                .emit((newly_selected, newly_deselected));
+        }
+    }
+
+    /// Selects an entire row (all cells in that row).
+    ///
+    /// Requires knowing the column count to select all cells in the row.
+    pub fn select_row(&mut self, row: usize, column_count: usize, flags: SelectionFlags) {
+        if self.mode == SelectionMode::NoSelection {
+            return;
+        }
+
+        let mut newly_selected = Vec::new();
+        let mut newly_deselected = Vec::new();
+
+        // Clear if requested
+        if flags.clear && !self.selected_indices.is_empty() {
+            newly_deselected = std::mem::take(&mut self.selected_indices);
+            self.selected_ids.clear();
+        }
+
+        // Select all cells in the row
+        for col in 0..column_count {
+            let index = ModelIndex::new(row, col, ModelIndex::invalid());
+            let id = index.internal_id();
+
+            if flags.toggle {
+                if self.selected_ids.contains(&id) {
+                    self.selected_ids.remove(&id);
+                    self.selected_indices.retain(|idx| idx.internal_id() != id);
+                    if !newly_deselected.iter().any(|idx| idx.internal_id() == id) {
+                        newly_deselected.push(index);
+                    }
+                } else {
+                    self.add_to_selection(index.clone());
+                    newly_selected.push(index);
+                }
+            } else if flags.select && !self.selected_ids.contains(&id) {
+                self.add_to_selection(index.clone());
+                newly_selected.push(index);
+            } else if flags.deselect && self.selected_ids.contains(&id) {
+                self.selected_ids.remove(&id);
+                self.selected_indices.retain(|idx| idx.internal_id() != id);
+                if !newly_deselected.iter().any(|idx| idx.internal_id() == id) {
+                    newly_deselected.push(index);
+                }
             }
         }
 
@@ -647,5 +877,118 @@ mod tests {
 
         let rows = model.selected_rows();
         assert_eq!(rows, vec![2, 5, 8]);
+    }
+
+    // =========================================================================
+    // SelectionBehavior and 2D Selection Tests
+    // =========================================================================
+
+    #[test]
+    fn test_selection_behavior_default() {
+        let model = SelectionModel::new();
+        assert_eq!(model.selection_behavior(), SelectionBehavior::SelectItems);
+    }
+
+    #[test]
+    fn test_selection_behavior_set() {
+        let mut model = SelectionModel::new();
+        model.set_selection_behavior(SelectionBehavior::SelectRows);
+        assert_eq!(model.selection_behavior(), SelectionBehavior::SelectRows);
+
+        model.set_selection_behavior(SelectionBehavior::SelectColumns);
+        assert_eq!(model.selection_behavior(), SelectionBehavior::SelectColumns);
+    }
+
+    #[test]
+    fn test_select_column() {
+        let mut model = SelectionModel::new();
+        model.set_selection_mode(SelectionMode::MultiSelection);
+
+        // Select column 2 with 5 rows
+        model.select_column(2, 5, SelectionFlags::CLEAR_AND_SELECT);
+
+        // All cells in column 2 should be selected
+        for row in 0..5 {
+            assert!(model.is_cell_selected(row, 2));
+        }
+
+        // Cells in other columns should not be selected
+        assert!(!model.is_cell_selected(0, 0));
+        assert!(!model.is_cell_selected(0, 1));
+        assert!(!model.is_cell_selected(0, 3));
+
+        // is_column_selected checks if ANY cell in that column is selected
+        assert!(model.is_column_selected(2));
+        assert!(!model.is_column_selected(1));
+    }
+
+    #[test]
+    fn test_select_row() {
+        let mut model = SelectionModel::new();
+        model.set_selection_mode(SelectionMode::MultiSelection);
+
+        // Select row 3 with 4 columns
+        model.select_row(3, 4, SelectionFlags::CLEAR_AND_SELECT);
+
+        // All cells in row 3 should be selected
+        for col in 0..4 {
+            assert!(model.is_cell_selected(3, col));
+        }
+
+        // Cells in other rows should not be selected
+        assert!(!model.is_cell_selected(0, 0));
+        assert!(!model.is_cell_selected(2, 0));
+
+        assert!(model.is_row_selected(3));
+        assert!(!model.is_row_selected(2));
+    }
+
+    #[test]
+    fn test_select_range_2d() {
+        let mut model = SelectionModel::new();
+        model.set_selection_mode(SelectionMode::MultiSelection);
+
+        // Select a 3x2 region from (1, 2) to (3, 3)
+        model.select_range_2d(1, 2, 3, 3, SelectionFlags::CLEAR_AND_SELECT);
+
+        // Selected cells
+        assert!(model.is_cell_selected(1, 2));
+        assert!(model.is_cell_selected(1, 3));
+        assert!(model.is_cell_selected(2, 2));
+        assert!(model.is_cell_selected(2, 3));
+        assert!(model.is_cell_selected(3, 2));
+        assert!(model.is_cell_selected(3, 3));
+
+        // Not selected
+        assert!(!model.is_cell_selected(0, 2));
+        assert!(!model.is_cell_selected(1, 1));
+        assert!(!model.is_cell_selected(4, 2));
+    }
+
+    #[test]
+    fn test_selected_columns() {
+        let mut model = SelectionModel::new();
+        model.set_selection_mode(SelectionMode::MultiSelection);
+
+        // Select full columns 1 and 3 (with 5 rows)
+        model.select_column(1, 5, SelectionFlags::SELECT);
+        model.select_column(3, 5, SelectionFlags::SELECT);
+
+        let cols = model.selected_columns();
+        assert_eq!(cols, vec![1, 3]);
+    }
+
+    #[test]
+    fn test_selected_cells() {
+        let mut model = SelectionModel::new();
+        model.set_selection_mode(SelectionMode::MultiSelection);
+
+        model.select(ModelIndex::new(1, 2, ModelIndex::invalid()), SelectionFlags::SELECT);
+        model.select(ModelIndex::new(3, 4, ModelIndex::invalid()), SelectionFlags::SELECT);
+
+        let cells = model.selected_cells();
+        assert_eq!(cells.len(), 2);
+        assert!(cells.contains(&(1, 2)));
+        assert!(cells.contains(&(3, 4)));
     }
 }

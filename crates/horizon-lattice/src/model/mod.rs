@@ -87,5 +87,5 @@ pub use role::{
 };
 pub use table_model::{CellExtractor, HeaderExtractor, SimpleTableModel, TableModel};
 pub use traits::{ItemFlags, ItemModel, ModelSignals, Orientation};
-pub use selection::{SelectionFlags, SelectionMode, SelectionModel};
+pub use selection::{SelectionBehavior, SelectionFlags, SelectionMode, SelectionModel};
 pub use tree_model::{ExtractorTreeModel, TreeModel, TreeNodeData};

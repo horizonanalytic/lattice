@@ -34,7 +34,10 @@
 use parking_lot::RwLock;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::styled_document::{CharFormat, LineSpacing, ListFormat, ListStyle, StyledDocument};
+use super::styled_document::{
+    BlockFormat, BlockRun, CharFormat, FormatRun, LineSpacing, ListFormat, ListStyle,
+    StyledDocument,
+};
 use crate::platform::Clipboard;
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
@@ -92,6 +95,24 @@ enum EditCommand {
         /// The deleted text.
         text: String,
     },
+    /// Character format was changed on a range.
+    CharFormatChange {
+        /// The byte range that was affected.
+        range: std::ops::Range<usize>,
+        /// The format runs before the change.
+        old_runs: Vec<FormatRun>,
+        /// The format runs after the change.
+        new_runs: Vec<FormatRun>,
+    },
+    /// Block/paragraph format was changed on a range.
+    BlockFormatChange {
+        /// The paragraph range that was affected (0-indexed).
+        range: std::ops::Range<usize>,
+        /// The block runs before the change.
+        old_runs: Vec<BlockRun>,
+        /// The block runs after the change.
+        new_runs: Vec<BlockRun>,
+    },
 }
 
 impl EditCommand {
@@ -138,6 +159,50 @@ impl EditCommand {
                 // Forward delete: deletion at same position
                 else if *other_pos == *pos {
                     text.push_str(other_text);
+                    true
+                } else {
+                    false
+                }
+            }
+            // Merge consecutive char format changes to the same range
+            (
+                EditCommand::CharFormatChange {
+                    range,
+                    old_runs: _,
+                    new_runs,
+                },
+                EditCommand::CharFormatChange {
+                    range: other_range,
+                    old_runs: _other_old,
+                    new_runs: other_new,
+                },
+            ) => {
+                // Merge if the ranges are the same (consecutive format changes on same selection)
+                if range == other_range {
+                    // Keep original old_runs, update to latest new_runs
+                    *new_runs = other_new.clone();
+                    true
+                } else {
+                    false
+                }
+            }
+            // Merge consecutive block format changes to the same range
+            (
+                EditCommand::BlockFormatChange {
+                    range,
+                    old_runs: _,
+                    new_runs,
+                },
+                EditCommand::BlockFormatChange {
+                    range: other_range,
+                    old_runs: _other_old,
+                    new_runs: other_new,
+                },
+            ) => {
+                // Merge if the ranges are the same (consecutive format changes on same selection)
+                if range == other_range {
+                    // Keep original old_runs, update to latest new_runs
+                    *new_runs = other_new.clone();
                     true
                 } else {
                     false
@@ -828,11 +893,27 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
             // Toggle bold on selection
             self.document.toggle_format(
-                start..end,
+                range.clone(),
                 CharFormat::new().with_bold(true),
             );
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             // Update text from document
             self.sync_text_from_document();
         } else {
@@ -852,11 +933,27 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
             // Toggle italic on selection
             self.document.toggle_format(
-                start..end,
+                range.clone(),
                 CharFormat::new().with_italic(true),
             );
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             // Update text from document
             self.sync_text_from_document();
         } else {
@@ -876,11 +973,27 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
             // Toggle underline on selection
             self.document.toggle_format(
-                start..end,
+                range.clone(),
                 CharFormat::new().with_underline(true),
             );
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             // Update text from document
             self.sync_text_from_document();
         } else {
@@ -900,11 +1013,27 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
             // Toggle strikethrough on selection
             self.document.toggle_format(
-                start..end,
+                range.clone(),
                 CharFormat::new().with_strikethrough(true),
             );
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             // Update text from document
             self.sync_text_from_document();
         } else {
@@ -924,13 +1053,29 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
             if bold {
                 // Apply format
-                self.apply_format_to_range(start..end, CharFormat::new().with_bold(true));
+                self.apply_format_to_range(range.clone(), CharFormat::new().with_bold(true));
             } else {
                 // Remove format
-                self.remove_format_from_range(start..end, CharFormat::new().with_bold(true));
+                self.remove_format_from_range(range.clone(), CharFormat::new().with_bold(true));
             }
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             self.sync_text_from_document();
         } else {
             self.cursor_format.bold = bold;
@@ -948,11 +1093,27 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
             if italic {
-                self.apply_format_to_range(start..end, CharFormat::new().with_italic(true));
+                self.apply_format_to_range(range.clone(), CharFormat::new().with_italic(true));
             } else {
-                self.remove_format_from_range(start..end, CharFormat::new().with_italic(true));
+                self.remove_format_from_range(range.clone(), CharFormat::new().with_italic(true));
             }
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             self.sync_text_from_document();
         } else {
             self.cursor_format.italic = italic;
@@ -970,11 +1131,27 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
             if underline {
-                self.apply_format_to_range(start..end, CharFormat::new().with_underline(true));
+                self.apply_format_to_range(range.clone(), CharFormat::new().with_underline(true));
             } else {
-                self.remove_format_from_range(start..end, CharFormat::new().with_underline(true));
+                self.remove_format_from_range(range.clone(), CharFormat::new().with_underline(true));
             }
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             self.sync_text_from_document();
         } else {
             self.cursor_format.underline = underline;
@@ -992,11 +1169,27 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
             if strikethrough {
-                self.apply_format_to_range(start..end, CharFormat::new().with_strikethrough(true));
+                self.apply_format_to_range(range.clone(), CharFormat::new().with_strikethrough(true));
             } else {
-                self.remove_format_from_range(start..end, CharFormat::new().with_strikethrough(true));
+                self.remove_format_from_range(range.clone(), CharFormat::new().with_strikethrough(true));
             }
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             self.sync_text_from_document();
         } else {
             self.cursor_format.strikethrough = strikethrough;
@@ -1016,8 +1209,24 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
             // Apply color to each character in the range
-            self.apply_color_to_range(start..end, color, true);
+            self.apply_color_to_range(range.clone(), color, true);
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             self.sync_text_from_document();
         } else {
             // Set cursor format for subsequent typing
@@ -1038,8 +1247,24 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
             // Apply highlight to each character in the range
-            self.apply_color_to_range(start..end, color, false);
+            self.apply_color_to_range(range.clone(), color, false);
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             self.sync_text_from_document();
         } else {
             // Set cursor format for subsequent typing
@@ -1085,7 +1310,23 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
-            self.apply_font_family_to_range(start..end, family);
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
+            self.apply_font_family_to_range(range.clone(), family);
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             self.sync_text_from_document();
         } else {
             self.cursor_format.font_family = family;
@@ -1105,7 +1346,23 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
-            self.apply_font_size_to_range(start..end, size);
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
+            self.apply_font_size_to_range(range.clone(), size);
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             self.sync_text_from_document();
         } else {
             self.cursor_format.font_size = size;
@@ -1126,7 +1383,23 @@ impl TextEdit {
         }
 
         if let Some((start, end)) = self.selection_range() {
-            self.apply_font_weight_to_range(start..end, weight);
+            let range = start..end;
+
+            // Capture old format runs before the change
+            let old_runs = self.document.capture_format_runs(&range);
+
+            self.apply_font_weight_to_range(range.clone(), weight);
+
+            // Capture new format runs after the change
+            let new_runs = self.document.capture_format_runs(&range);
+
+            // Push to undo stack
+            self.undo_stack.push(EditCommand::CharFormatChange {
+                range,
+                old_runs,
+                new_runs,
+            });
+
             self.sync_text_from_document();
         } else {
             self.cursor_format.font_weight = weight;
@@ -1168,7 +1441,23 @@ impl TextEdit {
             (para, para + 1)
         };
 
-        self.document.set_alignment(start_para..end_para, alignment);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.set_alignment(range.clone(), alignment);
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
         self.alignment_changed.emit(alignment);
@@ -1257,7 +1546,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.set_left_indent(start_para..end_para, indent);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.set_left_indent(range.clone(), indent);
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
         self.indent_changed.emit((indent, self.paragraph_first_line_indent()));
@@ -1270,7 +1575,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.set_first_line_indent(start_para..end_para, indent);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.set_first_line_indent(range.clone(), indent);
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
         self.indent_changed.emit((self.paragraph_left_indent(), indent));
@@ -1283,7 +1604,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.increase_indent(start_para..end_para);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.increase_indent(range.clone());
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
         let left_indent = self.paragraph_left_indent();
@@ -1298,7 +1635,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.decrease_indent(start_para..end_para);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.decrease_indent(range.clone());
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
         let left_indent = self.paragraph_left_indent();
@@ -1312,7 +1665,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.set_line_spacing(start_para..end_para, spacing);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.set_line_spacing(range.clone(), spacing);
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
     }
@@ -1330,7 +1699,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.set_spacing_before(start_para..end_para, spacing);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.set_spacing_before(range.clone(), spacing);
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
     }
@@ -1348,7 +1733,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.set_spacing_after(start_para..end_para, spacing);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.set_spacing_after(range.clone(), spacing);
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
     }
@@ -1386,7 +1787,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.toggle_bullet_list(start_para..end_para);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.toggle_bullet_list(range.clone());
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
     }
@@ -1401,7 +1818,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.toggle_numbered_list(start_para..end_para);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.toggle_numbered_list(range.clone());
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
     }
@@ -1415,7 +1848,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.increase_list_indent(start_para..end_para);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.increase_list_indent(range.clone());
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
     }
@@ -1430,7 +1879,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.decrease_list_indent(start_para..end_para);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.decrease_list_indent(range.clone());
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
     }
@@ -1444,7 +1909,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.set_list_style(start_para..end_para, style);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.set_list_style(range.clone(), style);
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
     }
@@ -1456,7 +1937,23 @@ impl TextEdit {
         }
 
         let (start_para, end_para) = self.selected_paragraph_range();
-        self.document.set_list_format(start_para..end_para, None);
+        let range = start_para..end_para;
+
+        // Capture old block runs before the change
+        let old_runs = self.document.capture_block_runs(&range);
+
+        self.document.set_list_format(range.clone(), None);
+
+        // Capture new block runs after the change
+        let new_runs = self.document.capture_block_runs(&range);
+
+        // Push to undo stack
+        self.undo_stack.push(EditCommand::BlockFormatChange {
+            range,
+            old_runs,
+            new_runs,
+        });
+
         self.invalidate_layout();
         self.base.update();
     }
@@ -2011,24 +2508,56 @@ impl TextEdit {
         }
 
         if let Some(cmd) = self.undo_stack.undo() {
+            let mut text_changed = false;
+            let mut format_changed = false;
+
             match cmd.clone() {
                 EditCommand::Insert { pos, text } => {
                     // Undo insert = delete the inserted text
                     self.text.replace_range(pos..pos + text.len(), "");
                     self.cursor_pos = pos;
+                    text_changed = true;
                 }
                 EditCommand::Delete { pos, text } => {
                     // Undo delete = insert the deleted text back
                     self.text.insert_str(pos, &text);
                     self.cursor_pos = pos + text.len();
+                    text_changed = true;
+                }
+                EditCommand::CharFormatChange {
+                    range,
+                    old_runs,
+                    new_runs: _,
+                } => {
+                    // Undo char format = restore old runs
+                    self.document.restore_format_runs(&range, old_runs);
+                    self.sync_text_from_document();
+                    format_changed = true;
+                }
+                EditCommand::BlockFormatChange {
+                    range,
+                    old_runs,
+                    new_runs: _,
+                } => {
+                    // Undo block format = restore old runs
+                    self.document.restore_block_runs(&range, old_runs);
+                    self.sync_text_from_document();
+                    format_changed = true;
                 }
             }
+
             self.selection_anchor = None;
             self.invalidate_layout();
             self.ensure_cursor_visible();
             self.base.update();
-            self.text_changed.emit(self.text.clone());
-            self.emit_cursor_position();
+
+            if text_changed {
+                self.text_changed.emit(self.text.clone());
+                self.emit_cursor_position();
+            }
+            if format_changed {
+                self.emit_format_changed();
+            }
         }
     }
 
@@ -2039,24 +2568,56 @@ impl TextEdit {
         }
 
         if let Some(cmd) = self.undo_stack.redo() {
+            let mut text_changed = false;
+            let mut format_changed = false;
+
             match cmd.clone() {
                 EditCommand::Insert { pos, text } => {
                     // Redo insert = insert the text again
                     self.text.insert_str(pos, &text);
                     self.cursor_pos = pos + text.len();
+                    text_changed = true;
                 }
                 EditCommand::Delete { pos, text } => {
                     // Redo delete = delete the text again
                     self.text.replace_range(pos..pos + text.len(), "");
                     self.cursor_pos = pos;
+                    text_changed = true;
+                }
+                EditCommand::CharFormatChange {
+                    range,
+                    old_runs: _,
+                    new_runs,
+                } => {
+                    // Redo char format = restore new runs
+                    self.document.restore_format_runs(&range, new_runs);
+                    self.sync_text_from_document();
+                    format_changed = true;
+                }
+                EditCommand::BlockFormatChange {
+                    range,
+                    old_runs: _,
+                    new_runs,
+                } => {
+                    // Redo block format = restore new runs
+                    self.document.restore_block_runs(&range, new_runs);
+                    self.sync_text_from_document();
+                    format_changed = true;
                 }
             }
+
             self.selection_anchor = None;
             self.invalidate_layout();
             self.ensure_cursor_visible();
             self.base.update();
-            self.text_changed.emit(self.text.clone());
-            self.emit_cursor_position();
+
+            if text_changed {
+                self.text_changed.emit(self.text.clone());
+                self.emit_cursor_position();
+            }
+            if format_changed {
+                self.emit_format_changed();
+            }
         }
     }
 
@@ -4322,5 +4883,196 @@ mod tests {
         assert_eq!(edit.cursor_format.foreground_color.unwrap(), Color::GREEN);
         assert!(edit.cursor_format.background_color.is_some());
         assert_eq!(edit.cursor_format.background_color.unwrap(), Color::YELLOW);
+    }
+
+    // =========================================================================
+    // Format Undo/Redo Tests
+    // =========================================================================
+
+    #[test]
+    fn test_format_undo_bold() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Apply bold to "Hello"
+        edit.set_selection(0, 5);
+        edit.toggle_bold();
+        assert!(edit.document.format_at(0).bold);
+
+        // Undo
+        edit.undo();
+        assert!(!edit.document.format_at(0).bold);
+
+        // Redo
+        edit.redo();
+        assert!(edit.document.format_at(0).bold);
+    }
+
+    #[test]
+    fn test_format_undo_italic() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Apply italic to "World"
+        edit.set_selection(6, 11);
+        edit.toggle_italic();
+        assert!(edit.document.format_at(6).italic);
+        assert!(!edit.document.format_at(0).italic);
+
+        // Undo
+        edit.undo();
+        assert!(!edit.document.format_at(6).italic);
+
+        // Redo
+        edit.redo();
+        assert!(edit.document.format_at(6).italic);
+    }
+
+    #[test]
+    fn test_format_undo_color() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Apply red color to "Hello"
+        edit.set_selection(0, 5);
+        edit.set_char_foreground_color(Some(Color::RED));
+        assert_eq!(edit.document.format_at(0).foreground_color, Some(Color::RED));
+
+        // Undo
+        edit.undo();
+        assert!(edit.document.format_at(0).foreground_color.is_none());
+
+        // Redo
+        edit.redo();
+        assert_eq!(edit.document.format_at(0).foreground_color, Some(Color::RED));
+    }
+
+    #[test]
+    fn test_format_undo_multiple_changes() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello World");
+
+        // Apply bold to "Hello"
+        edit.set_selection(0, 5);
+        edit.toggle_bold();
+        assert!(edit.document.format_at(0).bold);
+
+        // Apply italic to "World"
+        edit.set_selection(6, 11);
+        edit.toggle_italic();
+        assert!(edit.document.format_at(6).italic);
+
+        // Undo italic
+        edit.undo();
+        assert!(edit.document.format_at(0).bold);
+        assert!(!edit.document.format_at(6).italic);
+
+        // Undo bold
+        edit.undo();
+        assert!(!edit.document.format_at(0).bold);
+        assert!(!edit.document.format_at(6).italic);
+
+        // Redo bold
+        edit.redo();
+        assert!(edit.document.format_at(0).bold);
+        assert!(!edit.document.format_at(6).italic);
+
+        // Redo italic
+        edit.redo();
+        assert!(edit.document.format_at(0).bold);
+        assert!(edit.document.format_at(6).italic);
+    }
+
+    #[test]
+    fn test_block_format_undo_alignment() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello\nWorld");
+
+        // Set first paragraph to center
+        edit.set_cursor_position(2); // In "Hello"
+        edit.set_paragraph_alignment(HorizontalAlign::Center);
+        assert_eq!(edit.document.block_format_at(0).alignment, HorizontalAlign::Center);
+
+        // Undo
+        edit.undo();
+        assert_eq!(edit.document.block_format_at(0).alignment, HorizontalAlign::Left);
+
+        // Redo
+        edit.redo();
+        assert_eq!(edit.document.block_format_at(0).alignment, HorizontalAlign::Center);
+    }
+
+    #[test]
+    fn test_block_format_undo_indent() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello\nWorld");
+
+        // Get initial indent
+        let initial_indent = edit.document.block_format_at(0).left_indent;
+
+        // Increase indent
+        edit.set_cursor_position(2);
+        edit.increase_indent();
+        assert!(edit.document.block_format_at(0).left_indent > initial_indent);
+
+        // Undo
+        edit.undo();
+        assert_eq!(edit.document.block_format_at(0).left_indent, initial_indent);
+
+        // Redo
+        edit.redo();
+        assert!(edit.document.block_format_at(0).left_indent > initial_indent);
+    }
+
+    #[test]
+    fn test_block_format_undo_list() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Item 1\nItem 2\nItem 3");
+
+        // Toggle bullet list on first paragraph
+        edit.set_cursor_position(2);
+        edit.toggle_bullet_list();
+        assert!(edit.document.is_list_item(0));
+
+        // Undo
+        edit.undo();
+        assert!(!edit.document.is_list_item(0));
+
+        // Redo
+        edit.redo();
+        assert!(edit.document.is_list_item(0));
+    }
+
+    #[test]
+    fn test_format_undo_preserves_text_undo() {
+        setup();
+        let mut edit = TextEdit::new();
+        edit.set_text("Hello");
+
+        // Type more text
+        edit.set_cursor_position(5);
+        edit.insert_text(" World");
+        assert_eq!(edit.text(), "Hello World");
+
+        // Apply bold
+        edit.set_selection(0, 5);
+        edit.toggle_bold();
+        assert!(edit.document.format_at(0).bold);
+
+        // Undo bold
+        edit.undo();
+        assert!(!edit.document.format_at(0).bold);
+        assert_eq!(edit.text(), "Hello World"); // Text unchanged
+
+        // Undo text
+        edit.undo();
+        assert_eq!(edit.text(), "Hello");
     }
 }

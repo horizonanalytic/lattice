@@ -2107,6 +2107,64 @@ impl StyledDocument {
 
         html
     }
+
+    // =========================================================================
+    // Undo/Redo Support
+    // =========================================================================
+
+    /// Capture format runs that overlap a byte range.
+    ///
+    /// Returns a snapshot of the format runs for the given range that can be
+    /// used to restore the formatting later (for undo/redo).
+    pub fn capture_format_runs(&self, range: &Range<usize>) -> Vec<FormatRun> {
+        self.format_runs
+            .iter()
+            .filter(|run| run.overlaps(range))
+            .cloned()
+            .collect()
+    }
+
+    /// Restore format runs for a byte range.
+    ///
+    /// Removes all current format runs that overlap the given range and
+    /// replaces them with the provided runs.
+    pub fn restore_format_runs(&mut self, range: &Range<usize>, runs: Vec<FormatRun>) {
+        // Remove all format runs that overlap the range
+        self.format_runs.retain(|run| !run.overlaps(range));
+
+        // Add the restored runs
+        self.format_runs.extend(runs);
+
+        // Normalize to maintain sorted, non-overlapping invariant
+        self.normalize_runs();
+    }
+
+    /// Capture block runs that overlap a paragraph range.
+    ///
+    /// Returns a snapshot of the block runs for the given paragraph range
+    /// that can be used to restore the formatting later (for undo/redo).
+    pub fn capture_block_runs(&self, range: &Range<usize>) -> Vec<BlockRun> {
+        self.block_runs
+            .iter()
+            .filter(|run| run.overlaps(range))
+            .cloned()
+            .collect()
+    }
+
+    /// Restore block runs for a paragraph range.
+    ///
+    /// Removes all current block runs that overlap the given range and
+    /// replaces them with the provided runs.
+    pub fn restore_block_runs(&mut self, range: &Range<usize>, runs: Vec<BlockRun>) {
+        // Remove all block runs that overlap the range
+        self.block_runs.retain(|run| !run.overlaps(range));
+
+        // Add the restored runs
+        self.block_runs.extend(runs);
+
+        // Normalize to maintain sorted, non-overlapping invariant
+        self.normalize_block_runs();
+    }
 }
 
 /// Escape special HTML characters.

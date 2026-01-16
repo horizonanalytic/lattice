@@ -682,6 +682,278 @@ where
     }
 }
 
+// =========================================================================
+// Hex Color Validator
+// =========================================================================
+
+/// Format options for hex color input and output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct HexFormat {
+    /// Whether to include the '#' prefix in output.
+    pub include_prefix: bool,
+    /// Whether to use uppercase letters (A-F vs a-f).
+    pub uppercase: bool,
+    /// Whether to allow/expand short form (#RGB to #RRGGBB).
+    pub allow_short_form: bool,
+    /// Whether to include alpha channel in output.
+    pub include_alpha: bool,
+}
+
+impl HexFormat {
+    /// Create a new hex format with default settings.
+    ///
+    /// Defaults: prefix enabled, uppercase, no short form, no alpha.
+    pub fn new() -> Self {
+        Self {
+            include_prefix: true,
+            uppercase: true,
+            allow_short_form: false,
+            include_alpha: false,
+        }
+    }
+
+    /// Create format with prefix (#RRGGBB).
+    pub fn with_prefix(mut self) -> Self {
+        self.include_prefix = true;
+        self
+    }
+
+    /// Create format without prefix (RRGGBB).
+    pub fn without_prefix(mut self) -> Self {
+        self.include_prefix = false;
+        self
+    }
+
+    /// Use uppercase hex digits (A-F).
+    pub fn uppercase(mut self) -> Self {
+        self.uppercase = true;
+        self
+    }
+
+    /// Use lowercase hex digits (a-f).
+    pub fn lowercase(mut self) -> Self {
+        self.uppercase = false;
+        self
+    }
+
+    /// Allow short form input (#RGB expands to #RRGGBB).
+    pub fn allow_short(mut self) -> Self {
+        self.allow_short_form = true;
+        self
+    }
+
+    /// Include alpha channel in output (#RRGGBBAA).
+    pub fn with_alpha(mut self) -> Self {
+        self.include_alpha = true;
+        self
+    }
+
+    /// Format a color as a hex string according to this format.
+    pub fn format_color(&self, r: u8, g: u8, b: u8, a: u8) -> String {
+        let prefix = if self.include_prefix { "#" } else { "" };
+
+        if self.include_alpha || a != 255 {
+            if self.uppercase {
+                format!("{}{:02X}{:02X}{:02X}{:02X}", prefix, r, g, b, a)
+            } else {
+                format!("{}{:02x}{:02x}{:02x}{:02x}", prefix, r, g, b, a)
+            }
+        } else if self.uppercase {
+            format!("{}{:02X}{:02X}{:02X}", prefix, r, g, b)
+        } else {
+            format!("{}{:02x}{:02x}{:02x}", prefix, r, g, b)
+        }
+    }
+}
+
+/// Validator for hexadecimal color input.
+///
+/// Validates hex color strings in formats like:
+/// - `#RRGGBB` - 6-digit RGB
+/// - `#RRGGBBAA` - 8-digit RGBA
+/// - `#RGB` - 3-digit short form (if enabled)
+/// - `#RGBA` - 4-digit short form with alpha (if enabled)
+/// - Without `#` prefix (if configured)
+///
+/// # Example
+///
+/// ```ignore
+/// use horizon_lattice::widget::validator::{HexColorValidator, HexFormat, ValidationState};
+///
+/// let validator = HexColorValidator::new();
+///
+/// assert_eq!(validator.validate("#FF0000"), ValidationState::Acceptable);
+/// assert_eq!(validator.validate("#FF00"), ValidationState::Intermediate);
+/// assert_eq!(validator.validate("#GG0000"), ValidationState::Invalid);
+///
+/// // With short form enabled
+/// let validator = HexColorValidator::with_format(HexFormat::new().allow_short());
+/// assert_eq!(validator.validate("#F00"), ValidationState::Acceptable);
+/// ```
+#[derive(Debug, Clone)]
+pub struct HexColorValidator {
+    format: HexFormat,
+}
+
+impl HexColorValidator {
+    /// Create a new hex color validator with default format.
+    pub fn new() -> Self {
+        Self {
+            format: HexFormat::new(),
+        }
+    }
+
+    /// Create a hex color validator with custom format options.
+    pub fn with_format(format: HexFormat) -> Self {
+        Self { format }
+    }
+
+    /// Get the format options.
+    pub fn format(&self) -> &HexFormat {
+        &self.format
+    }
+
+    /// Set the format options.
+    pub fn set_format(&mut self, format: HexFormat) {
+        self.format = format;
+    }
+
+    /// Check if a character is a valid hex digit.
+    fn is_hex_digit(c: char) -> bool {
+        c.is_ascii_hexdigit()
+    }
+
+    /// Expand short form hex (#RGB or #RGBA) to full form (#RRGGBB or #RRGGBBAA).
+    pub fn expand_short_form(hex: &str) -> Option<String> {
+        let hex = hex.trim_start_matches('#');
+        match hex.len() {
+            3 => {
+                // #RGB -> #RRGGBB
+                let chars: Vec<char> = hex.chars().collect();
+                Some(format!(
+                    "#{}{}{}{}{}{}",
+                    chars[0], chars[0],
+                    chars[1], chars[1],
+                    chars[2], chars[2]
+                ))
+            }
+            4 => {
+                // #RGBA -> #RRGGBBAA
+                let chars: Vec<char> = hex.chars().collect();
+                Some(format!(
+                    "#{}{}{}{}{}{}{}{}",
+                    chars[0], chars[0],
+                    chars[1], chars[1],
+                    chars[2], chars[2],
+                    chars[3], chars[3]
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    /// Parse hex string to RGBA values.
+    pub fn parse_hex(hex: &str) -> Option<(u8, u8, u8, u8)> {
+        let hex = hex.trim_start_matches('#');
+
+        // Handle short form
+        let expanded: String;
+        let hex = if hex.len() == 3 || hex.len() == 4 {
+            expanded = Self::expand_short_form(&format!("#{}", hex))?;
+            expanded.trim_start_matches('#')
+        } else {
+            hex
+        };
+
+        match hex.len() {
+            6 => {
+                let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+                let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+                let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+                Some((r, g, b, 255))
+            }
+            8 => {
+                let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+                let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+                let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+                let a = u8::from_str_radix(&hex[6..8], 16).ok()?;
+                Some((r, g, b, a))
+            }
+            _ => None,
+        }
+    }
+}
+
+impl Default for HexColorValidator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Validator for HexColorValidator {
+    fn validate(&self, input: &str) -> ValidationState {
+        let trimmed = input.trim();
+
+        // Empty input is intermediate
+        if trimmed.is_empty() {
+            return ValidationState::Intermediate;
+        }
+
+        // Check for prefix
+        let (has_prefix, hex_part) = if trimmed.starts_with('#') {
+            (true, &trimmed[1..])
+        } else {
+            (false, trimmed)
+        };
+
+        // Just '#' is intermediate
+        if has_prefix && hex_part.is_empty() {
+            return ValidationState::Intermediate;
+        }
+
+        // Check that all characters are valid hex digits
+        if !hex_part.chars().all(Self::is_hex_digit) {
+            return ValidationState::Invalid;
+        }
+
+        let len = hex_part.len();
+
+        // Check for valid lengths
+        match len {
+            // Short forms (if allowed)
+            3 | 4 if self.format.allow_short_form => ValidationState::Acceptable,
+            3 | 4 if !self.format.allow_short_form => {
+                // Could be typing toward 6 or 8 digits
+                ValidationState::Intermediate
+            }
+            // Standard forms
+            6 | 8 => ValidationState::Acceptable,
+            // Partial input (could become valid)
+            1 | 2 | 5 | 7 => ValidationState::Intermediate,
+            // Too long
+            _ if len > 8 => ValidationState::Invalid,
+            // Other intermediate lengths
+            _ => ValidationState::Intermediate,
+        }
+    }
+
+    fn fixup(&self, input: &str) -> Option<String> {
+        let trimmed = input.trim();
+
+        // Try to parse the input
+        if let Some((r, g, b, a)) = Self::parse_hex(trimmed) {
+            let formatted = self.format.format_color(r, g, b, a);
+
+            // Only return fixup if different from the original input
+            if formatted != trimmed {
+                return Some(formatted);
+            }
+        }
+
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -872,5 +1144,119 @@ mod tests {
 
         assert_eq!(validator.validate("hello"), ValidationState::Intermediate);
         assert_eq!(validator.fixup("hello"), Some("HELLO".to_string()));
+    }
+
+    // =========================================================================
+    // HexColorValidator Tests
+    // =========================================================================
+
+    #[test]
+    fn test_hex_validator_acceptable() {
+        let validator = HexColorValidator::new();
+        assert_eq!(validator.validate("#FF0000"), ValidationState::Acceptable);
+        assert_eq!(validator.validate("#00FF00"), ValidationState::Acceptable);
+        assert_eq!(validator.validate("#0000FF"), ValidationState::Acceptable);
+        assert_eq!(validator.validate("#FF000080"), ValidationState::Acceptable);
+        assert_eq!(validator.validate("FF0000"), ValidationState::Acceptable);
+        assert_eq!(validator.validate("ff0000"), ValidationState::Acceptable);
+    }
+
+    #[test]
+    fn test_hex_validator_intermediate() {
+        let validator = HexColorValidator::new();
+        assert_eq!(validator.validate(""), ValidationState::Intermediate);
+        assert_eq!(validator.validate("#"), ValidationState::Intermediate);
+        assert_eq!(validator.validate("#F"), ValidationState::Intermediate);
+        assert_eq!(validator.validate("#FF"), ValidationState::Intermediate);
+        assert_eq!(validator.validate("#FF0"), ValidationState::Intermediate);
+        assert_eq!(validator.validate("#FF00"), ValidationState::Intermediate);
+        assert_eq!(validator.validate("#FF000"), ValidationState::Intermediate);
+        assert_eq!(validator.validate("#FF00000"), ValidationState::Intermediate);
+    }
+
+    #[test]
+    fn test_hex_validator_invalid() {
+        let validator = HexColorValidator::new();
+        assert_eq!(validator.validate("#GG0000"), ValidationState::Invalid);
+        assert_eq!(validator.validate("#FF0000GG"), ValidationState::Invalid);
+        assert_eq!(validator.validate("#FF00000000"), ValidationState::Invalid);
+        assert_eq!(validator.validate("hello"), ValidationState::Invalid);
+    }
+
+    #[test]
+    fn test_hex_validator_short_form() {
+        // Without short form enabled
+        let validator = HexColorValidator::new();
+        assert_eq!(validator.validate("#F00"), ValidationState::Intermediate);
+
+        // With short form enabled
+        let validator = HexColorValidator::with_format(HexFormat::new().allow_short());
+        assert_eq!(validator.validate("#F00"), ValidationState::Acceptable);
+        assert_eq!(validator.validate("#F00A"), ValidationState::Acceptable);
+        assert_eq!(validator.validate("#FF0000"), ValidationState::Acceptable);
+    }
+
+    #[test]
+    fn test_hex_validator_expand_short_form() {
+        assert_eq!(
+            HexColorValidator::expand_short_form("#F00"),
+            Some("#FF0000".to_string())
+        );
+        assert_eq!(
+            HexColorValidator::expand_short_form("#F00A"),
+            Some("#FF0000AA".to_string())
+        );
+        assert_eq!(HexColorValidator::expand_short_form("#FF0000"), None);
+    }
+
+    #[test]
+    fn test_hex_validator_parse_hex() {
+        assert_eq!(
+            HexColorValidator::parse_hex("#FF0000"),
+            Some((255, 0, 0, 255))
+        );
+        assert_eq!(
+            HexColorValidator::parse_hex("#00FF0080"),
+            Some((0, 255, 0, 128))
+        );
+        assert_eq!(
+            HexColorValidator::parse_hex("#F00"),
+            Some((255, 0, 0, 255))
+        );
+        assert_eq!(
+            HexColorValidator::parse_hex("FF0000"),
+            Some((255, 0, 0, 255))
+        );
+    }
+
+    #[test]
+    fn test_hex_format_color() {
+        let format = HexFormat::new();
+        assert_eq!(format.format_color(255, 0, 0, 255), "#FF0000");
+        assert_eq!(format.format_color(0, 255, 0, 128), "#00FF0080");
+
+        let format = HexFormat::new().lowercase();
+        assert_eq!(format.format_color(255, 0, 0, 255), "#ff0000");
+
+        let format = HexFormat::new().without_prefix();
+        assert_eq!(format.format_color(255, 0, 0, 255), "FF0000");
+
+        let format = HexFormat::new().with_alpha();
+        assert_eq!(format.format_color(255, 0, 0, 255), "#FF0000FF");
+    }
+
+    #[test]
+    fn test_hex_validator_fixup() {
+        let validator = HexColorValidator::new();
+
+        // Lowercase to uppercase
+        assert_eq!(validator.fixup("#ff0000"), Some("#FF0000".to_string()));
+
+        // Short form expansion (fixup expands and normalizes)
+        let validator_short = HexColorValidator::with_format(HexFormat::new().allow_short());
+        assert_eq!(validator_short.fixup("#f00"), Some("#FF0000".to_string()));
+
+        // Already correct - no fixup needed
+        assert_eq!(validator.fixup("#FF0000"), None);
     }
 }

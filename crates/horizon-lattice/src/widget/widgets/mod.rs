@@ -111,7 +111,8 @@ pub use label::{ElideMode, Label};
 pub use line_edit::{EchoMode, LineEdit};
 // Re-export validation types for convenience
 pub use super::validator::{
-    CustomValidator, DoubleValidator, IntValidator, RegexValidator, ValidationState, Validator,
+    CustomValidator, DoubleValidator, HexColorValidator, HexFormat, IntValidator, RegexValidator,
+    ValidationState, Validator,
 };
 // Re-export completer types for convenience
 pub use super::completer::{CaseSensitivity, Completer, CompleterModel, StringListModel};

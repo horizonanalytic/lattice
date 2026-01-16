@@ -52,3 +52,6 @@ pub mod platform;
 
 /// Widget system module.
 pub mod widget;
+
+/// Model/View architecture module.
+pub mod model;

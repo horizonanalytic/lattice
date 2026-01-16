@@ -130,7 +130,7 @@ pub use styled_document::{
 pub use text_edit::{TextEdit, TextWrapMode};
 // Re-export font and text types for rich text formatting
 pub use horizon_lattice_render::text::{FontFamily, FontWeight, HorizontalAlign};
-pub use double_spin_box::DoubleSpinBox;
+pub use double_spin_box::{DoubleSpinBox, NotationMode, NotationStyle};
 pub use font_combo_box::{FontComboBox, FontFilter};
 pub use spin_box::SpinBox;
 pub use time_edit::{TimeEdit, TimeFormat};

@@ -9,11 +9,12 @@
 //! - Optional prefix and suffix text
 //! - Optional wrapping mode
 //! - Keyboard and mouse wheel support
+//! - Scientific notation display and input
 //!
 //! # Example
 //!
 //! ```ignore
-//! use horizon_lattice::widget::widgets::DoubleSpinBox;
+//! use horizon_lattice::widget::widgets::{DoubleSpinBox, NotationMode};
 //!
 //! // Create a simple double spinbox
 //! let mut spinbox = DoubleSpinBox::new()
@@ -27,6 +28,12 @@
 //!     .with_range(-40.0, 100.0)
 //!     .with_suffix(" °C")
 //!     .with_decimals(1);
+//!
+//! // Create a spinbox with scientific notation
+//! let mut scientific = DoubleSpinBox::new()
+//!     .with_range(-1e10, 1e10)
+//!     .with_notation_mode(NotationMode::Scientific)
+//!     .with_significant_digits(4);
 //!
 //! // Connect to value changes
 //! spinbox.value_changed.connect(|&value| {
@@ -170,6 +177,23 @@ pub struct DoubleSpinBox {
 
     /// Number of repeats since button press (for acceleration curve).
     repeat_count: u32,
+
+    // =========================================================================
+    // Scientific Notation
+    // =========================================================================
+    /// Notation mode for value display (standard, scientific, or automatic).
+    notation_mode: NotationMode,
+
+    /// Style for scientific notation (lowercase e or uppercase E).
+    notation_style: NotationStyle,
+
+    /// Threshold for automatic scientific notation (values with absolute value
+    /// >= this or <= 1/this will use scientific notation). Default: 1e6.
+    exponent_threshold: f64,
+
+    /// Number of significant digits in scientific notation mode.
+    /// In standard mode, `decimals` is used instead. Default: 6.
+    significant_digits: u32,
 }
 
 /// Parts of the spinbox for hit testing.
@@ -183,6 +207,28 @@ enum DoubleSpinBoxPart {
     DownButton,
     /// The text field area.
     TextField,
+}
+
+/// Mode for displaying floating-point values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NotationMode {
+    /// Standard decimal notation (e.g., 1234.56).
+    #[default]
+    Standard,
+    /// Always use scientific notation (e.g., 1.23456e+03).
+    Scientific,
+    /// Automatically switch to scientific notation for very large or small values.
+    Automatic,
+}
+
+/// Style for scientific notation display.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NotationStyle {
+    /// Lowercase 'e' notation (e.g., 1.23e+10).
+    #[default]
+    LowerE,
+    /// Uppercase 'E' notation (e.g., 1.23E+10).
+    UpperE,
 }
 
 impl DoubleSpinBox {
@@ -238,6 +284,11 @@ impl DoubleSpinBox {
             repeat_timer_id: None,
             press_start_time: None,
             repeat_count: 0,
+            // Scientific notation defaults
+            notation_mode: NotationMode::Standard,
+            notation_style: NotationStyle::LowerE,
+            exponent_threshold: 1e6,
+            significant_digits: 6,
         }
     }
 
@@ -633,6 +684,102 @@ impl DoubleSpinBox {
     }
 
     // =========================================================================
+    // Scientific Notation
+    // =========================================================================
+
+    /// Get the notation mode.
+    pub fn notation_mode(&self) -> NotationMode {
+        self.notation_mode
+    }
+
+    /// Set the notation mode.
+    ///
+    /// - `Standard`: Always use decimal notation (e.g., 1234.56)
+    /// - `Scientific`: Always use scientific notation (e.g., 1.234e+03)
+    /// - `Automatic`: Switch to scientific notation for very large/small values
+    pub fn set_notation_mode(&mut self, mode: NotationMode) {
+        if self.notation_mode != mode {
+            self.notation_mode = mode;
+            self.base.update();
+        }
+    }
+
+    /// Set notation mode using builder pattern.
+    pub fn with_notation_mode(mut self, mode: NotationMode) -> Self {
+        self.notation_mode = mode;
+        self
+    }
+
+    /// Get the notation style.
+    pub fn notation_style(&self) -> NotationStyle {
+        self.notation_style
+    }
+
+    /// Set the notation style for scientific notation.
+    ///
+    /// - `LowerE`: Use lowercase 'e' (e.g., 1.23e+10)
+    /// - `UpperE`: Use uppercase 'E' (e.g., 1.23E+10)
+    pub fn set_notation_style(&mut self, style: NotationStyle) {
+        if self.notation_style != style {
+            self.notation_style = style;
+            self.base.update();
+        }
+    }
+
+    /// Set notation style using builder pattern.
+    pub fn with_notation_style(mut self, style: NotationStyle) -> Self {
+        self.notation_style = style;
+        self
+    }
+
+    /// Get the exponent threshold for automatic notation switching.
+    pub fn exponent_threshold(&self) -> f64 {
+        self.exponent_threshold
+    }
+
+    /// Set the exponent threshold for automatic notation switching.
+    ///
+    /// When notation mode is `Automatic`, values with absolute value >= threshold
+    /// or <= 1/threshold (but != 0) will be displayed in scientific notation.
+    /// Default is 1e6.
+    pub fn set_exponent_threshold(&mut self, threshold: f64) {
+        let threshold = threshold.abs().max(1.0);
+        if (self.exponent_threshold - threshold).abs() > f64::EPSILON {
+            self.exponent_threshold = threshold;
+            self.base.update();
+        }
+    }
+
+    /// Set exponent threshold using builder pattern.
+    pub fn with_exponent_threshold(mut self, threshold: f64) -> Self {
+        self.exponent_threshold = threshold.abs().max(1.0);
+        self
+    }
+
+    /// Get the number of significant digits for scientific notation.
+    pub fn significant_digits(&self) -> u32 {
+        self.significant_digits
+    }
+
+    /// Set the number of significant digits for scientific notation.
+    ///
+    /// This controls precision when displaying in scientific notation.
+    /// In standard notation, `decimals` is used instead. Default is 6.
+    pub fn set_significant_digits(&mut self, digits: u32) {
+        let digits = digits.clamp(1, 15);
+        if self.significant_digits != digits {
+            self.significant_digits = digits;
+            self.base.update();
+        }
+    }
+
+    /// Set significant digits using builder pattern.
+    pub fn with_significant_digits(mut self, digits: u32) -> Self {
+        self.significant_digits = digits.clamp(1, 15);
+        self
+    }
+
+    // =========================================================================
     // Actions
     // =========================================================================
 
@@ -687,13 +834,44 @@ impl DoubleSpinBox {
                 return special.clone();
             }
         }
-        format!(
-            "{}{:.prec$}{}",
-            self.prefix,
-            self.value,
-            self.suffix,
-            prec = self.decimals as usize
-        )
+
+        let formatted_value = if self.should_use_scientific() {
+            self.format_scientific(self.value)
+        } else {
+            format!("{:.prec$}", self.value, prec = self.decimals as usize)
+        };
+
+        format!("{}{}{}", self.prefix, formatted_value, self.suffix)
+    }
+
+    /// Check whether scientific notation should be used for the current value.
+    fn should_use_scientific(&self) -> bool {
+        match self.notation_mode {
+            NotationMode::Standard => false,
+            NotationMode::Scientific => true,
+            NotationMode::Automatic => {
+                if self.value == 0.0 {
+                    false
+                } else {
+                    let abs_value = self.value.abs();
+                    abs_value >= self.exponent_threshold
+                        || abs_value <= 1.0 / self.exponent_threshold
+                }
+            }
+        }
+    }
+
+    /// Format a value in scientific notation.
+    fn format_scientific(&self, value: f64) -> String {
+        // Format with significant digits - 1 decimal places after the first digit
+        let precision = (self.significant_digits as usize).saturating_sub(1);
+        let formatted = format!("{:.prec$e}", value, prec = precision);
+
+        // Apply notation style
+        match self.notation_style {
+            NotationStyle::LowerE => formatted,
+            NotationStyle::UpperE => formatted.replace('e', "E"),
+        }
     }
 
     /// Get the text field rectangle.
@@ -749,7 +927,11 @@ impl DoubleSpinBox {
         }
         self.editing = true;
         // Initialize edit text with the formatted number (no prefix/suffix)
-        self.edit_text = format!("{:.prec$}", self.value, prec = self.decimals as usize);
+        self.edit_text = if self.should_use_scientific() {
+            self.format_scientific(self.value)
+        } else {
+            format!("{:.prec$}", self.value, prec = self.decimals as usize)
+        };
         self.cursor_pos = self.edit_text.len();
         self.selection_start = Some(0); // Select all initially
         self.base.update();
@@ -811,6 +993,54 @@ impl DoubleSpinBox {
         self.delete_selection();
         self.edit_text.insert_str(self.cursor_pos, text);
         self.cursor_pos += text.len();
+    }
+
+    /// Check if a character is valid input at the current cursor position.
+    fn is_valid_input_char(&self, ch: char) -> bool {
+        // Always allow digits
+        if ch.is_ascii_digit() {
+            return true;
+        }
+
+        // Allow minus sign at the start if negative values are allowed
+        if ch == '-' && self.cursor_pos == 0 && self.minimum < 0.0 {
+            return true;
+        }
+
+        // Allow decimal point once (not already in text)
+        if ch == '.' && !self.edit_text.contains('.') {
+            // Don't allow decimal point after 'e' in exponent part
+            let has_e = self.edit_text.contains('e') || self.edit_text.contains('E');
+            if has_e {
+                let e_pos = self.edit_text.find('e').or_else(|| self.edit_text.find('E'));
+                if let Some(pos) = e_pos {
+                    // Only allow '.' if cursor is before 'e'
+                    return self.cursor_pos <= pos;
+                }
+            }
+            return true;
+        }
+
+        // Allow 'e' or 'E' once for scientific notation (if not in Standard mode)
+        if (ch == 'e' || ch == 'E') && self.notation_mode != NotationMode::Standard {
+            let has_e = self.edit_text.contains('e') || self.edit_text.contains('E');
+            if !has_e {
+                // Must have at least one digit before 'e'
+                let text_before = &self.edit_text[..self.cursor_pos];
+                return text_before.chars().any(|c| c.is_ascii_digit());
+            }
+        }
+
+        // Allow '+' or '-' after 'e' for exponent sign
+        if ch == '+' || ch == '-' {
+            let e_pos = self.edit_text.find('e').or_else(|| self.edit_text.find('E'));
+            if let Some(pos) = e_pos {
+                // Allow sign immediately after 'e'
+                return self.cursor_pos == pos + 1;
+            }
+        }
+
+        false
     }
 
     // =========================================================================
@@ -1154,10 +1384,7 @@ impl DoubleSpinBox {
                 // Handle text input
                 if !event.text.is_empty() {
                     let ch = event.text.chars().next().unwrap();
-                    // Allow digits, minus sign (at start), and decimal point (once)
-                    let allow_char = ch.is_ascii_digit()
-                        || (ch == '-' && self.cursor_pos == 0 && self.minimum < 0.0)
-                        || (ch == '.' && !self.edit_text.contains('.'));
+                    let allow_char = self.is_valid_input_char(ch);
 
                     if allow_char {
                         self.insert_text(&event.text);
@@ -1372,11 +1599,26 @@ impl Widget for DoubleSpinBox {
 
     fn size_hint(&self) -> SizeHint {
         // Calculate based on max value digits + decimals + prefix + suffix
-        let max_int = self.maximum.abs().max(self.minimum.abs()) as i64;
-        let int_digits = if max_int == 0 { 1 } else { (max_int as f64).log10().floor() as usize + 1 };
         let sign_width = if self.minimum < 0.0 { 1 } else { 0 };
-        let decimal_part = if self.decimals > 0 { self.decimals as usize + 1 } else { 0 };
-        let total_chars = int_digits + sign_width + decimal_part + self.prefix.len() + self.suffix.len();
+
+        let value_chars = match self.notation_mode {
+            NotationMode::Scientific | NotationMode::Automatic => {
+                // Scientific notation: sign + mantissa + 'e' + exponent sign + exponent digits
+                // e.g., "-1.23456e+123" = 1 + 7 + 1 + 1 + 3 = 13 chars
+                let mantissa_chars = self.significant_digits as usize + 1; // +1 for decimal point
+                let exponent_chars = 5; // 'e' + sign + up to 3 digits
+                sign_width + mantissa_chars + exponent_chars
+            }
+            NotationMode::Standard => {
+                let max_int = self.maximum.abs().max(self.minimum.abs()) as i64;
+                let int_digits =
+                    if max_int == 0 { 1 } else { (max_int as f64).log10().floor() as usize + 1 };
+                let decimal_part = if self.decimals > 0 { self.decimals as usize + 1 } else { 0 };
+                sign_width + int_digits + decimal_part
+            }
+        };
+
+        let total_chars = value_chars + self.prefix.len() + self.suffix.len();
         let text_width = total_chars as f32 * 10.0;
 
         let width = (text_width + self.button_width + 16.0).max(100.0);
@@ -1599,5 +1841,71 @@ mod tests {
 
         assert!(hint.preferred.width >= 70.0);
         assert!(hint.preferred.height >= 22.0);
+    }
+
+    #[test]
+    fn test_scientific_notation_mode() {
+        setup();
+        let spinbox = DoubleSpinBox::new()
+            .with_notation_mode(NotationMode::Scientific)
+            .with_significant_digits(4)
+            .with_value(1234.5);
+
+        // Should format in scientific notation
+        let display = spinbox.display_text();
+        assert!(display.contains('e'), "Expected scientific notation: {}", display);
+    }
+
+    #[test]
+    fn test_scientific_notation_style() {
+        setup();
+        let spinbox_lower = DoubleSpinBox::new()
+            .with_notation_mode(NotationMode::Scientific)
+            .with_notation_style(NotationStyle::LowerE)
+            .with_value(1000.0);
+
+        let spinbox_upper = DoubleSpinBox::new()
+            .with_notation_mode(NotationMode::Scientific)
+            .with_notation_style(NotationStyle::UpperE)
+            .with_value(1000.0);
+
+        assert!(spinbox_lower.display_text().contains('e'));
+        assert!(spinbox_upper.display_text().contains('E'));
+    }
+
+    #[test]
+    fn test_automatic_notation_threshold() {
+        setup();
+        let mut spinbox = DoubleSpinBox::new()
+            .with_notation_mode(NotationMode::Automatic)
+            .with_exponent_threshold(1000.0)
+            .with_range(-1e10, 1e10);
+
+        // Value below threshold - standard notation
+        spinbox.set_value(500.0);
+        assert!(!spinbox.display_text().contains('e'), "Expected standard notation for 500: {}", spinbox.display_text());
+
+        // Value at/above threshold - scientific notation
+        spinbox.set_value(1500.0);
+        assert!(spinbox.display_text().contains('e'), "Expected scientific notation for 1500: {}", spinbox.display_text());
+
+        // Very small value - scientific notation
+        spinbox.set_value(0.0005);
+        assert!(spinbox.display_text().contains('e'), "Expected scientific notation for 0.0005: {}", spinbox.display_text());
+    }
+
+    #[test]
+    fn test_significant_digits() {
+        setup();
+        let spinbox = DoubleSpinBox::new()
+            .with_range(0.0, 10000.0)
+            .with_notation_mode(NotationMode::Scientific)
+            .with_significant_digits(3)
+            .with_value(1234.5);
+
+        let display = spinbox.display_text();
+        // With 3 significant digits, should be "1.23e+03"
+        assert!(display.starts_with("1.23e") || display.starts_with("1.23E"),
+            "Expected 3 significant digits: {}", display);
     }
 }

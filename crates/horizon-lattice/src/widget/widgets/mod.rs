@@ -85,7 +85,10 @@ mod timezone;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
 pub use button_group::ButtonGroup;
-pub use calendar::CalendarWidget;
+pub use calendar::{
+    CalendarWidget, CompositeDayFormatter, DateRangeHighlightFormatter, DayCellInfo, DayFormat,
+    DayFormatter, DefaultDayFormatter, WeekendHighlightFormatter,
+};
 pub use checkbox::{CheckBox, CheckState};
 pub use color_button::ColorButton;
 pub use color_picker::ColorPicker;

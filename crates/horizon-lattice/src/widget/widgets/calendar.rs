@@ -26,6 +26,8 @@
 //! });
 //! ```
 
+use std::sync::Arc;
+
 use chrono::{Datelike, Local, NaiveDate, Weekday};
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
@@ -54,6 +56,257 @@ enum CalendarPart {
     MonthYearLabel,
     /// A day cell in the grid (day of month 1-31 or 0 for other-month days).
     DayCell(u32, u32), // (row, col)
+}
+
+// ============================================================================
+// Day Formatting
+// ============================================================================
+
+/// Information about a day cell passed to formatters.
+///
+/// This struct contains the state of a day cell that formatters can use
+/// to determine custom styling.
+#[derive(Debug, Clone, Copy)]
+pub struct DayCellInfo {
+    /// The date represented by this cell.
+    pub date: NaiveDate,
+    /// Whether the date is in the currently displayed month.
+    pub is_current_month: bool,
+    /// Whether the date is today.
+    pub is_today: bool,
+    /// Whether the date is currently selected.
+    pub is_selected: bool,
+    /// Whether the mouse is hovering over this cell.
+    pub is_hovered: bool,
+    /// Whether the date is within the valid range (min/max constraints).
+    pub is_valid: bool,
+    /// Whether the date falls on a weekend (Saturday or Sunday).
+    pub is_weekend: bool,
+}
+
+/// Custom formatting for a day cell.
+///
+/// All fields are optional. When `None`, the default rendering is used.
+/// When `Some`, the custom value overrides the default.
+#[derive(Debug, Clone, Default)]
+pub struct DayFormat {
+    /// Custom background color for the cell.
+    pub background_color: Option<Color>,
+    /// Custom text color for the day number.
+    pub text_color: Option<Color>,
+    /// Tooltip text for this day (stored for future tooltip infrastructure).
+    pub tooltip: Option<String>,
+    /// Small indicator dot color below the day number (e.g., for events).
+    pub indicator_color: Option<Color>,
+}
+
+impl DayFormat {
+    /// Create a new empty day format (use all defaults).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the background color.
+    pub fn with_background(mut self, color: Color) -> Self {
+        self.background_color = Some(color);
+        self
+    }
+
+    /// Set the text color.
+    pub fn with_text_color(mut self, color: Color) -> Self {
+        self.text_color = Some(color);
+        self
+    }
+
+    /// Set the tooltip text.
+    pub fn with_tooltip(mut self, tooltip: impl Into<String>) -> Self {
+        self.tooltip = Some(tooltip.into());
+        self
+    }
+
+    /// Set the indicator dot color.
+    pub fn with_indicator(mut self, color: Color) -> Self {
+        self.indicator_color = Some(color);
+        self
+    }
+
+    /// Merge another format on top of this one.
+    ///
+    /// Values from `other` override values in `self` when present.
+    pub fn merge(&self, other: &DayFormat) -> DayFormat {
+        DayFormat {
+            background_color: other.background_color.or(self.background_color),
+            text_color: other.text_color.or(self.text_color),
+            tooltip: other.tooltip.clone().or_else(|| self.tooltip.clone()),
+            indicator_color: other.indicator_color.or(self.indicator_color),
+        }
+    }
+}
+
+/// Trait for custom formatting of calendar day cells.
+///
+/// Implement this trait to provide custom styling for individual days
+/// in the calendar. This can be used to mark holidays, show events,
+/// indicate availability, or highlight date ranges.
+///
+/// # Example
+///
+/// ```ignore
+/// use horizon_lattice::widget::widgets::{DayFormatter, DayCellInfo, DayFormat};
+/// use horizon_lattice_render::Color;
+///
+/// struct HolidayFormatter {
+///     holidays: Vec<NaiveDate>,
+/// }
+///
+/// impl DayFormatter for HolidayFormatter {
+///     fn format(&self, info: &DayCellInfo) -> DayFormat {
+///         if self.holidays.contains(&info.date) {
+///             DayFormat::new()
+///                 .with_background(Color::from_rgb8(255, 200, 200))
+///                 .with_indicator(Color::RED)
+///         } else {
+///             DayFormat::new()
+///         }
+///     }
+/// }
+/// ```
+pub trait DayFormatter: Send + Sync {
+    /// Get custom formatting for a specific date.
+    ///
+    /// Return `DayFormat::default()` or `DayFormat::new()` to use default styling.
+    fn format(&self, info: &DayCellInfo) -> DayFormat;
+}
+
+// ============================================================================
+// Built-in Formatters
+// ============================================================================
+
+/// A formatter that provides no custom formatting (uses all defaults).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DefaultDayFormatter;
+
+impl DayFormatter for DefaultDayFormatter {
+    fn format(&self, _info: &DayCellInfo) -> DayFormat {
+        DayFormat::new()
+    }
+}
+
+/// A formatter that highlights weekend days with a custom background color.
+#[derive(Debug, Clone)]
+pub struct WeekendHighlightFormatter {
+    /// Background color for weekend days.
+    pub background_color: Color,
+}
+
+impl WeekendHighlightFormatter {
+    /// Create a new weekend highlight formatter with the given background color.
+    pub fn new(background_color: Color) -> Self {
+        Self { background_color }
+    }
+}
+
+impl Default for WeekendHighlightFormatter {
+    fn default() -> Self {
+        Self {
+            background_color: Color::from_rgba8(245, 245, 245, 255),
+        }
+    }
+}
+
+impl DayFormatter for WeekendHighlightFormatter {
+    fn format(&self, info: &DayCellInfo) -> DayFormat {
+        if info.is_weekend && info.is_current_month && info.is_valid {
+            DayFormat::new().with_background(self.background_color)
+        } else {
+            DayFormat::new()
+        }
+    }
+}
+
+/// A formatter that highlights a range of dates.
+///
+/// Useful for showing availability, booking ranges, or multi-day events.
+#[derive(Debug, Clone)]
+pub struct DateRangeHighlightFormatter {
+    /// Start date of the range (inclusive).
+    pub start: NaiveDate,
+    /// End date of the range (inclusive).
+    pub end: NaiveDate,
+    /// Background color for dates in the range.
+    pub background_color: Color,
+    /// Optional text color for dates in the range.
+    pub text_color: Option<Color>,
+}
+
+impl DateRangeHighlightFormatter {
+    /// Create a new date range highlighter.
+    pub fn new(start: NaiveDate, end: NaiveDate, background_color: Color) -> Self {
+        Self {
+            start,
+            end,
+            background_color,
+            text_color: None,
+        }
+    }
+
+    /// Set the text color for highlighted dates.
+    pub fn with_text_color(mut self, color: Color) -> Self {
+        self.text_color = Some(color);
+        self
+    }
+}
+
+impl DayFormatter for DateRangeHighlightFormatter {
+    fn format(&self, info: &DayCellInfo) -> DayFormat {
+        if info.date >= self.start && info.date <= self.end {
+            let mut format = DayFormat::new().with_background(self.background_color);
+            if let Some(color) = self.text_color {
+                format = format.with_text_color(color);
+            }
+            format
+        } else {
+            DayFormat::new()
+        }
+    }
+}
+
+/// A formatter that combines multiple formatters.
+///
+/// Formatters are applied in order, with later formatters able to
+/// override earlier ones. This allows layering multiple formatting rules.
+#[derive(Default)]
+pub struct CompositeDayFormatter {
+    formatters: Vec<Box<dyn DayFormatter>>,
+}
+
+impl CompositeDayFormatter {
+    /// Create a new empty composite formatter.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a formatter to this composite.
+    pub fn add<F: DayFormatter + 'static>(&mut self, formatter: F) {
+        self.formatters.push(Box::new(formatter));
+    }
+
+    /// Add a formatter using builder pattern.
+    pub fn with<F: DayFormatter + 'static>(mut self, formatter: F) -> Self {
+        self.add(formatter);
+        self
+    }
+}
+
+impl DayFormatter for CompositeDayFormatter {
+    fn format(&self, info: &DayCellInfo) -> DayFormat {
+        let mut result = DayFormat::new();
+        for formatter in &self.formatters {
+            let format = formatter.format(info);
+            result = result.merge(&format);
+        }
+        result
+    }
 }
 
 /// A calendar widget for selecting dates.
@@ -141,6 +394,9 @@ pub struct CalendarWidget {
     /// Which part is currently pressed.
     pressed_part: CalendarPart,
 
+    /// Optional custom day formatter.
+    day_formatter: Option<Arc<dyn DayFormatter>>,
+
     /// Signal emitted when selection changes.
     pub selection_changed: Signal<Option<NaiveDate>>,
     /// Signal emitted when a date is activated.
@@ -190,6 +446,7 @@ impl CalendarWidget {
             today_button_height: 28.0,
             hover_part: CalendarPart::None,
             pressed_part: CalendarPart::None,
+            day_formatter: None,
             selection_changed: Signal::new(),
             activated: Signal::new(),
             page_changed: Signal::new(),
@@ -376,6 +633,51 @@ impl CalendarWidget {
     /// Set Today button using builder pattern.
     pub fn with_today_button(mut self, show: bool) -> Self {
         self.show_today_button = show;
+        self
+    }
+
+    // =========================================================================
+    // Day Formatting
+    // =========================================================================
+
+    /// Get the current day formatter, if any.
+    pub fn day_formatter(&self) -> Option<&Arc<dyn DayFormatter>> {
+        self.day_formatter.as_ref()
+    }
+
+    /// Set a custom day formatter for styling individual days.
+    ///
+    /// The formatter's `format` method will be called for each day cell
+    /// during painting. Use this to customize colors, add indicators,
+    /// or set tooltips for specific dates.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice::widget::widgets::{CalendarWidget, WeekendHighlightFormatter};
+    /// use horizon_lattice_render::Color;
+    ///
+    /// let mut calendar = CalendarWidget::new();
+    /// calendar.set_day_formatter(WeekendHighlightFormatter::new(
+    ///     Color::from_rgba8(240, 240, 240, 255)
+    /// ));
+    /// ```
+    pub fn set_day_formatter<F: DayFormatter + 'static>(&mut self, formatter: F) {
+        self.day_formatter = Some(Arc::new(formatter));
+        self.base.update();
+    }
+
+    /// Clear the day formatter (use default styling).
+    pub fn clear_day_formatter(&mut self) {
+        if self.day_formatter.is_some() {
+            self.day_formatter = None;
+            self.base.update();
+        }
+    }
+
+    /// Set day formatter using builder pattern.
+    pub fn with_day_formatter<F: DayFormatter + 'static>(mut self, formatter: F) -> Self {
+        self.day_formatter = Some(Arc::new(formatter));
         self
     }
 
@@ -1020,36 +1322,44 @@ impl CalendarWidget {
         let is_weekend = date.weekday() == Weekday::Sat || date.weekday() == Weekday::Sun;
         let is_hovered = matches!(self.hover_part, CalendarPart::DayCell(r, c) if r == row && c == col);
 
-        // Background
+        // Get custom formatting from the day formatter (if any)
+        let custom_format = if let Some(formatter) = &self.day_formatter {
+            let info = DayCellInfo {
+                date,
+                is_current_month,
+                is_today,
+                is_selected,
+                is_hovered,
+                is_valid,
+                is_weekend,
+            };
+            formatter.format(&info)
+        } else {
+            DayFormat::default()
+        };
+
+        // Background - custom background takes precedence for non-selected cells
+        let center = Point::new(
+            rect.origin.x + rect.width() / 2.0,
+            rect.origin.y + rect.height() / 2.0,
+        );
+        let radius = (rect.width().min(rect.height()) / 2.0 - 2.0).max(0.0);
+        let circle_rect =
+            Rect::new(center.x - radius, center.y - radius, radius * 2.0, radius * 2.0);
+        let rrect = RoundedRect::new(circle_rect, radius);
+
         if is_selected && is_valid {
-            let center = Point::new(
-                rect.origin.x + rect.width() / 2.0,
-                rect.origin.y + rect.height() / 2.0,
-            );
-            let radius = (rect.width().min(rect.height()) / 2.0 - 2.0).max(0.0);
-            let circle_rect = Rect::new(center.x - radius, center.y - radius, radius * 2.0, radius * 2.0);
-            let rrect = RoundedRect::new(circle_rect, radius);
-            ctx.renderer().fill_rounded_rect(rrect, self.selected_background_color);
+            ctx.renderer()
+                .fill_rounded_rect(rrect, self.selected_background_color);
         } else if is_hovered && is_valid && is_current_month {
-            let center = Point::new(
-                rect.origin.x + rect.width() / 2.0,
-                rect.origin.y + rect.height() / 2.0,
-            );
-            let radius = (rect.width().min(rect.height()) / 2.0 - 2.0).max(0.0);
-            let circle_rect = Rect::new(center.x - radius, center.y - radius, radius * 2.0, radius * 2.0);
-            let rrect = RoundedRect::new(circle_rect, radius);
             ctx.renderer().fill_rounded_rect(rrect, self.hover_color);
+        } else if let Some(bg_color) = custom_format.background_color {
+            // Apply custom background for non-selected, non-hovered cells
+            ctx.renderer().fill_rounded_rect(rrect, bg_color);
         }
 
         // Today highlight (ring)
         if is_today && !is_selected {
-            let center = Point::new(
-                rect.origin.x + rect.width() / 2.0,
-                rect.origin.y + rect.height() / 2.0,
-            );
-            let radius = (rect.width().min(rect.height()) / 2.0 - 2.0).max(0.0);
-            let circle_rect = Rect::new(center.x - radius, center.y - radius, radius * 2.0, radius * 2.0);
-            let rrect = RoundedRect::new(circle_rect, radius);
             let stroke = Stroke::new(self.today_highlight_color, 2.0);
             ctx.renderer().stroke_rounded_rect(rrect, &stroke);
         }
@@ -1068,17 +1378,29 @@ impl CalendarWidget {
         let text_x = rect.origin.x + (rect.width() - layout.width()) / 2.0;
         let text_y = rect.origin.y + (rect.height() - layout.height()) / 2.0;
 
-        // Text color
-        let color = if is_selected && is_valid {
-            self.selected_text_color
-        } else if !is_valid {
-            self.disabled_color
-        } else if !is_current_month {
-            self.other_month_color
-        } else if is_weekend {
-            self.weekend_color
+        // Text color - custom text color can override default logic
+        let color = if let Some(custom_color) = custom_format.text_color {
+            // Custom text color overrides default for valid, non-selected dates
+            if is_selected && is_valid {
+                self.selected_text_color
+            } else if !is_valid {
+                self.disabled_color
+            } else {
+                custom_color
+            }
         } else {
-            self.text_color
+            // Default text color logic
+            if is_selected && is_valid {
+                self.selected_text_color
+            } else if !is_valid {
+                self.disabled_color
+            } else if !is_current_month {
+                self.other_month_color
+            } else if is_weekend {
+                self.weekend_color
+            } else {
+                self.text_color
+            }
         };
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
@@ -1088,6 +1410,21 @@ impl CalendarWidget {
                 Point::new(text_x, text_y),
                 color,
             );
+        }
+
+        // Indicator dot (below the day number)
+        if let Some(indicator_color) = custom_format.indicator_color {
+            let dot_radius = 2.0;
+            let dot_y = text_y + layout.height() + 2.0;
+            let dot_center = Point::new(center.x, dot_y + dot_radius);
+            let dot_rect = Rect::new(
+                dot_center.x - dot_radius,
+                dot_center.y - dot_radius,
+                dot_radius * 2.0,
+                dot_radius * 2.0,
+            );
+            let dot_rrect = RoundedRect::new(dot_rect, dot_radius);
+            ctx.renderer().fill_rounded_rect(dot_rrect, indicator_color);
         }
     }
 
@@ -1393,5 +1730,184 @@ mod tests {
         let hint = calendar.size_hint();
         assert!(hint.preferred.width > 0.0);
         assert!(hint.preferred.height > 0.0);
+    }
+
+    // =========================================================================
+    // Day Formatting Tests
+    // =========================================================================
+
+    #[test]
+    fn test_day_format_builder() {
+        let format = DayFormat::new()
+            .with_background(Color::RED)
+            .with_text_color(Color::WHITE)
+            .with_tooltip("Test tooltip")
+            .with_indicator(Color::BLUE);
+
+        assert_eq!(format.background_color, Some(Color::RED));
+        assert_eq!(format.text_color, Some(Color::WHITE));
+        assert_eq!(format.tooltip, Some("Test tooltip".to_string()));
+        assert_eq!(format.indicator_color, Some(Color::BLUE));
+    }
+
+    #[test]
+    fn test_day_format_merge() {
+        let base = DayFormat::new()
+            .with_background(Color::RED)
+            .with_text_color(Color::WHITE);
+
+        let overlay = DayFormat::new()
+            .with_text_color(Color::BLACK)
+            .with_indicator(Color::GREEN);
+
+        let merged = base.merge(&overlay);
+
+        // Background should come from base (overlay has None)
+        assert_eq!(merged.background_color, Some(Color::RED));
+        // Text color should come from overlay (it overrides)
+        assert_eq!(merged.text_color, Some(Color::BLACK));
+        // Indicator should come from overlay
+        assert_eq!(merged.indicator_color, Some(Color::GREEN));
+        // Tooltip should be None (neither has it)
+        assert_eq!(merged.tooltip, None);
+    }
+
+    #[test]
+    fn test_default_day_formatter() {
+        let formatter = DefaultDayFormatter;
+        let info = DayCellInfo {
+            date: NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
+            is_current_month: true,
+            is_today: false,
+            is_selected: false,
+            is_hovered: false,
+            is_valid: true,
+            is_weekend: false,
+        };
+
+        let format = formatter.format(&info);
+        assert!(format.background_color.is_none());
+        assert!(format.text_color.is_none());
+        assert!(format.indicator_color.is_none());
+    }
+
+    #[test]
+    fn test_weekend_highlight_formatter() {
+        let formatter = WeekendHighlightFormatter::new(Color::from_rgb8(240, 240, 240));
+
+        // Saturday
+        let saturday_info = DayCellInfo {
+            date: NaiveDate::from_ymd_opt(2025, 1, 18).unwrap(), // Saturday
+            is_current_month: true,
+            is_today: false,
+            is_selected: false,
+            is_hovered: false,
+            is_valid: true,
+            is_weekend: true,
+        };
+        let format = formatter.format(&saturday_info);
+        assert!(format.background_color.is_some());
+
+        // Weekday
+        let weekday_info = DayCellInfo {
+            date: NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(), // Wednesday
+            is_current_month: true,
+            is_today: false,
+            is_selected: false,
+            is_hovered: false,
+            is_valid: true,
+            is_weekend: false,
+        };
+        let format = formatter.format(&weekday_info);
+        assert!(format.background_color.is_none());
+    }
+
+    #[test]
+    fn test_date_range_highlight_formatter() {
+        let start = NaiveDate::from_ymd_opt(2025, 1, 10).unwrap();
+        let end = NaiveDate::from_ymd_opt(2025, 1, 20).unwrap();
+        let formatter = DateRangeHighlightFormatter::new(start, end, Color::from_rgba8(200, 230, 255, 255))
+            .with_text_color(Color::BLACK);
+
+        // Date in range
+        let in_range_info = DayCellInfo {
+            date: NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
+            is_current_month: true,
+            is_today: false,
+            is_selected: false,
+            is_hovered: false,
+            is_valid: true,
+            is_weekend: false,
+        };
+        let format = formatter.format(&in_range_info);
+        assert!(format.background_color.is_some());
+        assert!(format.text_color.is_some());
+
+        // Date outside range
+        let out_of_range_info = DayCellInfo {
+            date: NaiveDate::from_ymd_opt(2025, 1, 5).unwrap(),
+            is_current_month: true,
+            is_today: false,
+            is_selected: false,
+            is_hovered: false,
+            is_valid: true,
+            is_weekend: false,
+        };
+        let format = formatter.format(&out_of_range_info);
+        assert!(format.background_color.is_none());
+        assert!(format.text_color.is_none());
+    }
+
+    #[test]
+    fn test_composite_day_formatter() {
+        let weekend_formatter = WeekendHighlightFormatter::new(Color::from_rgb8(245, 245, 245));
+
+        let start = NaiveDate::from_ymd_opt(2025, 1, 17).unwrap();
+        let end = NaiveDate::from_ymd_opt(2025, 1, 19).unwrap();
+        let range_formatter =
+            DateRangeHighlightFormatter::new(start, end, Color::from_rgba8(200, 200, 255, 255));
+
+        let composite = CompositeDayFormatter::new()
+            .with(weekend_formatter)
+            .with(range_formatter);
+
+        // Saturday in range - should have range formatter's background (later wins)
+        let saturday_in_range = DayCellInfo {
+            date: NaiveDate::from_ymd_opt(2025, 1, 18).unwrap(),
+            is_current_month: true,
+            is_today: false,
+            is_selected: false,
+            is_hovered: false,
+            is_valid: true,
+            is_weekend: true,
+        };
+        let format = composite.format(&saturday_in_range);
+        assert_eq!(
+            format.background_color,
+            Some(Color::from_rgba8(200, 200, 255, 255))
+        );
+    }
+
+    #[test]
+    fn test_calendar_with_day_formatter() {
+        setup();
+        let formatter = WeekendHighlightFormatter::default();
+        let calendar = CalendarWidget::new().with_day_formatter(formatter);
+
+        assert!(calendar.day_formatter().is_some());
+    }
+
+    #[test]
+    fn test_calendar_set_day_formatter() {
+        setup();
+        let mut calendar = CalendarWidget::new();
+
+        assert!(calendar.day_formatter().is_none());
+
+        calendar.set_day_formatter(DefaultDayFormatter);
+        assert!(calendar.day_formatter().is_some());
+
+        calendar.clear_day_formatter();
+        assert!(calendar.day_formatter().is_none());
     }
 }

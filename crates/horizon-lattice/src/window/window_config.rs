@@ -6,6 +6,7 @@
 use winit::dpi::{LogicalPosition, LogicalSize, Position, Size};
 use winit::window::{Window, WindowAttributes, WindowButtons, WindowLevel};
 
+use super::native_window::NativeWindowId;
 use super::window_icon::WindowIcon;
 use super::window_type::WindowType;
 use crate::widget::widgets::WindowFlags;
@@ -62,9 +63,13 @@ pub struct WindowConfig {
     maximized: bool,
     /// Window icon.
     icon: Option<WindowIcon>,
-    /// Parent window for owned windows (dialogs).
-    #[allow(dead_code)]
-    parent: Option<winit::window::WindowId>,
+    /// Parent window for transient windows (dialogs, tool windows).
+    ///
+    /// Transient windows:
+    /// - Float independently of parent (not embedded)
+    /// - Stay logically associated with parent for z-ordering
+    /// - Close automatically when parent closes
+    parent: Option<NativeWindowId>,
     /// Window level (z-ordering).
     level: Option<WindowLevel>,
 }
@@ -218,6 +223,29 @@ impl WindowConfig {
         self
     }
 
+    /// Set the parent window for transient relationship.
+    ///
+    /// Transient windows:
+    /// - Float independently of parent (not embedded inside parent)
+    /// - Are logically associated with parent for z-ordering coordination
+    /// - Close automatically when parent closes
+    ///
+    /// Use this for dialog windows, tool palettes, and other secondary windows
+    /// that belong to a main window.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let dialog_config = WindowConfig::new("Save As")
+    ///     .with_type(WindowType::Dialog)
+    ///     .with_parent(main_window_id)
+    ///     .with_size(400, 300);
+    /// ```
+    pub fn with_parent(mut self, parent: NativeWindowId) -> Self {
+        self.parent = Some(parent);
+        self
+    }
+
     /// Get the window title.
     pub fn title(&self) -> &str {
         &self.title
@@ -239,6 +267,11 @@ impl WindowConfig {
     /// Get the aspect ratio constraint, if set.
     pub fn aspect_ratio(&self) -> Option<f32> {
         self.aspect_ratio
+    }
+
+    /// Get the parent window, if set.
+    pub fn parent(&self) -> Option<NativeWindowId> {
+        self.parent
     }
 
     /// Convert to winit `WindowAttributes`.
@@ -425,5 +458,32 @@ mod tests {
         let config = WindowConfig::new("Square")
             .with_aspect_ratio(1.0);
         assert_eq!(config.aspect_ratio(), Some(1.0));
+    }
+
+    #[test]
+    fn test_window_config_parent() {
+        use std::mem::transmute;
+        use winit::window::WindowId;
+
+        // Helper to create a fake NativeWindowId for testing
+        fn fake_id(n: u64) -> NativeWindowId {
+            let fake_winit_id: WindowId = unsafe { transmute(n) };
+            NativeWindowId::from_winit(fake_winit_id)
+        }
+
+        // No parent by default
+        let config = WindowConfig::new("Test");
+        assert_eq!(config.parent(), None);
+
+        // Set parent for dialog
+        let parent_id = fake_id(42);
+        let config = WindowConfig::new("Dialog")
+            .with_type(WindowType::Dialog)
+            .with_parent(parent_id)
+            .with_size(400, 300);
+
+        assert_eq!(config.parent(), Some(parent_id));
+        assert_eq!(config.window_type(), WindowType::Dialog);
+        assert_eq!(config.size, Some((400, 300)));
     }
 }

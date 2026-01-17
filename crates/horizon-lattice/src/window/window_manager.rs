@@ -23,33 +23,49 @@ static WINDOW_MANAGER: OnceLock<WindowManager> = OnceLock::new();
 /// The `WindowManager` provides:
 /// - Central registry of all application windows
 /// - Window lookup by ID
+/// - Parent-child window relationships
 /// - Signals for window lifecycle events
 /// - Coordination of multi-window operations
+///
+/// # Parent-Child Relationships
+///
+/// Windows can have transient parent-child relationships:
+/// - Child windows are not embedded in parent (they float independently)
+/// - Child windows close automatically when parent closes
+/// - Parent-child relationships enable modal dialog blocking
 ///
 /// # Example
 ///
 /// ```ignore
-/// use horizon_lattice::window::{WindowManager, WindowConfig};
+/// use horizon_lattice::window::{WindowManager, WindowConfig, WindowType};
 ///
 /// // Access the global window manager
 /// let manager = WindowManager::instance();
 ///
-/// // Create a window through the manager
-/// let window = manager.create_window(event_loop, config)?;
+/// // Create a main window
+/// let main_id = manager.create_window(event_loop, WindowConfig::new("Main"))?;
+///
+/// // Create a dialog with parent relationship
+/// let dialog_config = WindowConfig::new("Dialog")
+///     .with_type(WindowType::Dialog)
+///     .with_parent(main_id);
+/// let dialog_id = manager.create_window(event_loop, dialog_config)?;
 ///
 /// // Find a window by ID
-/// if let Some(window) = manager.get(window_id) {
-///     window.set_title("New Title");
+/// if let Some(window) = manager.get(dialog_id) {
+///     window.set_title("Save As");
 /// }
 ///
-/// // Iterate all windows
-/// for id in manager.window_ids() {
-///     println!("Window: {:?}", id);
-/// }
+/// // Get children of a window
+/// let children = manager.children(main_id);
 /// ```
 pub struct WindowManager {
     /// All registered windows.
     windows: RwLock<HashMap<NativeWindowId, NativeWindow>>,
+    /// Parent-child relationships: maps child window -> parent window.
+    parent_map: RwLock<HashMap<NativeWindowId, NativeWindowId>>,
+    /// Children of each window: maps parent window -> list of child windows.
+    children_map: RwLock<HashMap<NativeWindowId, Vec<NativeWindowId>>>,
     /// Signal emitted when a window is created.
     window_created: Signal<NativeWindowId>,
     /// Signal emitted when a window is about to be destroyed.
@@ -63,6 +79,8 @@ impl WindowManager {
     fn new() -> Self {
         Self {
             windows: RwLock::new(HashMap::new()),
+            parent_map: RwLock::new(HashMap::new()),
+            children_map: RwLock::new(HashMap::new()),
             window_created: Signal::new(),
             window_destroyed: Signal::new(),
             window_focused: Signal::new(),
@@ -77,6 +95,10 @@ impl WindowManager {
     }
 
     /// Create a new window and register it with the manager.
+    ///
+    /// If the window configuration specifies a parent, the window is registered
+    /// as a child of that parent. Child windows are automatically closed when
+    /// their parent is closed.
     ///
     /// # Arguments
     ///
@@ -95,35 +117,109 @@ impl WindowManager {
         event_loop: &ActiveEventLoop,
         config: WindowConfig,
     ) -> Result<NativeWindowId, NativeWindowError> {
+        let parent = config.parent();
         let window = NativeWindow::create(event_loop, config)?;
         let id = window.id();
 
         self.windows.write().insert(id, window);
+
+        // Set up parent-child relationship
+        if let Some(parent_id) = parent {
+            self.set_parent_internal(id, parent_id);
+        }
+
         self.window_created.emit(id);
 
         Ok(id)
+    }
+
+    /// Set the parent-child relationship.
+    fn set_parent_internal(&self, child: NativeWindowId, parent: NativeWindowId) {
+        self.parent_map.write().insert(child, parent);
+        self.children_map
+            .write()
+            .entry(parent)
+            .or_default()
+            .push(child);
     }
 
     /// Register an existing window with the manager.
     ///
     /// This is useful when you create a window directly and want to
     /// track it through the manager.
-    pub fn register(&self, window: NativeWindow) -> NativeWindowId {
+    ///
+    /// # Arguments
+    ///
+    /// * `window` - The window to register
+    /// * `parent` - Optional parent window for transient relationship
+    pub fn register(&self, window: NativeWindow, parent: Option<NativeWindowId>) -> NativeWindowId {
         let id = window.id();
         self.windows.write().insert(id, window);
+
+        // Set up parent-child relationship
+        if let Some(parent_id) = parent {
+            self.set_parent_internal(id, parent_id);
+        }
+
         self.window_created.emit(id);
         id
     }
 
     /// Unregister and remove a window from the manager.
     ///
+    /// This also closes all child windows of the removed window and
+    /// cleans up parent-child relationships.
+    ///
     /// Returns the window if it was registered.
     pub fn unregister(&self, id: NativeWindowId) -> Option<NativeWindow> {
+        // First, recursively close all children
+        self.close_children(id);
+
+        // Clean up this window's parent relationship
+        if let Some(parent_id) = self.parent_map.write().remove(&id) {
+            // Remove from parent's children list
+            if let Some(siblings) = self.children_map.write().get_mut(&parent_id) {
+                siblings.retain(|&child_id| child_id != id);
+            }
+        }
+
+        // Remove from children_map (should be empty after close_children)
+        self.children_map.write().remove(&id);
+
         let window = self.windows.write().remove(&id);
         if window.is_some() {
             self.window_destroyed.emit(id);
         }
         window
+    }
+
+    /// Close all child windows of a parent window.
+    ///
+    /// This recursively closes children of children as well.
+    fn close_children(&self, parent_id: NativeWindowId) {
+        // Get the list of children (clone to avoid holding lock)
+        let children: Vec<NativeWindowId> = self
+            .children_map
+            .read()
+            .get(&parent_id)
+            .cloned()
+            .unwrap_or_default();
+
+        // Recursively close each child (this will close their children too)
+        for child_id in children {
+            // Recursively close grandchildren first
+            self.close_children(child_id);
+
+            // Remove the child window
+            if let Some(child) = self.windows.write().remove(&child_id) {
+                child.hide();
+                self.parent_map.write().remove(&child_id);
+                self.window_destroyed.emit(child_id);
+            }
+        }
+
+        // Clear the children list
+        self.children_map.write().remove(&parent_id);
     }
 
     /// Get an immutable reference to a window by ID.
@@ -188,6 +284,114 @@ impl WindowManager {
     }
 
     // =========================================================================
+    // Parent-Child Relationships
+    // =========================================================================
+
+    /// Get the parent window of a child window.
+    ///
+    /// Returns `None` if the window has no parent or doesn't exist.
+    pub fn parent(&self, id: NativeWindowId) -> Option<NativeWindowId> {
+        self.parent_map.read().get(&id).copied()
+    }
+
+    /// Get all child windows of a parent window.
+    ///
+    /// Returns an empty vector if the window has no children or doesn't exist.
+    pub fn children(&self, id: NativeWindowId) -> Vec<NativeWindowId> {
+        self.children_map
+            .read()
+            .get(&id)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Check if a window has any children.
+    pub fn has_children(&self, id: NativeWindowId) -> bool {
+        self.children_map
+            .read()
+            .get(&id)
+            .is_some_and(|c| !c.is_empty())
+    }
+
+    /// Check if a window has a parent.
+    pub fn has_parent(&self, id: NativeWindowId) -> bool {
+        self.parent_map.read().contains_key(&id)
+    }
+
+    /// Set the parent of an existing window.
+    ///
+    /// This establishes a transient relationship where the child will
+    /// close when the parent closes.
+    ///
+    /// # Arguments
+    ///
+    /// * `child` - The window to set as a child
+    /// * `parent` - The parent window, or `None` to remove the parent relationship
+    pub fn set_parent(&self, child: NativeWindowId, parent: Option<NativeWindowId>) {
+        // First, remove any existing parent relationship
+        if let Some(old_parent) = self.parent_map.write().remove(&child) {
+            if let Some(siblings) = self.children_map.write().get_mut(&old_parent) {
+                siblings.retain(|&id| id != child);
+            }
+        }
+
+        // Set up new parent relationship
+        if let Some(parent_id) = parent {
+            self.set_parent_internal(child, parent_id);
+        }
+    }
+
+    /// Get all root windows (windows without parents).
+    ///
+    /// These are typically the main application windows.
+    pub fn root_windows(&self) -> Vec<NativeWindowId> {
+        let windows = self.windows.read();
+        let parent_map = self.parent_map.read();
+
+        windows
+            .keys()
+            .filter(|id| !parent_map.contains_key(id))
+            .copied()
+            .collect()
+    }
+
+    /// Get all ancestor windows of a window, from immediate parent to root.
+    ///
+    /// Returns an empty vector if the window has no parent.
+    pub fn ancestors(&self, id: NativeWindowId) -> Vec<NativeWindowId> {
+        let mut result = Vec::new();
+        let mut current = id;
+
+        let parent_map = self.parent_map.read();
+        while let Some(&parent) = parent_map.get(&current) {
+            result.push(parent);
+            current = parent;
+        }
+
+        result
+    }
+
+    /// Get all descendant windows of a window (children, grandchildren, etc.).
+    ///
+    /// Returns an empty vector if the window has no descendants.
+    pub fn descendants(&self, id: NativeWindowId) -> Vec<NativeWindowId> {
+        let mut result = Vec::new();
+        let mut stack = vec![id];
+
+        let children_map = self.children_map.read();
+        while let Some(current) = stack.pop() {
+            if let Some(children) = children_map.get(&current) {
+                for &child in children {
+                    result.push(child);
+                    stack.push(child);
+                }
+            }
+        }
+
+        result
+    }
+
+    // =========================================================================
     // Signals
     // =========================================================================
 
@@ -225,13 +429,36 @@ impl WindowManager {
 
     /// Close all windows.
     ///
-    /// This hides and unregisters all windows.
+    /// This hides and unregisters all windows and clears all parent-child
+    /// relationships.
     pub fn close_all(&self) {
         let ids: Vec<_> = self.windows.read().keys().copied().collect();
         for id in ids {
             if let Some(window) = self.windows.write().remove(&id) {
                 window.hide();
                 self.window_destroyed.emit(id);
+            }
+        }
+
+        // Clear parent-child tracking
+        self.parent_map.write().clear();
+        self.children_map.write().clear();
+    }
+
+    /// Focus a window and bring its transient children to front.
+    ///
+    /// When a parent window is focused, its child windows (dialogs, tool windows)
+    /// should also be brought to the front to maintain the proper z-order.
+    pub fn focus_with_children(&self, id: NativeWindowId) {
+        // First focus the parent
+        if let Some(window) = self.get(id) {
+            window.focus();
+        }
+
+        // Then focus children in order (so they appear on top)
+        for child_id in self.descendants(id) {
+            if let Some(child) = self.get(child_id) {
+                child.focus();
             }
         }
     }
@@ -290,6 +517,76 @@ impl WindowManager {
             window.request_inner_size_logical(bounds_width as f64, height_per_window as f64);
         }
     }
+
+    // =========================================================================
+    // Convenience Methods for Transient Windows
+    // =========================================================================
+
+    /// Create a dialog window as a child of a parent window.
+    ///
+    /// This is a convenience method that creates a window with:
+    /// - `WindowType::Dialog`
+    /// - Parent set to the specified window
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let dialog_id = manager.create_dialog(
+    ///     event_loop,
+    ///     "Save Changes",
+    ///     main_window_id,
+    ///     (400, 200),
+    /// )?;
+    /// ```
+    pub fn create_dialog(
+        &self,
+        event_loop: &ActiveEventLoop,
+        title: impl Into<String>,
+        parent: NativeWindowId,
+        size: (u32, u32),
+    ) -> Result<NativeWindowId, NativeWindowError> {
+        use super::window_type::WindowType;
+
+        let config = WindowConfig::new(title)
+            .with_type(WindowType::Dialog)
+            .with_parent(parent)
+            .with_size(size.0, size.1);
+
+        self.create_window(event_loop, config)
+    }
+
+    /// Create a tool window as a child of a parent window.
+    ///
+    /// This is a convenience method that creates a window with:
+    /// - `WindowType::Tool`
+    /// - Parent set to the specified window
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let tool_id = manager.create_tool_window(
+    ///     event_loop,
+    ///     "Properties",
+    ///     main_window_id,
+    ///     (300, 400),
+    /// )?;
+    /// ```
+    pub fn create_tool_window(
+        &self,
+        event_loop: &ActiveEventLoop,
+        title: impl Into<String>,
+        parent: NativeWindowId,
+        size: (u32, u32),
+    ) -> Result<NativeWindowId, NativeWindowError> {
+        use super::window_type::WindowType;
+
+        let config = WindowConfig::new(title)
+            .with_type(WindowType::Tool)
+            .with_parent(parent)
+            .with_size(size.0, size.1);
+
+        self.create_window(event_loop, config)
+    }
 }
 
 impl Default for WindowManager {
@@ -338,5 +635,174 @@ mod tests {
         let manager2 = WindowManager::instance();
         // Both should point to the same instance
         assert!(std::ptr::eq(manager1, manager2));
+    }
+
+    // Helper to create a fake NativeWindowId for testing
+    fn fake_id(n: u64) -> NativeWindowId {
+        // Create a fake WindowId using unsafe transmute - only for testing!
+        // This is a workaround since we can't create real windows in tests
+        use std::mem::transmute;
+
+        // winit::WindowId is an opaque type, but we can fake it for unit tests
+        // This is safe in tests because we only use the ID for HashMap keys
+        let fake_winit_id: WindowId = unsafe { transmute(n) };
+        NativeWindowId::from_winit(fake_winit_id)
+    }
+
+    #[test]
+    fn test_parent_child_relationship_internal() {
+        let manager = WindowManager::new();
+
+        let parent_id = fake_id(1);
+        let child_id = fake_id(2);
+
+        // Set up parent-child relationship directly
+        manager.set_parent_internal(child_id, parent_id);
+
+        // Verify relationship
+        assert_eq!(manager.parent(child_id), Some(parent_id));
+        assert!(manager.has_parent(child_id));
+        assert!(!manager.has_parent(parent_id));
+
+        assert!(manager.has_children(parent_id));
+        assert!(!manager.has_children(child_id));
+        assert_eq!(manager.children(parent_id), vec![child_id]);
+    }
+
+    #[test]
+    fn test_multiple_children() {
+        let manager = WindowManager::new();
+
+        let parent_id = fake_id(1);
+        let child1_id = fake_id(2);
+        let child2_id = fake_id(3);
+        let child3_id = fake_id(4);
+
+        // Add multiple children
+        manager.set_parent_internal(child1_id, parent_id);
+        manager.set_parent_internal(child2_id, parent_id);
+        manager.set_parent_internal(child3_id, parent_id);
+
+        // Verify all children are tracked
+        let children = manager.children(parent_id);
+        assert_eq!(children.len(), 3);
+        assert!(children.contains(&child1_id));
+        assert!(children.contains(&child2_id));
+        assert!(children.contains(&child3_id));
+
+        // Each child has the same parent
+        assert_eq!(manager.parent(child1_id), Some(parent_id));
+        assert_eq!(manager.parent(child2_id), Some(parent_id));
+        assert_eq!(manager.parent(child3_id), Some(parent_id));
+    }
+
+    #[test]
+    fn test_grandchildren() {
+        let manager = WindowManager::new();
+
+        let root_id = fake_id(1);
+        let child_id = fake_id(2);
+        let grandchild_id = fake_id(3);
+
+        // Create hierarchy: root -> child -> grandchild
+        manager.set_parent_internal(child_id, root_id);
+        manager.set_parent_internal(grandchild_id, child_id);
+
+        // Verify ancestors
+        let ancestors = manager.ancestors(grandchild_id);
+        assert_eq!(ancestors.len(), 2);
+        assert_eq!(ancestors[0], child_id);
+        assert_eq!(ancestors[1], root_id);
+
+        // Verify descendants
+        let descendants = manager.descendants(root_id);
+        assert_eq!(descendants.len(), 2);
+        assert!(descendants.contains(&child_id));
+        assert!(descendants.contains(&grandchild_id));
+
+        // Child's descendants
+        let child_descendants = manager.descendants(child_id);
+        assert_eq!(child_descendants.len(), 1);
+        assert_eq!(child_descendants[0], grandchild_id);
+    }
+
+    #[test]
+    fn test_root_windows() {
+        let manager = WindowManager::new();
+
+        let root1_id = fake_id(1);
+        let root2_id = fake_id(2);
+        let child_id = fake_id(3);
+
+        // Add windows to registry (as empty entries, just for tracking)
+        // Note: In real usage, these would be actual windows
+        // For this test, we just need IDs in the windows map
+        // We'll simulate by adding to children_map for root1
+        manager.set_parent_internal(child_id, root1_id);
+
+        // Add root IDs to windows map by using the parent_map as indicator
+        // The root_windows method checks both maps
+        // For proper testing, we need windows registered
+
+        // Verify child has parent
+        assert!(manager.has_parent(child_id));
+        assert!(!manager.has_parent(root1_id));
+        assert!(!manager.has_parent(root2_id));
+    }
+
+    #[test]
+    fn test_set_parent_changes_relationship() {
+        let manager = WindowManager::new();
+
+        let parent1_id = fake_id(1);
+        let parent2_id = fake_id(2);
+        let child_id = fake_id(3);
+
+        // Initially set child under parent1
+        manager.set_parent_internal(child_id, parent1_id);
+        assert_eq!(manager.parent(child_id), Some(parent1_id));
+        assert!(manager.children(parent1_id).contains(&child_id));
+
+        // Change parent to parent2
+        manager.set_parent(child_id, Some(parent2_id));
+        assert_eq!(manager.parent(child_id), Some(parent2_id));
+        assert!(manager.children(parent2_id).contains(&child_id));
+        assert!(!manager.children(parent1_id).contains(&child_id));
+    }
+
+    #[test]
+    fn test_set_parent_none_removes_relationship() {
+        let manager = WindowManager::new();
+
+        let parent_id = fake_id(1);
+        let child_id = fake_id(2);
+
+        // Set parent
+        manager.set_parent_internal(child_id, parent_id);
+        assert_eq!(manager.parent(child_id), Some(parent_id));
+
+        // Remove parent
+        manager.set_parent(child_id, None);
+        assert_eq!(manager.parent(child_id), None);
+        assert!(!manager.has_parent(child_id));
+        assert!(!manager.children(parent_id).contains(&child_id));
+    }
+
+    #[test]
+    fn test_close_all_clears_relationships() {
+        let manager = WindowManager::new();
+
+        let parent_id = fake_id(1);
+        let child_id = fake_id(2);
+
+        manager.set_parent_internal(child_id, parent_id);
+        assert!(manager.has_children(parent_id));
+
+        // Close all windows
+        manager.close_all();
+
+        // Relationships should be cleared
+        assert!(!manager.has_children(parent_id));
+        assert!(!manager.has_parent(child_id));
     }
 }

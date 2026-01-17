@@ -43,6 +43,8 @@
 //! - [`InputDialog`]: Modal dialog for simple input (text, numbers, item selection)
 //! - [`ProgressDialog`]: Modal dialog showing operation progress with cancel option
 //! - [`AboutDialog`]: Modal dialog for displaying application information
+//! - [`PrintDialog`]: Modal dialog for configuring print settings
+//! - [`PrintPreviewDialog`]: Modal dialog for previewing print output before printing
 //! - [`FontComboBox`]: Dropdown for selecting font families with preview
 //! - [`KeySequenceEdit`]: Keyboard shortcut capture and editing widget
 
@@ -67,6 +69,7 @@ mod message_box;
 mod progress_dialog;
 mod wizard;
 mod about_dialog;
+mod print_dialog;
 mod dock_widget;
 mod double_spin_box;
 mod font_combo_box;
@@ -193,6 +196,10 @@ pub use wizard::{
     WizardPage, WizardStyle,
 };
 pub use about_dialog::AboutDialog;
+pub use print_dialog::{
+    ColorMode, DuplexMode, PageOrientation, PageRange, PaperSize, PrintDialog,
+    PrintDialogOptions, PrinterInfo, PrintPreviewDialog, PrintSettings,
+};
 pub use key_sequence_edit::KeySequenceEdit;
 pub use find_replace::{FindOptions, FindReplaceBar, FindReplaceMode, SearchMatch, Searchable};
 pub use list_widget::{ListWidget, ListWidgetItem, MatchFlags};

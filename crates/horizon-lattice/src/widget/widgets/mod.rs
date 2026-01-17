@@ -64,6 +64,7 @@ mod font_dialog;
 mod input_dialog;
 mod message_box;
 mod progress_dialog;
+mod wizard;
 mod dock_widget;
 mod double_spin_box;
 mod font_combo_box;
@@ -185,6 +186,10 @@ pub use file_dialog::{
 pub use font_dialog::{FontDialog, FontDialogOptions};
 pub use input_dialog::{InputDialog, InputEchoMode, InputMode};
 pub use progress_dialog::ProgressDialog;
+pub use wizard::{
+    PageCondition, PageValidator, ValidationError, ValidationResult, Wizard, WizardButton,
+    WizardPage, WizardStyle,
+};
 pub use key_sequence_edit::KeySequenceEdit;
 pub use find_replace::{FindOptions, FindReplaceBar, FindReplaceMode, SearchMatch, Searchable};
 pub use list_widget::{ListWidget, ListWidgetItem, MatchFlags};

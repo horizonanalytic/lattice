@@ -1044,6 +1044,222 @@ impl TimerEvent {
     }
 }
 
+// =============================================================================
+// IME (Input Method Editor) Events
+// =============================================================================
+
+/// IME enabled event.
+///
+/// This event is sent when the Input Method Editor is enabled for the widget.
+/// After receiving this event, you can expect `ImePreedit` and `ImeCommit` events.
+///
+/// # Example
+///
+/// ```ignore
+/// fn event(&mut self, event: &mut WidgetEvent) -> bool {
+///     match event {
+///         WidgetEvent::ImeEnabled(e) => {
+///             // IME is now active - prepare for composition input
+///             self.ime_active = true;
+///             event.accept();
+///             true
+///         }
+///         _ => false,
+///     }
+/// }
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct ImeEnabledEvent {
+    /// Base event data.
+    pub base: EventBase,
+}
+
+impl ImeEnabledEvent {
+    /// Create a new IME enabled event.
+    pub fn new() -> Self {
+        Self {
+            base: EventBase::new(),
+        }
+    }
+}
+
+impl Default for ImeEnabledEvent {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// IME preedit (composition) event.
+///
+/// This event is sent when the user is composing text through the IME.
+/// The preedit text should be displayed at the cursor position with
+/// visual distinction (typically an underline).
+///
+/// # Preedit Text
+///
+/// The preedit text is the text currently being composed. It should be
+/// displayed differently from committed text (e.g., with an underline)
+/// to indicate that it's not yet finalized.
+///
+/// An empty preedit text indicates that the composition was cancelled
+/// or cleared.
+///
+/// # Cursor Position
+///
+/// The cursor position is an optional byte-indexed range within the
+/// preedit text. If provided, it indicates where the cursor should be
+/// displayed within the composition. If `None`, no cursor should be shown.
+///
+/// # Example
+///
+/// ```ignore
+/// fn event(&mut self, event: &mut WidgetEvent) -> bool {
+///     match event {
+///         WidgetEvent::ImePreedit(e) => {
+///             if e.text.is_empty() {
+///                 // Composition cleared
+///                 self.preedit_text = None;
+///             } else {
+///                 // Update displayed composition text
+///                 self.preedit_text = Some(e.text.clone());
+///                 self.preedit_cursor = e.cursor;
+///             }
+///             self.request_repaint();
+///             event.accept();
+///             true
+///         }
+///         _ => false,
+///     }
+/// }
+/// ```
+#[derive(Debug, Clone)]
+pub struct ImePreeditEvent {
+    /// Base event data.
+    pub base: EventBase,
+    /// The preedit (composition) text.
+    ///
+    /// An empty string indicates the preedit was cleared.
+    pub text: String,
+    /// Cursor position within the preedit text as byte indices.
+    ///
+    /// The tuple represents (start, end) of the cursor/selection.
+    /// If `None`, no cursor should be displayed.
+    pub cursor: Option<(usize, usize)>,
+}
+
+impl ImePreeditEvent {
+    /// Create a new preedit event.
+    pub fn new(text: impl Into<String>, cursor: Option<(usize, usize)>) -> Self {
+        Self {
+            base: EventBase::new(),
+            text: text.into(),
+            cursor,
+        }
+    }
+
+    /// Create a preedit event indicating the composition was cleared.
+    pub fn cleared() -> Self {
+        Self::new("", None)
+    }
+
+    /// Check if this event indicates the preedit was cleared.
+    pub fn is_cleared(&self) -> bool {
+        self.text.is_empty()
+    }
+}
+
+/// IME commit event.
+///
+/// This event is sent when the user finalizes their composition.
+/// The commit text should be inserted into the document at the cursor
+/// position, replacing any displayed preedit text.
+///
+/// Note: An empty `ImePreedit` event is typically sent immediately
+/// before this event to clear the composition display.
+///
+/// # Example
+///
+/// ```ignore
+/// fn event(&mut self, event: &mut WidgetEvent) -> bool {
+///     match event {
+///         WidgetEvent::ImeCommit(e) => {
+///             // Clear any displayed preedit
+///             self.preedit_text = None;
+///             // Insert the committed text
+///             self.insert_text(&e.text);
+///             event.accept();
+///             true
+///         }
+///         _ => false,
+///     }
+/// }
+/// ```
+#[derive(Debug, Clone)]
+pub struct ImeCommitEvent {
+    /// Base event data.
+    pub base: EventBase,
+    /// The finalized text to insert.
+    pub text: String,
+}
+
+impl ImeCommitEvent {
+    /// Create a new commit event.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self {
+            base: EventBase::new(),
+            text: text.into(),
+        }
+    }
+}
+
+/// IME disabled event.
+///
+/// This event is sent when the Input Method Editor is disabled.
+/// After receiving this event, you should clear any displayed preedit
+/// text and no longer expect IME events until the next `ImeEnabled`.
+///
+/// # Example
+///
+/// ```ignore
+/// fn event(&mut self, event: &mut WidgetEvent) -> bool {
+///     match event {
+///         WidgetEvent::ImeDisabled(e) => {
+///             // IME is no longer active
+///             self.ime_active = false;
+///             self.preedit_text = None;
+///             self.request_repaint();
+///             event.accept();
+///             true
+///         }
+///         _ => false,
+///     }
+/// }
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct ImeDisabledEvent {
+    /// Base event data.
+    pub base: EventBase,
+}
+
+impl ImeDisabledEvent {
+    /// Create a new IME disabled event.
+    pub fn new() -> Self {
+        Self {
+            base: EventBase::new(),
+        }
+    }
+}
+
+impl Default for ImeDisabledEvent {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// =============================================================================
+// Context Menu Event
+// =============================================================================
+
 /// Context menu request event.
 ///
 /// This event is sent when a context menu is requested for a widget.
@@ -1200,6 +1416,24 @@ pub enum WidgetEvent {
     /// This occurs on right-click or Menu key press when the widget's
     /// context menu policy allows it.
     ContextMenu(ContextMenuEvent),
+    /// IME enabled event.
+    ///
+    /// Sent when the Input Method Editor is enabled for this widget.
+    ImeEnabled(ImeEnabledEvent),
+    /// IME preedit (composition) event.
+    ///
+    /// Sent when the user is composing text through the IME.
+    /// The preedit text should be displayed at the cursor position.
+    ImePreedit(ImePreeditEvent),
+    /// IME commit event.
+    ///
+    /// Sent when the user finalizes their IME composition.
+    /// The text should be inserted at the cursor position.
+    ImeCommit(ImeCommitEvent),
+    /// IME disabled event.
+    ///
+    /// Sent when the Input Method Editor is disabled.
+    ImeDisabled(ImeDisabledEvent),
 }
 
 impl WidgetEvent {
@@ -1225,6 +1459,10 @@ impl WidgetEvent {
             Self::Custom(e) => e.base.is_accepted(),
             Self::Timer(e) => e.base.is_accepted(),
             Self::ContextMenu(e) => e.base.is_accepted(),
+            Self::ImeEnabled(e) => e.base.is_accepted(),
+            Self::ImePreedit(e) => e.base.is_accepted(),
+            Self::ImeCommit(e) => e.base.is_accepted(),
+            Self::ImeDisabled(e) => e.base.is_accepted(),
         }
     }
 
@@ -1250,6 +1488,10 @@ impl WidgetEvent {
             Self::Custom(e) => e.base.accept(),
             Self::Timer(e) => e.base.accept(),
             Self::ContextMenu(e) => e.base.accept(),
+            Self::ImeEnabled(e) => e.base.accept(),
+            Self::ImePreedit(e) => e.base.accept(),
+            Self::ImeCommit(e) => e.base.accept(),
+            Self::ImeDisabled(e) => e.base.accept(),
         }
     }
 
@@ -1275,6 +1517,10 @@ impl WidgetEvent {
             Self::Custom(e) => e.base.ignore(),
             Self::Timer(e) => e.base.ignore(),
             Self::ContextMenu(e) => e.base.ignore(),
+            Self::ImeEnabled(e) => e.base.ignore(),
+            Self::ImePreedit(e) => e.base.ignore(),
+            Self::ImeCommit(e) => e.base.ignore(),
+            Self::ImeDisabled(e) => e.base.ignore(),
         }
     }
 
@@ -1306,6 +1552,11 @@ impl WidgetEvent {
             Self::Timer(_) => false,
             // Context menu events propagate if not accepted
             Self::ContextMenu(_) => !self.is_accepted(),
+            // IME events are specific to the focused widget and don't propagate
+            Self::ImeEnabled(_)
+            | Self::ImePreedit(_)
+            | Self::ImeCommit(_)
+            | Self::ImeDisabled(_) => false,
         }
     }
 

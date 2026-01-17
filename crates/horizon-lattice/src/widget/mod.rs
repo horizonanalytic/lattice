@@ -124,12 +124,14 @@ mod dispatcher;
 mod events;
 mod focus;
 mod geometry;
+pub mod ime;
+pub mod input_context;
+pub mod input_mask;
 pub mod keyboard;
 pub mod layout;
 mod painting;
 mod shortcut;
 mod traits;
-pub mod input_mask;
 pub mod validator;
 pub mod widget_timer;
 pub mod widgets;
@@ -142,10 +144,10 @@ pub use dispatcher::{DispatchResult, EventDispatcher, WidgetAccess};
 pub use focus::FocusManager;
 pub use events::{
     ContextMenuEvent, ContextMenuReason, CustomEvent, EnterEvent, EventBase, FocusInEvent,
-    FocusOutEvent, FocusReason, HideEvent, Key, KeyPressEvent, KeyReleaseEvent, KeyboardModifiers,
-    LeaveEvent, MouseButton, MouseDoubleClickEvent, MouseMoveEvent, MousePressEvent,
-    MouseReleaseEvent, MoveEvent, PaintEvent, ResizeEvent, ShowEvent, TimerEvent, WheelEvent,
-    WidgetEvent,
+    FocusOutEvent, FocusReason, HideEvent, ImeCommitEvent, ImeDisabledEvent, ImeEnabledEvent,
+    ImePreeditEvent, Key, KeyPressEvent, KeyReleaseEvent, KeyboardModifiers, LeaveEvent,
+    MouseButton, MouseDoubleClickEvent, MouseMoveEvent, MousePressEvent, MouseReleaseEvent,
+    MoveEvent, PaintEvent, ResizeEvent, ShowEvent, TimerEvent, WheelEvent, WidgetEvent,
 };
 pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
 pub use layout::{ContentMargins, Layout, LayoutBase, LayoutInvalidator, LayoutItem, SpacerItem};

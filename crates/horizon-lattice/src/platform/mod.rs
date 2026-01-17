@@ -168,6 +168,8 @@ pub mod file_uri;
 mod hardware;
 mod high_contrast;
 mod localization;
+#[cfg(target_os = "macos")]
+mod macos_menu;
 #[cfg(feature = "notifications")]
 mod notifications;
 mod power_management;
@@ -213,3 +215,7 @@ pub use notifications::NotificationAction;
 // X11-specific exports for Linux
 #[cfg(target_os = "linux")]
 pub use clipboard::{X11Clipboard, X11Selection};
+
+// macOS-specific exports
+#[cfg(target_os = "macos")]
+pub use macos_menu::{NativeMenuBar, NativeMenuError};

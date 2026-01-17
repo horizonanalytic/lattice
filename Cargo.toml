@@ -93,6 +93,8 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
     "NSPasteboard",
     "NSDockTile",
     "NSScreen",
+    # Menu support for macOS global menu bar
+    "NSMenu", "NSMenuItem", "NSEvent",
 ] }
 block2 = "0.6"
 core-foundation = "0.10"

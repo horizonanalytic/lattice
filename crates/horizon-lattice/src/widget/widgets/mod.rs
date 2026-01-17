@@ -121,6 +121,7 @@ mod list_widget;
 mod table_widget;
 mod tree_widget;
 mod system_tray;
+mod text_edit_toolbar;
 pub mod native_dialogs;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
@@ -223,3 +224,6 @@ pub use list_widget::{ListWidget, ListWidgetItem, MatchFlags};
 pub use table_widget::{TableWidget, TableWidgetItem};
 pub use tree_widget::{TreeWidget, TreeWidgetItem, TreeIndentationStyle};
 pub use system_tray::{ActivationReason, SystemTrayIcon, TrayError, TrayIconImage, TrayMenu};
+pub use text_edit_toolbar::{
+    ColorWidgets, FontWidgets, FormatActions, ParagraphActions, TextEditToolbar,
+};

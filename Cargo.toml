@@ -107,6 +107,7 @@ windows = { version = "0.58", features = [
     "Win32_System_DataExchange",
     "Win32_System_LibraryLoader",
     "Win32_System_Power",
+    "Win32_System_Shutdown",
 ] }
 
 # X11 clipboard support (Linux)
@@ -115,6 +116,7 @@ x11-clipboard = "0.9"
 # Native dialog dependencies (Linux)
 ashpd = "0.10"
 zbus = "5"
+futures-util = "0.3"
 
 # Accessibility
 accesskit = "0.18"

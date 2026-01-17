@@ -2301,6 +2301,7 @@ dependencies = [
  "chrono-tz",
  "core-foundation 0.10.1",
  "cursor-icon",
+ "futures-util",
  "horizon-lattice-core",
  "horizon-lattice-macros",
  "horizon-lattice-render",

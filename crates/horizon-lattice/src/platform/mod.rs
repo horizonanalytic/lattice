@@ -98,6 +98,7 @@ mod high_contrast;
 #[cfg(feature = "notifications")]
 mod notifications;
 mod power_management;
+mod session_management;
 
 pub use clipboard::{Clipboard, ClipboardData, ClipboardError, ClipboardWatcher, ImageData};
 pub use desktop_integration::{
@@ -112,6 +113,10 @@ pub use high_contrast::HighContrast;
 pub use power_management::{
     BatteryInfo, BatteryState, PowerEventReason, PowerEventWatcher, PowerManagementError,
     PowerSource, PowerState, SleepInhibitOptions, SleepInhibitor, SleepInhibitorGuard,
+};
+pub use session_management::{
+    ApplicationState, SessionEndReason, SessionEventWatcher, SessionInhibitOptions,
+    SessionInhibitor, SessionInhibitorGuard, SessionManagementError, StateLocation,
 };
 
 // Notification exports

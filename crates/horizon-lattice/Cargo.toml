@@ -8,11 +8,13 @@ repository.workspace = true
 authors.workspace = true
 
 [features]
-default = ["accessibility", "notifications"]
+default = ["accessibility", "notifications", "power-management"]
 accessibility = ["dep:accesskit", "dep:accesskit_winit"]
 notifications = ["dep:notify-rust"]
 # Linux-only: Enable notification actions and advanced urgency levels
 notification-actions = ["notifications"]
+# Power management (battery status, sleep prevention, power events)
+power-management = ["dep:starship-battery", "dep:keepawake"]
 
 [dependencies]
 horizon-lattice-core = { workspace = true }
@@ -37,6 +39,10 @@ accesskit_winit = { workspace = true, optional = true }
 # Notifications (optional)
 notify-rust = { workspace = true, optional = true }
 
+# Power management (optional)
+starship-battery = { workspace = true, optional = true }
+keepawake = { workspace = true, optional = true }
+
 # File opener (open files/URLs with default application)
 open = { workspace = true }
 
@@ -46,6 +52,8 @@ objc2 = { workspace = true }
 objc2-foundation = { workspace = true }
 objc2-app-kit = { workspace = true }
 block2 = { workspace = true }
+core-foundation = { workspace = true }
+io-kit-sys = { workspace = true }
 
 # Native dialog dependencies (Windows)
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -55,6 +63,7 @@ windows = { workspace = true }
 [target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { workspace = true }
 zbus = { workspace = true }
+zbus_systemd = { workspace = true }
 pollster = { workspace = true }
 x11-clipboard = { workspace = true }
 

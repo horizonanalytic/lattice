@@ -91,6 +91,8 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
     "NSDockTile",
 ] }
 block2 = "0.6"
+core-foundation = "0.10"
+io-kit-sys = "0.4"
 
 # Native dialog dependencies (Windows)
 windows = { version = "0.58", features = [
@@ -104,6 +106,7 @@ windows = { version = "0.58", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_DataExchange",
     "Win32_System_LibraryLoader",
+    "Win32_System_Power",
 ] }
 
 # X11 clipboard support (Linux)
@@ -116,6 +119,11 @@ zbus = "5"
 # Accessibility
 accesskit = "0.18"
 accesskit_winit = "0.24"
+
+# Power management
+starship-battery = "0.10"
+keepawake = "0.5"
+zbus_systemd = { version = "0.0.15", features = ["login1"] }
 
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }

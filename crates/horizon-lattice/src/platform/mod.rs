@@ -97,6 +97,7 @@ mod file_associations;
 mod high_contrast;
 #[cfg(feature = "notifications")]
 mod notifications;
+mod power_management;
 
 pub use clipboard::{Clipboard, ClipboardData, ClipboardError, ClipboardWatcher, ImageData};
 pub use desktop_integration::{
@@ -108,6 +109,10 @@ pub use file_associations::{
     UrlSchemeInfo, UrlSchemeRegistration,
 };
 pub use high_contrast::HighContrast;
+pub use power_management::{
+    BatteryInfo, BatteryState, PowerEventReason, PowerEventWatcher, PowerManagementError,
+    PowerSource, PowerState, SleepInhibitOptions, SleepInhibitor, SleepInhibitorGuard,
+};
 
 // Notification exports
 #[cfg(feature = "notifications")]

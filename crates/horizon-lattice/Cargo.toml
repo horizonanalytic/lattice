@@ -17,6 +17,8 @@ notification-actions = ["notifications"]
 power-management = ["dep:starship-battery", "dep:keepawake"]
 # System theme detection (dark/light mode, accent color)
 system-theme = ["dep:dark-light"]
+# Localization (locale-aware formatting for numbers, dates, times, currencies)
+localization = ["dep:icu", "dep:sys-locale"]
 
 [dependencies]
 horizon-lattice-core = { workspace = true }
@@ -47,6 +49,11 @@ keepawake = { workspace = true, optional = true }
 
 # System theme detection (optional)
 dark-light = { workspace = true, optional = true }
+
+# Localization (optional)
+icu = { workspace = true, optional = true }
+sys-locale = { workspace = true, optional = true }
+unicode-bidi = { workspace = true }
 
 # File opener (open files/URLs with default application)
 open = { workspace = true }

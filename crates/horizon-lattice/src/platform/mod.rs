@@ -91,6 +91,24 @@
 //! }
 //! ```
 //!
+//! # Localization
+//!
+//! The localization module provides locale detection and locale-aware formatting:
+//!
+//! ```ignore
+//! use horizon_lattice::platform::{SystemLocale, NumberFormatter, TextDirection};
+//!
+//! // Get system locale
+//! let locale = SystemLocale::current(); // e.g., "en-US"
+//!
+//! // Format numbers with locale
+//! let formatter = NumberFormatter::new();
+//! let formatted = formatter.format(1234567.89); // "1,234,567.89" (en-US)
+//!
+//! // Detect text direction
+//! let dir = TextDirection::detect("مرحبا"); // RTL for Arabic
+//! ```
+//!
 //! # System Theme
 //!
 //! The system theme module provides detection of light/dark mode, accent color,
@@ -123,6 +141,7 @@ mod clipboard;
 mod desktop_integration;
 mod file_associations;
 mod high_contrast;
+mod localization;
 #[cfg(feature = "notifications")]
 mod notifications;
 mod power_management;
@@ -139,6 +158,10 @@ pub use file_associations::{
     UrlSchemeInfo, UrlSchemeRegistration,
 };
 pub use high_contrast::HighContrast;
+pub use localization::{
+    CurrencyCode, CurrencyFormatter, DateLength, DateTimeFormatter, LocaleInfo,
+    LocaleWatcher, LocalizationError, NumberFormatter, SystemLocale, TextDirection, TimeLength,
+};
 pub use system_theme::{
     AccentColor, ColorScheme, SystemTheme, SystemThemeError, ThemeInfo, ThemeWatcher,
 };

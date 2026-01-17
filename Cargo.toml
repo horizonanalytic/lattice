@@ -131,6 +131,9 @@ starship-battery = "0.10"
 keepawake = "0.5"
 zbus_systemd = { version = "0.0.15", features = ["login1"] }
 
+# Localization (ICU4X for locale-aware formatting)
+icu = { version = "2.1", default-features = false, features = ["compiled_data"] }
+
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }
 horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }

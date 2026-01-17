@@ -41,6 +41,10 @@ use crate::widget::{
     MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair,
     WheelEvent, Widget, WidgetBase, WidgetEvent,
 };
+use crate::widget::drag_drop::{
+    DragData, DragEnterEvent, DragMoveEvent, DragLeaveEvent, DropEvent, DropAction,
+    DropIndicatorState, DropPosition,
+};
 
 use super::scroll_area::ScrollBarPolicy;
 
@@ -62,6 +66,22 @@ pub enum Flow {
     LeftToRight,
     /// Items flow top to bottom, then wrap to next column.
     TopToBottom,
+}
+
+/// Drag and drop mode for ListView.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DragDropMode {
+    /// No drag or drop support (default).
+    #[default]
+    NoDragDrop,
+    /// View can only drag items.
+    DragOnly,
+    /// View can only accept drops.
+    DropOnly,
+    /// Full drag and drop support.
+    DragDrop,
+    /// Internal move only (reorder items within the same view).
+    InternalMove,
 }
 
 /// A view widget that displays items from an ItemModel.
@@ -120,6 +140,12 @@ pub struct ListView {
     background_color: Color,
     alternate_row_colors: bool,
 
+    // Drag and drop
+    drag_drop_mode: DragDropMode,
+    drop_indicator_state: DropIndicatorState,
+    drag_start_pos: Option<Point>,
+    dragging_row: Option<usize>,
+
     // Signals
     /// Emitted when an item is clicked.
     pub clicked: Signal<ModelIndex>,
@@ -173,6 +199,10 @@ impl ListView {
             last_click_row: None,
             background_color: Color::WHITE,
             alternate_row_colors: false,
+            drag_drop_mode: DragDropMode::NoDragDrop,
+            drop_indicator_state: DropIndicatorState::new(),
+            drag_start_pos: None,
+            dragging_row: None,
             clicked: Signal::new(),
             double_clicked: Signal::new(),
             activated: Signal::new(),
@@ -472,6 +502,204 @@ impl ListView {
         if self.background_color != color {
             self.background_color = color;
             self.base.update();
+        }
+    }
+
+    // =========================================================================
+    // Drag and Drop
+    // =========================================================================
+
+    /// Gets the current drag and drop mode.
+    pub fn drag_drop_mode(&self) -> DragDropMode {
+        self.drag_drop_mode
+    }
+
+    /// Sets the drag and drop mode.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// list_view.set_drag_drop_mode(DragDropMode::DragDrop);
+    /// ```
+    pub fn set_drag_drop_mode(&mut self, mode: DragDropMode) {
+        if self.drag_drop_mode != mode {
+            self.drag_drop_mode = mode;
+            // Enable drops on the base widget if needed
+            let accepts_drops = matches!(
+                mode,
+                DragDropMode::DropOnly | DragDropMode::DragDrop | DragDropMode::InternalMove
+            );
+            self.base.set_accepts_drops(accepts_drops);
+        }
+    }
+
+    /// Returns whether dragging from this view is enabled.
+    pub fn drag_enabled(&self) -> bool {
+        matches!(
+            self.drag_drop_mode,
+            DragDropMode::DragOnly | DragDropMode::DragDrop | DragDropMode::InternalMove
+        )
+    }
+
+    /// Returns whether dropping onto this view is enabled.
+    pub fn drop_enabled(&self) -> bool {
+        matches!(
+            self.drag_drop_mode,
+            DragDropMode::DropOnly | DragDropMode::DragDrop | DragDropMode::InternalMove
+        )
+    }
+
+    /// Creates drag data from the selected items.
+    ///
+    /// Override this method in subclasses to customize the drag data.
+    fn create_drag_data(&self, indices: &[ModelIndex]) -> Option<DragData> {
+        if indices.is_empty() {
+            return None;
+        }
+
+        let mut data = DragData::new();
+
+        // Extract text from selected items
+        if let Some(model) = &self.model {
+            let texts: Vec<String> = indices
+                .iter()
+                .filter_map(|index| {
+                    model.data(index, ItemRole::Display).as_string().map(String::from)
+                })
+                .collect();
+
+            if !texts.is_empty() {
+                data.set_text(&texts.join("\n"));
+            }
+        }
+
+        if data.is_empty() {
+            None
+        } else {
+            Some(data)
+        }
+    }
+
+    /// Returns the drop action for the given position.
+    ///
+    /// This determines where items will be inserted when dropped.
+    fn drop_position_for_point(&self, point: Point) -> (Option<usize>, DropPosition) {
+        let content_x = point.x + self.scroll_x as f32;
+        let content_y = point.y + self.scroll_y as f32;
+        let content_point = Point::new(content_x, content_y);
+
+        for (row, rect) in self.item_rects.iter().enumerate() {
+            if rect.contains(content_point) {
+                // Determine if above or below midpoint
+                let mid_y = rect.origin.y + rect.height() / 2.0;
+                if content_y < mid_y {
+                    return (Some(row), DropPosition::AboveItem);
+                } else {
+                    return (Some(row), DropPosition::BelowItem);
+                }
+            }
+        }
+
+        // After last item
+        if let Some(_) = self.item_rects.last() {
+            let row_count = self.item_rects.len();
+            return (Some(row_count.saturating_sub(1)), DropPosition::BelowItem);
+        }
+
+        (None, DropPosition::OnItem)
+    }
+
+    /// Handles the DragEnter event.
+    fn handle_drag_enter(&mut self, event: &mut DragEnterEvent) -> bool {
+        if !self.drop_enabled() {
+            return false;
+        }
+
+        // Accept the drag if it has text data
+        if event.data().has_text() || event.data().has_urls() {
+            event.accept_proposed_action();
+            event.set_proposed_action(DropAction::COPY);
+            return true;
+        }
+
+        false
+    }
+
+    /// Handles the DragMove event.
+    fn handle_drag_move(&mut self, event: &mut DragMoveEvent) -> bool {
+        if !self.drop_enabled() {
+            return false;
+        }
+
+        // Update drop indicator
+        let viewport = self.viewport_rect();
+        if viewport.contains(event.local_pos) {
+            // Get visible item rects for drop indicator calculation
+            let (first, last) = self.visible_range();
+            let item_rects: Vec<(usize, Rect)> = (first..=last)
+                .filter_map(|row| {
+                    self.item_rects.get(row).map(|r| {
+                        (row, Rect::new(
+                            r.origin.x - self.scroll_x as f32,
+                            r.origin.y - self.scroll_y as f32,
+                            r.width(),
+                            r.height(),
+                        ))
+                    })
+                })
+                .collect();
+
+            self.drop_indicator_state.update_for_vertical_list(
+                event.local_pos,
+                &item_rects,
+                viewport.width(),
+            );
+        } else {
+            self.drop_indicator_state.clear();
+        }
+
+        event.accept();
+        self.base.update();
+        true
+    }
+
+    /// Handles the DragLeave event.
+    fn handle_drag_leave(&mut self, _event: &mut DragLeaveEvent) -> bool {
+        self.drop_indicator_state.clear();
+        self.base.update();
+        true
+    }
+
+    /// Handles the Drop event.
+    fn handle_drop(&mut self, event: &mut DropEvent) -> bool {
+        if !self.drop_enabled() {
+            return false;
+        }
+
+        let (_drop_row, _drop_position) = self.drop_position_for_point(event.local_pos);
+        self.drop_indicator_state.clear();
+        self.base.update();
+
+        // Process the dropped data
+        if event.data().has_text() || event.data().has_urls() {
+            // For now, just accept the drop
+            // In a real implementation, this would insert items into the model
+            event.accept();
+            return true;
+        }
+
+        false
+    }
+
+    /// Paints the drop indicator if active.
+    fn paint_drop_indicator(&self, ctx: &mut PaintContext<'_>) {
+        if let Some(indicator) = self.drop_indicator_state.indicator() {
+            let style = self.drop_indicator_state.style();
+
+            // For all indicator types, just fill with the line color
+            // This is a simplified implementation - more sophisticated rendering
+            // can be added later
+            ctx.renderer().fill_rect(indicator.rect, style.line_color);
         }
     }
 
@@ -1291,6 +1519,7 @@ impl Widget for ListView {
         // For now, paint with potentially stale layout (will be correct after first interaction)
         self.paint_background(ctx);
         self.paint_items(ctx);
+        self.paint_drop_indicator(ctx);
         self.paint_scrollbars(ctx);
     }
 
@@ -1334,6 +1563,30 @@ impl Widget for ListView {
             }
             WidgetEvent::ContextMenu(e) => {
                 return self.handle_context_menu(e);
+            }
+            WidgetEvent::DragEnter(e) => {
+                if self.handle_drag_enter(e) {
+                    event.accept();
+                    return true;
+                }
+            }
+            WidgetEvent::DragMove(e) => {
+                if self.handle_drag_move(e) {
+                    event.accept();
+                    return true;
+                }
+            }
+            WidgetEvent::DragLeave(e) => {
+                if self.handle_drag_leave(e) {
+                    event.accept();
+                    return true;
+                }
+            }
+            WidgetEvent::Drop(e) => {
+                if self.handle_drop(e) {
+                    event.accept();
+                    return true;
+                }
             }
             _ => {}
         }

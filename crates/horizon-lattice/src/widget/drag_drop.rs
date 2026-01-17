@@ -59,8 +59,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use horizon_lattice_core::ObjectId;
+use horizon_lattice_core::{ObjectId, Signal};
 use horizon_lattice_render::Point;
+
+use crate::platform::ImageData;
 
 use super::events::EventBase;
 
@@ -72,6 +74,10 @@ pub mod mime {
     pub const TEXT_HTML: &str = "text/html";
     /// URI list MIME type (for file paths and URLs).
     pub const TEXT_URI_LIST: &str = "text/uri-list";
+    /// PNG image MIME type.
+    pub const IMAGE_PNG: &str = "image/png";
+    /// RGBA raw image data MIME type (internal format).
+    pub const IMAGE_RGBA: &str = "image/x-rgba";
     /// Custom application data prefix.
     pub const APPLICATION_PREFIX: &str = "application/x-horizon-lattice-";
 }
@@ -170,6 +176,8 @@ pub struct DragData {
     data: HashMap<String, Vec<u8>>,
     /// File/URL paths being dragged.
     urls: Vec<PathBuf>,
+    /// Image data being dragged.
+    image: Option<ImageData>,
     /// The widget that initiated the drag (if internal).
     source_widget: Option<ObjectId>,
     /// Custom user data (type-erased).
@@ -187,9 +195,18 @@ impl DragData {
     /// This is typically used for external file drops from the OS.
     pub fn from_paths(paths: impl IntoIterator<Item = PathBuf>) -> Self {
         let urls: Vec<PathBuf> = paths.into_iter().collect();
-        let mut data = Self::default();
-        data.urls = urls;
-        data
+        Self {
+            urls,
+            ..Default::default()
+        }
+    }
+
+    /// Creates drag data from image data.
+    pub fn from_image(image: ImageData) -> Self {
+        Self {
+            image: Some(image),
+            ..Default::default()
+        }
     }
 
     /// Creates drag data with plain text.
@@ -201,7 +218,7 @@ impl DragData {
 
     /// Returns true if this drag data is empty.
     pub fn is_empty(&self) -> bool {
-        self.data.is_empty() && self.urls.is_empty()
+        self.data.is_empty() && self.urls.is_empty() && self.image.is_none()
     }
 
     /// Returns the available MIME formats.
@@ -291,6 +308,30 @@ impl DragData {
     }
 
     // -------------------------------------------------------------------------
+    // Image data methods
+    // -------------------------------------------------------------------------
+
+    /// Returns true if image data is available.
+    pub fn has_image(&self) -> bool {
+        self.image.is_some()
+    }
+
+    /// Gets the image data, if available.
+    pub fn image(&self) -> Option<&ImageData> {
+        self.image.as_ref()
+    }
+
+    /// Sets the image data.
+    pub fn set_image(&mut self, image: ImageData) {
+        self.image = Some(image);
+    }
+
+    /// Clears the image data.
+    pub fn clear_image(&mut self) {
+        self.image = None;
+    }
+
+    // -------------------------------------------------------------------------
     // Source widget tracking
     // -------------------------------------------------------------------------
 
@@ -342,7 +383,17 @@ pub enum DragState {
 ///
 /// There is typically one `DragDropManager` per window that tracks
 /// the current drag state and routes events to appropriate widgets.
-#[derive(Debug)]
+///
+/// # Signals
+///
+/// The manager provides signals for monitoring drag and drop lifecycle:
+///
+/// - `drag_started`: Emitted when a drag operation begins. The parameter is
+///   a reference to the drag data.
+/// - `drag_ended`: Emitted when a drag operation ends (drop or cancel). The
+///   parameter is `true` if dropped successfully, `false` if cancelled.
+/// - `target_changed`: Emitted when the drop target changes. The parameter
+///   is the new target widget ID (or `None` if no target).
 pub struct DragDropManager {
     /// Current drag state.
     state: DragState,
@@ -368,11 +419,48 @@ pub struct DragDropManager {
     pending_data: Option<DragData>,
     /// Pending supported actions.
     pending_actions: DropAction,
+
+    // -------------------------------------------------------------------------
+    // Signals
+    // -------------------------------------------------------------------------
+
+    /// Signal emitted when a drag operation begins.
+    ///
+    /// The parameter is the source widget ID (if internal drag) or `None`
+    /// (if external drag).
+    pub drag_started: Signal<Option<ObjectId>>,
+
+    /// Signal emitted when a drag operation ends.
+    ///
+    /// The parameter is `true` if the drop was accepted, `false` if cancelled.
+    pub drag_ended: Signal<bool>,
+
+    /// Signal emitted when the drop target changes.
+    ///
+    /// The parameter is the new target widget ID, or `None` if no valid target.
+    pub target_changed: Signal<Option<ObjectId>>,
 }
 
 impl Default for DragDropManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl std::fmt::Debug for DragDropManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DragDropManager")
+            .field("state", &self.state)
+            .field("drag_data", &self.drag_data.is_some())
+            .field("supported_actions", &self.supported_actions)
+            .field("proposed_action", &self.proposed_action)
+            .field("current_target", &self.current_target)
+            .field("source_widget", &self.source_widget)
+            .field("drag_position", &self.drag_position)
+            .field("start_position", &self.start_position)
+            .field("drag_threshold", &self.drag_threshold)
+            .field("pending_drag", &self.pending_drag)
+            .finish_non_exhaustive()
     }
 }
 
@@ -395,6 +483,9 @@ impl DragDropManager {
             pending_drag: false,
             pending_data: None,
             pending_actions: DropAction::NONE,
+            drag_started: Signal::new(),
+            drag_ended: Signal::new(),
+            target_changed: Signal::new(),
         }
     }
 
@@ -511,6 +602,9 @@ impl DragDropManager {
         self.drag_position = position;
         self.start_position = position;
         self.current_target = None;
+
+        // Emit drag_started signal
+        self.drag_started.emit(self.source_widget);
     }
 
     /// Starts an external drag operation (e.g., file drop from OS).
@@ -527,6 +621,9 @@ impl DragDropManager {
         self.drag_position = position;
         self.start_position = position;
         self.current_target = None;
+
+        // Emit drag_started signal (None = external source)
+        self.drag_started.emit(None);
     }
 
     /// Updates the drag position and current target.
@@ -540,6 +637,10 @@ impl DragDropManager {
             self.current_target = new_target;
             // Reset proposed action when target changes
             self.proposed_action = self.supported_actions.preferred();
+
+            // Emit target_changed signal
+            self.target_changed.emit(new_target);
+
             return previous_target;
         }
 
@@ -563,13 +664,24 @@ impl DragDropManager {
             None
         };
 
+        let success = result.is_some();
         self.reset();
+
+        // Emit drag_ended signal
+        self.drag_ended.emit(success);
+
         result
     }
 
     /// Cancels the current drag operation.
     pub fn cancel(&mut self) {
+        let was_dragging = self.is_dragging();
         self.reset();
+
+        // Emit drag_ended signal if we were actually dragging
+        if was_dragging {
+            self.drag_ended.emit(false);
+        }
     }
 
     fn reset(&mut self) {
@@ -587,6 +699,427 @@ impl DragDropManager {
     /// Returns true if there's a pending drag waiting for the threshold.
     pub fn has_pending_drag(&self) -> bool {
         self.pending_drag
+    }
+}
+
+// =============================================================================
+// Drag Cursor Feedback
+// =============================================================================
+
+use super::cursor::{CursorManager, CursorShape};
+
+/// Helper for managing drag cursor feedback.
+///
+/// This type provides easy-to-use methods for updating the cursor during
+/// drag and drop operations based on the proposed action.
+///
+/// # Example
+///
+/// ```ignore
+/// use horizon_lattice::widget::drag_drop::{DragCursor, DropAction};
+///
+/// // When drag starts
+/// DragCursor::start();
+///
+/// // During drag, update based on action
+/// DragCursor::update(DropAction::COPY);  // Shows copy cursor
+/// DragCursor::update(DropAction::MOVE);  // Shows move cursor
+/// DragCursor::update(DropAction::NONE);  // Shows "no drop" cursor
+///
+/// // When drag ends
+/// DragCursor::end();
+/// ```
+pub struct DragCursor;
+
+impl DragCursor {
+    /// Starts drag cursor mode.
+    ///
+    /// Sets an initial grabbing cursor to indicate a drag is in progress.
+    pub fn start() {
+        CursorManager::set_override_cursor(CursorShape::Grabbing);
+    }
+
+    /// Updates the cursor based on the proposed drop action.
+    ///
+    /// This changes the cursor to indicate what will happen if the user
+    /// releases the mouse button:
+    ///
+    /// - `COPY`: Shows a copy cursor (arrow with plus sign)
+    /// - `MOVE`: Shows a move cursor (four arrows)
+    /// - `LINK`: Shows an alias cursor (arrow with curved arrow)
+    /// - `NONE`: Shows a "no drop" cursor (circle with line)
+    pub fn update(action: DropAction) {
+        let cursor = Self::cursor_for_action(action);
+        CursorManager::change_override_cursor(cursor);
+    }
+
+    /// Ends drag cursor mode.
+    ///
+    /// Restores the cursor to its previous state.
+    pub fn end() {
+        CursorManager::restore_override_cursor();
+    }
+
+    /// Returns the appropriate cursor shape for a drop action.
+    pub fn cursor_for_action(action: DropAction) -> CursorShape {
+        if action == DropAction::NONE {
+            CursorShape::NoDrop
+        } else if action.contains(DropAction::COPY) {
+            CursorShape::Copy
+        } else if action.contains(DropAction::MOVE) {
+            CursorShape::Move
+        } else if action.contains(DropAction::LINK) {
+            CursorShape::Alias
+        } else {
+            CursorShape::Grabbing
+        }
+    }
+
+    /// Returns the cursor shape to show when drag is in progress
+    /// but not over a valid target.
+    pub fn cursor_no_target() -> CursorShape {
+        CursorShape::NoDrop
+    }
+
+    /// Returns the cursor shape for when drag is over a valid target
+    /// but the target hasn't specified an action yet.
+    pub fn cursor_default() -> CursorShape {
+        CursorShape::Grabbing
+    }
+}
+
+// =============================================================================
+// Drop Indicators
+// =============================================================================
+
+use horizon_lattice_render::{Color, Rect};
+
+/// Position of a drop indicator relative to an item.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DropPosition {
+    /// Drop will occur on/into the item (for containers).
+    OnItem,
+    /// Drop will occur above/before the item.
+    AboveItem,
+    /// Drop will occur below/after the item.
+    BelowItem,
+}
+
+/// Describes where a drop indicator should be drawn.
+///
+/// This is used by views to provide visual feedback during drag operations,
+/// showing where the drop will occur if the user releases the mouse.
+#[derive(Debug, Clone)]
+pub struct DropIndicator {
+    /// The type of indicator to show.
+    pub kind: DropIndicatorKind,
+    /// The bounding rectangle for the indicator.
+    pub rect: Rect,
+    /// Optional index of the item the indicator relates to.
+    pub item_index: Option<usize>,
+    /// Position relative to the item.
+    pub position: DropPosition,
+}
+
+/// The type of drop indicator to display.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DropIndicatorKind {
+    /// A horizontal line between items (for vertical lists).
+    HorizontalLine,
+    /// A vertical line between items (for horizontal lists).
+    VerticalLine,
+    /// A rectangle around an item that accepts drops.
+    ItemRect,
+    /// A rectangle around a container that accepts drops.
+    ContainerRect,
+}
+
+impl DropIndicator {
+    /// Creates a horizontal line indicator.
+    pub fn horizontal_line(y: f32, x: f32, width: f32) -> Self {
+        Self {
+            kind: DropIndicatorKind::HorizontalLine,
+            rect: Rect::new(x, y - 1.0, width, 2.0),
+            item_index: None,
+            position: DropPosition::BelowItem,
+        }
+    }
+
+    /// Creates a vertical line indicator.
+    pub fn vertical_line(x: f32, y: f32, height: f32) -> Self {
+        Self {
+            kind: DropIndicatorKind::VerticalLine,
+            rect: Rect::new(x - 1.0, y, 2.0, height),
+            item_index: None,
+            position: DropPosition::BelowItem,
+        }
+    }
+
+    /// Creates an item rectangle indicator.
+    pub fn item_rect(rect: Rect, item_index: usize) -> Self {
+        Self {
+            kind: DropIndicatorKind::ItemRect,
+            rect,
+            item_index: Some(item_index),
+            position: DropPosition::OnItem,
+        }
+    }
+
+    /// Creates a container rectangle indicator.
+    pub fn container_rect(rect: Rect) -> Self {
+        Self {
+            kind: DropIndicatorKind::ContainerRect,
+            rect,
+            item_index: None,
+            position: DropPosition::OnItem,
+        }
+    }
+
+    /// Sets the item index.
+    pub fn with_item_index(mut self, index: usize) -> Self {
+        self.item_index = Some(index);
+        self
+    }
+
+    /// Sets the drop position.
+    pub fn with_position(mut self, position: DropPosition) -> Self {
+        self.position = position;
+        self
+    }
+}
+
+/// Configuration for drop indicator rendering.
+#[derive(Debug, Clone)]
+pub struct DropIndicatorStyle {
+    /// Color of line indicators.
+    pub line_color: Color,
+    /// Width of line indicators in pixels.
+    pub line_width: f32,
+    /// Color of item highlight (border).
+    pub item_border_color: Color,
+    /// Width of item highlight border.
+    pub item_border_width: f32,
+    /// Background color for highlighted items (semi-transparent).
+    pub item_background: Option<Color>,
+    /// Corner radius for item rectangles.
+    pub corner_radius: f32,
+}
+
+impl Default for DropIndicatorStyle {
+    fn default() -> Self {
+        Self {
+            // Default to a blue accent color (0x007ACC)
+            line_color: Color::from_rgba8(0x00, 0x7A, 0xCC, 0xFF),
+            line_width: 2.0,
+            item_border_color: Color::from_rgba8(0x00, 0x7A, 0xCC, 0xFF),
+            item_border_width: 2.0,
+            item_background: Some(Color::from_rgba8(0x00, 0x7A, 0xCC, 0x20)),
+            corner_radius: 4.0,
+        }
+    }
+}
+
+impl DropIndicatorStyle {
+    /// Creates a new style with the specified accent color.
+    pub fn with_accent_color(accent: Color) -> Self {
+        // Create a semi-transparent version of the accent color
+        let bg = Color::new(accent.r, accent.g, accent.b, 0.125);
+        Self {
+            line_color: accent,
+            line_width: 2.0,
+            item_border_color: accent,
+            item_border_width: 2.0,
+            item_background: Some(bg),
+            corner_radius: 4.0,
+        }
+    }
+}
+
+/// Tracks drop indicator state for a widget that accepts drops.
+///
+/// This helper manages the indicator position and provides methods for
+/// calculating where to show the indicator based on drag position.
+#[derive(Debug, Default)]
+pub struct DropIndicatorState {
+    /// Current indicator to display (if any).
+    current: Option<DropIndicator>,
+    /// The rendering style.
+    style: DropIndicatorStyle,
+}
+
+impl DropIndicatorState {
+    /// Creates a new drop indicator state.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates a new drop indicator state with custom style.
+    pub fn with_style(style: DropIndicatorStyle) -> Self {
+        Self {
+            current: None,
+            style,
+        }
+    }
+
+    /// Returns the current indicator to display.
+    pub fn indicator(&self) -> Option<&DropIndicator> {
+        self.current.as_ref()
+    }
+
+    /// Returns the indicator style.
+    pub fn style(&self) -> &DropIndicatorStyle {
+        &self.style
+    }
+
+    /// Sets a custom style.
+    pub fn set_style(&mut self, style: DropIndicatorStyle) {
+        self.style = style;
+    }
+
+    /// Updates the indicator for a vertical list.
+    ///
+    /// Determines whether to show the indicator above or below an item
+    /// based on the Y position within the item.
+    pub fn update_for_vertical_list(
+        &mut self,
+        local_pos: Point,
+        item_rects: &[(usize, Rect)],
+        list_width: f32,
+    ) {
+        self.current = Self::calculate_vertical_indicator(local_pos, item_rects, list_width);
+    }
+
+    /// Updates the indicator for a horizontal list.
+    pub fn update_for_horizontal_list(
+        &mut self,
+        local_pos: Point,
+        item_rects: &[(usize, Rect)],
+        list_height: f32,
+    ) {
+        self.current = Self::calculate_horizontal_indicator(local_pos, item_rects, list_height);
+    }
+
+    /// Updates the indicator for dropping onto an item (container drop).
+    pub fn update_for_item_drop(&mut self, item_index: usize, item_rect: Rect) {
+        self.current = Some(DropIndicator::item_rect(item_rect, item_index));
+    }
+
+    /// Clears the current indicator.
+    pub fn clear(&mut self) {
+        self.current = None;
+    }
+
+    /// Returns whether an indicator is active.
+    pub fn has_indicator(&self) -> bool {
+        self.current.is_some()
+    }
+
+    /// Calculates indicator for a vertical list.
+    fn calculate_vertical_indicator(
+        pos: Point,
+        item_rects: &[(usize, Rect)],
+        list_width: f32,
+    ) -> Option<DropIndicator> {
+        if item_rects.is_empty() {
+            // Empty list - show at top
+            return Some(DropIndicator::horizontal_line(0.0, 0.0, list_width));
+        }
+
+        for (idx, (item_idx, rect)) in item_rects.iter().enumerate() {
+            if rect.contains(pos) {
+                // Inside an item - check if in upper or lower half
+                let mid_y = rect.top() + rect.height() / 2.0;
+                if pos.y < mid_y {
+                    // Upper half - insert above
+                    return Some(
+                        DropIndicator::horizontal_line(rect.top(), rect.left(), list_width)
+                            .with_item_index(*item_idx)
+                            .with_position(DropPosition::AboveItem),
+                    );
+                } else {
+                    // Lower half - insert below
+                    return Some(
+                        DropIndicator::horizontal_line(rect.bottom(), rect.left(), list_width)
+                            .with_item_index(*item_idx)
+                            .with_position(DropPosition::BelowItem),
+                    );
+                }
+            } else if pos.y < rect.top() && (idx == 0 || pos.y > item_rects[idx - 1].1.bottom()) {
+                // Between items or before first item
+                return Some(
+                    DropIndicator::horizontal_line(rect.top(), rect.left(), list_width)
+                        .with_item_index(*item_idx)
+                        .with_position(DropPosition::AboveItem),
+                );
+            }
+        }
+
+        // After last item
+        if let Some((item_idx, rect)) = item_rects.last() {
+            if pos.y > rect.bottom() {
+                return Some(
+                    DropIndicator::horizontal_line(rect.bottom(), rect.left(), list_width)
+                        .with_item_index(*item_idx)
+                        .with_position(DropPosition::BelowItem),
+                );
+            }
+        }
+
+        None
+    }
+
+    /// Calculates indicator for a horizontal list.
+    fn calculate_horizontal_indicator(
+        pos: Point,
+        item_rects: &[(usize, Rect)],
+        list_height: f32,
+    ) -> Option<DropIndicator> {
+        if item_rects.is_empty() {
+            // Empty list - show at left
+            return Some(DropIndicator::vertical_line(0.0, 0.0, list_height));
+        }
+
+        for (idx, (item_idx, rect)) in item_rects.iter().enumerate() {
+            if rect.contains(pos) {
+                // Inside an item - check if in left or right half
+                let mid_x = rect.left() + rect.width() / 2.0;
+                if pos.x < mid_x {
+                    // Left half - insert before
+                    return Some(
+                        DropIndicator::vertical_line(rect.left(), rect.top(), list_height)
+                            .with_item_index(*item_idx)
+                            .with_position(DropPosition::AboveItem),
+                    );
+                } else {
+                    // Right half - insert after
+                    return Some(
+                        DropIndicator::vertical_line(rect.right(), rect.top(), list_height)
+                            .with_item_index(*item_idx)
+                            .with_position(DropPosition::BelowItem),
+                    );
+                }
+            } else if pos.x < rect.left() && (idx == 0 || pos.x > item_rects[idx - 1].1.right()) {
+                // Between items or before first item
+                return Some(
+                    DropIndicator::vertical_line(rect.left(), rect.top(), list_height)
+                        .with_item_index(*item_idx)
+                        .with_position(DropPosition::AboveItem),
+                );
+            }
+        }
+
+        // After last item
+        if let Some((item_idx, rect)) = item_rects.last() {
+            if pos.x > rect.right() {
+                return Some(
+                    DropIndicator::vertical_line(rect.right(), rect.top(), list_height)
+                        .with_item_index(*item_idx)
+                        .with_position(DropPosition::BelowItem),
+                );
+            }
+        }
+
+        None
     }
 }
 
@@ -921,5 +1454,129 @@ mod tests {
         let result = manager.end_drag(false);
         assert!(result.is_none());
         assert!(!manager.is_dragging());
+    }
+
+    #[test]
+    fn test_drag_data_image() {
+        let image = ImageData::new(10, 10, vec![0u8; 400]);
+        let data = DragData::from_image(image);
+
+        assert!(data.has_image());
+        assert_eq!(data.image().unwrap().width, 10);
+        assert_eq!(data.image().unwrap().height, 10);
+
+        let mut data2 = DragData::new();
+        assert!(!data2.has_image());
+
+        let image2 = ImageData::new(5, 5, vec![0u8; 100]);
+        data2.set_image(image2);
+        assert!(data2.has_image());
+
+        data2.clear_image();
+        assert!(!data2.has_image());
+    }
+
+    #[test]
+    fn test_drop_indicator_horizontal_line() {
+        let indicator = DropIndicator::horizontal_line(100.0, 10.0, 200.0);
+
+        assert_eq!(indicator.kind, DropIndicatorKind::HorizontalLine);
+        assert_eq!(indicator.rect.origin.y, 99.0); // y - 1.0
+        assert_eq!(indicator.rect.origin.x, 10.0);
+        assert_eq!(indicator.rect.width(), 200.0);
+        assert_eq!(indicator.rect.height(), 2.0);
+        assert!(indicator.item_index.is_none());
+    }
+
+    #[test]
+    fn test_drop_indicator_vertical_line() {
+        let indicator = DropIndicator::vertical_line(50.0, 20.0, 300.0);
+
+        assert_eq!(indicator.kind, DropIndicatorKind::VerticalLine);
+        assert_eq!(indicator.rect.origin.x, 49.0); // x - 1.0
+        assert_eq!(indicator.rect.origin.y, 20.0);
+        assert_eq!(indicator.rect.width(), 2.0);
+        assert_eq!(indicator.rect.height(), 300.0);
+    }
+
+    #[test]
+    fn test_drop_indicator_item_rect() {
+        let rect = Rect::new(10.0, 20.0, 100.0, 30.0);
+        let indicator = DropIndicator::item_rect(rect, 5);
+
+        assert_eq!(indicator.kind, DropIndicatorKind::ItemRect);
+        assert_eq!(indicator.item_index, Some(5));
+        assert_eq!(indicator.position, DropPosition::OnItem);
+    }
+
+    #[test]
+    fn test_drop_indicator_with_position() {
+        let indicator = DropIndicator::horizontal_line(100.0, 0.0, 200.0)
+            .with_item_index(3)
+            .with_position(DropPosition::AboveItem);
+
+        assert_eq!(indicator.item_index, Some(3));
+        assert_eq!(indicator.position, DropPosition::AboveItem);
+    }
+
+    #[test]
+    fn test_drop_indicator_state() {
+        let mut state = DropIndicatorState::new();
+
+        assert!(!state.has_indicator());
+        assert!(state.indicator().is_none());
+
+        // Test updating for vertical list
+        let item_rects = vec![
+            (0, Rect::new(0.0, 0.0, 200.0, 30.0)),
+            (1, Rect::new(0.0, 32.0, 200.0, 30.0)),
+            (2, Rect::new(0.0, 64.0, 200.0, 30.0)),
+        ];
+
+        // Point in upper half of item 1
+        state.update_for_vertical_list(Point::new(100.0, 40.0), &item_rects, 200.0);
+        assert!(state.has_indicator());
+        let indicator = state.indicator().unwrap();
+        assert_eq!(indicator.item_index, Some(1));
+        assert_eq!(indicator.position, DropPosition::AboveItem);
+
+        // Point in lower half of item 1
+        state.update_for_vertical_list(Point::new(100.0, 55.0), &item_rects, 200.0);
+        assert!(state.has_indicator());
+        let indicator = state.indicator().unwrap();
+        assert_eq!(indicator.item_index, Some(1));
+        assert_eq!(indicator.position, DropPosition::BelowItem);
+
+        // Clear
+        state.clear();
+        assert!(!state.has_indicator());
+    }
+
+    #[test]
+    fn test_drop_indicator_style_default() {
+        let style = DropIndicatorStyle::default();
+
+        assert_eq!(style.line_width, 2.0);
+        assert_eq!(style.item_border_width, 2.0);
+        assert_eq!(style.corner_radius, 4.0);
+        assert!(style.item_background.is_some());
+    }
+
+    #[test]
+    fn test_drag_cursor_action_mapping() {
+        assert_eq!(DragCursor::cursor_for_action(DropAction::NONE), CursorShape::NoDrop);
+        assert_eq!(DragCursor::cursor_for_action(DropAction::COPY), CursorShape::Copy);
+        assert_eq!(DragCursor::cursor_for_action(DropAction::MOVE), CursorShape::Move);
+        assert_eq!(DragCursor::cursor_for_action(DropAction::LINK), CursorShape::Alias);
+    }
+
+    #[test]
+    fn test_mime_type_constants() {
+        assert_eq!(mime::TEXT_PLAIN, "text/plain");
+        assert_eq!(mime::TEXT_HTML, "text/html");
+        assert_eq!(mime::TEXT_URI_LIST, "text/uri-list");
+        assert_eq!(mime::IMAGE_PNG, "image/png");
+        assert_eq!(mime::IMAGE_RGBA, "image/x-rgba");
+        assert!(mime::APPLICATION_PREFIX.starts_with("application/"));
     }
 }

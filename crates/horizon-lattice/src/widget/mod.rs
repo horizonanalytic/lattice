@@ -129,6 +129,7 @@ pub mod input_context;
 pub mod input_mask;
 pub mod keyboard;
 pub mod layout;
+pub mod mouse;
 mod painting;
 mod shortcut;
 mod traits;

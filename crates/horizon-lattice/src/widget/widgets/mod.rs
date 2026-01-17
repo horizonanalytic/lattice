@@ -47,6 +47,7 @@
 //! - [`PrintPreviewDialog`]: Modal dialog for previewing print output before printing
 //! - [`FontComboBox`]: Dropdown for selecting font families with preview
 //! - [`KeySequenceEdit`]: Keyboard shortcut capture and editing widget
+//! - [`StatusBar`]: Status bar with temporary messages and permanent widgets
 
 mod abstract_button;
 mod action;
@@ -109,6 +110,7 @@ mod key_sequence_edit;
 mod find_replace;
 mod menu;
 mod menu_bar;
+mod status_bar;
 mod tool_bar;
 mod timezone;
 mod list_widget;
@@ -210,6 +212,7 @@ pub use key_sequence_edit::KeySequenceEdit;
 pub use find_replace::{FindOptions, FindReplaceBar, FindReplaceMode, SearchMatch, Searchable};
 pub use menu::{Menu, MenuItem, MenuStyle};
 pub use menu_bar::{MenuBar, MenuBarStyle};
+pub use status_bar::{MessagePriority, StatusBar, StatusBarStyle};
 pub use tool_bar::{ToolBar, ToolBarArea, ToolBarAreas, ToolBarFeatures, ToolBarItem, ToolBarStyle};
 pub use list_widget::{ListWidget, ListWidgetItem, MatchFlags};
 pub use table_widget::{TableWidget, TableWidgetItem};

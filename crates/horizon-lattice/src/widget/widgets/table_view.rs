@@ -37,9 +37,9 @@ use crate::model::{
     StyleOptionViewItem, ViewItemFeatures, ViewItemState,
 };
 use crate::widget::{
-    FocusPolicy, Key, KeyPressEvent, MouseButton, MouseMoveEvent, MousePressEvent,
-    MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, WheelEvent, Widget,
-    WidgetBase, WidgetEvent,
+    ContextMenuEvent, FocusPolicy, Key, KeyPressEvent, MouseButton, MouseMoveEvent,
+    MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair,
+    WheelEvent, Widget, WidgetBase, WidgetEvent,
 };
 
 use super::header_view::{HeaderView, SortOrder};
@@ -57,6 +57,28 @@ pub enum GridStyle {
     Vertical,
     /// No grid lines.
     None,
+}
+
+/// Location where a context menu was requested in a TableView.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TableContextMenuLocation {
+    /// Context menu requested on a cell.
+    ///
+    /// The ModelIndex is the cell that was clicked. If clicked on empty space
+    /// within the cell area, the index may be invalid.
+    Cell(ModelIndex),
+    /// Context menu requested on a column header.
+    ///
+    /// The usize is the logical column index.
+    ColumnHeader(usize),
+    /// Context menu requested on a row header.
+    ///
+    /// The usize is the row index.
+    RowHeader(usize),
+    /// Context menu requested on the corner widget (between row and column headers).
+    Corner,
+    /// Context menu requested on empty space (outside data area).
+    Empty,
 }
 
 const DEFAULT_ROW_HEIGHT: f32 = 24.0;
@@ -143,6 +165,12 @@ pub struct TableView {
     pub activated: Signal<ModelIndex>,
     /// Emitted when a header is clicked. Args: (orientation, section).
     pub header_clicked: Signal<(Orientation, usize)>,
+    /// Emitted when a context menu is requested.
+    ///
+    /// The tuple contains (location, position in widget coords).
+    /// The location indicates what area of the table was clicked
+    /// (cell, column header, row header, corner, or empty space).
+    pub context_menu_requested: Signal<(TableContextMenuLocation, Point)>,
 }
 
 impl Default for TableView {
@@ -198,6 +226,7 @@ impl TableView {
             double_clicked: Signal::new(),
             activated: Signal::new(),
             header_clicked: Signal::new(),
+            context_menu_requested: Signal::new(),
         }
     }
 
@@ -1490,6 +1519,52 @@ impl TableView {
         self.scroll_to(&index);
         self.base.update();
     }
+
+    fn handle_context_menu(&mut self, event: &ContextMenuEvent) -> bool {
+        self.ensure_layout();
+
+        let pos = event.local_pos;
+        let header_height = self.header_height();
+        let row_header_width = self.row_header_width();
+
+        // Determine which area was clicked
+        let location = if self.show_horizontal_header
+            && self.show_vertical_header
+            && pos.x < row_header_width
+            && pos.y < header_height
+        {
+            // Corner widget area
+            TableContextMenuLocation::Corner
+        } else if self.show_horizontal_header && pos.y < header_height {
+            // Column header area
+            let content_x = pos.x - row_header_width + self.scroll_x as f32;
+            if let Some(col) = self.column_at_content_x(content_x) {
+                TableContextMenuLocation::ColumnHeader(col)
+            } else {
+                TableContextMenuLocation::Empty
+            }
+        } else if self.show_vertical_header && pos.x < row_header_width {
+            // Row header area
+            let content_y = pos.y - header_height + self.scroll_y as f32;
+            if let Some(row) = self.row_at_content_y(content_y) {
+                TableContextMenuLocation::RowHeader(row)
+            } else {
+                TableContextMenuLocation::Empty
+            }
+        } else {
+            // Cell area
+            if let Some(index) = self.index_at(pos) {
+                TableContextMenuLocation::Cell(index)
+            } else {
+                TableContextMenuLocation::Cell(ModelIndex::invalid())
+            }
+        };
+
+        // Emit the context_menu_requested signal with the location and position
+        self.context_menu_requested.emit((location, pos));
+
+        true
+    }
 }
 
 impl Object for TableView {
@@ -1555,6 +1630,9 @@ impl Widget for TableView {
                     return true;
                 }
             }
+            WidgetEvent::ContextMenu(e) => {
+                return self.handle_context_menu(e);
+            }
             _ => {}
         }
         false
@@ -1606,5 +1684,45 @@ mod tests {
             table.selection_model().selection_behavior(),
             SelectionBehavior::SelectRows
         );
+    }
+
+    #[test]
+    fn test_context_menu_signal() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        let table = TableView::new();
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let received_clone = signal_received.clone();
+
+        // Connect to the context menu signal
+        table.context_menu_requested.connect(move |_| {
+            received_clone.store(true, Ordering::SeqCst);
+        });
+
+        // Emit a test signal for a cell location
+        table.context_menu_requested.emit((
+            TableContextMenuLocation::Cell(ModelIndex::invalid()),
+            Point::new(10.0, 10.0),
+        ));
+
+        assert!(signal_received.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_context_menu_location_variants() {
+        // Test that all location variants can be created
+        let cell = TableContextMenuLocation::Cell(ModelIndex::invalid());
+        let col = TableContextMenuLocation::ColumnHeader(0);
+        let row = TableContextMenuLocation::RowHeader(0);
+        let corner = TableContextMenuLocation::Corner;
+        let empty = TableContextMenuLocation::Empty;
+
+        // Basic equality checks
+        assert_eq!(cell, TableContextMenuLocation::Cell(ModelIndex::invalid()));
+        assert_eq!(col, TableContextMenuLocation::ColumnHeader(0));
+        assert_eq!(row, TableContextMenuLocation::RowHeader(0));
+        assert_eq!(corner, TableContextMenuLocation::Corner);
+        assert_eq!(empty, TableContextMenuLocation::Empty);
     }
 }

@@ -32,8 +32,9 @@ use horizon_lattice_render::{Color, Point, Rect, Renderer, Stroke};
 
 use crate::model::{ItemModel, ItemRole, Orientation};
 use crate::widget::{
-    FocusPolicy, MouseButton, MouseMoveEvent, MousePressEvent, MouseReleaseEvent, PaintContext,
-    SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+    ContextMenuEvent, FocusPolicy, MouseButton, MouseMoveEvent, MousePressEvent,
+    MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase,
+    WidgetEvent,
 };
 
 /// Resize mode for header sections.
@@ -176,6 +177,13 @@ pub struct HeaderView {
 
     /// Emitted when sort indicator changes.
     pub sort_indicator_changed: Signal<(usize, SortOrder)>,
+
+    /// Emitted when a context menu is requested on a section.
+    ///
+    /// The tuple contains (section logical index or None, position in widget coords).
+    /// If the context menu was requested over a section, the index will be Some.
+    /// If requested over empty space, the index will be None.
+    pub context_menu_requested: Signal<(Option<usize>, Point)>,
 }
 
 impl Default for HeaderView {
@@ -235,6 +243,7 @@ impl HeaderView {
             section_resized: Signal::new(),
             section_moved: Signal::new(),
             sort_indicator_changed: Signal::new(),
+            context_menu_requested: Signal::new(),
         }
     }
 
@@ -973,6 +982,21 @@ impl HeaderView {
 
         false
     }
+
+    fn handle_context_menu(&mut self, event: &ContextMenuEvent) -> bool {
+        let pos = match self.orientation {
+            Orientation::Horizontal => event.local_pos.x + self.offset as f32,
+            Orientation::Vertical => event.local_pos.y + self.offset as f32,
+        };
+
+        // Find the section at the context menu position
+        let section = self.section_at(pos);
+
+        // Emit the context_menu_requested signal with the section and position
+        self.context_menu_requested.emit((section, event.local_pos));
+
+        true
+    }
 }
 
 impl Object for HeaderView {
@@ -1008,6 +1032,7 @@ impl Widget for HeaderView {
             WidgetEvent::MousePress(e) => self.handle_mouse_press(e),
             WidgetEvent::MouseRelease(e) => self.handle_mouse_release(e),
             WidgetEvent::MouseMove(e) => self.handle_mouse_move(e),
+            WidgetEvent::ContextMenu(e) => self.handle_context_menu(e),
             _ => false,
         }
     }
@@ -1112,5 +1137,25 @@ mod tests {
         assert_eq!(column_to_letter(27), "AB");
         assert_eq!(column_to_letter(51), "AZ");
         assert_eq!(column_to_letter(52), "BA");
+    }
+
+    #[test]
+    fn test_context_menu_signal() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        let header = HeaderView::new(Orientation::Horizontal);
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let received_clone = signal_received.clone();
+
+        // Connect to the context menu signal
+        header.context_menu_requested.connect(move |_| {
+            received_clone.store(true, Ordering::SeqCst);
+        });
+
+        // Emit a test signal (simulating what handle_context_menu does)
+        header.context_menu_requested.emit((Some(0), Point::new(10.0, 10.0)));
+
+        assert!(signal_received.load(Ordering::SeqCst));
     }
 }

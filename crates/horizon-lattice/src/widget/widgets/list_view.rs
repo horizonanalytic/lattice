@@ -37,9 +37,9 @@ use crate::model::{
 };
 use crate::model::selection::{SelectionFlags, SelectionMode, SelectionModel};
 use crate::widget::{
-    FocusPolicy, Key, KeyPressEvent, MouseButton, MouseMoveEvent, MousePressEvent,
-    MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, WheelEvent, Widget,
-    WidgetBase, WidgetEvent,
+    ContextMenuEvent, FocusPolicy, Key, KeyPressEvent, MouseButton, MouseMoveEvent,
+    MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair,
+    WheelEvent, Widget, WidgetBase, WidgetEvent,
 };
 
 use super::scroll_area::ScrollBarPolicy;
@@ -127,6 +127,12 @@ pub struct ListView {
     pub double_clicked: Signal<ModelIndex>,
     /// Emitted when an item is activated (double-click or Enter).
     pub activated: Signal<ModelIndex>,
+    /// Emitted when a context menu is requested.
+    ///
+    /// The tuple contains (index at position or invalid, position in widget coords).
+    /// If the context menu was requested over an item, the index will be valid.
+    /// If requested over empty space, the index will be invalid.
+    pub context_menu_requested: Signal<(ModelIndex, Point)>,
 }
 
 impl Default for ListView {
@@ -170,6 +176,7 @@ impl ListView {
             clicked: Signal::new(),
             double_clicked: Signal::new(),
             activated: Signal::new(),
+            context_menu_requested: Signal::new(),
         }
     }
 
@@ -1104,6 +1111,18 @@ impl ListView {
         false
     }
 
+    fn handle_context_menu(&mut self, event: &ContextMenuEvent) -> bool {
+        self.ensure_layout();
+
+        // Find the index at the context menu position
+        let index = self.index_at(event.local_pos).unwrap_or_else(ModelIndex::invalid);
+
+        // Emit the context_menu_requested signal with the index and position
+        self.context_menu_requested.emit((index, event.local_pos));
+
+        true
+    }
+
     // =========================================================================
     // Painting
     // =========================================================================
@@ -1313,6 +1332,9 @@ impl Widget for ListView {
             WidgetEvent::Resize(_) => {
                 self.layout_dirty = true;
             }
+            WidgetEvent::ContextMenu(e) => {
+                return self.handle_context_menu(e);
+            }
             _ => {}
         }
         false
@@ -1385,5 +1407,26 @@ mod tests {
         let viewport = view.viewport_rect();
         assert_eq!(viewport.width(), 200.0);
         assert_eq!(viewport.height(), 200.0);
+    }
+
+    #[test]
+    fn test_context_menu_signal() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        setup();
+
+        let view = ListView::new();
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let received_clone = signal_received.clone();
+
+        // Connect to the context menu signal
+        view.context_menu_requested.connect(move |_| {
+            received_clone.store(true, Ordering::SeqCst);
+        });
+
+        // Emit a test signal (simulating what handle_context_menu does)
+        view.context_menu_requested.emit((ModelIndex::invalid(), Point::new(10.0, 10.0)));
+
+        assert!(signal_received.load(Ordering::SeqCst));
     }
 }

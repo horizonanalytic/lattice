@@ -167,7 +167,7 @@ pub use splitter::Splitter;
 pub use stacked_widget::StackedWidget;
 pub use tab_bar::{TabBar, TabPosition};
 pub use tab_widget::TabWidget;
-pub use table_view::{GridStyle, TableView};
+pub use table_view::{GridStyle, TableContextMenuLocation, TableView};
 pub use tree_view::{IndentationStyle, TreeView};
 pub use plain_text_edit::{HighlightSpan, LineNumberConfig, PlainTextEdit, SyntaxHighlighter};
 pub use styled_document::{

@@ -52,12 +52,14 @@ mod native_window;
 mod window_manager;
 mod window_config;
 mod window_icon;
+mod window_effects;
 
 pub use window_type::WindowType;
-pub use native_window::{NativeWindow, NativeWindowId};
+pub use native_window::{NativeWindow, NativeWindowId, NativeWindowError};
 pub use window_manager::WindowManager;
 pub use window_config::WindowConfig;
 pub use window_icon::WindowIcon;
+pub use window_effects::{WindowEffectError, WindowMask};
 
 // Re-export WindowFlags and related types from the widget module for convenience
 pub use crate::widget::widgets::{WindowFlags, WindowModality, WindowState};

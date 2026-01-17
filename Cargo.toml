@@ -18,6 +18,7 @@ authors = ["Horizon Analytic Studios, LLC"]
 [workspace.dependencies]
 # Core dependencies
 winit = "0.30"
+raw-window-handle = "0.6"
 cursor-icon = "1.1"
 parking_lot = "0.12"
 slotmap = "1.0"

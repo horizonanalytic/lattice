@@ -10,6 +10,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::{Fullscreen, Window, WindowId, WindowLevel};
 
 use super::window_config::WindowConfig;
+use super::window_effects::{self, WindowEffectError, WindowMask};
 use super::window_icon::WindowIcon;
 use super::window_type::WindowType;
 
@@ -430,6 +431,103 @@ impl NativeWindow {
     /// Get the primary monitor.
     pub fn primary_monitor(&self) -> Option<winit::monitor::MonitorHandle> {
         self.window.primary_monitor()
+    }
+
+    // =========================================================================
+    // Window Effects (Opacity & Mask)
+    // =========================================================================
+
+    /// Get the current window opacity.
+    ///
+    /// Returns a value from 0.0 (fully transparent) to 1.0 (fully opaque).
+    ///
+    /// # Platform Notes
+    ///
+    /// - **macOS**: Returns the NSWindow's alpha value
+    /// - **Windows**: Returns the layered window alpha if set
+    /// - **Linux**: Always returns 1.0 (opacity query not reliably supported)
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let opacity = window.opacity();
+    /// println!("Window opacity: {}%", opacity * 100.0);
+    /// ```
+    pub fn opacity(&self) -> f32 {
+        window_effects::get_window_opacity(&self.window)
+    }
+
+    /// Set the window opacity.
+    ///
+    /// This sets the alpha/transparency of the entire window, including
+    /// window decorations (title bar, borders).
+    ///
+    /// # Arguments
+    ///
+    /// * `opacity` - Value from 0.0 (fully transparent) to 1.0 (fully opaque).
+    ///               Values outside this range are clamped.
+    ///
+    /// # Platform Notes
+    ///
+    /// - **macOS**: Uses `NSWindow.setAlphaValue:`
+    /// - **Windows**: Uses `SetLayeredWindowAttributes` with `LWA_ALPHA`.
+    ///                The window is automatically made a layered window.
+    /// - **Linux (X11)**: Uses `_NET_WM_WINDOW_OPACITY` atom property.
+    ///                    Requires a compositor that supports transparency.
+    /// - **Linux (Wayland)**: Limited support, depends on compositor.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Make window 80% opaque
+    /// window.set_opacity(0.8)?;
+    ///
+    /// // Make window fully transparent (invisible but still captures input)
+    /// window.set_opacity(0.0)?;
+    ///
+    /// // Restore full opacity
+    /// window.set_opacity(1.0)?;
+    /// ```
+    pub fn set_opacity(&self, opacity: f32) -> Result<(), WindowEffectError> {
+        window_effects::set_window_opacity(&self.window, opacity)
+    }
+
+    /// Set a window mask (shaped window).
+    ///
+    /// Window masks allow creating non-rectangular windows by defining
+    /// which parts of the window should be visible.
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - The mask to apply, or `None` to remove the mask and
+    ///            restore the rectangular window shape.
+    ///
+    /// # Platform Notes
+    ///
+    /// - **Windows**: Uses `SetWindowRgn` with GDI regions.
+    /// - **macOS**: Uses window transparency with content clipping.
+    ///              For best results, use with a frameless window.
+    /// - **Linux (X11)**: Uses the XShape extension.
+    /// - **Linux (Wayland)**: Not supported (returns an error).
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice::window::WindowMask;
+    ///
+    /// // Create a circular window
+    /// let mask = WindowMask::circle(100, 100, 100);
+    /// window.set_mask(Some(&mask))?;
+    ///
+    /// // Create a rounded rectangle window
+    /// let mask = WindowMask::rounded_rect(0, 0, 400, 300, 20);
+    /// window.set_mask(Some(&mask))?;
+    ///
+    /// // Remove the mask
+    /// window.set_mask(None)?;
+    /// ```
+    pub fn set_mask(&self, mask: Option<&WindowMask>) -> Result<(), WindowEffectError> {
+        window_effects::set_window_mask(&self.window, mask)
     }
 }
 

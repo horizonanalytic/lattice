@@ -26,6 +26,7 @@ horizon-lattice-macros = { workspace = true }
 horizon-lattice-render = { workspace = true }
 horizon-lattice-style = { workspace = true }
 winit = { workspace = true }
+raw-window-handle = { workspace = true }
 cursor-icon = { workspace = true }
 parking_lot = { workspace = true }
 static_assertions = { workspace = true }

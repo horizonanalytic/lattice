@@ -49,6 +49,7 @@
 //! - [`KeySequenceEdit`]: Keyboard shortcut capture and editing widget
 
 mod abstract_button;
+mod action;
 mod button_group;
 mod calendar;
 mod checkbox;
@@ -113,6 +114,7 @@ mod tree_widget;
 pub mod native_dialogs;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
+pub use action::{Action, ActionGroup, ActionPriority, MenuRole, ShortcutContext};
 pub use button_group::ButtonGroup;
 pub use calendar::{
     CalendarWidget, CompositeDayFormatter, DateRangeHighlightFormatter, DayCellInfo, DayFormat,

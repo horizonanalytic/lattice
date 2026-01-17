@@ -37,6 +37,7 @@ use crate::widget::{
 
 use super::dialog::{Dialog, DialogResult};
 use super::dialog_button_box::{ButtonRole, StandardButton};
+use super::native_dialogs::{self, NativeMessageButtons, NativeMessageLevel, NativeMessageOptions, NativeMessageResult};
 
 // ============================================================================
 // Message Icon
@@ -189,6 +190,9 @@ pub struct MessageBox {
     /// Detail section height when expanded.
     detail_section_height: f32,
 
+    /// Whether to prefer native dialogs when available.
+    use_native_dialog: bool,
+
     // Signals
     /// Signal emitted when a button is clicked.
     /// The argument is the StandardButton that was clicked.
@@ -227,6 +231,7 @@ impl MessageBox {
             button_row_height: 48.0,
             detail_button_state: DetailButtonState::default(),
             detail_section_height: 100.0,
+            use_native_dialog: false,
             button_clicked: Signal::new(),
             custom_button_clicked: Signal::new(),
         }
@@ -449,6 +454,15 @@ impl MessageBox {
         self
     }
 
+    /// Set whether to prefer native dialogs using builder pattern.
+    ///
+    /// When enabled, the message box will use native system dialogs
+    /// (NSAlert on macOS, TaskDialog on Windows) if available.
+    pub fn with_native_dialog(mut self, use_native: bool) -> Self {
+        self.use_native_dialog = use_native;
+        self
+    }
+
     // =========================================================================
     // Properties
     // =========================================================================
@@ -600,9 +614,71 @@ impl MessageBox {
     ///
     /// Shows the message box as a modal and returns immediately. Connect to
     /// the `button_clicked` or dialog signals to handle the result.
+    ///
+    /// If `use_native_dialog` is enabled and native dialogs are available,
+    /// a native system alert will be shown instead.
     pub fn open(&mut self) {
         self.clicked_button = None;
         self.clicked_custom_button = None;
+
+        // Try native dialog if preferred and available
+        if self.use_native_dialog && native_dialogs::is_available() {
+            // Only use native dialog for simple standard button configurations
+            // Custom buttons require the custom implementation
+            if self.custom_buttons.is_empty() {
+                let buttons = self.dialog.standard_buttons();
+
+                // Convert MessageIcon to NativeMessageLevel
+                let level = match self.icon {
+                    MessageIcon::NoIcon | MessageIcon::Question | MessageIcon::Information => {
+                        NativeMessageLevel::Info
+                    }
+                    MessageIcon::Warning => NativeMessageLevel::Warning,
+                    MessageIcon::Critical => NativeMessageLevel::Error,
+                };
+
+                // Convert StandardButton to NativeMessageButtons
+                let native_buttons = if buttons.has(StandardButton::YES)
+                    && buttons.has(StandardButton::NO)
+                    && buttons.has(StandardButton::CANCEL)
+                {
+                    NativeMessageButtons::YesNoCancel
+                } else if buttons.has(StandardButton::YES) && buttons.has(StandardButton::NO) {
+                    NativeMessageButtons::YesNo
+                } else if buttons.has(StandardButton::OK) && buttons.has(StandardButton::CANCEL)
+                {
+                    NativeMessageButtons::OkCancel
+                } else {
+                    NativeMessageButtons::Ok
+                };
+
+                let mut options = NativeMessageOptions::new(&self.text)
+                    .title(self.dialog.title())
+                    .level(level)
+                    .buttons(native_buttons);
+
+                if !self.informative_text.is_empty() {
+                    options = options.detail(&self.informative_text);
+                }
+
+                if let Some(result) = native_dialogs::show_message(options) {
+                    // Convert native result to StandardButton and emit signal
+                    let clicked = match result {
+                        NativeMessageResult::Ok => StandardButton::OK,
+                        NativeMessageResult::Cancel => StandardButton::CANCEL,
+                        NativeMessageResult::Yes => StandardButton::YES,
+                        NativeMessageResult::No => StandardButton::NO,
+                    };
+                    self.clicked_button = Some(clicked);
+                    self.button_clicked.emit(clicked);
+                    return;
+                }
+                // Native dialog cancelled - don't show custom dialog
+                return;
+            }
+        }
+
+        // Use custom dialog
         self.dialog.open();
     }
 

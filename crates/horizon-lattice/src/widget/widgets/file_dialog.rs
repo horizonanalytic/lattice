@@ -990,8 +990,54 @@ impl FileDialog {
     // =========================================================================
 
     /// Open the dialog.
+    ///
+    /// If `use_native_dialog` is true and native dialogs are available,
+    /// this will show a native file dialog instead of the custom one.
     pub fn open(&mut self) {
-        // Refresh the directory contents
+        // Try native dialog if preferred and available
+        if self.use_native_dialog && native::is_available() {
+            let title = self.dialog.title();
+            let dir = &self.current_dir;
+            let filters = &self.filters;
+
+            match self.mode {
+                FileDialogMode::OpenFile => {
+                    if let Some(path) = native::open_file_dialog(&title, dir, filters) {
+                        self.file_selected.emit(path.clone());
+                        self.add_recent_location(path.parent().unwrap_or(dir).to_path_buf());
+                        return;
+                    }
+                }
+                FileDialogMode::OpenFiles => {
+                    if let Some(paths) = native::open_files_dialog(&title, dir, filters) {
+                        if let Some(first_path) = paths.first() {
+                            self.add_recent_location(first_path.parent().unwrap_or(dir).to_path_buf());
+                        }
+                        self.files_selected.emit(paths);
+                        return;
+                    }
+                }
+                FileDialogMode::SaveFile => {
+                    if let Some(path) = native::save_file_dialog(&title, dir, filters) {
+                        self.file_selected.emit(path.clone());
+                        self.add_recent_location(path.parent().unwrap_or(dir).to_path_buf());
+                        return;
+                    }
+                }
+                FileDialogMode::Directory => {
+                    if let Some(path) = native::directory_dialog(&title, dir) {
+                        self.directory_selected.emit(path.clone());
+                        self.add_recent_location(path);
+                        return;
+                    }
+                }
+            }
+            // Native dialog was cancelled or not available, don't fall through
+            // to custom dialog - just return without showing anything
+            return;
+        }
+
+        // Use custom dialog
         self.refresh_entries();
         self.dialog.open();
     }
@@ -2034,94 +2080,89 @@ impl Default for FileDialog {
 // Native Dialog Integration
 // ============================================================================
 
-/// Platform-specific native dialog support.
-#[cfg(target_os = "macos")]
+use super::native_dialogs::{self, NativeFileDialogOptions, NativeFileFilter};
+
+/// Convert FileFilter to NativeFileFilter.
+fn convert_filter(filter: &FileFilter) -> NativeFileFilter {
+    // Extract extensions from patterns like "*.rs" -> "rs"
+    let extensions: Vec<String> = filter
+        .patterns
+        .iter()
+        .filter_map(|p| {
+            if p == "*" {
+                Some("*".to_string())
+            } else {
+                p.strip_prefix("*.").map(|ext| ext.to_string())
+            }
+        })
+        .collect();
+
+    NativeFileFilter {
+        name: filter.name.clone(),
+        extensions,
+    }
+}
+
+/// Convert a slice of FileFilters to NativeFileFilters.
+fn convert_filters(filters: &[FileFilter]) -> Vec<NativeFileFilter> {
+    filters.iter().map(convert_filter).collect()
+}
+
+/// Module providing native dialog functions using the native_dialogs backend.
 mod native {
     use super::*;
 
     /// Check if native dialogs are available on this platform.
     pub fn is_available() -> bool {
-        true // macOS always has native dialogs
+        native_dialogs::is_available()
     }
 
-    /// Open a native file dialog.
-    /// Note: This is a placeholder - actual implementation would use objc/cocoa crates.
-    pub fn open_file_dialog(_title: &str, _dir: &Path, _filters: &[FileFilter]) -> Option<PathBuf> {
-        None // Placeholder
+    /// Open a native file dialog for a single file.
+    pub fn open_file_dialog(title: &str, dir: &Path, filters: &[FileFilter]) -> Option<PathBuf> {
+        let options = NativeFileDialogOptions::with_title(title)
+            .directory(dir.to_path_buf());
+
+        let mut options = options;
+        for filter in convert_filters(filters) {
+            options = options.filter(filter);
+        }
+
+        native_dialogs::open_file(options)
+    }
+
+    /// Open a native file dialog for multiple files.
+    pub fn open_files_dialog(title: &str, dir: &Path, filters: &[FileFilter]) -> Option<Vec<PathBuf>> {
+        let options = NativeFileDialogOptions::with_title(title)
+            .directory(dir.to_path_buf())
+            .multiple(true);
+
+        let mut options = options;
+        for filter in convert_filters(filters) {
+            options = options.filter(filter);
+        }
+
+        native_dialogs::open_files(options)
     }
 
     /// Open a native save dialog.
-    pub fn save_file_dialog(_title: &str, _dir: &Path, _filters: &[FileFilter]) -> Option<PathBuf> {
-        None // Placeholder
+    pub fn save_file_dialog(title: &str, dir: &Path, filters: &[FileFilter]) -> Option<PathBuf> {
+        let options = NativeFileDialogOptions::with_title(title)
+            .directory(dir.to_path_buf());
+
+        let mut options = options;
+        for filter in convert_filters(filters) {
+            options = options.filter(filter);
+        }
+
+        native_dialogs::save_file(options)
     }
 
     /// Open a native directory dialog.
-    pub fn directory_dialog(_title: &str, _dir: &Path) -> Option<PathBuf> {
-        None // Placeholder
-    }
-}
+    pub fn directory_dialog(title: &str, dir: &Path) -> Option<PathBuf> {
+        let options = NativeFileDialogOptions::with_title(title)
+            .directory(dir.to_path_buf());
 
-#[cfg(target_os = "windows")]
-mod native {
-    use super::*;
-
-    pub fn is_available() -> bool {
-        true // Windows always has native dialogs
-    }
-
-    pub fn open_file_dialog(_title: &str, _dir: &Path, _filters: &[FileFilter]) -> Option<PathBuf> {
-        None // Placeholder - would use windows-rs crate
-    }
-
-    pub fn save_file_dialog(_title: &str, _dir: &Path, _filters: &[FileFilter]) -> Option<PathBuf> {
-        None // Placeholder
-    }
-
-    pub fn directory_dialog(_title: &str, _dir: &Path) -> Option<PathBuf> {
-        None // Placeholder
-    }
-}
-
-#[cfg(target_os = "linux")]
-mod native {
-    use super::*;
-
-    pub fn is_available() -> bool {
-        // Check for portal or GTK availability
-        false // Placeholder
-    }
-
-    pub fn open_file_dialog(_title: &str, _dir: &Path, _filters: &[FileFilter]) -> Option<PathBuf> {
-        None // Placeholder - would use xdg-desktop-portal or GTK
-    }
-
-    pub fn save_file_dialog(_title: &str, _dir: &Path, _filters: &[FileFilter]) -> Option<PathBuf> {
-        None // Placeholder
-    }
-
-    pub fn directory_dialog(_title: &str, _dir: &Path) -> Option<PathBuf> {
-        None // Placeholder
-    }
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-mod native {
-    use super::*;
-
-    pub fn is_available() -> bool {
-        false
-    }
-
-    pub fn open_file_dialog(_title: &str, _dir: &Path, _filters: &[FileFilter]) -> Option<PathBuf> {
-        None
-    }
-
-    pub fn save_file_dialog(_title: &str, _dir: &Path, _filters: &[FileFilter]) -> Option<PathBuf> {
-        None
-    }
-
-    pub fn directory_dialog(_title: &str, _dir: &Path) -> Option<PathBuf> {
-        None
+        native_dialogs::select_directory(options)
     }
 }
 

@@ -110,6 +110,7 @@ mod timezone;
 mod list_widget;
 mod table_widget;
 mod tree_widget;
+pub mod native_dialogs;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
 pub use button_group::ButtonGroup;

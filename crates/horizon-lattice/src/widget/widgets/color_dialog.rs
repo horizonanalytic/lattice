@@ -41,6 +41,7 @@ use crate::widget::{
 
 use super::dialog::{Dialog, DialogResult};
 use super::dialog_button_box::StandardButton;
+use super::native_dialogs::{self, NativeColorOptions};
 
 // ============================================================================
 // Constants
@@ -161,6 +162,9 @@ pub struct ColorDialog {
     /// Palette section height.
     palette_height: f32,
 
+    /// Whether to prefer native dialogs when available.
+    use_native_dialog: bool,
+
     // Signals
     /// Signal emitted when the dialog is accepted with the selected color.
     pub color_selected: Signal<Color>,
@@ -205,6 +209,7 @@ impl ColorDialog {
             border_color: Color::from_rgb8(180, 180, 180),
             preview_height: 50.0,
             palette_height: 60.0,
+            use_native_dialog: false,
             color_selected: Signal::new(),
             color_changed: Signal::new(),
             current_color_changed: Signal::new(),
@@ -256,6 +261,15 @@ impl ColorDialog {
     /// Set the title using builder pattern.
     pub fn with_title(mut self, title: impl Into<String>) -> Self {
         self.dialog.set_title(title);
+        self
+    }
+
+    /// Set whether to prefer native dialogs using builder pattern.
+    ///
+    /// When enabled, the color dialog will use native system color pickers
+    /// (ChooseColor on Windows) if available.
+    pub fn with_native_dialog(mut self, use_native: bool) -> Self {
+        self.use_native_dialog = use_native;
         self
     }
 
@@ -474,7 +488,35 @@ impl ColorDialog {
     // =========================================================================
 
     /// Open the color dialog (non-blocking modal).
+    ///
+    /// If `use_native_dialog` is enabled and native color pickers are available,
+    /// a native system color dialog will be shown instead.
     pub fn open(&mut self) {
+        // Try native dialog if preferred and available
+        if self.use_native_dialog && native_dialogs::is_available() {
+            let options = NativeColorOptions::new()
+                .initial_color(self.color())
+                .show_alpha(self.show_alpha)
+                .title(self.dialog.title());
+
+            if let Some(color) = native_dialogs::pick_color(options) {
+                // Set the color from native picker
+                let (h, s, v, a) = color.to_hsva();
+                self.hue = h;
+                self.saturation = s;
+                self.value = v;
+                self.alpha = a;
+                self.update_hex_text();
+
+                self.add_to_history(color);
+                self.color_selected.emit(color);
+                return;
+            }
+            // Native dialog cancelled or not available - don't fall through
+            return;
+        }
+
+        // Use custom dialog
         self.dialog.open();
     }
 

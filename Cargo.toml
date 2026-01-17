@@ -67,6 +67,32 @@ ropey = "1.6"
 chrono = "0.4"
 chrono-tz = "0.10"
 
+# Native dialog dependencies (macOS)
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSURL", "NSArray", "NSEnumerator"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "NSPanel", "NSSavePanel", "NSOpenPanel",
+    "NSAlert", "NSApplication", "NSWindow", "NSResponder", "NSButton",
+    "NSColorPanel", "NSColor", "NSColorSpace",
+    "NSFontPanel", "NSFontManager", "NSFont", "NSFontDescriptor",
+    "NSView", "NSRunningApplication", "NSGraphics", "NSControl", "NSCell",
+] }
+block2 = "0.6"
+
+# Native dialog dependencies (Windows)
+windows = { version = "0.58", features = [
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Shell",
+    "Win32_UI_Controls_Dialogs",
+    "Win32_Graphics_Gdi",
+    "Win32_Foundation",
+    "Win32_System_Com",
+] }
+
+# Native dialog dependencies (Linux)
+ashpd = "0.10"
+zbus = "5"
+
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }
 horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }

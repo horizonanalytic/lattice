@@ -44,6 +44,7 @@ use crate::widget::{
 
 use super::dialog::{Dialog, DialogResult};
 use super::dialog_button_box::StandardButton;
+use super::native_dialogs::{self, NativeFontDesc, NativeFontOptions};
 
 // ============================================================================
 // Constants
@@ -694,7 +695,66 @@ impl FontDialog {
     // =========================================================================
 
     /// Open the font dialog (non-blocking modal).
+    ///
+    /// If the `DONT_USE_NATIVE` option is not set and native font dialogs are available,
+    /// a native system font picker will be shown instead.
     pub fn open(&mut self) {
+        // Try native dialog if not disabled and available
+        if !self.options.contains(FontDialogOptions::DONT_USE_NATIVE)
+            && native_dialogs::is_available()
+        {
+            // Prepare native font options
+            let mut native_options = NativeFontOptions::new()
+                .title(self.dialog.title())
+                .monospace_only(self.options.contains(FontDialogOptions::MONOSPACED_FONTS));
+
+            // Set initial font if we have a selection
+            if let Some(font) = self.font() {
+                // Extract family name from FontFamily enum
+                let family_name = match font.family() {
+                    FontFamily::Name(name) => name.clone(),
+                    FontFamily::Serif => "Serif".to_string(),
+                    FontFamily::SansSerif => "Sans Serif".to_string(),
+                    FontFamily::Monospace => "Monospace".to_string(),
+                    FontFamily::Cursive => "Cursive".to_string(),
+                    FontFamily::Fantasy => "Fantasy".to_string(),
+                };
+                let desc = NativeFontDesc::new(family_name, font.size())
+                    .bold(font.weight() == FontWeight::BOLD || font.weight() == FontWeight::BLACK)
+                    .italic(matches!(font.style(), FontStyle::Italic | FontStyle::Oblique));
+                native_options = native_options.initial_font(desc);
+            }
+
+            if let Some(native_font) = native_dialogs::pick_font(native_options) {
+                // Convert native font to our Font type
+                let weight = if native_font.bold {
+                    FontWeight::BOLD
+                } else {
+                    FontWeight::NORMAL
+                };
+                let style = if native_font.italic {
+                    FontStyle::Italic
+                } else {
+                    FontStyle::Normal
+                };
+
+                // Create a font from the native selection using builder pattern
+                let family = FontFamily::Name(native_font.family);
+                let font = Font::builder()
+                    .family(family)
+                    .size(native_font.size)
+                    .weight(weight)
+                    .style(style)
+                    .build();
+
+                self.font_selected.emit(font);
+                return;
+            }
+            // Native dialog cancelled or not available - don't fall through
+            return;
+        }
+
+        // Use custom dialog
         self.dialog.open();
     }
 

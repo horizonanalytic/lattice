@@ -20,5 +20,22 @@ ropey = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 
+# Native dialog dependencies (macOS)
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-app-kit = { workspace = true }
+block2 = { workspace = true }
+
+# Native dialog dependencies (Windows)
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true }
+
+# Native dialog dependencies (Linux)
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { workspace = true }
+zbus = { workspace = true }
+pollster = { workspace = true }
+
 [dev-dependencies]
 slotmap = { workspace = true }

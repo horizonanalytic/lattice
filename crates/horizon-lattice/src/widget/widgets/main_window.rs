@@ -40,6 +40,7 @@ use crate::widget::{
 
 use super::dock_widget::DockArea;
 use super::menu_bar::MenuBar;
+use super::tool_bar::ToolBarArea;
 
 /// Information about a docked widget.
 #[derive(Debug, Clone)]
@@ -130,6 +131,63 @@ impl DockAreaContainer {
     }
 }
 
+// ============================================================================
+// ToolbarAreaContainer
+// ============================================================================
+
+/// A toolbar area container that manages toolbars in a single area.
+#[derive(Debug)]
+struct ToolbarAreaContainer {
+    /// The toolbar area this container represents.
+    area: ToolBarArea,
+    /// Toolbars in this area.
+    toolbars: Vec<ObjectId>,
+    /// Whether there's a break after each toolbar (for multiple rows).
+    breaks: Vec<bool>,
+    /// Total height/width of this toolbar area (calculated).
+    size: f32,
+}
+
+impl ToolbarAreaContainer {
+    fn new(area: ToolBarArea) -> Self {
+        Self {
+            area,
+            toolbars: Vec::new(),
+            breaks: Vec::new(),
+            size: 0.0,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.toolbars.is_empty()
+    }
+
+    fn add_toolbar(&mut self, toolbar_id: ObjectId) {
+        self.toolbars.push(toolbar_id);
+        self.breaks.push(false);
+    }
+
+    fn add_toolbar_break(&mut self) {
+        if let Some(last_break) = self.breaks.last_mut() {
+            *last_break = true;
+        }
+    }
+
+    fn remove_toolbar(&mut self, toolbar_id: ObjectId) -> bool {
+        if let Some(pos) = self.toolbars.iter().position(|&id| id == toolbar_id) {
+            self.toolbars.remove(pos);
+            self.breaks.remove(pos);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn contains(&self, toolbar_id: ObjectId) -> bool {
+        self.toolbars.contains(&toolbar_id)
+    }
+}
+
 /// The main application window.
 ///
 /// MainWindow provides the primary window structure for applications, including:
@@ -175,6 +233,15 @@ pub struct MainWindow {
 
     /// Floating dock widgets (not in any dock area).
     floating_widgets: Vec<ObjectId>,
+
+    /// Toolbar area containers.
+    toolbar_areas: HashMap<ToolBarArea, ToolbarAreaContainer>,
+
+    /// Default toolbar area for new toolbars.
+    default_toolbar_area: ToolBarArea,
+
+    /// Toolbar area height (for horizontal areas) or width (for vertical areas).
+    toolbar_area_height: f32,
 
     /// Content margins around the entire layout.
     content_margins: ContentMargins,
@@ -230,12 +297,20 @@ impl MainWindow {
             dock_areas.insert(area, DockAreaContainer::new(area));
         }
 
+        let mut toolbar_areas = HashMap::new();
+        for area in ToolBarArea::all() {
+            toolbar_areas.insert(area, ToolbarAreaContainer::new(area));
+        }
+
         Self {
             base,
             menu_bar: None,
             central_widget: None,
             dock_areas,
             floating_widgets: Vec::new(),
+            toolbar_areas,
+            default_toolbar_area: ToolBarArea::Top,
+            toolbar_area_height: 32.0, // Default toolbar height
             content_margins: ContentMargins::uniform(0.0),
             handle_width: 5.0,
             min_central_size: Size::new(100.0, 100.0),
@@ -287,6 +362,136 @@ impl MainWindow {
         match &self.menu_bar {
             Some(mb) => mb.style().height,
             None => 0.0,
+        }
+    }
+
+    // =========================================================================
+    // Toolbars
+    // =========================================================================
+
+    /// Add a toolbar to the default area (top).
+    ///
+    /// The toolbar will be added to the top area by default.
+    pub fn add_toolbar(&mut self, toolbar_id: ObjectId) {
+        self.add_toolbar_to_area(self.default_toolbar_area, toolbar_id);
+    }
+
+    /// Add a toolbar to a specific area.
+    pub fn add_toolbar_to_area(&mut self, area: ToolBarArea, toolbar_id: ObjectId) {
+        // Remove from any other area first
+        self.remove_toolbar_from_areas(toolbar_id);
+
+        // Add to the specified area
+        if let Some(container) = self.toolbar_areas.get_mut(&area) {
+            container.add_toolbar(toolbar_id);
+        }
+
+        self.base.update();
+    }
+
+    /// Add a toolbar break (starts a new row of toolbars).
+    ///
+    /// The break is added after the most recently added toolbar in the specified area.
+    pub fn add_toolbar_break(&mut self, area: ToolBarArea) {
+        if let Some(container) = self.toolbar_areas.get_mut(&area) {
+            container.add_toolbar_break();
+        }
+        self.base.update();
+    }
+
+    /// Remove a toolbar from all areas.
+    fn remove_toolbar_from_areas(&mut self, toolbar_id: ObjectId) {
+        for container in self.toolbar_areas.values_mut() {
+            container.remove_toolbar(toolbar_id);
+        }
+    }
+
+    /// Remove a toolbar completely.
+    pub fn remove_toolbar(&mut self, toolbar_id: ObjectId) {
+        self.remove_toolbar_from_areas(toolbar_id);
+        self.base.update();
+    }
+
+    /// Get the area containing a toolbar.
+    pub fn toolbar_area(&self, toolbar_id: ObjectId) -> Option<ToolBarArea> {
+        for (area, container) in &self.toolbar_areas {
+            if container.contains(toolbar_id) {
+                return Some(*area);
+            }
+        }
+        None
+    }
+
+    /// Get all toolbar IDs in a specific area.
+    pub fn toolbars_in_area(&self, area: ToolBarArea) -> Vec<ObjectId> {
+        self.toolbar_areas
+            .get(&area)
+            .map(|c| c.toolbars.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get the total height of toolbar areas (for layout).
+    fn toolbar_area_total_height(&self, area: ToolBarArea) -> f32 {
+        self.toolbar_areas
+            .get(&area)
+            .filter(|c| !c.is_empty())
+            .map(|_| self.toolbar_area_height)
+            .unwrap_or(0.0)
+    }
+
+    /// Calculate the rectangle for a toolbar area.
+    pub fn toolbar_area_rect(&self, area: ToolBarArea) -> Rect {
+        let rect = self.base.rect();
+        let menu_height = self.menu_bar_height();
+        let top_toolbar_height = self.toolbar_area_total_height(ToolBarArea::Top);
+        let bottom_toolbar_height = self.toolbar_area_total_height(ToolBarArea::Bottom);
+        let left_toolbar_width = self.toolbar_area_total_height(ToolBarArea::Left);
+        let right_toolbar_width = self.toolbar_area_total_height(ToolBarArea::Right);
+
+        match area {
+            ToolBarArea::Top => {
+                if top_toolbar_height > 0.0 {
+                    Rect::new(0.0, menu_height, rect.width(), top_toolbar_height)
+                } else {
+                    Rect::ZERO
+                }
+            }
+            ToolBarArea::Bottom => {
+                if bottom_toolbar_height > 0.0 {
+                    Rect::new(
+                        0.0,
+                        rect.height() - bottom_toolbar_height,
+                        rect.width(),
+                        bottom_toolbar_height,
+                    )
+                } else {
+                    Rect::ZERO
+                }
+            }
+            ToolBarArea::Left => {
+                if left_toolbar_width > 0.0 {
+                    Rect::new(
+                        0.0,
+                        menu_height + top_toolbar_height,
+                        left_toolbar_width,
+                        rect.height() - menu_height - top_toolbar_height - bottom_toolbar_height,
+                    )
+                } else {
+                    Rect::ZERO
+                }
+            }
+            ToolBarArea::Right => {
+                if right_toolbar_width > 0.0 {
+                    Rect::new(
+                        rect.width() - right_toolbar_width,
+                        menu_height + top_toolbar_height,
+                        right_toolbar_width,
+                        rect.height() - menu_height - top_toolbar_height - bottom_toolbar_height,
+                    )
+                } else {
+                    Rect::ZERO
+                }
+            }
         }
     }
 
@@ -480,15 +685,20 @@ impl MainWindow {
     // Geometry Calculations
     // =========================================================================
 
-    /// Calculate the available content area (inside margins, below menu bar).
+    /// Calculate the available content area (inside margins, below menu bar and toolbars).
     fn content_area(&self) -> Rect {
         let rect = self.base.rect();
         let menu_height = self.menu_bar_height();
+        let top_toolbar_height = self.toolbar_area_total_height(ToolBarArea::Top);
+        let bottom_toolbar_height = self.toolbar_area_total_height(ToolBarArea::Bottom);
+        let left_toolbar_width = self.toolbar_area_total_height(ToolBarArea::Left);
+        let right_toolbar_width = self.toolbar_area_total_height(ToolBarArea::Right);
+
         Rect::new(
-            self.content_margins.left,
-            self.content_margins.top + menu_height,
-            rect.width() - self.content_margins.horizontal(),
-            rect.height() - self.content_margins.vertical() - menu_height,
+            self.content_margins.left + left_toolbar_width,
+            self.content_margins.top + menu_height + top_toolbar_height,
+            rect.width() - self.content_margins.horizontal() - left_toolbar_width - right_toolbar_width,
+            rect.height() - self.content_margins.vertical() - menu_height - top_toolbar_height - bottom_toolbar_height,
         )
     }
 

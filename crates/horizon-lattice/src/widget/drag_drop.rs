@@ -62,6 +62,7 @@ use std::sync::Arc;
 use horizon_lattice_core::{ObjectId, Signal};
 use horizon_lattice_render::Point;
 
+use crate::platform::file_uri;
 use crate::platform::ImageData;
 
 use super::events::EventBase;
@@ -193,10 +194,15 @@ impl DragData {
     /// Creates drag data from a list of file paths.
     ///
     /// This is typically used for external file drops from the OS.
+    /// The paths are also stored in `text/uri-list` MIME format for interoperability.
     pub fn from_paths(paths: impl IntoIterator<Item = PathBuf>) -> Self {
         let urls: Vec<PathBuf> = paths.into_iter().collect();
+        let uri_list = file_uri::format_uri_list(&urls);
+        let mut data = HashMap::new();
+        data.insert(mime::TEXT_URI_LIST.to_string(), uri_list.into_bytes());
         Self {
             urls,
+            data,
             ..Default::default()
         }
     }
@@ -289,22 +295,86 @@ impl DragData {
 
     /// Returns true if URLs/file paths are available.
     pub fn has_urls(&self) -> bool {
-        !self.urls.is_empty()
+        !self.urls.is_empty() || self.has_format(mime::TEXT_URI_LIST)
     }
 
     /// Gets the URLs/file paths.
+    ///
+    /// This returns the paths stored directly. For URIs in string format,
+    /// use [`file_uris()`](Self::file_uris).
     pub fn urls(&self) -> &[PathBuf] {
         &self.urls
     }
 
     /// Sets the URLs/file paths.
+    ///
+    /// This also updates the `text/uri-list` MIME data for interoperability
+    /// with external applications.
     pub fn set_urls(&mut self, urls: impl IntoIterator<Item = PathBuf>) {
         self.urls = urls.into_iter().collect();
+        self.sync_uri_list();
     }
 
     /// Adds a single URL/file path.
+    ///
+    /// This also updates the `text/uri-list` MIME data.
     pub fn add_url(&mut self, url: PathBuf) {
         self.urls.push(url);
+        self.sync_uri_list();
+    }
+
+    /// Gets file URLs as `file://` URI strings (RFC 8089 format).
+    ///
+    /// This converts the stored paths to proper file URIs.
+    pub fn file_uris(&self) -> Vec<String> {
+        self.urls.iter().map(|p| file_uri::path_to_uri(p)).collect()
+    }
+
+    /// Sets file URLs from `file://` URI strings.
+    ///
+    /// The URIs are parsed and stored as paths. Invalid URIs are ignored.
+    /// This also updates the `text/uri-list` MIME data.
+    pub fn set_file_uris(&mut self, uris: impl IntoIterator<Item = impl AsRef<str>>) {
+        self.urls = uris
+            .into_iter()
+            .filter_map(|uri| file_uri::uri_to_path(uri.as_ref()))
+            .collect();
+        self.sync_uri_list();
+    }
+
+    /// Returns true if `text/uri-list` MIME data is available.
+    pub fn has_uri_list(&self) -> bool {
+        self.has_format(mime::TEXT_URI_LIST)
+    }
+
+    /// Gets the raw `text/uri-list` MIME data as a string.
+    ///
+    /// This returns the URI list in RFC 2483 format (one URI per line, CRLF terminated).
+    pub fn uri_list(&self) -> Option<String> {
+        self.get_data(mime::TEXT_URI_LIST)
+            .and_then(|bytes| String::from_utf8(bytes.to_vec()).ok())
+    }
+
+    /// Sets the `text/uri-list` MIME data directly.
+    ///
+    /// The input should be in RFC 2483 format. This also parses `file://` URIs
+    /// and updates the internal paths list.
+    pub fn set_uri_list(&mut self, uri_list: impl Into<String>) {
+        let uri_list = uri_list.into();
+        // Parse file:// URIs into paths
+        self.urls = file_uri::parse_uri_list(&uri_list);
+        // Store the raw URI list
+        self.set_data(mime::TEXT_URI_LIST, uri_list.into_bytes());
+    }
+
+    /// Synchronizes the internal paths with the `text/uri-list` MIME data.
+    fn sync_uri_list(&mut self) {
+        if !self.urls.is_empty() {
+            let uri_list = file_uri::format_uri_list(&self.urls);
+            self.set_data(mime::TEXT_URI_LIST, uri_list.into_bytes());
+        } else {
+            self.data.remove(mime::TEXT_URI_LIST);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -1578,5 +1648,113 @@ mod tests {
         assert_eq!(mime::IMAGE_PNG, "image/png");
         assert_eq!(mime::IMAGE_RGBA, "image/x-rgba");
         assert!(mime::APPLICATION_PREFIX.starts_with("application/"));
+    }
+
+    // File URI method tests
+    #[test]
+    fn test_drag_data_file_uris() {
+        let paths = vec![
+            PathBuf::from("/home/user/file1.txt"),
+            PathBuf::from("/home/user/file2.txt"),
+        ];
+        let data = DragData::from_paths(paths.clone());
+
+        // Check that file_uris returns proper URIs
+        let uris = data.file_uris();
+        #[cfg(unix)]
+        {
+            assert_eq!(uris.len(), 2);
+            assert!(uris[0].starts_with("file:///"));
+            assert!(uris[1].starts_with("file:///"));
+        }
+    }
+
+    #[test]
+    fn test_drag_data_set_file_uris() {
+        let mut data = DragData::new();
+
+        // Set URIs from strings
+        data.set_file_uris(vec![
+            "file:///home/user/file1.txt",
+            "file:///home/user/file2.txt",
+        ]);
+
+        #[cfg(unix)]
+        {
+            assert!(data.has_urls());
+            let paths = data.urls();
+            assert_eq!(paths.len(), 2);
+            assert_eq!(paths[0], PathBuf::from("/home/user/file1.txt"));
+            assert_eq!(paths[1], PathBuf::from("/home/user/file2.txt"));
+        }
+    }
+
+    #[test]
+    fn test_drag_data_uri_list_mime() {
+        let paths = vec![PathBuf::from("/tmp/test.txt")];
+        let data = DragData::from_paths(paths);
+
+        // Should have text/uri-list MIME data
+        assert!(data.has_uri_list());
+        assert!(data.has_format(mime::TEXT_URI_LIST));
+
+        // Get the raw URI list
+        let uri_list = data.uri_list().unwrap();
+        #[cfg(unix)]
+        {
+            assert!(uri_list.contains("file:///tmp/test.txt"));
+        }
+    }
+
+    #[test]
+    fn test_drag_data_set_uri_list() {
+        let mut data = DragData::new();
+
+        // Set URI list directly
+        #[cfg(unix)]
+        {
+            data.set_uri_list("file:///home/user/file.txt\r\n");
+            assert!(data.has_urls());
+            assert_eq!(data.urls().len(), 1);
+            assert_eq!(data.urls()[0], PathBuf::from("/home/user/file.txt"));
+        }
+    }
+
+    #[test]
+    fn test_drag_data_urls_sync() {
+        let mut data = DragData::new();
+
+        // Add URLs and check that URI list is synchronized
+        data.set_urls(vec![PathBuf::from("/tmp/a.txt")]);
+        assert!(data.has_uri_list());
+
+        // Add another URL
+        data.add_url(PathBuf::from("/tmp/b.txt"));
+        let uri_list = data.uri_list().unwrap();
+        #[cfg(unix)]
+        {
+            assert!(uri_list.contains("file:///tmp/a.txt"));
+            assert!(uri_list.contains("file:///tmp/b.txt"));
+        }
+
+        // Clear URLs
+        data.set_urls(Vec::<PathBuf>::new());
+        assert!(!data.has_uri_list());
+    }
+
+    #[test]
+    fn test_drag_data_custom_mime() {
+        let mut data = DragData::new();
+
+        // Set custom MIME data
+        let custom_data = b"custom binary data";
+        data.set_data("application/x-custom", custom_data.to_vec());
+
+        assert!(data.has_format("application/x-custom"));
+        assert_eq!(data.get_data("application/x-custom"), Some(custom_data.as_slice()));
+
+        // Formats iterator should include our custom type
+        let formats: Vec<&str> = data.formats().collect();
+        assert!(formats.contains(&"application/x-custom"));
     }
 }

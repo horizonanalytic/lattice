@@ -333,6 +333,52 @@ impl Clipboard {
     pub fn set_image(&mut self, image: &ImageData) -> Result<(), ClipboardError> {
         self.inner.set_image(image.into()).map_err(Into::into)
     }
+
+    /// Get file URLs from the clipboard.
+    ///
+    /// Returns a list of file paths if the clipboard contains files (e.g., from
+    /// copying files in a file manager).
+    ///
+    /// # Platform Notes
+    ///
+    /// - **Windows**: Reads CF_HDROP clipboard format
+    /// - **macOS**: Reads `public.file-url` pasteboard type
+    /// - **Linux**: Reads `text/uri-list` from X11 clipboard
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The clipboard doesn't contain file URLs
+    /// - The clipboard cannot be accessed
+    pub fn get_file_urls(&mut self) -> Result<Vec<std::path::PathBuf>, ClipboardError> {
+        get_file_urls_impl()
+    }
+
+    /// Set file URLs on the clipboard.
+    ///
+    /// Copies a list of file paths to the clipboard, allowing them to be pasted
+    /// into file managers and other applications.
+    ///
+    /// # Platform Notes
+    ///
+    /// - **Windows**: Sets CF_HDROP clipboard format
+    /// - **macOS**: Sets `public.file-url` pasteboard type
+    /// - **Linux**: Sets `text/uri-list` on X11 clipboard
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the files cannot be written to the clipboard.
+    pub fn set_file_urls(&mut self, paths: &[std::path::PathBuf]) -> Result<(), ClipboardError> {
+        set_file_urls_impl(paths)
+    }
+
+    /// Check if the clipboard contains file URLs.
+    ///
+    /// This is a quick check to see if the clipboard has file data without
+    /// actually retrieving the files.
+    pub fn has_file_urls(&mut self) -> bool {
+        has_file_urls_impl()
+    }
 }
 
 impl fmt::Debug for Clipboard {
@@ -852,6 +898,398 @@ impl fmt::Debug for X11Clipboard {
 }
 
 // ============================================================================
+// File URL Clipboard Support - Platform Implementations
+// ============================================================================
+
+// Windows implementation using CF_HDROP
+#[cfg(target_os = "windows")]
+fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
+    use std::path::PathBuf;
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::System::DataExchange::{
+        CloseClipboard, GetClipboardData, IsClipboardFormatAvailable, OpenClipboard,
+    };
+    use windows::Win32::System::Ole::CF_HDROP;
+    use windows::Win32::UI::Shell::{DragQueryFileW, HDROP};
+
+    unsafe {
+        // Open clipboard
+        OpenClipboard(HWND::default())
+            .map_err(|e| ClipboardError::new(format!("Failed to open clipboard: {}", e)))?;
+
+        let result = (|| -> Result<Vec<PathBuf>, ClipboardError> {
+            // Check if CF_HDROP is available
+            if !IsClipboardFormatAvailable(CF_HDROP.0 as u32).as_bool() {
+                return Err(ClipboardError::new("Clipboard does not contain file URLs"));
+            }
+
+            // Get clipboard data
+            let handle = GetClipboardData(CF_HDROP.0 as u32)
+                .map_err(|e| ClipboardError::new(format!("Failed to get clipboard data: {}", e)))?;
+
+            let hdrop = HDROP(handle.0);
+
+            // Get file count
+            let file_count = DragQueryFileW(hdrop, 0xFFFFFFFF, None);
+            if file_count == 0 {
+                return Ok(Vec::new());
+            }
+
+            let mut paths = Vec::with_capacity(file_count as usize);
+
+            for i in 0..file_count {
+                // Get required buffer size
+                let size = DragQueryFileW(hdrop, i, None);
+                if size == 0 {
+                    continue;
+                }
+
+                // Allocate buffer and get filename
+                let mut buffer: Vec<u16> = vec![0; (size + 1) as usize];
+                let chars_copied = DragQueryFileW(hdrop, i, Some(&mut buffer));
+                if chars_copied > 0 {
+                    buffer.truncate(chars_copied as usize);
+                    let path_str = String::from_utf16_lossy(&buffer);
+                    paths.push(PathBuf::from(path_str));
+                }
+            }
+
+            Ok(paths)
+        })();
+
+        // Always close clipboard
+        let _ = CloseClipboard();
+        result
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError> {
+    use std::mem;
+    use std::os::windows::ffi::OsStrExt;
+    use windows::Win32::Foundation::{GlobalFree, HGLOBAL, HWND};
+    use windows::Win32::System::DataExchange::{
+        CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
+    };
+    use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+    use windows::Win32::System::Ole::CF_HDROP;
+    use windows::Win32::UI::Shell::DROPFILES;
+
+    if paths.is_empty() {
+        return Ok(());
+    }
+
+    unsafe {
+        // Calculate total size needed for DROPFILES + file paths (double-null terminated)
+        let mut total_chars = 0usize;
+        let wide_paths: Vec<Vec<u16>> = paths
+            .iter()
+            .map(|p| {
+                let wide: Vec<u16> = p.as_os_str().encode_wide().chain(Some(0)).collect();
+                total_chars += wide.len();
+                wide
+            })
+            .collect();
+        total_chars += 1; // Final null terminator
+
+        let dropfiles_size = mem::size_of::<DROPFILES>();
+        let total_size = dropfiles_size + total_chars * mem::size_of::<u16>();
+
+        // Open clipboard
+        OpenClipboard(HWND::default())
+            .map_err(|e| ClipboardError::new(format!("Failed to open clipboard: {}", e)))?;
+
+        let result = (|| -> Result<(), ClipboardError> {
+            // Empty clipboard
+            EmptyClipboard()
+                .map_err(|e| ClipboardError::new(format!("Failed to empty clipboard: {}", e)))?;
+
+            // Allocate global memory
+            let hglobal = GlobalAlloc(GMEM_MOVEABLE, total_size)
+                .map_err(|e| ClipboardError::new(format!("Failed to allocate memory: {}", e)))?;
+
+            // Lock memory and fill it
+            let ptr = GlobalLock(hglobal);
+            if ptr.is_null() {
+                let _ = GlobalFree(hglobal);
+                return Err(ClipboardError::new("Failed to lock global memory"));
+            }
+
+            // Fill DROPFILES structure
+            let dropfiles = ptr as *mut DROPFILES;
+            (*dropfiles).pFiles = dropfiles_size as u32;
+            (*dropfiles).pt.x = 0;
+            (*dropfiles).pt.y = 0;
+            (*dropfiles).fNC = false.into();
+            (*dropfiles).fWide = true.into(); // Unicode paths
+
+            // Copy file paths after DROPFILES structure
+            let mut dest = (ptr as *mut u8).add(dropfiles_size) as *mut u16;
+            for wide_path in &wide_paths {
+                for &wchar in wide_path {
+                    *dest = wchar;
+                    dest = dest.add(1);
+                }
+            }
+            // Final null terminator
+            *dest = 0;
+
+            let _ = GlobalUnlock(hglobal);
+
+            // Set clipboard data
+            SetClipboardData(CF_HDROP.0 as u32, HGLOBAL(hglobal.0 as *mut _).0)
+                .map_err(|e| ClipboardError::new(format!("Failed to set clipboard data: {}", e)))?;
+
+            Ok(())
+        })();
+
+        // Always close clipboard
+        let _ = CloseClipboard();
+        result
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn has_file_urls_impl() -> bool {
+    use windows::Win32::System::DataExchange::IsClipboardFormatAvailable;
+    use windows::Win32::System::Ole::CF_HDROP;
+
+    unsafe { IsClipboardFormatAvailable(CF_HDROP.0 as u32).as_bool() }
+}
+
+// macOS implementation using NSPasteboard
+#[cfg(target_os = "macos")]
+fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
+    use objc2::ClassType;
+    use objc2_app_kit::NSPasteboard;
+    use objc2_foundation::{NSArray, NSURL};
+    use std::path::PathBuf;
+
+    let pasteboard = NSPasteboard::generalPasteboard();
+
+    // Read URLs from pasteboard using the modern API
+    let url_class = NSURL::class();
+    let classes: objc2::rc::Retained<NSArray<_>> = NSArray::from_slice(&[url_class]);
+    let options = objc2_foundation::NSDictionary::new();
+
+    let objects = unsafe { pasteboard.readObjectsForClasses_options(&classes, Some(&options)) };
+
+    match objects {
+        Some(urls) => {
+            let mut paths = Vec::new();
+            let count = urls.count();
+            for i in 0..count {
+                // Use objectAtIndex to get items from NSArray
+                let obj = unsafe { urls.objectAtIndex(i) };
+                // The object should be an NSURL - cast it via pointer
+                let url: &NSURL = unsafe { &*(&*obj as *const _ as *const NSURL) };
+                if url.isFileURL() {
+                    if let Some(path_str) = url.path() {
+                        let path_string: String = path_str.to_string();
+                        paths.push(PathBuf::from(path_string));
+                    }
+                }
+            }
+            if paths.is_empty() {
+                Err(ClipboardError::new("No file URLs in clipboard"))
+            } else {
+                Ok(paths)
+            }
+        }
+        None => Err(ClipboardError::new("Clipboard does not contain file URLs")),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError> {
+    use objc2_app_kit::{NSPasteboard, NSPasteboardTypeFileURL};
+    use objc2_foundation::NSString;
+
+    if paths.is_empty() {
+        return Ok(());
+    }
+
+    let pasteboard = NSPasteboard::generalPasteboard();
+    pasteboard.clearContents();
+
+    // For setting file URLs, we use the older but more reliable string-based API
+    // Convert paths to file:// URI strings and set as text/uri-list equivalent
+    let mut uri_list = String::new();
+    for path in paths {
+        // Create file:// URI
+        let uri = crate::platform::file_uri::path_to_uri(path);
+        uri_list.push_str(&uri);
+        uri_list.push('\n');
+    }
+
+    // Set as the file URL pasteboard type
+    let ns_uri_list = NSString::from_str(&uri_list);
+    let result = unsafe { pasteboard.setString_forType(&ns_uri_list, NSPasteboardTypeFileURL) };
+
+    if result {
+        Ok(())
+    } else {
+        // Fallback: try setting as plain text with file:// URLs
+        let result = unsafe {
+            pasteboard.setString_forType(
+                &ns_uri_list,
+                objc2_app_kit::NSPasteboardTypeString,
+            )
+        };
+        if result {
+            Ok(())
+        } else {
+            Err(ClipboardError::new("Failed to write file URLs to clipboard"))
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn has_file_urls_impl() -> bool {
+    use objc2::ClassType;
+    use objc2_app_kit::NSPasteboard;
+    use objc2_foundation::{NSArray, NSURL};
+
+    let pasteboard = NSPasteboard::generalPasteboard();
+    let url_class = NSURL::class();
+    let classes: objc2::rc::Retained<NSArray<_>> = NSArray::from_slice(&[url_class]);
+    let options = objc2_foundation::NSDictionary::new();
+
+    unsafe { pasteboard.canReadObjectForClasses_options(&classes, Some(&options)) }
+}
+
+// Linux implementation using X11 text/uri-list
+#[cfg(target_os = "linux")]
+fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
+    use crate::platform::file_uri;
+    use std::time::Duration;
+    use x11_clipboard::Clipboard as X11ClipboardInner;
+
+    let clipboard = X11ClipboardInner::new()
+        .map_err(|e| ClipboardError::new(format!("Failed to connect to X11: {:?}", e)))?;
+
+    let atoms = &clipboard.getter.atoms;
+
+    // Try to read text/uri-list
+    let uri_list_atom = clipboard
+        .getter
+        .connection
+        .intern_atom(false, b"text/uri-list")
+        .map_err(|e| ClipboardError::new(format!("Failed to intern atom: {:?}", e)))?
+        .reply()
+        .map_err(|e| ClipboardError::new(format!("Failed to get atom reply: {:?}", e)))?
+        .atom;
+
+    let data = clipboard
+        .load(
+            atoms.clipboard,
+            uri_list_atom,
+            atoms.property,
+            Duration::from_secs(2),
+        )
+        .map_err(|e| ClipboardError::new(format!("Failed to read clipboard: {:?}", e)))?;
+
+    let uri_list = String::from_utf8_lossy(&data).into_owned();
+    let paths = file_uri::parse_uri_list(&uri_list);
+
+    if paths.is_empty() {
+        Err(ClipboardError::new("No file URLs in clipboard"))
+    } else {
+        Ok(paths)
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError> {
+    use crate::platform::file_uri;
+    use x11_clipboard::Clipboard as X11ClipboardInner;
+
+    if paths.is_empty() {
+        return Ok(());
+    }
+
+    let clipboard = X11ClipboardInner::new()
+        .map_err(|e| ClipboardError::new(format!("Failed to connect to X11: {:?}", e)))?;
+
+    let atoms = &clipboard.setter.atoms;
+
+    // Intern text/uri-list atom
+    let uri_list_atom = clipboard
+        .setter
+        .connection
+        .intern_atom(false, b"text/uri-list")
+        .map_err(|e| ClipboardError::new(format!("Failed to intern atom: {:?}", e)))?
+        .reply()
+        .map_err(|e| ClipboardError::new(format!("Failed to get atom reply: {:?}", e)))?
+        .atom;
+
+    // Format paths as URI list
+    let uri_list = file_uri::format_uri_list(paths);
+
+    clipboard
+        .store(atoms.clipboard, uri_list_atom, uri_list.as_bytes())
+        .map_err(|e| ClipboardError::new(format!("Failed to write clipboard: {:?}", e)))?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn has_file_urls_impl() -> bool {
+    use std::time::Duration;
+    use x11_clipboard::Clipboard as X11ClipboardInner;
+
+    let Ok(clipboard) = X11ClipboardInner::new() else {
+        return false;
+    };
+
+    let atoms = &clipboard.getter.atoms;
+
+    // Try to intern text/uri-list atom
+    let Ok(cookie) = clipboard
+        .getter
+        .connection
+        .intern_atom(false, b"text/uri-list")
+    else {
+        return false;
+    };
+
+    let Ok(reply) = cookie.reply() else {
+        return false;
+    };
+
+    // Check if clipboard has this format
+    clipboard
+        .load(
+            atoms.clipboard,
+            reply.atom,
+            atoms.property,
+            Duration::from_millis(100),
+        )
+        .map(|data| !data.is_empty())
+        .unwrap_or(false)
+}
+
+// Fallback for other platforms
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
+    Err(ClipboardError::new(
+        "File URL clipboard support not available on this platform",
+    ))
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+fn set_file_urls_impl(_paths: &[std::path::PathBuf]) -> Result<(), ClipboardError> {
+    Err(ClipboardError::new(
+        "File URL clipboard support not available on this platform",
+    ))
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+fn has_file_urls_impl() -> bool {
+    false
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -947,6 +1385,54 @@ mod tests {
         fn test_x11_selection_enum() {
             assert_ne!(X11Selection::Primary, X11Selection::Clipboard);
             assert_ne!(X11Selection::Secondary, X11Selection::Clipboard);
+        }
+    }
+
+    // File URL clipboard tests - these test the API but may not work in CI
+    // without a display/clipboard access
+    mod file_url_tests {
+        use super::*;
+        use std::path::PathBuf;
+
+        #[test]
+        fn test_file_url_methods_exist() {
+            // Test that the methods compile and are accessible
+            // Actual clipboard access may fail in CI
+            if let Ok(mut clipboard) = Clipboard::new() {
+                // Test has_file_urls
+                let _has = clipboard.has_file_urls();
+
+                // Test get_file_urls (may return error if clipboard is empty)
+                let _ = clipboard.get_file_urls();
+
+                // Test set_file_urls
+                let paths = vec![PathBuf::from("/tmp/test.txt")];
+                let _ = clipboard.set_file_urls(&paths);
+            }
+        }
+
+        #[test]
+        #[ignore] // Run manually with --ignored when clipboard is available
+        fn test_file_url_roundtrip() {
+            let mut clipboard = Clipboard::new().expect("Failed to create clipboard");
+
+            // Set file URLs
+            let paths = vec![
+                PathBuf::from("/tmp/file1.txt"),
+                PathBuf::from("/tmp/file2.txt"),
+            ];
+            clipboard
+                .set_file_urls(&paths)
+                .expect("Failed to set file URLs");
+
+            // Verify they're set
+            assert!(clipboard.has_file_urls());
+
+            // Get them back
+            let retrieved = clipboard
+                .get_file_urls()
+                .expect("Failed to get file URLs");
+            assert_eq!(retrieved.len(), 2);
         }
     }
 }

@@ -164,6 +164,7 @@
 mod clipboard;
 mod desktop_integration;
 mod file_associations;
+pub mod file_uri;
 mod hardware;
 mod high_contrast;
 mod localization;

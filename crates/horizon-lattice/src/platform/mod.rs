@@ -90,6 +90,34 @@
 //!     // Use high contrast theme
 //! }
 //! ```
+//!
+//! # System Theme
+//!
+//! The system theme module provides detection of light/dark mode, accent color,
+//! and real-time theme change notifications:
+//!
+//! ```ignore
+//! use horizon_lattice::platform::{SystemTheme, ColorScheme, ThemeWatcher};
+//!
+//! // One-shot theme detection
+//! match SystemTheme::color_scheme() {
+//!     ColorScheme::Dark => println!("Dark mode"),
+//!     ColorScheme::Light => println!("Light mode"),
+//!     ColorScheme::Unknown => println!("Unknown"),
+//! }
+//!
+//! // Get system accent color
+//! if let Some(accent) = SystemTheme::accent_color() {
+//!     println!("Accent: {}", accent); // e.g., "#0078d7"
+//! }
+//!
+//! // Watch for theme changes
+//! let watcher = ThemeWatcher::new()?;
+//! watcher.color_scheme_changed().connect(|scheme| {
+//!     println!("Theme changed: {:?}", scheme);
+//! });
+//! watcher.start()?;
+//! ```
 
 mod clipboard;
 mod desktop_integration;
@@ -99,6 +127,7 @@ mod high_contrast;
 mod notifications;
 mod power_management;
 mod session_management;
+mod system_theme;
 
 pub use clipboard::{Clipboard, ClipboardData, ClipboardError, ClipboardWatcher, ImageData};
 pub use desktop_integration::{
@@ -110,6 +139,9 @@ pub use file_associations::{
     UrlSchemeInfo, UrlSchemeRegistration,
 };
 pub use high_contrast::HighContrast;
+pub use system_theme::{
+    AccentColor, ColorScheme, SystemTheme, SystemThemeError, ThemeInfo, ThemeWatcher,
+};
 pub use power_management::{
     BatteryInfo, BatteryState, PowerEventReason, PowerEventWatcher, PowerManagementError,
     PowerSource, PowerState, SleepInhibitOptions, SleepInhibitor, SleepInhibitorGuard,

@@ -1954,6 +1954,69 @@ impl Widget for Label {
 // Ensure Label is Send + Sync
 static_assertions::assert_impl_all!(Label: Send, Sync);
 
+// =========================================================================
+// Accessibility
+// =========================================================================
+
+#[cfg(feature = "accessibility")]
+impl crate::widget::accessibility::Accessible for Label {
+    fn accessible_role(&self) -> crate::widget::accessibility::AccessibleRole {
+        // Check if the label contains a link
+        if self.text().contains("href=") || self.text().contains("<a ") {
+            crate::widget::accessibility::AccessibleRole::Link
+        } else {
+            crate::widget::accessibility::AccessibleRole::Label
+        }
+    }
+
+    fn accessible_name(&self) -> Option<String> {
+        // Use custom accessible name if set, otherwise use the label text
+        self.widget_base()
+            .accessible_name()
+            .map(String::from)
+            .or_else(|| {
+                let text = self.text();
+                if text.is_empty() {
+                    None
+                } else {
+                    // Strip HTML tags for accessible name
+                    Some(strip_html_tags_for_a11y(text))
+                }
+            })
+    }
+
+    fn accessible_description(&self) -> Option<String> {
+        self.widget_base().accessible_description().map(String::from)
+    }
+
+    fn accessible_actions(&self) -> Vec<accesskit::Action> {
+        // Labels with links should be focusable
+        if self.text().contains("href=") || self.text().contains("<a ") {
+            vec![accesskit::Action::Focus, accesskit::Action::Click]
+        } else {
+            Vec::new()
+        }
+    }
+}
+
+/// Strip HTML tags from text for accessibility purposes.
+#[cfg(feature = "accessibility")]
+fn strip_html_tags_for_a11y(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    let mut in_tag = false;
+
+    for c in text.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => result.push(c),
+            _ => {}
+        }
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -7,6 +7,10 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
+[features]
+default = ["accessibility"]
+accessibility = ["dep:accesskit", "dep:accesskit_winit"]
+
 [dependencies]
 horizon-lattice-core = { workspace = true }
 horizon-lattice-macros = { workspace = true }
@@ -22,6 +26,10 @@ ropey = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 tray-icon = { workspace = true }
+
+# Accessibility (optional)
+accesskit = { workspace = true, optional = true }
+accesskit_winit = { workspace = true, optional = true }
 
 # Native dialog dependencies (macOS)
 [target.'cfg(target_os = "macos")'.dependencies]

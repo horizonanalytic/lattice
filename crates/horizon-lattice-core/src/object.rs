@@ -23,6 +23,28 @@ new_key_type! {
     pub struct ObjectId;
 }
 
+impl ObjectId {
+    /// Convert the ObjectId to a raw u64 value.
+    ///
+    /// This is useful for interop with external systems that need a numeric ID.
+    /// The raw value can be converted back using [`ObjectId::from_raw`].
+    #[inline]
+    pub fn as_raw(self) -> u64 {
+        use slotmap::Key;
+        self.data().as_ffi()
+    }
+
+    /// Create an ObjectId from a raw u64 value.
+    ///
+    /// Returns `Some` if the raw value could be a valid ObjectId.
+    /// Note: This does not check if the ObjectId exists in the registry.
+    #[inline]
+    pub fn from_raw(raw: u64) -> Option<Self> {
+        let key_data = slotmap::KeyData::from_ffi(raw);
+        Some(Self::from(key_data))
+    }
+}
+
 /// Errors that can occur during object operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ObjectError {

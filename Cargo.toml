@@ -80,6 +80,7 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
     "NSColorPanel", "NSColor", "NSColorSpace",
     "NSFontPanel", "NSFontManager", "NSFont", "NSFontDescriptor",
     "NSView", "NSRunningApplication", "NSGraphics", "NSControl", "NSCell",
+    "NSWorkspace", "NSAccessibility",
 ] }
 block2 = "0.6"
 
@@ -91,11 +92,16 @@ windows = { version = "0.58", features = [
     "Win32_Graphics_Gdi",
     "Win32_Foundation",
     "Win32_System_Com",
+    "Win32_UI_Accessibility",
 ] }
 
 # Native dialog dependencies (Linux)
 ashpd = "0.10"
 zbus = "5"
+
+# Accessibility
+accesskit = "0.18"
+accesskit_winit = "0.24"
 
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }

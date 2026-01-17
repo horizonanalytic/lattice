@@ -198,6 +198,18 @@ pub struct WidgetBase {
     /// parent widgets.
     accepts_drops: bool,
 
+    /// Custom accessible name for screen readers.
+    ///
+    /// If `None`, widgets use their default accessible name (e.g., button text).
+    /// Set this to override the default for accessibility purposes.
+    accessible_name: Option<String>,
+
+    /// Custom accessible description for screen readers.
+    ///
+    /// Provides additional context beyond the accessible name.
+    /// For example, "Press Enter to submit the form".
+    accessible_description: Option<String>,
+
     /// Signal emitted when the geometry changes.
     pub geometry_changed: Signal<Rect>,
 
@@ -292,6 +304,8 @@ impl WidgetBase {
             context_menu_policy: ContextMenuPolicy::DefaultContextMenu,
             cursor: None,
             accepts_drops: false,
+            accessible_name: None,
+            accessible_description: None,
             geometry_changed: Signal::new(),
             pressed_changed: Signal::new(),
             visible_changed: Signal::new(),
@@ -945,6 +959,67 @@ impl WidgetBase {
     #[inline]
     pub fn set_accepts_drops(&mut self, accepts: bool) {
         self.accepts_drops = accepts;
+    }
+
+    // =========================================================================
+    // Accessibility
+    // =========================================================================
+
+    /// Get the custom accessible name for this widget.
+    ///
+    /// Returns `None` if no custom name is set, in which case the widget's
+    /// default accessible name should be used (e.g., button text).
+    #[inline]
+    pub fn accessible_name(&self) -> Option<&str> {
+        self.accessible_name.as_deref()
+    }
+
+    /// Set a custom accessible name for screen readers.
+    ///
+    /// This overrides the widget's default accessible name. Use this when
+    /// the visual text doesn't provide enough context for screen reader users.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // An icon button with no visible text
+    /// button.set_accessible_name("Search");
+    /// ```
+    pub fn set_accessible_name(&mut self, name: impl Into<String>) {
+        self.accessible_name = Some(name.into());
+    }
+
+    /// Clear the custom accessible name.
+    ///
+    /// The widget will use its default accessible name instead.
+    pub fn clear_accessible_name(&mut self) {
+        self.accessible_name = None;
+    }
+
+    /// Get the custom accessible description for this widget.
+    ///
+    /// Returns `None` if no description is set.
+    #[inline]
+    pub fn accessible_description(&self) -> Option<&str> {
+        self.accessible_description.as_deref()
+    }
+
+    /// Set a custom accessible description for screen readers.
+    ///
+    /// The description provides additional context beyond the accessible name.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// submit_button.set_accessible_description("Press Enter to submit the form");
+    /// ```
+    pub fn set_accessible_description(&mut self, description: impl Into<String>) {
+        self.accessible_description = Some(description.into());
+    }
+
+    /// Clear the custom accessible description.
+    pub fn clear_accessible_description(&mut self) {
+        self.accessible_description = None;
     }
 
     // =========================================================================

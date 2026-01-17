@@ -117,6 +117,8 @@
 //! ));
 //! ```
 
+#[cfg(feature = "accessibility")]
+pub mod accessibility;
 pub mod animation;
 mod base;
 pub mod completer;
@@ -173,6 +175,9 @@ pub use shortcut::{
     DEFAULT_CHORD_TIMEOUT_MS, MAX_KEY_SEQUENCE_LENGTH,
 };
 pub use traits::{AsWidget, PaintContext, Widget};
+
+#[cfg(feature = "accessibility")]
+pub use accessibility::{Accessible, AccessibilityManager, AccessibleRole};
 
 // Re-export widgets for convenience
 pub use widgets::{

@@ -720,6 +720,52 @@ impl Widget for CheckBox {
 static_assertions::assert_impl_all!(CheckBox: Send, Sync);
 
 // =========================================================================
+// Accessibility
+// =========================================================================
+
+#[cfg(feature = "accessibility")]
+impl crate::widget::accessibility::Accessible for CheckBox {
+    fn accessible_role(&self) -> crate::widget::accessibility::AccessibleRole {
+        crate::widget::accessibility::AccessibleRole::CheckBox
+    }
+
+    fn accessible_name(&self) -> Option<String> {
+        // Use custom accessible name if set, otherwise use the checkbox text
+        self.widget_base()
+            .accessible_name()
+            .map(String::from)
+            .or_else(|| {
+                let text = self.text();
+                if text.is_empty() {
+                    None
+                } else {
+                    Some(text.to_string())
+                }
+            })
+    }
+
+    fn accessible_description(&self) -> Option<String> {
+        self.widget_base().accessible_description().map(String::from)
+    }
+
+    fn is_accessible_checked(&self) -> Option<bool> {
+        Some(self.is_checked())
+    }
+
+    fn is_accessible_mixed(&self) -> bool {
+        self.check_state() == CheckState::PartiallyChecked
+    }
+
+    fn accessible_actions(&self) -> Vec<accesskit::Action> {
+        let mut actions = vec![accesskit::Action::Focus];
+        if self.widget_base().is_effectively_enabled() {
+            actions.push(accesskit::Action::Click);
+        }
+        actions
+    }
+}
+
+// =========================================================================
 // Color Helpers
 // =========================================================================
 

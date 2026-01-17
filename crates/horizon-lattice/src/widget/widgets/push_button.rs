@@ -835,6 +835,53 @@ impl Widget for PushButton {
 // Ensure PushButton is Send + Sync
 static_assertions::assert_impl_all!(PushButton: Send, Sync);
 
+// =========================================================================
+// Accessibility
+// =========================================================================
+
+#[cfg(feature = "accessibility")]
+impl crate::widget::accessibility::Accessible for PushButton {
+    fn accessible_role(&self) -> crate::widget::accessibility::AccessibleRole {
+        crate::widget::accessibility::AccessibleRole::Button
+    }
+
+    fn accessible_name(&self) -> Option<String> {
+        // Use custom accessible name if set, otherwise use the button text
+        self.widget_base()
+            .accessible_name()
+            .map(String::from)
+            .or_else(|| {
+                let text = self.text();
+                if text.is_empty() {
+                    None
+                } else {
+                    Some(text.to_string())
+                }
+            })
+    }
+
+    fn accessible_description(&self) -> Option<String> {
+        self.widget_base().accessible_description().map(String::from)
+    }
+
+    fn is_accessible_checked(&self) -> Option<bool> {
+        // Only return checked state if the button is checkable
+        if self.is_checkable() {
+            Some(self.is_checked())
+        } else {
+            None
+        }
+    }
+
+    fn accessible_actions(&self) -> Vec<accesskit::Action> {
+        let mut actions = vec![accesskit::Action::Focus];
+        if self.widget_base().is_effectively_enabled() {
+            actions.push(accesskit::Action::Click);
+        }
+        actions
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

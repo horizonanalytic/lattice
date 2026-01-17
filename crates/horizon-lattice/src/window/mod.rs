@@ -54,6 +54,7 @@ mod window_config;
 mod window_icon;
 mod window_effects;
 mod frameless_chrome;
+mod event_router;
 
 pub use window_type::WindowType;
 pub use native_window::{NativeWindow, NativeWindowId, NativeWindowError};
@@ -62,6 +63,7 @@ pub use window_config::WindowConfig;
 pub use window_icon::WindowIcon;
 pub use window_effects::{WindowEffectError, WindowMask};
 pub use frameless_chrome::{ChromeHitTestResult, FramelessWindowChrome, ResizeDirection};
+pub use event_router::{install_window_event_router, create_window_event_handler};
 
 // Re-export WindowFlags and related types from the widget module for convenience
 pub use crate::widget::widgets::{WindowFlags, WindowModality, WindowState};

@@ -72,6 +72,14 @@ pub struct WindowManager {
     window_destroyed: Signal<NativeWindowId>,
     /// Signal emitted when a window gains focus.
     window_focused: Signal<NativeWindowId>,
+    /// Signal emitted when a window loses focus.
+    window_unfocused: Signal<NativeWindowId>,
+    /// Signal emitted when a window is resized.
+    /// Parameters: (window_id, new_width, new_height)
+    window_resized: Signal<(NativeWindowId, u32, u32)>,
+    /// Signal emitted when a window is moved.
+    /// Parameters: (window_id, new_x, new_y)
+    window_moved: Signal<(NativeWindowId, i32, i32)>,
 }
 
 impl WindowManager {
@@ -84,6 +92,9 @@ impl WindowManager {
             window_created: Signal::new(),
             window_destroyed: Signal::new(),
             window_focused: Signal::new(),
+            window_unfocused: Signal::new(),
+            window_resized: Signal::new(),
+            window_moved: Signal::new(),
         }
     }
 
@@ -421,6 +432,48 @@ impl WindowManager {
     /// This should be called by the event handler when a window receives focus.
     pub fn notify_focus(&self, id: NativeWindowId) {
         self.window_focused.emit(id);
+    }
+
+    /// Signal emitted when a window loses focus.
+    ///
+    /// The parameter is the unfocused window's ID.
+    pub fn window_unfocused(&self) -> &Signal<NativeWindowId> {
+        &self.window_unfocused
+    }
+
+    /// Notify that a window lost focus.
+    ///
+    /// This should be called by the event handler when a window loses focus.
+    pub fn notify_unfocus(&self, id: NativeWindowId) {
+        self.window_unfocused.emit(id);
+    }
+
+    /// Signal emitted when a window is resized.
+    ///
+    /// The parameters are (window_id, new_width, new_height).
+    pub fn window_resized(&self) -> &Signal<(NativeWindowId, u32, u32)> {
+        &self.window_resized
+    }
+
+    /// Notify that a window was resized.
+    ///
+    /// This should be called by the event handler when a window is resized.
+    pub fn notify_resize(&self, id: NativeWindowId, width: u32, height: u32) {
+        self.window_resized.emit((id, width, height));
+    }
+
+    /// Signal emitted when a window is moved.
+    ///
+    /// The parameters are (window_id, new_x, new_y).
+    pub fn window_moved(&self) -> &Signal<(NativeWindowId, i32, i32)> {
+        &self.window_moved
+    }
+
+    /// Notify that a window was moved.
+    ///
+    /// This should be called by the event handler when a window is moved.
+    pub fn notify_move(&self, id: NativeWindowId, x: i32, y: i32) {
+        self.window_moved.emit((id, x, y));
     }
 
     // =========================================================================

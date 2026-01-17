@@ -362,6 +362,8 @@ impl ResizeEdge {
 /// - `modality_changed(WindowModality)`: Emitted when the window modality changes
 /// - `activated()`: Emitted when the window becomes the active window
 /// - `deactivated()`: Emitted when the window is no longer the active window
+/// - `resized(Size)`: Emitted when the window is resized
+/// - `moved(Point)`: Emitted when the window is moved
 pub struct Window {
     /// Widget base.
     base: WidgetBase,
@@ -506,6 +508,14 @@ pub struct Window {
     pub activated: Signal<()>,
     /// Signal emitted when the window is deactivated.
     pub deactivated: Signal<()>,
+    /// Signal emitted when the window is resized.
+    ///
+    /// The parameter is the new size of the window.
+    pub resized: Signal<Size>,
+    /// Signal emitted when the window is moved.
+    ///
+    /// The parameter is the new position of the window.
+    pub moved: Signal<Point>,
     /// Signal emitted when an Alt+key mnemonic combination is pressed.
     ///
     /// The parameter is the lowercase mnemonic key character. Connect a handler
@@ -641,6 +651,8 @@ impl Window {
             modality_changed: Signal::new(),
             activated: Signal::new(),
             deactivated: Signal::new(),
+            resized: Signal::new(),
+            moved: Signal::new(),
             mnemonic_key_pressed: Signal::new(),
             default_button_activated: Signal::new(),
             shortcut_activated: Signal::new(),
@@ -2319,6 +2331,18 @@ impl Widget for Window {
                 self.deactivate();
                 true
             }
+            WidgetEvent::Resize(e) => {
+                // Update base geometry and emit signal
+                self.base.set_size(e.new_size);
+                self.resized.emit(e.new_size);
+                true
+            }
+            WidgetEvent::Move(e) => {
+                // Update base position and emit signal
+                self.base.set_pos(e.new_pos);
+                self.moved.emit(e.new_pos);
+                true
+            }
             _ => false,
         }
     }
@@ -2672,5 +2696,147 @@ mod tests {
         let window = Window::new("Square")
             .with_aspect_ratio(1.0);
         assert_eq!(window.aspect_ratio(), Some(1.0));
+    }
+
+    // =========================================================================
+    // Window Event Signal Tests
+    // =========================================================================
+
+    #[test]
+    fn test_window_resized_signal_exists() {
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let window = Window::new("Test Window");
+        // Verify the signal exists (compilation test)
+        let _ = &window.resized;
+    }
+
+    #[test]
+    fn test_window_moved_signal_exists() {
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let window = Window::new("Test Window");
+        // Verify the signal exists (compilation test)
+        let _ = &window.moved;
+    }
+
+    #[test]
+    fn test_window_resized_signal_emitted_on_event() {
+        use crate::widget::{ResizeEvent, Widget, WidgetEvent};
+        use horizon_lattice_core::init_global_registry;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let signal_received_clone = signal_received.clone();
+
+        window.resized.connect(move |_size| {
+            signal_received_clone.store(true, Ordering::SeqCst);
+        });
+
+        // Simulate a resize event
+        let old_size = Size::new(100.0, 100.0);
+        let new_size = Size::new(200.0, 150.0);
+        let mut event = WidgetEvent::Resize(ResizeEvent::new(old_size, new_size));
+        window.event(&mut event);
+
+        assert!(signal_received.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_window_moved_signal_emitted_on_event() {
+        use crate::widget::{MoveEvent, Widget, WidgetEvent};
+        use horizon_lattice_core::init_global_registry;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let signal_received_clone = signal_received.clone();
+
+        window.moved.connect(move |_pos| {
+            signal_received_clone.store(true, Ordering::SeqCst);
+        });
+
+        // Simulate a move event
+        let old_pos = Point::new(0.0, 0.0);
+        let new_pos = Point::new(100.0, 50.0);
+        let mut event = WidgetEvent::Move(MoveEvent::new(old_pos, new_pos));
+        window.event(&mut event);
+
+        assert!(signal_received.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_window_state_changed_signal_emitted() {
+        use horizon_lattice_core::init_global_registry;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let signal_received_clone = signal_received.clone();
+
+        window.state_changed.connect(move |state| {
+            if *state == WindowState::Maximized {
+                signal_received_clone.store(true, Ordering::SeqCst);
+            }
+        });
+
+        window.maximize();
+        assert!(signal_received.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_window_activated_signal_emitted() {
+        use crate::widget::{FocusInEvent, FocusReason, Widget, WidgetEvent};
+        use horizon_lattice_core::init_global_registry;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let signal_received_clone = signal_received.clone();
+
+        window.activated.connect(move |()| {
+            signal_received_clone.store(true, Ordering::SeqCst);
+        });
+
+        // Simulate a focus in event (Other reason represents programmatic focus change)
+        let mut event = WidgetEvent::FocusIn(FocusInEvent::new(FocusReason::Other));
+        window.event(&mut event);
+
+        assert!(signal_received.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_window_deactivated_signal_emitted() {
+        use crate::widget::{FocusOutEvent, FocusReason, Widget, WidgetEvent};
+        use horizon_lattice_core::init_global_registry;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        window.activate(); // First activate the window
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let signal_received_clone = signal_received.clone();
+
+        window.deactivated.connect(move |()| {
+            signal_received_clone.store(true, Ordering::SeqCst);
+        });
+
+        // Simulate a focus out event (Other reason represents programmatic focus change)
+        let mut event = WidgetEvent::FocusOut(FocusOutEvent::new(FocusReason::Other));
+        window.event(&mut event);
+
+        assert!(signal_received.load(Ordering::SeqCst));
     }
 }

@@ -28,9 +28,9 @@ use std::time::{Duration, Instant};
 use horizon_lattice_render::Point;
 
 use super::events::{
-    GestureState, KeyboardModifiers, LongPressGestureEvent, PanGestureEvent, PinchGestureEvent,
-    RotationGestureEvent, SwipeDirection, SwipeGestureEvent, TapGestureEvent, TouchEvent,
-    TouchPhase, TouchPoint,
+    GestureState, GestureType, KeyboardModifiers, LongPressGestureEvent, PanGestureEvent,
+    PinchGestureEvent, RotationGestureEvent, SwipeDirection, SwipeGestureEvent, TapGestureEvent,
+    TouchEvent, TouchPhase, TouchPoint,
 };
 
 /// Default tap timeout in milliseconds.
@@ -59,6 +59,17 @@ pub const DEFAULT_SWIPE_MIN_VELOCITY: f32 = 300.0;
 /// Default minimum distance for a swipe in pixels.
 pub const DEFAULT_SWIPE_MIN_DISTANCE: f32 = 50.0;
 
+/// All gesture types for iteration purposes.
+pub const ALL_GESTURE_TYPES: &[GestureType] = &[
+    GestureType::Tap,
+    GestureType::DoubleTap,
+    GestureType::LongPress,
+    GestureType::Pinch,
+    GestureType::Rotation,
+    GestureType::Swipe,
+    GestureType::Pan,
+];
+
 /// Recognized gesture events.
 #[derive(Debug)]
 pub enum RecognizedGesture {
@@ -74,6 +85,435 @@ pub enum RecognizedGesture {
     Pinch(PinchGestureEvent),
     /// Two-finger rotation gesture.
     Rotation(RotationGestureEvent),
+}
+
+impl RecognizedGesture {
+    /// Returns the gesture type for this recognized gesture.
+    pub fn gesture_type(&self) -> GestureType {
+        match self {
+            Self::Tap(e) => {
+                if e.tap_count >= 2 {
+                    GestureType::DoubleTap
+                } else {
+                    GestureType::Tap
+                }
+            }
+            Self::LongPress(_) => GestureType::LongPress,
+            Self::Swipe(_) => GestureType::Swipe,
+            Self::Pan(_) => GestureType::Pan,
+            Self::Pinch(_) => GestureType::Pinch,
+            Self::Rotation(_) => GestureType::Rotation,
+        }
+    }
+
+    /// Returns the gesture state if the gesture has one.
+    pub fn state(&self) -> Option<GestureState> {
+        match self {
+            Self::Tap(_) => None, // Tap is instantaneous
+            Self::Swipe(_) => None, // Swipe is instantaneous
+            Self::LongPress(e) => Some(e.state),
+            Self::Pan(e) => Some(e.state),
+            Self::Pinch(e) => Some(e.state),
+            Self::Rotation(e) => Some(e.state),
+        }
+    }
+}
+
+/// Policy for how a gesture interacts with other gestures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GesturePolicy {
+    /// Default policy: gestures follow the simultaneous gesture rules.
+    #[default]
+    Default,
+    /// Exclusive: accepting this gesture cancels all conflicting gestures.
+    Exclusive,
+    /// Cooperative: this gesture can coexist with others regardless of rules.
+    Cooperative,
+}
+
+/// Priority level for gesture recognition.
+///
+/// Higher priority gestures get first chance at recognition when conflicts occur.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub enum GesturePriority {
+    /// Low priority - processed last.
+    Low = 0,
+    /// Normal priority - default for most gestures.
+    #[default]
+    Normal = 1,
+    /// High priority - processed first.
+    High = 2,
+}
+
+/// Policy for simultaneous gesture recognition.
+///
+/// Controls which gesture types can be recognized together.
+#[derive(Debug, Clone)]
+pub struct SimultaneousGesturePolicy {
+    /// Set of gesture type pairs that can be recognized simultaneously.
+    /// A pair (A, B) means gesture type A and B can coexist.
+    allowed_pairs: std::collections::HashSet<(GestureType, GestureType)>,
+}
+
+impl Default for SimultaneousGesturePolicy {
+    fn default() -> Self {
+        let mut policy = Self::new();
+        // By default, allow pinch and rotation to occur simultaneously
+        policy.allow_simultaneous(GestureType::Pinch, GestureType::Rotation);
+        policy
+    }
+}
+
+impl SimultaneousGesturePolicy {
+    /// Creates a new policy with no allowed simultaneous gestures.
+    pub fn new() -> Self {
+        Self {
+            allowed_pairs: std::collections::HashSet::new(),
+        }
+    }
+
+    /// Creates a policy that allows all gestures to be recognized simultaneously.
+    pub fn allow_all() -> Self {
+        let mut policy = Self::new();
+        for (i, &a) in ALL_GESTURE_TYPES.iter().enumerate() {
+            for &b in ALL_GESTURE_TYPES.iter().skip(i + 1) {
+                policy.allow_simultaneous(a, b);
+            }
+        }
+        policy
+    }
+
+    /// Allows two gesture types to be recognized simultaneously.
+    pub fn allow_simultaneous(&mut self, a: GestureType, b: GestureType) {
+        // Store in canonical order to avoid duplicates
+        let pair = if (a as u8) <= (b as u8) { (a, b) } else { (b, a) };
+        self.allowed_pairs.insert(pair);
+    }
+
+    /// Disallows two gesture types from being recognized simultaneously.
+    pub fn disallow_simultaneous(&mut self, a: GestureType, b: GestureType) {
+        let pair = if (a as u8) <= (b as u8) { (a, b) } else { (b, a) };
+        self.allowed_pairs.remove(&pair);
+    }
+
+    /// Returns whether two gesture types can be recognized simultaneously.
+    pub fn can_be_simultaneous(&self, a: GestureType, b: GestureType) -> bool {
+        if a == b {
+            return true; // Same gesture type can always coexist with itself
+        }
+        let pair = if (a as u8) <= (b as u8) { (a, b) } else { (b, a) };
+        self.allowed_pairs.contains(&pair)
+    }
+}
+
+/// A dependency that requires one gesture to fail before another can be recognized.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FailureDependency {
+    /// The gesture that must wait.
+    pub waiting: GestureType,
+    /// The gesture that must fail first.
+    pub must_fail: GestureType,
+}
+
+impl FailureDependency {
+    /// Creates a new failure dependency.
+    ///
+    /// The `waiting` gesture will only be recognized after the `must_fail` gesture fails.
+    pub fn new(waiting: GestureType, must_fail: GestureType) -> Self {
+        Self { waiting, must_fail }
+    }
+}
+
+/// State of a gesture in the arena.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GestureArenaState {
+    /// Gesture is waiting for recognition (may be pending failure dependencies).
+    Pending,
+    /// Gesture is actively being recognized.
+    Active,
+    /// Gesture was accepted and completed recognition.
+    Accepted,
+    /// Gesture was rejected or cancelled.
+    Rejected,
+}
+
+/// Entry for a gesture in the arena.
+#[derive(Debug, Clone)]
+struct GestureArenaEntry {
+    /// The type of gesture.
+    gesture_type: GestureType,
+    /// Priority for conflict resolution.
+    priority: GesturePriority,
+    /// Policy for this gesture.
+    policy: GesturePolicy,
+    /// Current state in the arena.
+    state: GestureArenaState,
+    /// Start time for timeout handling.
+    start_time: Instant,
+}
+
+/// Arena for managing gesture conflicts.
+///
+/// The arena tracks all active gesture candidates and resolves conflicts
+/// based on priority, policy, and simultaneous gesture rules.
+#[derive(Debug)]
+pub struct GestureArena {
+    /// Active gesture entries indexed by a unique ID.
+    entries: HashMap<u64, GestureArenaEntry>,
+    /// Next entry ID.
+    next_id: u64,
+    /// Policy for simultaneous gestures.
+    simultaneous_policy: SimultaneousGesturePolicy,
+    /// Failure dependencies.
+    failure_dependencies: Vec<FailureDependency>,
+}
+
+impl Default for GestureArena {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GestureArena {
+    /// Creates a new gesture arena with default settings.
+    pub fn new() -> Self {
+        Self {
+            entries: HashMap::new(),
+            next_id: 0,
+            simultaneous_policy: SimultaneousGesturePolicy::default(),
+            failure_dependencies: Vec::new(),
+        }
+    }
+
+    /// Creates a new gesture arena with a custom simultaneous gesture policy.
+    pub fn with_policy(policy: SimultaneousGesturePolicy) -> Self {
+        Self {
+            entries: HashMap::new(),
+            next_id: 0,
+            simultaneous_policy: policy,
+            failure_dependencies: Vec::new(),
+        }
+    }
+
+    /// Sets the simultaneous gesture policy.
+    pub fn set_simultaneous_policy(&mut self, policy: SimultaneousGesturePolicy) {
+        self.simultaneous_policy = policy;
+    }
+
+    /// Adds a failure dependency.
+    ///
+    /// The `waiting` gesture type will only be recognized after `must_fail` fails.
+    pub fn add_failure_dependency(&mut self, waiting: GestureType, must_fail: GestureType) {
+        self.failure_dependencies
+            .push(FailureDependency::new(waiting, must_fail));
+    }
+
+    /// Removes a failure dependency.
+    pub fn remove_failure_dependency(&mut self, waiting: GestureType, must_fail: GestureType) {
+        self.failure_dependencies
+            .retain(|d| d.waiting != waiting || d.must_fail != must_fail);
+    }
+
+    /// Registers a new gesture candidate in the arena.
+    ///
+    /// Returns the ID assigned to this gesture entry, or `None` if the gesture
+    /// cannot be added due to conflicts.
+    pub fn register(
+        &mut self,
+        gesture_type: GestureType,
+        priority: GesturePriority,
+        policy: GesturePolicy,
+    ) -> Option<u64> {
+        // Check if this gesture is blocked by failure dependencies
+        let is_blocked = self.failure_dependencies.iter().any(|dep| {
+            dep.waiting == gesture_type
+                && self
+                    .entries
+                    .values()
+                    .any(|e| e.gesture_type == dep.must_fail && e.state != GestureArenaState::Rejected)
+        });
+
+        let initial_state = if is_blocked {
+            GestureArenaState::Pending
+        } else {
+            GestureArenaState::Active
+        };
+
+        let id = self.next_id;
+        self.next_id += 1;
+
+        let entry = GestureArenaEntry {
+            gesture_type,
+            priority,
+            policy,
+            state: initial_state,
+            start_time: Instant::now(),
+        };
+
+        self.entries.insert(id, entry);
+        Some(id)
+    }
+
+    /// Attempts to accept a gesture, resolving any conflicts.
+    ///
+    /// Returns a list of gesture IDs that were cancelled as a result.
+    pub fn accept(&mut self, id: u64) -> Vec<u64> {
+        let mut cancelled = Vec::new();
+
+        let Some(entry) = self.entries.get(&id) else {
+            return cancelled;
+        };
+
+        if entry.state != GestureArenaState::Active {
+            return cancelled;
+        }
+
+        let gesture_type = entry.gesture_type;
+        let policy = entry.policy;
+        let priority = entry.priority;
+
+        // Check for conflicts with other active gestures
+        let conflicting: Vec<u64> = self
+            .entries
+            .iter()
+            .filter(|(other_id, other)| {
+                **other_id != id
+                    && other.state == GestureArenaState::Active
+                    && !self
+                        .simultaneous_policy
+                        .can_be_simultaneous(gesture_type, other.gesture_type)
+            })
+            .map(|(id, _)| *id)
+            .collect();
+
+        // Determine if we should accept based on policy and priority
+        let should_accept = match policy {
+            GesturePolicy::Exclusive => {
+                // Cancel all conflicting gestures
+                for &conflict_id in &conflicting {
+                    if let Some(conflict) = self.entries.get_mut(&conflict_id) {
+                        conflict.state = GestureArenaState::Rejected;
+                        cancelled.push(conflict_id);
+                    }
+                }
+                true
+            }
+            GesturePolicy::Cooperative => {
+                // Accept without cancelling others
+                true
+            }
+            GesturePolicy::Default => {
+                // Use priority to resolve conflicts
+                let dominated_by_higher_priority = conflicting.iter().any(|&conflict_id| {
+                    self.entries
+                        .get(&conflict_id)
+                        .map(|e| e.priority > priority)
+                        .unwrap_or(false)
+                });
+
+                if dominated_by_higher_priority {
+                    // Don't accept, wait for higher priority gesture
+                    false
+                } else {
+                    // Cancel lower or equal priority conflicting gestures
+                    for &conflict_id in &conflicting {
+                        if let Some(conflict) = self.entries.get_mut(&conflict_id) {
+                            if conflict.priority <= priority {
+                                conflict.state = GestureArenaState::Rejected;
+                                cancelled.push(conflict_id);
+                            }
+                        }
+                    }
+                    true
+                }
+            }
+        };
+
+        if should_accept {
+            if let Some(entry) = self.entries.get_mut(&id) {
+                entry.state = GestureArenaState::Accepted;
+            }
+        }
+
+        // Check if any pending gestures can now become active
+        self.promote_pending_gestures();
+
+        cancelled
+    }
+
+    /// Rejects a gesture, removing it from the arena.
+    ///
+    /// Returns true if any pending gestures were promoted as a result.
+    pub fn reject(&mut self, id: u64) -> bool {
+        if let Some(entry) = self.entries.get_mut(&id) {
+            entry.state = GestureArenaState::Rejected;
+        }
+        self.promote_pending_gestures()
+    }
+
+    /// Removes a gesture from the arena.
+    pub fn remove(&mut self, id: u64) {
+        self.entries.remove(&id);
+        self.promote_pending_gestures();
+    }
+
+    /// Clears all gestures from the arena.
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
+
+    /// Returns the state of a gesture in the arena.
+    pub fn state(&self, id: u64) -> Option<GestureArenaState> {
+        self.entries.get(&id).map(|e| e.state)
+    }
+
+    /// Returns whether a gesture type is currently active in the arena.
+    pub fn is_active(&self, gesture_type: GestureType) -> bool {
+        self.entries
+            .values()
+            .any(|e| e.gesture_type == gesture_type && e.state == GestureArenaState::Active)
+    }
+
+    /// Returns the active gesture types.
+    pub fn active_gestures(&self) -> Vec<GestureType> {
+        self.entries
+            .values()
+            .filter(|e| e.state == GestureArenaState::Active)
+            .map(|e| e.gesture_type)
+            .collect()
+    }
+
+    /// Promotes pending gestures to active if their failure dependencies are resolved.
+    fn promote_pending_gestures(&mut self) -> bool {
+        let mut promoted = false;
+
+        // Collect IDs of gestures that can be promoted
+        let to_promote: Vec<u64> = self
+            .entries
+            .iter()
+            .filter(|(_, entry)| entry.state == GestureArenaState::Pending)
+            .filter(|(_, entry)| {
+                // Check if all failure dependencies are resolved
+                !self.failure_dependencies.iter().any(|dep| {
+                    dep.waiting == entry.gesture_type
+                        && self.entries.values().any(|e| {
+                            e.gesture_type == dep.must_fail && e.state == GestureArenaState::Active
+                        })
+                })
+            })
+            .map(|(&id, _)| id)
+            .collect();
+
+        // Promote them
+        for id in to_promote {
+            if let Some(entry) = self.entries.get_mut(&id) {
+                entry.state = GestureArenaState::Active;
+                promoted = true;
+            }
+        }
+
+        promoted
+    }
 }
 
 /// Internal state for tracking a touch.
@@ -872,5 +1312,259 @@ mod tests {
         assert!(recognizer.touches.is_empty());
         assert!(recognizer.last_tap.is_none());
         assert!(!recognizer.pan_in_progress);
+    }
+
+    // =========================================================================
+    // Conflict Resolution Tests
+    // =========================================================================
+
+    #[test]
+    fn test_simultaneous_gesture_policy_default() {
+        let policy = SimultaneousGesturePolicy::default();
+
+        // Pinch and rotation should be allowed simultaneously by default
+        assert!(policy.can_be_simultaneous(GestureType::Pinch, GestureType::Rotation));
+        assert!(policy.can_be_simultaneous(GestureType::Rotation, GestureType::Pinch)); // Order shouldn't matter
+
+        // Other combinations should not be allowed by default
+        assert!(!policy.can_be_simultaneous(GestureType::Pan, GestureType::Swipe));
+        assert!(!policy.can_be_simultaneous(GestureType::Tap, GestureType::LongPress));
+
+        // Same gesture type should always be allowed
+        assert!(policy.can_be_simultaneous(GestureType::Tap, GestureType::Tap));
+    }
+
+    #[test]
+    fn test_simultaneous_gesture_policy_allow_all() {
+        let policy = SimultaneousGesturePolicy::allow_all();
+
+        // All combinations should be allowed
+        assert!(policy.can_be_simultaneous(GestureType::Pan, GestureType::Swipe));
+        assert!(policy.can_be_simultaneous(GestureType::Tap, GestureType::LongPress));
+        assert!(policy.can_be_simultaneous(GestureType::Pinch, GestureType::Pan));
+    }
+
+    #[test]
+    fn test_simultaneous_gesture_policy_custom() {
+        let mut policy = SimultaneousGesturePolicy::new();
+
+        // Initially nothing is allowed
+        assert!(!policy.can_be_simultaneous(GestureType::Pan, GestureType::Swipe));
+
+        // Allow pan + swipe
+        policy.allow_simultaneous(GestureType::Pan, GestureType::Swipe);
+        assert!(policy.can_be_simultaneous(GestureType::Pan, GestureType::Swipe));
+        assert!(policy.can_be_simultaneous(GestureType::Swipe, GestureType::Pan)); // Order independent
+
+        // Disallow it
+        policy.disallow_simultaneous(GestureType::Pan, GestureType::Swipe);
+        assert!(!policy.can_be_simultaneous(GestureType::Pan, GestureType::Swipe));
+    }
+
+    #[test]
+    fn test_gesture_arena_basic() {
+        let mut arena = GestureArena::new();
+
+        // Register a gesture
+        let id = arena.register(GestureType::Pan, GesturePriority::Normal, GesturePolicy::Default);
+        assert!(id.is_some());
+        let id = id.unwrap();
+
+        // Should be active
+        assert_eq!(arena.state(id), Some(GestureArenaState::Active));
+        assert!(arena.is_active(GestureType::Pan));
+
+        // Accept it
+        let cancelled = arena.accept(id);
+        assert!(cancelled.is_empty());
+        assert_eq!(arena.state(id), Some(GestureArenaState::Accepted));
+    }
+
+    #[test]
+    fn test_gesture_arena_conflict_resolution() {
+        let mut arena = GestureArena::new();
+
+        // Register two conflicting gestures (pan and swipe are not simultaneous by default)
+        let pan_id = arena
+            .register(GestureType::Pan, GesturePriority::Normal, GesturePolicy::Default)
+            .unwrap();
+        let swipe_id = arena
+            .register(GestureType::Swipe, GesturePriority::Normal, GesturePolicy::Default)
+            .unwrap();
+
+        // Both should be active
+        assert!(arena.is_active(GestureType::Pan));
+        assert!(arena.is_active(GestureType::Swipe));
+
+        // Accept pan - should cancel swipe (equal priority, pan accepted first)
+        let cancelled = arena.accept(pan_id);
+        assert!(cancelled.contains(&swipe_id));
+        assert_eq!(arena.state(swipe_id), Some(GestureArenaState::Rejected));
+    }
+
+    #[test]
+    fn test_gesture_arena_priority() {
+        let mut arena = GestureArena::new();
+
+        // Register low priority gesture first
+        let low_id = arena
+            .register(GestureType::Pan, GesturePriority::Low, GesturePolicy::Default)
+            .unwrap();
+
+        // Register high priority conflicting gesture
+        let high_id = arena
+            .register(GestureType::Swipe, GesturePriority::High, GesturePolicy::Default)
+            .unwrap();
+
+        // Try to accept low priority - should fail due to higher priority conflict
+        let cancelled = arena.accept(low_id);
+        assert!(cancelled.is_empty());
+        assert_eq!(arena.state(low_id), Some(GestureArenaState::Active)); // Still active, not accepted
+
+        // Accept high priority - should succeed and cancel low
+        let cancelled = arena.accept(high_id);
+        assert!(cancelled.contains(&low_id));
+        assert_eq!(arena.state(high_id), Some(GestureArenaState::Accepted));
+    }
+
+    #[test]
+    fn test_gesture_arena_exclusive_policy() {
+        let mut arena = GestureArena::new();
+
+        // Register two gestures
+        let g1 = arena
+            .register(GestureType::Pan, GesturePriority::Normal, GesturePolicy::Default)
+            .unwrap();
+        let g2 = arena
+            .register(GestureType::Swipe, GesturePriority::High, GesturePolicy::Default)
+            .unwrap();
+
+        // Register exclusive gesture
+        let exclusive = arena
+            .register(GestureType::LongPress, GesturePriority::Normal, GesturePolicy::Exclusive)
+            .unwrap();
+
+        // Accept exclusive - should cancel all conflicting regardless of priority
+        let cancelled = arena.accept(exclusive);
+        assert!(cancelled.contains(&g1));
+        assert!(cancelled.contains(&g2));
+    }
+
+    #[test]
+    fn test_gesture_arena_cooperative_policy() {
+        let mut arena = GestureArena::new();
+
+        // Register two conflicting gestures
+        let g1 = arena
+            .register(GestureType::Pan, GesturePriority::Normal, GesturePolicy::Default)
+            .unwrap();
+        let coop = arena
+            .register(GestureType::Swipe, GesturePriority::Normal, GesturePolicy::Cooperative)
+            .unwrap();
+
+        // Accept cooperative - should not cancel others
+        let cancelled = arena.accept(coop);
+        assert!(cancelled.is_empty());
+        assert_eq!(arena.state(g1), Some(GestureArenaState::Active)); // g1 still active
+        assert_eq!(arena.state(coop), Some(GestureArenaState::Accepted));
+    }
+
+    #[test]
+    fn test_gesture_arena_simultaneous_allowed() {
+        let mut arena = GestureArena::new();
+
+        // Pinch and rotation are allowed simultaneously by default
+        let pinch_id = arena
+            .register(GestureType::Pinch, GesturePriority::Normal, GesturePolicy::Default)
+            .unwrap();
+        let rotation_id = arena
+            .register(GestureType::Rotation, GesturePriority::Normal, GesturePolicy::Default)
+            .unwrap();
+
+        // Accept pinch - should NOT cancel rotation (they can coexist)
+        let cancelled = arena.accept(pinch_id);
+        assert!(cancelled.is_empty());
+        assert_eq!(arena.state(rotation_id), Some(GestureArenaState::Active)); // Still active!
+
+        // Can also accept rotation
+        let cancelled = arena.accept(rotation_id);
+        assert!(cancelled.is_empty());
+        assert_eq!(arena.state(rotation_id), Some(GestureArenaState::Accepted));
+    }
+
+    #[test]
+    fn test_gesture_arena_failure_dependency() {
+        let mut arena = GestureArena::new();
+
+        // Add failure dependency: tap waits for double-tap to fail
+        arena.add_failure_dependency(GestureType::Tap, GestureType::DoubleTap);
+
+        // Register double-tap first
+        let double_tap_id = arena
+            .register(GestureType::DoubleTap, GesturePriority::Normal, GesturePolicy::Default)
+            .unwrap();
+
+        // Register tap - should be pending due to failure dependency
+        let tap_id = arena
+            .register(GestureType::Tap, GesturePriority::Normal, GesturePolicy::Default)
+            .unwrap();
+        assert_eq!(arena.state(tap_id), Some(GestureArenaState::Pending));
+
+        // Reject double-tap - tap should now become active
+        let promoted = arena.reject(double_tap_id);
+        assert!(promoted); // Indicates pending gestures were promoted
+        assert_eq!(arena.state(tap_id), Some(GestureArenaState::Active));
+    }
+
+    #[test]
+    fn test_gesture_arena_clear() {
+        let mut arena = GestureArena::new();
+
+        arena.register(GestureType::Pan, GesturePriority::Normal, GesturePolicy::Default);
+        arena.register(GestureType::Swipe, GesturePriority::Normal, GesturePolicy::Default);
+
+        assert!(!arena.active_gestures().is_empty());
+
+        arena.clear();
+        assert!(arena.active_gestures().is_empty());
+    }
+
+    #[test]
+    fn test_failure_dependency_creation() {
+        let dep = FailureDependency::new(GestureType::Tap, GestureType::DoubleTap);
+        assert_eq!(dep.waiting, GestureType::Tap);
+        assert_eq!(dep.must_fail, GestureType::DoubleTap);
+    }
+
+    #[test]
+    fn test_gesture_priority_ordering() {
+        assert!(GesturePriority::Low < GesturePriority::Normal);
+        assert!(GesturePriority::Normal < GesturePriority::High);
+        assert!(GesturePriority::Low < GesturePriority::High);
+    }
+
+    #[test]
+    fn test_recognized_gesture_type() {
+        // Single tap
+        let tap = TapGestureEvent::new(
+            Point::new(0.0, 0.0),
+            Point::new(0.0, 0.0),
+            Point::new(0.0, 0.0),
+            1, // tap_count
+            KeyboardModifiers::NONE,
+        );
+        let gesture = RecognizedGesture::Tap(tap);
+        assert_eq!(gesture.gesture_type(), GestureType::Tap);
+
+        // Double tap
+        let double_tap = TapGestureEvent::new(
+            Point::new(0.0, 0.0),
+            Point::new(0.0, 0.0),
+            Point::new(0.0, 0.0),
+            2, // tap_count
+            KeyboardModifiers::NONE,
+        );
+        let gesture = RecognizedGesture::Tap(double_tap);
+        assert_eq!(gesture.gesture_type(), GestureType::DoubleTap);
     }
 }

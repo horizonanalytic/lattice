@@ -1,15 +1,23 @@
 //! MainWindow widget implementation.
 //!
 //! This module provides [`MainWindow`], the primary application window with
-//! support for dock areas, a central widget, and future menu/toolbar/statusbar.
+//! support for dock areas, a central widget, menu bar, toolbar, and status bar.
 //!
 //! # Example
 //!
 //! ```ignore
-//! use horizon_lattice::widget::widgets::{MainWindow, DockWidget, DockArea};
+//! use horizon_lattice::widget::widgets::{MainWindow, DockWidget, DockArea, MenuBar, Menu, Action};
+//! use std::sync::Arc;
 //!
 //! // Create a main window
 //! let mut main_window = MainWindow::new();
+//!
+//! // Create and set a menu bar
+//! let mut menu_bar = MenuBar::new();
+//! let mut file_menu = Menu::new();
+//! file_menu.add_action(Arc::new(Action::new("&Open")));
+//! menu_bar.add_menu("&File", Arc::new(file_menu));
+//! main_window.set_menu_bar(Some(menu_bar));
 //!
 //! // Set the central widget
 //! main_window.set_central_widget(editor_id);
@@ -31,6 +39,7 @@ use crate::widget::{
 };
 
 use super::dock_widget::DockArea;
+use super::menu_bar::MenuBar;
 
 /// Information about a docked widget.
 #[derive(Debug, Clone)]
@@ -124,15 +133,18 @@ impl DockAreaContainer {
 /// The main application window.
 ///
 /// MainWindow provides the primary window structure for applications, including:
+/// - An optional menu bar at the top
 /// - A central widget area for the main content
 /// - Four dock areas (left, right, top, bottom) for tool panels
 /// - Support for floating dock widgets
 /// - Resizable dock areas via splitter handles
 ///
-/// # Dock Areas
+/// # Layout
 ///
 /// The window is divided into regions:
 /// ```text
+/// +------------------------------------------+
+/// |                Menu Bar                  |
 /// +------------------------------------------+
 /// |              Top Dock Area               |
 /// +--------+------------------------+--------+
@@ -151,6 +163,9 @@ impl DockAreaContainer {
 pub struct MainWindow {
     /// Widget base.
     base: WidgetBase,
+
+    /// The menu bar widget (optional).
+    menu_bar: Option<MenuBar>,
 
     /// The central widget ID.
     central_widget: Option<ObjectId>,
@@ -217,6 +232,7 @@ impl MainWindow {
 
         Self {
             base,
+            menu_bar: None,
             central_widget: None,
             dock_areas,
             floating_widgets: Vec::new(),
@@ -235,6 +251,42 @@ impl MainWindow {
             dock_preview_area: None,
             dock_widget_added: Signal::new(),
             dock_widget_removed: Signal::new(),
+        }
+    }
+
+    // =========================================================================
+    // Menu Bar
+    // =========================================================================
+
+    /// Get a reference to the menu bar, if any.
+    pub fn menu_bar(&self) -> Option<&MenuBar> {
+        self.menu_bar.as_ref()
+    }
+
+    /// Get a mutable reference to the menu bar, if any.
+    pub fn menu_bar_mut(&mut self) -> Option<&mut MenuBar> {
+        self.menu_bar.as_mut()
+    }
+
+    /// Set the menu bar for this window.
+    ///
+    /// The menu bar appears at the top of the window, above the dock areas.
+    pub fn set_menu_bar(&mut self, menu_bar: Option<MenuBar>) {
+        self.menu_bar = menu_bar;
+        self.base.update();
+    }
+
+    /// Set menu bar using builder pattern.
+    pub fn with_menu_bar(mut self, menu_bar: MenuBar) -> Self {
+        self.menu_bar = Some(menu_bar);
+        self
+    }
+
+    /// Get the height of the menu bar (0 if no menu bar).
+    fn menu_bar_height(&self) -> f32 {
+        match &self.menu_bar {
+            Some(mb) => mb.style().height,
+            None => 0.0,
         }
     }
 
@@ -428,15 +480,27 @@ impl MainWindow {
     // Geometry Calculations
     // =========================================================================
 
-    /// Calculate the available content area (inside margins).
+    /// Calculate the available content area (inside margins, below menu bar).
     fn content_area(&self) -> Rect {
         let rect = self.base.rect();
+        let menu_height = self.menu_bar_height();
         Rect::new(
             self.content_margins.left,
-            self.content_margins.top,
+            self.content_margins.top + menu_height,
             rect.width() - self.content_margins.horizontal(),
-            rect.height() - self.content_margins.vertical(),
+            rect.height() - self.content_margins.vertical() - menu_height,
         )
+    }
+
+    /// Calculate the menu bar rectangle.
+    pub fn menu_bar_rect(&self) -> Rect {
+        let rect = self.base.rect();
+        let menu_height = self.menu_bar_height();
+        if menu_height > 0.0 {
+            Rect::new(0.0, 0.0, rect.width(), menu_height)
+        } else {
+            Rect::ZERO
+        }
     }
 
     /// Calculate the effective size of a dock area (0 if empty or collapsed).
@@ -724,6 +788,12 @@ impl MainWindow {
         );
     }
 
+    fn paint_menu_bar(&self, ctx: &mut PaintContext<'_>) {
+        if let Some(ref menu_bar) = self.menu_bar {
+            menu_bar.paint(ctx);
+        }
+    }
+
     fn paint_dock_areas(&self, ctx: &mut PaintContext<'_>) {
         // Paint dock area backgrounds
         for area in DockArea::all() {
@@ -875,6 +945,7 @@ impl Widget for MainWindow {
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
         self.paint_background(ctx);
+        self.paint_menu_bar(ctx);
         self.paint_dock_areas(ctx);
         self.paint_central_area(ctx);
         self.paint_splitters(ctx);

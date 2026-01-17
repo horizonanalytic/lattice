@@ -108,6 +108,7 @@ mod window;
 mod key_sequence_edit;
 mod find_replace;
 mod menu;
+mod menu_bar;
 mod timezone;
 mod list_widget;
 mod table_widget;
@@ -207,6 +208,7 @@ pub use print_dialog::{
 pub use key_sequence_edit::KeySequenceEdit;
 pub use find_replace::{FindOptions, FindReplaceBar, FindReplaceMode, SearchMatch, Searchable};
 pub use menu::{Menu, MenuItem, MenuStyle};
+pub use menu_bar::{MenuBar, MenuBarStyle};
 pub use list_widget::{ListWidget, ListWidgetItem, MatchFlags};
 pub use table_widget::{TableWidget, TableWidgetItem};
 pub use tree_widget::{TreeWidget, TreeWidgetItem, TreeIndentationStyle};

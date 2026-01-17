@@ -159,8 +159,8 @@ pub use file_drop::FileDropHandler;
 pub use focus::FocusManager;
 pub use modal::ModalManager;
 pub use events::{
-    ContextMenuEvent, ContextMenuReason, CustomEvent, EnterEvent, EventBase, FocusInEvent,
-    FocusOutEvent, FocusReason, GestureState, GestureType, HideEvent, ImeCommitEvent,
+    CloseEvent, ContextMenuEvent, ContextMenuReason, CustomEvent, EnterEvent, EventBase,
+    FocusInEvent, FocusOutEvent, FocusReason, GestureState, GestureType, HideEvent, ImeCommitEvent,
     ImeDisabledEvent, ImeEnabledEvent, ImePreeditEvent, Key, KeyPressEvent, KeyReleaseEvent,
     KeyboardModifiers, LeaveEvent, LongPressGestureEvent, MouseButton, MouseDoubleClickEvent,
     MouseMoveEvent, MousePressEvent, MouseReleaseEvent, MoveEvent, PaintEvent, PanGestureEvent,

@@ -422,8 +422,23 @@ impl ApplicationHandler<LatticeEvent> for AppHandler<'_> {
         if !handled {
             match event {
                 WindowEvent::CloseRequested => {
-                    // For now, quit on window close.
-                    // In the future, this will be handled by the widget system.
+                    // Default behavior: quit the application.
+                    //
+                    // For proper close handling with the widget system, set a
+                    // window event handler that routes CloseRequested to your
+                    // Window widget's close() method:
+                    //
+                    // ```ignore
+                    // app.set_window_event_handler(|window_id, event| {
+                    //     if let WindowEvent::CloseRequested = event {
+                    //         // Find your Window widget for this window_id
+                    //         // Call window.close() - returns false if vetoed
+                    //         // Only quit if close() succeeded and it was the last window
+                    //         return true; // Handled
+                    //     }
+                    //     false
+                    // });
+                    // ```
                     self.app.quit();
                 }
                 WindowEvent::RedrawRequested => {

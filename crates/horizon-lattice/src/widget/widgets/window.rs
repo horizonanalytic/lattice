@@ -35,9 +35,10 @@ use horizon_lattice_render::{Color, Point, Rect, Renderer, Size, Stroke};
 
 use crate::widget::layout::ContentMargins;
 use crate::widget::{
-    FocusManager, FocusPolicy, FocusReason, Key, KeyPressEvent, KeyReleaseEvent, MouseButton,
-    MouseDoubleClickEvent, MouseMoveEvent, MousePressEvent, MouseReleaseEvent, PaintContext,
-    SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetAccess, WidgetBase, WidgetEvent,
+    CloseEvent, FocusManager, FocusPolicy, FocusReason, Key, KeyPressEvent, KeyReleaseEvent,
+    MouseButton, MouseDoubleClickEvent, MouseMoveEvent, MousePressEvent, MouseReleaseEvent,
+    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetAccess, WidgetBase,
+    WidgetEvent,
 };
 
 // ============================================================================
@@ -479,7 +480,14 @@ pub struct Window {
     focus_manager: FocusManager,
 
     // Signals
-    /// Signal emitted when close is requested.
+    /// Signal emitted when the window is about to close.
+    ///
+    /// This signal is emitted after the close has been accepted (either no
+    /// close handler was set, or the handler did not call `ignore()`).
+    /// Connect to this signal to perform cleanup or save state before
+    /// the window is hidden.
+    ///
+    /// To prevent closing, use [`set_close_handler()`](Self::set_close_handler) instead.
     pub close_requested: Signal<()>,
     /// Signal emitted when the window state changes.
     pub state_changed: Signal<WindowState>,
@@ -558,6 +566,17 @@ pub struct Window {
     /// Connect a handler to this signal to call `window.focus_previous(storage)`
     /// to move focus to the previous focusable widget.
     pub backtab_pressed: Signal<()>,
+
+    // Close event handling
+    /// Optional handler for close events.
+    ///
+    /// This handler is called before the window closes. The handler receives
+    /// a mutable reference to a [`CloseEvent`] and can call `ignore()` on it
+    /// to prevent the window from closing.
+    ///
+    /// Unlike signals which are fire-and-forget, this callback allows the
+    /// handler to veto the close operation.
+    close_handler: Option<Box<dyn FnMut(&mut CloseEvent) + Send + Sync>>,
 }
 
 impl Window {
@@ -622,6 +641,7 @@ impl Window {
             focus_changed: Signal::new(),
             tab_pressed: Signal::new(),
             backtab_pressed: Signal::new(),
+            close_handler: None,
         }
     }
 
@@ -864,10 +884,91 @@ impl Window {
 
     /// Close the window.
     ///
-    /// This emits `close_requested` and then hides the window.
-    pub fn close(&mut self) {
+    /// This creates a [`CloseEvent`], calls the close handler (if set), and
+    /// proceeds to close the window unless the handler called `ignore()`.
+    ///
+    /// Returns `true` if the window was closed, `false` if the close was vetoed.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// window.set_close_handler(|event| {
+    ///     if has_unsaved_changes() {
+    ///         event.ignore(); // Prevent close
+    ///     }
+    /// });
+    ///
+    /// if window.close() {
+    ///     println!("Window closed");
+    /// } else {
+    ///     println!("Close was prevented");
+    /// }
+    /// ```
+    pub fn close(&mut self) -> bool {
+        let mut event = CloseEvent::new();
+
+        // Call the close handler if set
+        if let Some(ref mut handler) = self.close_handler {
+            handler(&mut event);
+        }
+
+        // Check if close was vetoed
+        if event.is_accepted() {
+            self.close_requested.emit(());
+            self.hide();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Force close the window, bypassing any close handler.
+    ///
+    /// This method closes the window unconditionally, ignoring any
+    /// close handler that might have been set. Use this when you need
+    /// to ensure the window closes regardless of user preferences.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Application is shutting down, force close all windows
+    /// window.force_close();
+    /// ```
+    pub fn force_close(&mut self) {
         self.close_requested.emit(());
         self.hide();
+    }
+
+    /// Set the close handler.
+    ///
+    /// The handler is called before the window closes. It receives a mutable
+    /// reference to a [`CloseEvent`] and can call `ignore()` on it to prevent
+    /// the window from closing.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// window.set_close_handler(|event| {
+    ///     if has_unsaved_changes() {
+    ///         // Show "Save changes?" dialog
+    ///         if !user_confirmed_discard() {
+    ///             event.ignore();
+    ///         }
+    ///     }
+    /// });
+    /// ```
+    pub fn set_close_handler<F>(&mut self, handler: F)
+    where
+        F: FnMut(&mut CloseEvent) + Send + Sync + 'static,
+    {
+        self.close_handler = Some(Box::new(handler));
+    }
+
+    /// Clear the close handler.
+    ///
+    /// After calling this, `close()` will always succeed.
+    pub fn clear_close_handler(&mut self) {
+        self.close_handler = None;
     }
 
     /// Move the window to the specified position.
@@ -1651,7 +1752,7 @@ impl Window {
             self.close_button_state.pressed = false;
             if let Some(rect) = self.close_button_rect() {
                 if rect.contains(pos) {
-                    self.close_requested.emit(());
+                    self.close();
                 }
             }
             self.base.update();
@@ -1820,7 +1921,7 @@ impl Window {
     fn handle_key_press(&mut self, event: &KeyPressEvent) -> bool {
         // Escape to close if modal or has close button
         if event.key == Key::Escape && (self.is_modal() || self.flags.has_close_button()) {
-            self.close_requested.emit(());
+            self.close();
             return true;
         }
 
@@ -2253,5 +2354,148 @@ mod tests {
         let _ = &window.focus_changed;
         let _ = &window.tab_pressed;
         let _ = &window.backtab_pressed;
+    }
+
+    // =========================================================================
+    // Close Event Tests
+    // =========================================================================
+
+    #[test]
+    fn test_close_event_accepted_by_default() {
+        let event = CloseEvent::new();
+        assert!(event.is_accepted());
+    }
+
+    #[test]
+    fn test_close_event_can_be_ignored() {
+        let mut event = CloseEvent::new();
+        assert!(event.is_accepted());
+
+        event.ignore();
+        assert!(!event.is_accepted());
+
+        event.accept();
+        assert!(event.is_accepted());
+    }
+
+    #[test]
+    fn test_window_close_succeeds_without_handler() {
+        use crate::widget::Widget;
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        window.show();
+        assert!(window.widget_base().is_visible());
+
+        let closed = window.close();
+        assert!(closed);
+        assert!(!window.widget_base().is_visible());
+    }
+
+    #[test]
+    fn test_window_close_can_be_vetoed() {
+        use crate::widget::Widget;
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        window.show();
+
+        // Set a handler that vetoes the close
+        window.set_close_handler(|event| {
+            event.ignore();
+        });
+
+        let closed = window.close();
+        assert!(!closed);
+        assert!(window.widget_base().is_visible()); // Window should still be visible
+    }
+
+    #[test]
+    fn test_window_force_close_bypasses_handler() {
+        use crate::widget::Widget;
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        window.show();
+
+        // Set a handler that vetoes the close
+        window.set_close_handler(|event| {
+            event.ignore();
+        });
+
+        // force_close should bypass the handler
+        window.force_close();
+        assert!(!window.widget_base().is_visible());
+    }
+
+    #[test]
+    fn test_window_clear_close_handler() {
+        use crate::widget::Widget;
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        window.show();
+
+        // Set a handler that vetoes the close
+        window.set_close_handler(|event| {
+            event.ignore();
+        });
+
+        // Verify it vetoes
+        assert!(!window.close());
+        window.show(); // Re-show for next test
+
+        // Clear the handler
+        window.clear_close_handler();
+
+        // Now close should succeed
+        assert!(window.close());
+        assert!(!window.widget_base().is_visible());
+    }
+
+    #[test]
+    fn test_close_requested_signal_emitted_on_accepted_close() {
+        use horizon_lattice_core::init_global_registry;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let signal_received_clone = signal_received.clone();
+
+        window.close_requested.connect(move |()| {
+            signal_received_clone.store(true, Ordering::SeqCst);
+        });
+
+        window.close();
+        assert!(signal_received.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_close_requested_signal_not_emitted_on_vetoed_close() {
+        use horizon_lattice_core::init_global_registry;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+        let signal_received = Arc::new(AtomicBool::new(false));
+        let signal_received_clone = signal_received.clone();
+
+        window.close_requested.connect(move |()| {
+            signal_received_clone.store(true, Ordering::SeqCst);
+        });
+
+        window.set_close_handler(|event| {
+            event.ignore();
+        });
+
+        window.close();
+        assert!(!signal_received.load(Ordering::SeqCst));
     }
 }

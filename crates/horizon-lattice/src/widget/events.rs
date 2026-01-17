@@ -1922,6 +1922,68 @@ impl ContextMenuEvent {
     }
 }
 
+/// Close event, sent when a window is about to close.
+///
+/// Unlike most events which are not accepted by default, a CloseEvent is
+/// **accepted by default**. This means the close will proceed unless a handler
+/// calls `ignore()` to prevent it.
+///
+/// # Example
+///
+/// ```ignore
+/// fn handle_close(event: &mut CloseEvent) {
+///     if has_unsaved_changes() {
+///         // Prevent the close
+///         event.ignore();
+///     }
+///     // Otherwise, close proceeds automatically (accepted by default)
+/// }
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct CloseEvent {
+    /// Whether the close is accepted (will proceed).
+    ///
+    /// Unlike EventBase, this defaults to `true` - close proceeds unless ignored.
+    accepted: bool,
+}
+
+impl CloseEvent {
+    /// Create a new close event.
+    ///
+    /// The event is accepted by default (close will proceed).
+    pub fn new() -> Self {
+        Self { accepted: true }
+    }
+
+    /// Check if the close has been accepted.
+    ///
+    /// Returns `true` if the close will proceed, `false` if it was prevented.
+    pub fn is_accepted(&self) -> bool {
+        self.accepted
+    }
+
+    /// Accept the close event, allowing the window to close.
+    ///
+    /// This is the default state, so calling this is only necessary if
+    /// the event was previously ignored.
+    pub fn accept(&mut self) {
+        self.accepted = true;
+    }
+
+    /// Ignore the close event, preventing the window from closing.
+    ///
+    /// Call this in your close handler to prevent the close operation.
+    pub fn ignore(&mut self) {
+        self.accepted = false;
+    }
+}
+
+impl Default for CloseEvent {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Enumeration of all widget event types.
 ///
 /// This allows passing events through a unified interface while preserving
@@ -2044,6 +2106,12 @@ pub enum WidgetEvent {
     ///
     /// Sent when data is dropped on a widget.
     Drop(super::drag_drop::DropEvent),
+    /// Close event.
+    ///
+    /// Sent when a window is about to close. Unlike other events,
+    /// CloseEvent is accepted by default - the close proceeds unless
+    /// a handler calls `ignore()` to prevent it.
+    Close(CloseEvent),
 }
 
 impl WidgetEvent {
@@ -2084,6 +2152,7 @@ impl WidgetEvent {
             Self::DragMove(e) => e.base.is_accepted(),
             Self::DragLeave(e) => e.base.is_accepted(),
             Self::Drop(e) => e.base.is_accepted(),
+            Self::Close(e) => e.is_accepted(),
         }
     }
 
@@ -2124,6 +2193,7 @@ impl WidgetEvent {
             Self::DragMove(e) => e.base.accept(),
             Self::DragLeave(e) => e.base.accept(),
             Self::Drop(e) => e.base.accept(),
+            Self::Close(e) => e.accept(),
         }
     }
 
@@ -2164,6 +2234,7 @@ impl WidgetEvent {
             Self::DragMove(e) => e.base.ignore(),
             Self::DragLeave(e) => e.base.ignore(),
             Self::Drop(e) => e.base.ignore(),
+            Self::Close(e) => e.ignore(),
         }
     }
 
@@ -2212,6 +2283,8 @@ impl WidgetEvent {
             // Drag/drop events don't propagate - they are targeted at specific widgets
             // based on hit testing during the drag operation
             Self::DragEnter(_) | Self::DragMove(_) | Self::DragLeave(_) | Self::Drop(_) => false,
+            // Close events are window-specific and don't propagate
+            Self::Close(_) => false,
         }
     }
 

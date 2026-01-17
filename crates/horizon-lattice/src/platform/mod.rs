@@ -192,7 +192,8 @@ pub use localization::{
     LocaleWatcher, LocalizationError, NumberFormatter, SystemLocale, TextDirection, TimeLength,
 };
 pub use system_theme::{
-    AccentColor, ColorScheme, SystemTheme, SystemThemeError, ThemeInfo, ThemeWatcher,
+    AccentColor, ColorScheme, SystemTheme, SystemThemeError, ThemeAutoUpdater, ThemeInfo,
+    ThemeWatcher,
 };
 pub use power_management::{
     BatteryInfo, BatteryState, PowerEventReason, PowerEventWatcher, PowerManagementError,

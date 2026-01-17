@@ -24,6 +24,7 @@ localization = ["dep:icu", "dep:sys-locale"]
 horizon-lattice-core = { workspace = true }
 horizon-lattice-macros = { workspace = true }
 horizon-lattice-render = { workspace = true }
+horizon-lattice-style = { workspace = true }
 winit = { workspace = true }
 cursor-icon = { workspace = true }
 parking_lot = { workspace = true }

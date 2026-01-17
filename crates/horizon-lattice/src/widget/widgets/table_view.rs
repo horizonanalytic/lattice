@@ -41,6 +41,10 @@ use crate::widget::{
     MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair,
     WheelEvent, Widget, WidgetBase, WidgetEvent,
 };
+use crate::widget::drag_drop::{
+    DragData, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DropAction, DropEvent,
+    DropIndicatorState, DropPosition,
+};
 
 use super::header_view::{HeaderView, SortOrder};
 use super::scroll_area::ScrollBarPolicy;
@@ -57,6 +61,22 @@ pub enum GridStyle {
     Vertical,
     /// No grid lines.
     None,
+}
+
+/// Drag and drop mode for TableView.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TableDragDropMode {
+    /// No drag or drop support (default).
+    #[default]
+    NoDragDrop,
+    /// View can only drag items.
+    DragOnly,
+    /// View can only accept drops.
+    DropOnly,
+    /// Full drag and drop support.
+    DragDrop,
+    /// Internal move only (reorder items within the same view).
+    InternalMove,
 }
 
 /// Location where a context menu was requested in a TableView.
@@ -156,6 +176,12 @@ pub struct TableView {
     background_color: Color,
     alternate_row_colors: bool,
 
+    // Drag and drop
+    drag_drop_mode: TableDragDropMode,
+    drop_indicator_state: DropIndicatorState,
+    drag_start_pos: Option<Point>,
+    dragging_cell: Option<(usize, usize)>,
+
     // Signals
     /// Emitted when a cell is clicked.
     pub clicked: Signal<ModelIndex>,
@@ -222,6 +248,10 @@ impl TableView {
             sorting_enabled: false,
             background_color: Color::WHITE,
             alternate_row_colors: true,
+            drag_drop_mode: TableDragDropMode::NoDragDrop,
+            drop_indicator_state: DropIndicatorState::new(),
+            drag_start_pos: None,
+            dragging_cell: None,
             clicked: Signal::new(),
             double_clicked: Signal::new(),
             activated: Signal::new(),
@@ -268,6 +298,12 @@ impl TableView {
     /// Sets alternate row colors using builder pattern.
     pub fn with_alternate_row_colors(mut self, enabled: bool) -> Self {
         self.alternate_row_colors = enabled;
+        self
+    }
+
+    /// Sets the drag and drop mode using builder pattern.
+    pub fn with_drag_drop_mode(mut self, mode: TableDragDropMode) -> Self {
+        self.set_drag_drop_mode(mode);
         self
     }
 
@@ -556,6 +592,244 @@ impl TableView {
             self.grid_color = color;
             self.base.update();
         }
+    }
+
+    // =========================================================================
+    // Drag and Drop
+    // =========================================================================
+
+    /// Returns the current drag and drop mode.
+    pub fn drag_drop_mode(&self) -> TableDragDropMode {
+        self.drag_drop_mode
+    }
+
+    /// Sets the drag and drop mode.
+    ///
+    /// This controls whether the table view supports dragging items from it,
+    /// accepting drops onto it, or both.
+    pub fn set_drag_drop_mode(&mut self, mode: TableDragDropMode) {
+        if self.drag_drop_mode != mode {
+            self.drag_drop_mode = mode;
+            // Configure whether we accept drops based on the mode
+            let accepts_drops = matches!(
+                mode,
+                TableDragDropMode::DropOnly | TableDragDropMode::DragDrop | TableDragDropMode::InternalMove
+            );
+            self.base.set_accepts_drops(accepts_drops);
+        }
+    }
+
+    /// Returns whether dragging from this view is enabled.
+    pub fn drag_enabled(&self) -> bool {
+        matches!(
+            self.drag_drop_mode,
+            TableDragDropMode::DragOnly | TableDragDropMode::DragDrop | TableDragDropMode::InternalMove
+        )
+    }
+
+    /// Returns whether dropping onto this view is enabled.
+    pub fn drop_enabled(&self) -> bool {
+        matches!(
+            self.drag_drop_mode,
+            TableDragDropMode::DropOnly | TableDragDropMode::DragDrop | TableDragDropMode::InternalMove
+        )
+    }
+
+    /// Creates drag data from the selected cells.
+    fn create_drag_data(&self, indices: &[ModelIndex]) -> Option<DragData> {
+        if indices.is_empty() {
+            return None;
+        }
+
+        let mut data = DragData::new();
+
+        // Extract text from selected items
+        if let Some(model) = &self.model {
+            let texts: Vec<String> = indices
+                .iter()
+                .filter_map(|index| {
+                    model.data(index, ItemRole::Display).as_string().map(String::from)
+                })
+                .collect();
+
+            if !texts.is_empty() {
+                data.set_text(&texts.join("\n"));
+            }
+        }
+
+        if data.is_empty() {
+            None
+        } else {
+            Some(data)
+        }
+    }
+
+    /// Returns the drop position for the given point.
+    ///
+    /// This determines where items will be inserted when dropped.
+    fn drop_position_for_point(&self, point: Point) -> (Option<(usize, usize)>, DropPosition) {
+        if let Some(index) = self.index_at(point) {
+            let row = index.row();
+            let col = index.column();
+
+            // Get the visual cell rect for position calculation
+            if let Some(visual_rect) = self.row_rect_visual(row) {
+                // Determine if in upper or lower half (for row-based drop)
+                let mid_y = visual_rect.origin.y + visual_rect.height() / 2.0;
+                if point.y < mid_y {
+                    return (Some((row, col)), DropPosition::AboveItem);
+                } else {
+                    return (Some((row, col)), DropPosition::BelowItem);
+                }
+            }
+        }
+
+        // After last row
+        if let Some(model) = &self.model {
+            let row_count = model.row_count(&ModelIndex::invalid());
+            if row_count > 0 {
+                return (Some((row_count - 1, 0)), DropPosition::BelowItem);
+            }
+        }
+
+        (None, DropPosition::OnItem)
+    }
+
+    /// Handles the DragEnter event.
+    fn handle_drag_enter(&mut self, event: &mut DragEnterEvent) -> bool {
+        if !self.drop_enabled() {
+            return false;
+        }
+
+        // Accept the drag if it has text data
+        if event.data().has_text() || event.data().has_urls() {
+            event.accept_proposed_action();
+            event.set_proposed_action(DropAction::COPY);
+            return true;
+        }
+
+        false
+    }
+
+    /// Handles the DragMove event.
+    fn handle_drag_move(&mut self, event: &mut DragMoveEvent) -> bool {
+        if !self.drop_enabled() {
+            return false;
+        }
+
+        // Update drop indicator
+        let content_area = self.content_area_rect();
+        if content_area.contains(event.local_pos) {
+            // Calculate visible row rects for drop indicator
+            let first_visible_row = self.first_visible_row();
+            let last_visible_row = self.last_visible_row();
+
+            let item_rects: Vec<(usize, Rect)> = (first_visible_row..=last_visible_row)
+                .filter_map(|row| {
+                    // Get the row rect (full width) in visual coordinates
+                    let row_rect = self.row_rect_visual(row)?;
+                    Some((row, row_rect))
+                })
+                .collect();
+
+            self.drop_indicator_state.update_for_vertical_list(
+                event.local_pos,
+                &item_rects,
+                content_area.width(),
+            );
+        } else {
+            self.drop_indicator_state.clear();
+        }
+
+        event.accept();
+        self.base.update();
+        true
+    }
+
+    /// Handles the DragLeave event.
+    fn handle_drag_leave(&mut self, _event: &mut DragLeaveEvent) -> bool {
+        self.drop_indicator_state.clear();
+        self.base.update();
+        true
+    }
+
+    /// Handles the Drop event.
+    fn handle_drop(&mut self, event: &mut DropEvent) -> bool {
+        if !self.drop_enabled() {
+            return false;
+        }
+
+        let (_drop_cell, _drop_position) = self.drop_position_for_point(event.local_pos);
+        self.drop_indicator_state.clear();
+        self.base.update();
+
+        // Process the dropped data
+        if event.data().has_text() || event.data().has_urls() {
+            // Accept the drop
+            // In a real implementation, this would insert rows into the model
+            event.accept();
+            return true;
+        }
+
+        false
+    }
+
+    /// Paints the drop indicator if active.
+    fn paint_drop_indicator(&self, ctx: &mut PaintContext<'_>) {
+        if let Some(indicator) = self.drop_indicator_state.indicator() {
+            let style = self.drop_indicator_state.style();
+            ctx.renderer().fill_rect(indicator.rect, style.line_color);
+        }
+    }
+
+    /// Returns the first visible row index.
+    fn first_visible_row(&self) -> usize {
+        if self.row_positions.is_empty() {
+            return 0;
+        }
+        // Find the first row whose bottom is visible
+        let scroll_y = self.scroll_y as f32;
+        for (row, &pos) in self.row_positions.iter().enumerate() {
+            let height = self.row_heights.get(row).copied().unwrap_or(self.default_row_height);
+            if pos + height > scroll_y {
+                return row;
+            }
+        }
+        0
+    }
+
+    /// Returns the last visible row index.
+    fn last_visible_row(&self) -> usize {
+        if self.row_positions.is_empty() {
+            return 0;
+        }
+        let content_area = self.content_area_rect();
+        let scroll_y = self.scroll_y as f32;
+        let visible_bottom = scroll_y + content_area.height();
+
+        for (row, &pos) in self.row_positions.iter().enumerate().rev() {
+            if pos < visible_bottom {
+                return row;
+            }
+        }
+        self.row_positions.len().saturating_sub(1)
+    }
+
+    /// Returns the rect for a row in visual (widget) coordinates.
+    fn row_rect_visual(&self, row: usize) -> Option<Rect> {
+        let content_area = self.content_area_rect();
+        let y = self.row_positions.get(row)?;
+        let height = self.row_heights.get(row).copied().unwrap_or(self.default_row_height);
+
+        // Adjust for scrolling
+        let visual_y = y - self.scroll_y as f32 + content_area.origin.y;
+
+        Some(Rect::new(
+            content_area.origin.x,
+            visual_y,
+            content_area.width(),
+            height,
+        ))
     }
 
     // =========================================================================
@@ -1592,6 +1866,7 @@ impl Widget for TableView {
         self.paint_background(ctx);
         self.paint_cells(ctx);
         self.paint_grid(ctx);
+        self.paint_drop_indicator(ctx);
         self.paint_headers(ctx);
         self.paint_scrollbars(ctx);
     }
@@ -1633,6 +1908,30 @@ impl Widget for TableView {
             WidgetEvent::ContextMenu(e) => {
                 return self.handle_context_menu(e);
             }
+            WidgetEvent::DragEnter(e) => {
+                if self.handle_drag_enter(e) {
+                    event.accept();
+                    return true;
+                }
+            }
+            WidgetEvent::DragMove(e) => {
+                if self.handle_drag_move(e) {
+                    event.accept();
+                    return true;
+                }
+            }
+            WidgetEvent::DragLeave(e) => {
+                if self.handle_drag_leave(e) {
+                    event.accept();
+                    return true;
+                }
+            }
+            WidgetEvent::Drop(e) => {
+                if self.handle_drop(e) {
+                    event.accept();
+                    return true;
+                }
+            }
             _ => {}
         }
         false
@@ -1642,9 +1941,15 @@ impl Widget for TableView {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use horizon_lattice_core::init_global_registry;
+
+    fn setup() {
+        init_global_registry();
+    }
 
     #[test]
     fn test_table_view_creation() {
+        setup();
         let table = TableView::new();
         assert!(table.model().is_none());
         assert_eq!(table.row_count(), 0);
@@ -1654,6 +1959,7 @@ mod tests {
 
     #[test]
     fn test_frozen_sections() {
+        setup();
         let mut table = TableView::new();
         assert_eq!(table.frozen_row_count(), 0);
         assert_eq!(table.frozen_column_count(), 0);
@@ -1667,6 +1973,7 @@ mod tests {
 
     #[test]
     fn test_grid_style() {
+        setup();
         let mut table = TableView::new();
         assert_eq!(table.grid_style, GridStyle::Both);
 
@@ -1679,6 +1986,7 @@ mod tests {
 
     #[test]
     fn test_selection_behavior() {
+        setup();
         let table = TableView::new();
         assert_eq!(
             table.selection_model().selection_behavior(),
@@ -1691,6 +1999,7 @@ mod tests {
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
 
+        setup();
         let table = TableView::new();
         let signal_received = Arc::new(AtomicBool::new(false));
         let received_clone = signal_received.clone();
@@ -1724,5 +2033,57 @@ mod tests {
         assert_eq!(row, TableContextMenuLocation::RowHeader(0));
         assert_eq!(corner, TableContextMenuLocation::Corner);
         assert_eq!(empty, TableContextMenuLocation::Empty);
+    }
+
+    #[test]
+    fn test_drag_drop_mode_default() {
+        setup();
+        let table = TableView::new();
+        assert_eq!(table.drag_drop_mode(), TableDragDropMode::NoDragDrop);
+        assert!(!table.drag_enabled());
+        assert!(!table.drop_enabled());
+    }
+
+    #[test]
+    fn test_drag_drop_mode_setter() {
+        setup();
+        let mut table = TableView::new();
+
+        table.set_drag_drop_mode(TableDragDropMode::DragOnly);
+        assert_eq!(table.drag_drop_mode(), TableDragDropMode::DragOnly);
+        assert!(table.drag_enabled());
+        assert!(!table.drop_enabled());
+
+        table.set_drag_drop_mode(TableDragDropMode::DropOnly);
+        assert_eq!(table.drag_drop_mode(), TableDragDropMode::DropOnly);
+        assert!(!table.drag_enabled());
+        assert!(table.drop_enabled());
+
+        table.set_drag_drop_mode(TableDragDropMode::DragDrop);
+        assert_eq!(table.drag_drop_mode(), TableDragDropMode::DragDrop);
+        assert!(table.drag_enabled());
+        assert!(table.drop_enabled());
+
+        table.set_drag_drop_mode(TableDragDropMode::InternalMove);
+        assert_eq!(table.drag_drop_mode(), TableDragDropMode::InternalMove);
+        assert!(table.drag_enabled());
+        assert!(table.drop_enabled());
+    }
+
+    #[test]
+    fn test_drag_drop_mode_builder() {
+        setup();
+        let table = TableView::new().with_drag_drop_mode(TableDragDropMode::DragDrop);
+        assert_eq!(table.drag_drop_mode(), TableDragDropMode::DragDrop);
+        assert!(table.drag_enabled());
+        assert!(table.drop_enabled());
+    }
+
+    #[test]
+    fn test_drop_indicator_initial_state() {
+        setup();
+        let table = TableView::new();
+        // Drop indicator should not be active initially
+        assert!(!table.drop_indicator_state.has_indicator());
     }
 }

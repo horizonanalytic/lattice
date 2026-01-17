@@ -204,6 +204,18 @@ impl GridLayout {
         }
     }
 
+    /// Get a reference to the underlying layout base.
+    #[inline]
+    pub fn base(&self) -> &LayoutBase {
+        &self.base
+    }
+
+    /// Get a mutable reference to the underlying layout base.
+    #[inline]
+    pub fn base_mut(&mut self) -> &mut LayoutBase {
+        &mut self.base
+    }
+
     // =========================================================================
     // Grid-Specific Item Addition
     // =========================================================================
@@ -1046,6 +1058,13 @@ impl Layout for GridLayout {
             content_rect.origin.y,
         );
 
+        // For RTL, reverse column positions (column 0 becomes rightmost)
+        if self.base.is_rtl() {
+            // Reverse both positions and widths so column indices map to mirrored positions
+            self.col_positions.reverse();
+            self.col_widths.reverse();
+        }
+
         // Calculate geometry for each cell item
         for (idx, cell) in self.cells.iter().enumerate() {
             if !self.base.is_item_visible(storage, &cell.item) {
@@ -1403,6 +1422,77 @@ mod tests {
         assert_eq!(
             CellAlignment::bottom_right(),
             CellAlignment::new(Alignment::End, Alignment::End)
+        );
+    }
+
+    #[test]
+    fn test_grid_layout_rtl() {
+        use crate::platform::TextDirection;
+
+        init_global_registry();
+
+        let mut storage = MockStorage::new();
+        // Create widgets at columns 0 and 1
+        let id1 = storage.add(MockWidget::new(SizeHint::new(Size::new(50.0, 30.0))));
+        let id2 = storage.add(MockWidget::new(SizeHint::new(Size::new(80.0, 30.0))));
+
+        let mut grid = GridLayout::new();
+        grid.set_content_margins(ContentMargins::uniform(0.0));
+        grid.set_horizontal_spacing(10.0);
+        grid.base_mut().set_text_direction(TextDirection::Rtl);
+        grid.add_widget_at(id1, 0, 0); // Column 0
+        grid.add_widget_at(id2, 0, 1); // Column 1
+
+        // Total width: 200, widget widths: 50, 80, spacing: 10
+        grid.set_geometry(Rect::new(0.0, 0.0, 200.0, 50.0));
+        grid.calculate(&storage, Size::new(200.0, 50.0));
+        grid.apply(&mut storage);
+
+        let w1 = storage.widgets.get(&id1).unwrap();
+        let w2 = storage.widgets.get(&id2).unwrap();
+
+        // In RTL, column 0 should be on the right and column 1 on the left
+        // Column widths distribute from available 190 (200 - 10 spacing)
+        // After RTL reversal, column 0 (w1) should have the rightmost position
+        // and column 1 (w2) should have the leftmost position
+        assert!(
+            w1.geometry().origin.x > w2.geometry().origin.x,
+            "In RTL, column 0 (w1 at x={}) should be to the right of column 1 (w2 at x={})",
+            w1.geometry().origin.x,
+            w2.geometry().origin.x
+        );
+    }
+
+    #[test]
+    fn test_grid_layout_ltr() {
+        use crate::platform::TextDirection;
+
+        init_global_registry();
+
+        let mut storage = MockStorage::new();
+        let id1 = storage.add(MockWidget::new(SizeHint::new(Size::new(50.0, 30.0))));
+        let id2 = storage.add(MockWidget::new(SizeHint::new(Size::new(80.0, 30.0))));
+
+        let mut grid = GridLayout::new();
+        grid.set_content_margins(ContentMargins::uniform(0.0));
+        grid.set_horizontal_spacing(10.0);
+        grid.base_mut().set_text_direction(TextDirection::Ltr);
+        grid.add_widget_at(id1, 0, 0); // Column 0
+        grid.add_widget_at(id2, 0, 1); // Column 1
+
+        grid.set_geometry(Rect::new(0.0, 0.0, 200.0, 50.0));
+        grid.calculate(&storage, Size::new(200.0, 50.0));
+        grid.apply(&mut storage);
+
+        let w1 = storage.widgets.get(&id1).unwrap();
+        let w2 = storage.widgets.get(&id2).unwrap();
+
+        // In LTR, column 0 should be on the left
+        assert!(
+            w1.geometry().origin.x < w2.geometry().origin.x,
+            "In LTR, column 0 (w1 at x={}) should be to the left of column 1 (w2 at x={})",
+            w1.geometry().origin.x,
+            w2.geometry().origin.x
         );
     }
 }

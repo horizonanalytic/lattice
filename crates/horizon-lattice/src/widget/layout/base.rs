@@ -7,6 +7,7 @@ use horizon_lattice_render::{Rect, Size};
 
 use super::{ContentMargins, DEFAULT_MARGINS, DEFAULT_SPACING};
 use super::item::LayoutItem;
+use crate::platform::TextDirection;
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::geometry::{SizeHint, SizePolicy, SizePolicyPair};
 
@@ -48,6 +49,9 @@ pub struct LayoutBase {
 
     /// Cached minimum size.
     cached_minimum_size: Option<Size>,
+
+    /// Text direction for layout mirroring (RTL support).
+    text_direction: TextDirection,
 }
 
 impl LayoutBase {
@@ -63,6 +67,7 @@ impl LayoutBase {
             parent_widget: None,
             cached_size_hint: None,
             cached_minimum_size: None,
+            text_direction: TextDirection::default(),
         }
     }
 
@@ -200,6 +205,77 @@ impl LayoutBase {
             (self.geometry.width() - self.content_margins.horizontal()).max(0.0),
             (self.geometry.height() - self.content_margins.vertical()).max(0.0),
         )
+    }
+
+    // =========================================================================
+    // Text Direction (RTL Support)
+    // =========================================================================
+
+    /// Get the text direction for this layout.
+    ///
+    /// This determines whether the layout should mirror its horizontal
+    /// positioning for right-to-left languages.
+    #[inline]
+    pub fn text_direction(&self) -> TextDirection {
+        self.text_direction
+    }
+
+    /// Set the text direction for this layout.
+    ///
+    /// When set to `TextDirection::Rtl`, horizontal layouts will place
+    /// items from right to left instead of left to right.
+    pub fn set_text_direction(&mut self, direction: TextDirection) {
+        if self.text_direction != direction {
+            self.text_direction = direction;
+            self.invalidate();
+        }
+    }
+
+    /// Returns `true` if the layout direction is right-to-left.
+    #[inline]
+    pub fn is_rtl(&self) -> bool {
+        self.text_direction.is_rtl()
+    }
+
+    /// Returns `true` if the layout direction is left-to-right.
+    #[inline]
+    pub fn is_ltr(&self) -> bool {
+        self.text_direction.is_ltr()
+    }
+
+    /// Returns the effective content margins for the current text direction.
+    ///
+    /// For RTL layouts, this swaps the left and right margins so that
+    /// margins are semantically correct (start/end margins).
+    pub fn effective_content_margins(&self) -> ContentMargins {
+        if self.is_rtl() {
+            ContentMargins {
+                left: self.content_margins.right,
+                top: self.content_margins.top,
+                right: self.content_margins.left,
+                bottom: self.content_margins.bottom,
+            }
+        } else {
+            self.content_margins
+        }
+    }
+
+    /// Mirror an X coordinate for RTL layout.
+    ///
+    /// Given a position relative to `content_x`, returns the mirrored
+    /// position from the right side of the content area.
+    ///
+    /// # Arguments
+    /// * `x` - X position relative to content_x (in content coordinates)
+    /// * `item_width` - Width of the item being positioned
+    /// * `content_width` - Total width of the content area
+    #[inline]
+    pub fn mirror_x(&self, x: f32, item_width: f32, content_width: f32) -> f32 {
+        if self.is_rtl() {
+            content_width - x - item_width
+        } else {
+            x
+        }
     }
 
     // =========================================================================

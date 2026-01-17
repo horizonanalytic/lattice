@@ -216,6 +216,18 @@ impl AnchorLayout {
         }
     }
 
+    /// Get a reference to the underlying layout base.
+    #[inline]
+    pub fn base(&self) -> &LayoutBase {
+        &self.base
+    }
+
+    /// Get a mutable reference to the underlying layout base.
+    #[inline]
+    pub fn base_mut(&mut self) -> &mut LayoutBase {
+        &mut self.base
+    }
+
     /// Add an anchor constraint to an item.
     ///
     /// The item must already exist in the layout (added via `add_item` or `add_widget`).

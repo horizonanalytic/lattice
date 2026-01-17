@@ -2404,6 +2404,7 @@ dependencies = [
  "horizon-lattice-core",
  "horizon-lattice-macros",
  "horizon-lattice-render",
+ "horizon-lattice-style",
  "icu",
  "io-kit-sys",
  "keepawake",

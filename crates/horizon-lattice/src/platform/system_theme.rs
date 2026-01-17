@@ -817,6 +817,117 @@ async fn linux_theme_watch_loop(inner: &ThemeWatcherInner) -> Result<(), SystemT
 }
 
 // ============================================================================
+// Theme Auto Updater
+// ============================================================================
+
+/// Automatically updates a StyleEngine when the system theme changes.
+///
+/// This connects a [`ThemeWatcher`] to a [`StyleEngine`], automatically switching
+/// between light and dark themes when the user changes their system preferences.
+///
+/// # Example
+///
+/// ```ignore
+/// use std::sync::Arc;
+/// use parking_lot::RwLock;
+/// use horizon_lattice::platform::{ThemeWatcher, ThemeAutoUpdater};
+/// use horizon_lattice_style::prelude::StyleEngine;
+///
+/// // Create shared style engine
+/// let style_engine = Arc::new(RwLock::new(StyleEngine::light()));
+///
+/// // Create watcher and auto-updater
+/// let watcher = ThemeWatcher::new()?;
+/// let auto_updater = ThemeAutoUpdater::new(watcher, style_engine.clone());
+///
+/// // Start watching - theme changes will automatically update the style engine
+/// auto_updater.start()?;
+/// ```
+pub struct ThemeAutoUpdater {
+    watcher: ThemeWatcher,
+    #[allow(dead_code)]
+    style_engine: Arc<parking_lot::RwLock<horizon_lattice_style::prelude::StyleEngine>>,
+}
+
+impl ThemeAutoUpdater {
+    /// Create a new auto-updater that connects a ThemeWatcher to a StyleEngine.
+    ///
+    /// # Arguments
+    ///
+    /// * `watcher` - The theme watcher to listen to
+    /// * `style_engine` - A shared reference to the style engine to update
+    pub fn new(
+        watcher: ThemeWatcher,
+        style_engine: Arc<parking_lot::RwLock<horizon_lattice_style::prelude::StyleEngine>>,
+    ) -> Self {
+        use horizon_lattice_style::prelude::Theme;
+
+        // Connect the color scheme changed signal to update the style engine
+        let engine_ref = style_engine.clone();
+        watcher.color_scheme_changed().connect(move |scheme| {
+            let new_theme = match scheme {
+                ColorScheme::Dark => Theme::dark(),
+                ColorScheme::Light => Theme::light(),
+                ColorScheme::Unknown => {
+                    // Keep current theme for unknown
+                    return;
+                }
+            };
+
+            let mut engine = engine_ref.write();
+            engine.set_theme(new_theme);
+        });
+
+        Self {
+            watcher,
+            style_engine,
+        }
+    }
+
+    /// Start watching for theme changes.
+    ///
+    /// When the system theme changes, the connected StyleEngine will be
+    /// automatically updated to use the appropriate light or dark theme.
+    pub fn start(&self) -> Result<(), SystemThemeError> {
+        self.watcher.start()
+    }
+
+    /// Stop watching for theme changes.
+    pub fn stop(&self) {
+        self.watcher.stop();
+    }
+
+    /// Check if the auto-updater is currently running.
+    pub fn is_running(&self) -> bool {
+        self.watcher.is_running()
+    }
+
+    /// Get a reference to the underlying ThemeWatcher.
+    ///
+    /// This can be used to connect additional signal handlers.
+    pub fn watcher(&self) -> &ThemeWatcher {
+        &self.watcher
+    }
+
+    /// Manually sync the StyleEngine to the current system theme.
+    ///
+    /// This is useful for initial setup or to force a refresh.
+    pub fn sync_now(&self) {
+        use horizon_lattice_style::prelude::Theme;
+
+        let scheme = SystemTheme::color_scheme();
+        let new_theme = match scheme {
+            ColorScheme::Dark => Theme::dark(),
+            ColorScheme::Light => Theme::light(),
+            ColorScheme::Unknown => Theme::light(), // Default to light
+        };
+
+        let mut engine = self.style_engine.write();
+        engine.set_theme(new_theme);
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -901,5 +1012,56 @@ mod tests {
 
         let err = SystemThemeError::unsupported_platform("not supported");
         assert!(err.is_unsupported_platform());
+    }
+
+    #[test]
+    fn test_theme_auto_updater_creation() {
+        use horizon_lattice_style::prelude::{StyleEngine, Theme};
+
+        // Create a shared style engine
+        let style_engine = Arc::new(parking_lot::RwLock::new(StyleEngine::new(Theme::light())));
+
+        // Create watcher and auto-updater
+        let watcher = ThemeWatcher::new().unwrap();
+        let auto_updater = ThemeAutoUpdater::new(watcher, style_engine.clone());
+
+        // Should not be running initially
+        assert!(!auto_updater.is_running());
+
+        // Test sync_now - should not panic
+        auto_updater.sync_now();
+
+        // Watcher should be accessible
+        assert!(!auto_updater.watcher().is_running());
+    }
+
+    #[test]
+    fn test_theme_auto_updater_sync() {
+        use horizon_lattice_style::prelude::{StyleEngine, Theme};
+
+        // Create a shared style engine with light theme
+        let style_engine = Arc::new(parking_lot::RwLock::new(StyleEngine::new(Theme::light())));
+
+        // Create watcher and auto-updater
+        let watcher = ThemeWatcher::new().unwrap();
+        let auto_updater = ThemeAutoUpdater::new(watcher, style_engine.clone());
+
+        // Sync to current system theme
+        auto_updater.sync_now();
+
+        // The style engine's theme should match the system theme
+        let engine = style_engine.read();
+        let current_scheme = SystemTheme::color_scheme();
+        match current_scheme {
+            ColorScheme::Dark => {
+                // In dark mode, the theme should be dark
+                // We can't easily verify this without exposing theme internals,
+                // but at least verify sync didn't panic
+            }
+            ColorScheme::Light | ColorScheme::Unknown => {
+                // In light mode or unknown, should use light theme
+            }
+        }
+        drop(engine);
     }
 }

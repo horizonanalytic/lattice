@@ -43,6 +43,10 @@ use crate::widget::{
     MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair,
     WheelEvent, Widget, WidgetBase, WidgetEvent,
 };
+use crate::widget::drag_drop::{
+    DragData, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DropAction, DropEvent,
+    DropIndicatorState, DropPosition,
+};
 
 use super::scroll_area::ScrollBarPolicy;
 
@@ -56,6 +60,22 @@ pub enum IndentationStyle {
     DottedLines,
     /// Show solid branch lines connecting items.
     SolidLines,
+}
+
+/// Drag and drop mode for TreeView.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TreeDragDropMode {
+    /// No drag or drop support (default).
+    #[default]
+    NoDragDrop,
+    /// View can only drag items.
+    DragOnly,
+    /// View can only accept drops.
+    DropOnly,
+    /// Full drag and drop support.
+    DragDrop,
+    /// Internal move only (reorder items within the same view).
+    InternalMove,
 }
 
 /// A flattened row in the tree view.
@@ -138,6 +158,12 @@ pub struct TreeView {
     items_expandable: bool,
     expand_on_double_click: bool,
 
+    // Drag and drop
+    drag_drop_mode: TreeDragDropMode,
+    drop_indicator_state: DropIndicatorState,
+    drag_start_pos: Option<Point>,
+    dragging_row: Option<usize>,
+
     // Signals
     /// Emitted when an item is clicked.
     pub clicked: Signal<ModelIndex>,
@@ -200,6 +226,10 @@ impl TreeView {
             root_decorated: true,
             items_expandable: true,
             expand_on_double_click: true,
+            drag_drop_mode: TreeDragDropMode::NoDragDrop,
+            drop_indicator_state: DropIndicatorState::new(),
+            drag_start_pos: None,
+            dragging_row: None,
             clicked: Signal::new(),
             double_clicked: Signal::new(),
             activated: Signal::new(),
@@ -249,6 +279,12 @@ impl TreeView {
     pub fn with_root_decorated(mut self, decorated: bool) -> Self {
         self.root_decorated = decorated;
         self.layout_dirty = true;
+        self
+    }
+
+    /// Sets the drag and drop mode using builder pattern.
+    pub fn with_drag_drop_mode(mut self, mode: TreeDragDropMode) -> Self {
+        self.set_drag_drop_mode(mode);
         self
     }
 
@@ -506,6 +542,202 @@ impl TreeView {
         if self.background_color != color {
             self.background_color = color;
             self.base.update();
+        }
+    }
+
+    // =========================================================================
+    // Drag and Drop
+    // =========================================================================
+
+    /// Returns the current drag and drop mode.
+    pub fn drag_drop_mode(&self) -> TreeDragDropMode {
+        self.drag_drop_mode
+    }
+
+    /// Sets the drag and drop mode.
+    ///
+    /// This controls whether the tree view supports dragging items from it,
+    /// accepting drops onto it, or both.
+    pub fn set_drag_drop_mode(&mut self, mode: TreeDragDropMode) {
+        if self.drag_drop_mode != mode {
+            self.drag_drop_mode = mode;
+            // Configure whether we accept drops based on the mode
+            let accepts_drops = matches!(
+                mode,
+                TreeDragDropMode::DropOnly | TreeDragDropMode::DragDrop | TreeDragDropMode::InternalMove
+            );
+            self.base.set_accepts_drops(accepts_drops);
+        }
+    }
+
+    /// Returns whether dragging from this view is enabled.
+    pub fn drag_enabled(&self) -> bool {
+        matches!(
+            self.drag_drop_mode,
+            TreeDragDropMode::DragOnly | TreeDragDropMode::DragDrop | TreeDragDropMode::InternalMove
+        )
+    }
+
+    /// Returns whether dropping onto this view is enabled.
+    pub fn drop_enabled(&self) -> bool {
+        matches!(
+            self.drag_drop_mode,
+            TreeDragDropMode::DropOnly | TreeDragDropMode::DragDrop | TreeDragDropMode::InternalMove
+        )
+    }
+
+    /// Creates drag data from the selected items.
+    fn create_drag_data(&self, indices: &[ModelIndex]) -> Option<DragData> {
+        if indices.is_empty() {
+            return None;
+        }
+
+        let mut data = DragData::new();
+
+        // Extract text from selected items
+        if let Some(model) = &self.model {
+            let texts: Vec<String> = indices
+                .iter()
+                .filter_map(|index| {
+                    model.data(index, ItemRole::Display).as_string().map(String::from)
+                })
+                .collect();
+
+            if !texts.is_empty() {
+                data.set_text(&texts.join("\n"));
+            }
+        }
+
+        if data.is_empty() {
+            None
+        } else {
+            Some(data)
+        }
+    }
+
+    /// Returns the drop position for the given point.
+    ///
+    /// This determines where items will be inserted when dropped.
+    fn drop_position_for_point(&self, point: Point) -> (Option<usize>, DropPosition) {
+        if let Some(index) = self.index_at(point) {
+            if let Some(row_idx) = self.find_flattened_row(&index) {
+                if let Some(row) = self.flattened_rows.get(row_idx) {
+                    // Determine if in upper or lower half (for row-based drop)
+                    let viewport = self.viewport_rect();
+                    let visual_y = row.rect.origin.y - self.scroll_y as f32 + viewport.origin.y;
+                    let mid_y = visual_y + row.rect.height() / 2.0;
+                    if point.y < mid_y {
+                        return (Some(row_idx), DropPosition::AboveItem);
+                    } else {
+                        return (Some(row_idx), DropPosition::BelowItem);
+                    }
+                }
+            }
+        }
+
+        // After last row
+        if !self.flattened_rows.is_empty() {
+            return (Some(self.flattened_rows.len() - 1), DropPosition::BelowItem);
+        }
+
+        (None, DropPosition::OnItem)
+    }
+
+    /// Handles the DragEnter event.
+    fn handle_drag_enter(&mut self, event: &mut DragEnterEvent) -> bool {
+        if !self.drop_enabled() {
+            return false;
+        }
+
+        // Accept the drag if it has text data
+        if event.data().has_text() || event.data().has_urls() {
+            event.accept_proposed_action();
+            event.set_proposed_action(DropAction::COPY);
+            return true;
+        }
+
+        false
+    }
+
+    /// Handles the DragMove event.
+    fn handle_drag_move(&mut self, event: &mut DragMoveEvent) -> bool {
+        if !self.drop_enabled() {
+            return false;
+        }
+
+        // Update drop indicator
+        let viewport = self.viewport_rect();
+        if viewport.contains(event.local_pos) {
+            // Calculate visible row rects for drop indicator
+            let item_rects: Vec<(usize, Rect)> = self.flattened_rows
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, row)| {
+                    // Convert content coordinates to visual coordinates
+                    let visual_rect = Rect::new(
+                        row.rect.origin.x - self.scroll_x as f32 + viewport.origin.x,
+                        row.rect.origin.y - self.scroll_y as f32 + viewport.origin.y,
+                        viewport.width(),
+                        row.rect.height(),
+                    );
+                    // Only include visible rows
+                    if visual_rect.origin.y + visual_rect.height() >= viewport.origin.y
+                        && visual_rect.origin.y <= viewport.origin.y + viewport.height()
+                    {
+                        Some((idx, visual_rect))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            self.drop_indicator_state.update_for_vertical_list(
+                event.local_pos,
+                &item_rects,
+                viewport.width(),
+            );
+        } else {
+            self.drop_indicator_state.clear();
+        }
+
+        event.accept();
+        self.base.update();
+        true
+    }
+
+    /// Handles the DragLeave event.
+    fn handle_drag_leave(&mut self, _event: &mut DragLeaveEvent) -> bool {
+        self.drop_indicator_state.clear();
+        self.base.update();
+        true
+    }
+
+    /// Handles the Drop event.
+    fn handle_drop(&mut self, event: &mut DropEvent) -> bool {
+        if !self.drop_enabled() {
+            return false;
+        }
+
+        let (_drop_row, _drop_position) = self.drop_position_for_point(event.local_pos);
+        self.drop_indicator_state.clear();
+        self.base.update();
+
+        // Process the dropped data
+        if event.data().has_text() || event.data().has_urls() {
+            // Accept the drop
+            // In a real implementation, this would insert items into the model
+            event.accept();
+            return true;
+        }
+
+        false
+    }
+
+    /// Paints the drop indicator if active.
+    fn paint_drop_indicator(&self, ctx: &mut PaintContext<'_>) {
+        if let Some(indicator) = self.drop_indicator_state.indicator() {
+            let style = self.drop_indicator_state.style();
+            ctx.renderer().fill_rect(indicator.rect, style.line_color);
         }
     }
 
@@ -1614,6 +1846,7 @@ impl Widget for TreeView {
     fn paint(&self, ctx: &mut PaintContext<'_>) {
         self.paint_background(ctx);
         self.paint_items(ctx);
+        self.paint_drop_indicator(ctx);
         self.paint_scrollbars(ctx);
     }
 
@@ -1657,6 +1890,30 @@ impl Widget for TreeView {
             }
             WidgetEvent::ContextMenu(e) => {
                 return self.handle_context_menu(e);
+            }
+            WidgetEvent::DragEnter(e) => {
+                if self.handle_drag_enter(e) {
+                    event.accept();
+                    return true;
+                }
+            }
+            WidgetEvent::DragMove(e) => {
+                if self.handle_drag_move(e) {
+                    event.accept();
+                    return true;
+                }
+            }
+            WidgetEvent::DragLeave(e) => {
+                if self.handle_drag_leave(e) {
+                    event.accept();
+                    return true;
+                }
+            }
+            WidgetEvent::Drop(e) => {
+                if self.handle_drop(e) {
+                    event.accept();
+                    return true;
+                }
             }
             _ => {}
         }
@@ -1805,5 +2062,57 @@ mod tests {
         view.context_menu_requested.emit((ModelIndex::invalid(), Point::new(10.0, 10.0)));
 
         assert!(signal_received.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_drag_drop_mode_default() {
+        setup();
+        let view = TreeView::new();
+        assert_eq!(view.drag_drop_mode(), TreeDragDropMode::NoDragDrop);
+        assert!(!view.drag_enabled());
+        assert!(!view.drop_enabled());
+    }
+
+    #[test]
+    fn test_drag_drop_mode_setter() {
+        setup();
+        let mut view = TreeView::new();
+
+        view.set_drag_drop_mode(TreeDragDropMode::DragOnly);
+        assert_eq!(view.drag_drop_mode(), TreeDragDropMode::DragOnly);
+        assert!(view.drag_enabled());
+        assert!(!view.drop_enabled());
+
+        view.set_drag_drop_mode(TreeDragDropMode::DropOnly);
+        assert_eq!(view.drag_drop_mode(), TreeDragDropMode::DropOnly);
+        assert!(!view.drag_enabled());
+        assert!(view.drop_enabled());
+
+        view.set_drag_drop_mode(TreeDragDropMode::DragDrop);
+        assert_eq!(view.drag_drop_mode(), TreeDragDropMode::DragDrop);
+        assert!(view.drag_enabled());
+        assert!(view.drop_enabled());
+
+        view.set_drag_drop_mode(TreeDragDropMode::InternalMove);
+        assert_eq!(view.drag_drop_mode(), TreeDragDropMode::InternalMove);
+        assert!(view.drag_enabled());
+        assert!(view.drop_enabled());
+    }
+
+    #[test]
+    fn test_drag_drop_mode_builder() {
+        setup();
+        let view = TreeView::new().with_drag_drop_mode(TreeDragDropMode::DragDrop);
+        assert_eq!(view.drag_drop_mode(), TreeDragDropMode::DragDrop);
+        assert!(view.drag_enabled());
+        assert!(view.drop_enabled());
+    }
+
+    #[test]
+    fn test_drop_indicator_initial_state() {
+        setup();
+        let view = TreeView::new();
+        // Drop indicator should not be active initially
+        assert!(!view.drop_indicator_state.has_indicator());
     }
 }

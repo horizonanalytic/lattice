@@ -148,6 +148,18 @@ impl BoxLayout {
         }
     }
 
+    /// Get a reference to the underlying layout base.
+    #[inline]
+    pub fn base(&self) -> &LayoutBase {
+        &self.base
+    }
+
+    /// Get a mutable reference to the underlying layout base.
+    #[inline]
+    pub fn base_mut(&mut self) -> &mut LayoutBase {
+        &mut self.base
+    }
+
     /// Add an expanding spacer with the given stretch factor.
     ///
     /// This is equivalent to adding a spacer that grows to fill available space.
@@ -521,14 +533,18 @@ impl Layout for BoxLayout {
                 }
             };
 
-            // Create item rect
+            // Create item rect (with RTL mirroring for horizontal layouts)
             let rect = match self.orientation {
-                Orientation::Horizontal => Rect::new(
-                    content_x + main_pos,
-                    content_y + cross_pos,
-                    item_main_size,
-                    cross_size,
-                ),
+                Orientation::Horizontal => {
+                    // Mirror x position for RTL layouts
+                    let x_pos = self.base.mirror_x(main_pos, item_main_size, content_main);
+                    Rect::new(
+                        content_x + x_pos,
+                        content_y + cross_pos,
+                        item_main_size,
+                        cross_size,
+                    )
+                }
                 Orientation::Vertical => Rect::new(
                     content_x + cross_pos,
                     content_y + main_pos,
@@ -912,5 +928,124 @@ mod tests {
         assert!(layout.remove_widget(ids[0]));
         assert_eq!(layout.item_count(), 1);
         assert!(!layout.remove_widget(ids[0])); // Already removed
+    }
+
+    #[test]
+    fn test_rtl_horizontal_layout() {
+        use crate::platform::TextDirection;
+
+        init_global_registry();
+
+        let mut storage = MockStorage::new();
+
+        let id1 = storage.add(MockWidget::new(SizeHint::new(Size::new(50.0, 30.0))));
+        let id2 = storage.add(MockWidget::new(SizeHint::new(Size::new(100.0, 30.0))));
+
+        let mut layout = BoxLayout::horizontal();
+        layout.set_content_margins(ContentMargins::uniform(0.0));
+        layout.set_spacing(10.0);
+        layout.base_mut().set_text_direction(TextDirection::Rtl);
+        layout.add_widget(id1);
+        layout.add_widget(id2);
+
+        // Set geometry: 300 wide, 50 tall
+        layout.set_geometry(Rect::new(0.0, 0.0, 300.0, 50.0));
+        layout.calculate(&storage, Size::new(300.0, 50.0));
+        layout.apply(&mut storage);
+
+        let w1 = storage.widgets.get(&id1).unwrap();
+        let w2 = storage.widgets.get(&id2).unwrap();
+
+        // In RTL, first widget (id1) should be on the right, second (id2) on the left
+        // w1.x should be greater than w2.x
+        assert!(
+            w1.geometry().origin.x > w2.geometry().origin.x,
+            "In RTL, w1 (x={}) should be to the right of w2 (x={})",
+            w1.geometry().origin.x,
+            w2.geometry().origin.x
+        );
+
+        // Verify w1 is positioned from the right edge
+        // w1 should end at or near the right edge (300)
+        let w1_right = w1.geometry().origin.x + w1.geometry().width();
+        assert!(
+            (w1_right - 300.0).abs() < 1.0,
+            "w1 right edge ({}) should be near 300",
+            w1_right
+        );
+    }
+
+    #[test]
+    fn test_ltr_horizontal_layout() {
+        use crate::platform::TextDirection;
+
+        init_global_registry();
+
+        let mut storage = MockStorage::new();
+
+        let id1 = storage.add(MockWidget::new(SizeHint::new(Size::new(50.0, 30.0))));
+        let id2 = storage.add(MockWidget::new(SizeHint::new(Size::new(100.0, 30.0))));
+
+        let mut layout = BoxLayout::horizontal();
+        layout.set_content_margins(ContentMargins::uniform(0.0));
+        layout.set_spacing(10.0);
+        layout.base_mut().set_text_direction(TextDirection::Ltr);
+        layout.add_widget(id1);
+        layout.add_widget(id2);
+
+        layout.set_geometry(Rect::new(0.0, 0.0, 300.0, 50.0));
+        layout.calculate(&storage, Size::new(300.0, 50.0));
+        layout.apply(&mut storage);
+
+        let w1 = storage.widgets.get(&id1).unwrap();
+        let w2 = storage.widgets.get(&id2).unwrap();
+
+        // In LTR, first widget at x=0, second widget after first + spacing
+        assert_eq!(w1.geometry().origin.x, 0.0);
+        // w2 should be after w1 + spacing
+        assert_eq!(
+            w2.geometry().origin.x,
+            w1.geometry().width() + 10.0,
+            "w2 should start after w1 ({}) + spacing (10)",
+            w1.geometry().width()
+        );
+    }
+
+    #[test]
+    fn test_rtl_vertical_layout_no_change() {
+        use crate::platform::TextDirection;
+
+        init_global_registry();
+
+        let mut storage = MockStorage::new();
+
+        let id1 = storage.add(MockWidget::new(SizeHint::new(Size::new(100.0, 30.0))));
+        let id2 = storage.add(MockWidget::new(SizeHint::new(Size::new(100.0, 40.0))));
+
+        let mut layout = BoxLayout::vertical();
+        layout.set_content_margins(ContentMargins::uniform(0.0));
+        layout.set_spacing(5.0);
+        layout.base_mut().set_text_direction(TextDirection::Rtl);
+        layout.add_widget(id1);
+        layout.add_widget(id2);
+
+        layout.set_geometry(Rect::new(0.0, 0.0, 150.0, 200.0));
+        layout.calculate(&storage, Size::new(150.0, 200.0));
+        layout.apply(&mut storage);
+
+        let w1 = storage.widgets.get(&id1).unwrap();
+        let w2 = storage.widgets.get(&id2).unwrap();
+
+        // Vertical layout is not affected by RTL in terms of y positions
+        // Both should start at y=0 with w2 after w1 + spacing
+        assert_eq!(w1.geometry().origin.y, 0.0);
+        // w2 should be after w1's height + spacing
+        assert_eq!(
+            w2.geometry().origin.y,
+            w1.geometry().height() + 5.0,
+            "w2 y ({}) should be w1 height ({}) + 5",
+            w2.geometry().origin.y,
+            w1.geometry().height()
+        );
     }
 }

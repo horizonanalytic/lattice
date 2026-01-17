@@ -69,6 +69,18 @@ impl FlowLayout {
         }
     }
 
+    /// Get a reference to the underlying layout base.
+    #[inline]
+    pub fn base(&self) -> &LayoutBase {
+        &self.base
+    }
+
+    /// Get a mutable reference to the underlying layout base.
+    #[inline]
+    pub fn base_mut(&mut self) -> &mut LayoutBase {
+        &mut self.base
+    }
+
     /// Get the horizontal spacing between items.
     #[inline]
     pub fn horizontal_spacing(&self) -> f32 {
@@ -170,17 +182,33 @@ impl FlowLayout {
                             alignment: Alignment,
                             horizontal_spacing: f32,
                             base: &mut LayoutBase,
-                            test_only: bool| {
+                            test_only: bool,
+                            is_rtl: bool| {
             if items.is_empty() || test_only {
                 return;
+            }
+
+            // For RTL, reverse the order of items in the row
+            if is_rtl {
+                items.reverse();
             }
 
             // Calculate total row width
             let total_width: f32 = items.iter().map(|(_, _, w, _)| *w).sum::<f32>()
                 + (items.len().saturating_sub(1) as f32) * horizontal_spacing;
 
-            // Calculate offset based on alignment
-            let offset = match alignment {
+            // Calculate offset based on alignment (swap Start/End for RTL)
+            let effective_alignment = if is_rtl {
+                match alignment {
+                    Alignment::Start => Alignment::End,
+                    Alignment::End => Alignment::Start,
+                    other => other,
+                }
+            } else {
+                alignment
+            };
+
+            let offset = match effective_alignment {
                 Alignment::Start => 0.0,
                 Alignment::Center => (content_width - total_width) / 2.0,
                 Alignment::End => content_width - total_width,
@@ -227,6 +255,7 @@ impl FlowLayout {
 
             if !row_items.is_empty() && next_x > content_width {
                 // Finalize current row
+                let is_rtl = self.base.is_rtl();
                 finalize_row(
                     &mut row_items,
                     row_height,
@@ -237,6 +266,7 @@ impl FlowLayout {
                     self.horizontal_spacing,
                     &mut self.base,
                     test_only,
+                    is_rtl,
                 );
 
                 // Start new row
@@ -258,6 +288,7 @@ impl FlowLayout {
         }
 
         // Finalize last row
+        let is_rtl = self.base.is_rtl();
         finalize_row(
             &mut row_items,
             row_height,
@@ -268,6 +299,7 @@ impl FlowLayout {
             self.horizontal_spacing,
             &mut self.base,
             test_only,
+            is_rtl,
         );
 
         // Return total height

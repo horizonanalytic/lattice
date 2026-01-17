@@ -103,6 +103,18 @@ impl StackLayout {
         layout
     }
 
+    /// Get a reference to the underlying layout base.
+    #[inline]
+    pub fn base(&self) -> &LayoutBase {
+        &self.base
+    }
+
+    /// Get a mutable reference to the underlying layout base.
+    #[inline]
+    pub fn base_mut(&mut self) -> &mut LayoutBase {
+        &mut self.base
+    }
+
     /// Get the current widget index.
     #[inline]
     pub fn current_index(&self) -> usize {

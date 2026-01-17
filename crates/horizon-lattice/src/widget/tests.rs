@@ -1960,4 +1960,154 @@ mod tests {
         assert_eq!(received[0].x, 25.0);
         assert_eq!(received[0].y, 35.0);
     }
+
+    // =========================================================================
+    // Cursor Tests
+    // =========================================================================
+
+    use crate::widget::CursorShape;
+
+    #[test]
+    fn test_widget_cursor_default() {
+        setup();
+
+        let widget = TestWidget::new(Color::RED);
+
+        // No cursor set by default (inherits from parent)
+        assert_eq!(widget.widget_base().cursor(), None);
+    }
+
+    #[test]
+    fn test_widget_cursor_set_unset() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+
+        // Set cursor
+        widget.widget_base_mut().set_cursor(CursorShape::Hand);
+        assert_eq!(widget.widget_base().cursor(), Some(CursorShape::Hand));
+
+        // Change cursor
+        widget.widget_base_mut().set_cursor(CursorShape::IBeam);
+        assert_eq!(widget.widget_base().cursor(), Some(CursorShape::IBeam));
+
+        // Unset cursor (inherit from parent)
+        widget.widget_base_mut().unset_cursor();
+        assert_eq!(widget.widget_base().cursor(), None);
+    }
+
+    #[test]
+    fn test_cursor_effective_no_parent() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+
+        // No cursor set, no parent -> default Arrow
+        assert_eq!(widget.widget_base().effective_cursor(), CursorShape::Arrow);
+
+        // With cursor set
+        widget.widget_base_mut().set_cursor(CursorShape::Wait);
+        assert_eq!(widget.widget_base().effective_cursor(), CursorShape::Wait);
+    }
+
+    #[test]
+    fn test_cursor_resolution_from_widget_tree() {
+        setup();
+
+        let mut parent = TestWidget::new(Color::RED);
+        let child = TestWidget::new(Color::BLUE);
+
+        let parent_id = parent.object_id();
+        let child_id = child.object_id();
+
+        // Set up parent-child relationship
+        child.widget_base().set_parent(Some(parent_id)).unwrap();
+
+        // Set cursor on parent
+        parent.widget_base_mut().set_cursor(CursorShape::Hand);
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(parent);
+        storage.add(child);
+
+        // Resolve cursor from child - should find parent's cursor
+        let cursor = EventDispatcher::get_effective_cursor(&storage, child_id);
+        assert_eq!(cursor, CursorShape::Hand);
+    }
+
+    #[test]
+    fn test_cursor_resolution_child_overrides_parent() {
+        setup();
+
+        let mut parent = TestWidget::new(Color::RED);
+        let mut child = TestWidget::new(Color::BLUE);
+
+        let parent_id = parent.object_id();
+        let child_id = child.object_id();
+
+        // Set up parent-child relationship
+        child.widget_base().set_parent(Some(parent_id)).unwrap();
+
+        // Set different cursors
+        parent.widget_base_mut().set_cursor(CursorShape::Hand);
+        child.widget_base_mut().set_cursor(CursorShape::IBeam);
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(parent);
+        storage.add(child);
+
+        // Child's cursor should take precedence
+        let cursor = EventDispatcher::get_effective_cursor(&storage, child_id);
+        assert_eq!(cursor, CursorShape::IBeam);
+    }
+
+    #[test]
+    fn test_cursor_resolution_deep_hierarchy() {
+        setup();
+
+        let grandparent = TestWidget::new(Color::RED);
+        let mut parent = TestWidget::new(Color::GREEN);
+        let child = TestWidget::new(Color::BLUE);
+
+        let grandparent_id = grandparent.object_id();
+        let parent_id = parent.object_id();
+        let child_id = child.object_id();
+
+        // Set up hierarchy
+        parent.widget_base().set_parent(Some(grandparent_id)).unwrap();
+        child.widget_base().set_parent(Some(parent_id)).unwrap();
+
+        // Only parent has cursor set
+        parent.widget_base_mut().set_cursor(CursorShape::Crosshair);
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(grandparent);
+        storage.add(parent);
+        storage.add(child);
+
+        // Child should inherit parent's cursor
+        let cursor = EventDispatcher::get_effective_cursor(&storage, child_id);
+        assert_eq!(cursor, CursorShape::Crosshair);
+    }
+
+    #[test]
+    fn test_cursor_shape_is_resize() {
+        // Test the is_resize_cursor helper
+        assert!(CursorShape::ResizeEast.is_resize_cursor());
+        assert!(CursorShape::ResizeWest.is_resize_cursor());
+        assert!(CursorShape::ResizeNorth.is_resize_cursor());
+        assert!(CursorShape::ResizeSouth.is_resize_cursor());
+        assert!(CursorShape::ResizeHorizontal.is_resize_cursor());
+        assert!(CursorShape::ResizeVertical.is_resize_cursor());
+        assert!(CursorShape::ResizeNeSw.is_resize_cursor());
+        assert!(CursorShape::ResizeNwSe.is_resize_cursor());
+        assert!(CursorShape::ResizeColumn.is_resize_cursor());
+        assert!(CursorShape::ResizeRow.is_resize_cursor());
+
+        // Non-resize cursors
+        assert!(!CursorShape::Arrow.is_resize_cursor());
+        assert!(!CursorShape::Hand.is_resize_cursor());
+        assert!(!CursorShape::IBeam.is_resize_cursor());
+        assert!(!CursorShape::Wait.is_resize_cursor());
+    }
 }

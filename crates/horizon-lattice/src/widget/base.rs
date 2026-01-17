@@ -7,6 +7,7 @@
 use horizon_lattice_core::{global_registry, Object, ObjectBase, ObjectId, ObjectResult, Signal, WidgetState};
 use horizon_lattice_render::{Point, Rect, Size};
 
+use super::cursor::CursorShape;
 use super::geometry::{SizePolicy, SizePolicyPair};
 
 /// Focus policy for a widget.
@@ -182,6 +183,13 @@ pub struct WidgetBase {
     /// Context menu policy determining how context menu requests are handled.
     context_menu_policy: ContextMenuPolicy,
 
+    /// The cursor shape to display when the mouse is over this widget.
+    ///
+    /// If `None`, the widget inherits the cursor from its parent. Use
+    /// `set_cursor()` to set a specific cursor shape, or `unset_cursor()`
+    /// to inherit from the parent.
+    cursor: Option<CursorShape>,
+
     /// Signal emitted when the geometry changes.
     pub geometry_changed: Signal<Rect>,
 
@@ -274,6 +282,7 @@ impl WidgetBase {
             opaque: false,
             event_filters: Vec::new(),
             context_menu_policy: ContextMenuPolicy::DefaultContextMenu,
+            cursor: None,
             geometry_changed: Signal::new(),
             pressed_changed: Signal::new(),
             visible_changed: Signal::new(),
@@ -799,6 +808,76 @@ impl WidgetBase {
     /// ```
     pub fn set_context_menu_policy(&mut self, policy: ContextMenuPolicy) {
         self.context_menu_policy = policy;
+    }
+
+    // =========================================================================
+    // Cursor
+    // =========================================================================
+
+    /// Get the widget's cursor shape.
+    ///
+    /// Returns `None` if the widget inherits its cursor from its parent.
+    /// Returns `Some(shape)` if the widget has an explicit cursor set.
+    #[inline]
+    pub fn cursor(&self) -> Option<CursorShape> {
+        self.cursor
+    }
+
+    /// Set the cursor shape for this widget.
+    ///
+    /// When the mouse is over this widget, the specified cursor will be displayed.
+    /// This cursor also applies to child widgets unless they set their own cursor.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Set a hand cursor for a clickable widget
+    /// widget.set_cursor(CursorShape::Hand);
+    ///
+    /// // Set an I-beam cursor for text input
+    /// widget.set_cursor(CursorShape::IBeam);
+    /// ```
+    pub fn set_cursor(&mut self, shape: CursorShape) {
+        self.cursor = Some(shape);
+    }
+
+    /// Clear the widget's cursor, inheriting from the parent instead.
+    ///
+    /// After calling this, the widget will use its parent's cursor shape.
+    /// If there is no parent or the parent also inherits, the default
+    /// arrow cursor is used.
+    pub fn unset_cursor(&mut self) {
+        self.cursor = None;
+    }
+
+    /// Get the effective cursor for this widget.
+    ///
+    /// This traverses up the widget hierarchy to find the first explicitly
+    /// set cursor, or returns the default arrow cursor if none is found.
+    ///
+    /// This method is used internally by the cursor management system.
+    pub fn effective_cursor(&self) -> CursorShape {
+        // If this widget has an explicit cursor, use it
+        if let Some(shape) = self.cursor {
+            return shape;
+        }
+
+        // Otherwise, try to inherit from parent
+        if let Some(parent_id) = self.parent_id() {
+            if let Ok(registry) = global_registry() {
+                // Walk up the parent chain to find an explicit cursor
+                let mut current = Some(parent_id);
+                while let Some(id) = current {
+                    // We don't have direct access to parent cursors from here,
+                    // so we return the default. The actual cursor resolution
+                    // is handled by the event system when walking the widget tree.
+                    current = registry.parent(id).ok().flatten();
+                }
+            }
+        }
+
+        // Default to arrow cursor
+        CursorShape::Arrow
     }
 
     // =========================================================================

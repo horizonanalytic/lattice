@@ -50,6 +50,7 @@ use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::Point;
 
 use super::base::ContextMenuPolicy;
+use super::cursor::{CursorManager, CursorShape};
 use super::events::{ContextMenuEvent, ContextMenuReason, WidgetEvent};
 use super::Widget;
 
@@ -368,5 +369,58 @@ impl EventDispatcher {
                 Self::send_event(storage, target_id, &mut event)
             }
         }
+    }
+
+    // =========================================================================
+    // Cursor Management
+    // =========================================================================
+
+    /// Resolve and apply the effective cursor for a widget.
+    ///
+    /// This traverses up the widget tree from the specified widget to find
+    /// the first explicitly set cursor, and applies it to the cursor manager.
+    /// If no cursor is found in the tree, the default arrow cursor is used.
+    ///
+    /// Call this when:
+    /// - The mouse enters a widget
+    /// - A widget changes its cursor
+    /// - A widget that might affect cursor is destroyed
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - Widget storage implementing `WidgetAccess`
+    /// * `widget_id` - The widget to resolve the cursor for
+    ///
+    /// # Returns
+    ///
+    /// The resolved cursor shape that was applied.
+    pub fn resolve_cursor<S: WidgetAccess>(storage: &S, widget_id: ObjectId) -> CursorShape {
+        let cursor = Self::get_effective_cursor(storage, widget_id);
+        CursorManager::set_widget_cursor(cursor);
+        cursor
+    }
+
+    /// Get the effective cursor for a widget without applying it.
+    ///
+    /// Traverses up the widget tree to find the first explicitly set cursor.
+    /// Returns the default arrow cursor if none is found.
+    pub fn get_effective_cursor<S: WidgetAccess>(storage: &S, widget_id: ObjectId) -> CursorShape {
+        let mut current_id = Some(widget_id);
+
+        while let Some(id) = current_id {
+            if let Some(widget) = storage.get_widget(id) {
+                // Check if this widget has an explicit cursor
+                if let Some(cursor) = widget.widget_base().cursor() {
+                    return cursor;
+                }
+                // Move to parent
+                current_id = widget.widget_base().parent_id();
+            } else {
+                break;
+            }
+        }
+
+        // No explicit cursor found, use default
+        CursorShape::Arrow
     }
 }

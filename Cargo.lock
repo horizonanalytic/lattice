@@ -1708,6 +1708,7 @@ dependencies = [
  "block2 0.6.2",
  "chrono",
  "chrono-tz",
+ "cursor-icon",
  "horizon-lattice-core",
  "horizon-lattice-macros",
  "horizon-lattice-render",

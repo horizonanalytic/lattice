@@ -120,6 +120,7 @@
 pub mod animation;
 mod base;
 pub mod completer;
+pub mod cursor;
 mod dispatcher;
 mod events;
 mod focus;
@@ -143,6 +144,7 @@ pub mod widgets;
 mod tests;
 
 pub use base::{ContextMenuPolicy, FocusPolicy, WidgetBase};
+pub use cursor::{CursorManager, CursorShape};
 pub use dispatcher::{DispatchResult, EventDispatcher, WidgetAccess};
 pub use focus::FocusManager;
 pub use events::{

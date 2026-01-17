@@ -38,9 +38,9 @@ use horizon_lattice_render::{
 };
 
 use crate::widget::{
-    FocusPolicy, Key, KeyPressEvent, MouseButton, MouseDoubleClickEvent, MouseMoveEvent,
-    MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget,
-    WidgetBase, WidgetEvent,
+    CursorShape, FocusPolicy, Key, KeyPressEvent, MouseButton, MouseDoubleClickEvent,
+    MouseMoveEvent, MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy,
+    SizePolicyPair, Widget, WidgetBase, WidgetEvent,
 };
 
 /// Text elision mode for truncating text that doesn't fit.
@@ -1090,6 +1090,8 @@ impl Label {
             if self.current_hovered_link.is_some() {
                 self.current_hovered_link = None;
                 self.link_hovered.emit(None);
+                // Reset cursor when leaving links
+                self.base.unset_cursor();
             }
             return;
         }
@@ -1103,10 +1105,23 @@ impl Label {
         // Check if there's a link at this offset
         let new_link = self.link_at_offset(offset).map(|s| s.to_string());
 
-        // Only emit signal if the hovered link changed
+        // Only emit signal and update cursor if the hovered link changed
         if new_link != self.current_hovered_link {
+            let was_over_link = self.current_hovered_link.is_some();
+            let now_over_link = new_link.is_some();
+
             self.current_hovered_link = new_link.clone();
             self.link_hovered.emit(new_link);
+
+            // Update cursor based on link hover state
+            if now_over_link && !was_over_link {
+                // Entered a link - show hand cursor
+                self.base.set_cursor(CursorShape::Hand);
+            } else if !now_over_link && was_over_link {
+                // Left a link - reset to default cursor
+                self.base.unset_cursor();
+            }
+
             self.base.update(); // Redraw for potential cursor change
         }
     }
@@ -1913,10 +1928,11 @@ impl Widget for Label {
                 if self.selectable {
                     self.handle_focus_out();
                 }
-                // Clear link hover state on focus out
+                // Clear link hover state and cursor on focus out
                 if self.current_hovered_link.is_some() {
                     self.current_hovered_link = None;
                     self.link_hovered.emit(None);
+                    self.base.unset_cursor();
                 }
                 true
             }

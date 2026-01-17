@@ -274,6 +274,19 @@ impl WindowConfig {
         self.parent
     }
 
+    /// Check if the window will have decorations (title bar, borders).
+    ///
+    /// This returns the effective decorations setting, considering:
+    /// - Explicit `with_decorations()` setting
+    /// - Window type default
+    /// - Frameless flag
+    pub fn has_decorations(&self) -> bool {
+        let flags = self.effective_flags();
+        self.decorations.unwrap_or_else(|| {
+            self.window_type.has_decorations() && !flags.is_frameless()
+        })
+    }
+
     /// Convert to winit `WindowAttributes`.
     ///
     /// This creates the attributes needed to create a winit window.

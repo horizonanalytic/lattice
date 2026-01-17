@@ -9,10 +9,12 @@ use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Fullscreen, Window, WindowId, WindowLevel};
 
+use super::frameless_chrome::{ChromeHitTestResult, FramelessWindowChrome};
 use super::window_config::WindowConfig;
 use super::window_effects::{self, WindowEffectError, WindowMask};
 use super::window_icon::WindowIcon;
 use super::window_type::WindowType;
+use horizon_lattice_render::{Point, Size};
 
 /// Unique identifier for a native window.
 ///
@@ -77,6 +79,11 @@ pub struct NativeWindow {
     window_type: WindowType,
     /// The original configuration.
     title: String,
+    /// Optional frameless window chrome configuration.
+    ///
+    /// When set, this defines the hit-test regions for a frameless window,
+    /// enabling proper drag and resize behavior with custom chrome.
+    chrome: Option<FramelessWindowChrome>,
 }
 
 impl NativeWindow {
@@ -101,10 +108,18 @@ impl NativeWindow {
             .create_window(attrs)
             .map_err(|e| NativeWindowError::CreationFailed(e.to_string()))?;
 
+        // Automatically set up chrome for frameless windows
+        let chrome = if !config.has_decorations() {
+            Some(FramelessWindowChrome::new())
+        } else {
+            None
+        };
+
         Ok(Self {
             window: Arc::new(window),
             window_type: config.window_type(),
             title: config.title().to_string(),
+            chrome,
         })
     }
 
@@ -528,6 +543,122 @@ impl NativeWindow {
     /// ```
     pub fn set_mask(&self, mask: Option<&WindowMask>) -> Result<(), WindowEffectError> {
         window_effects::set_window_mask(&self.window, mask)
+    }
+
+    // =========================================================================
+    // Frameless Window Chrome
+    // =========================================================================
+
+    /// Get the frameless window chrome configuration.
+    ///
+    /// Returns `None` if the window has native decorations or no chrome
+    /// configuration has been set.
+    pub fn chrome(&self) -> Option<&FramelessWindowChrome> {
+        self.chrome.as_ref()
+    }
+
+    /// Get a mutable reference to the frameless window chrome configuration.
+    pub fn chrome_mut(&mut self) -> Option<&mut FramelessWindowChrome> {
+        self.chrome.as_mut()
+    }
+
+    /// Set the frameless window chrome configuration.
+    ///
+    /// Pass `Some(chrome)` to enable custom chrome hit-testing for this window,
+    /// or `None` to disable it.
+    ///
+    /// # Note
+    ///
+    /// This only affects hit-testing behavior. It does not change whether
+    /// the window has native decorations. Use `set_decorations(false)` first
+    /// to create a frameless window.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice::window::FramelessWindowChrome;
+    ///
+    /// // Create frameless window
+    /// window.set_decorations(false);
+    ///
+    /// // Configure custom chrome with 40px title bar
+    /// let chrome = FramelessWindowChrome::new()
+    ///     .with_title_bar_height(40.0)
+    ///     .with_resize_border(8.0);
+    /// window.set_chrome(Some(chrome));
+    /// ```
+    pub fn set_chrome(&mut self, chrome: Option<FramelessWindowChrome>) {
+        self.chrome = chrome;
+    }
+
+    /// Perform hit testing using the frameless chrome configuration.
+    ///
+    /// Given a point in window coordinates, returns the chrome hit test result
+    /// indicating what action (if any) should be taken.
+    ///
+    /// Returns `ChromeHitTestResult::Client` if:
+    /// - The window has no chrome configuration
+    /// - The window has native decorations
+    /// - The point is in the client area
+    ///
+    /// # Arguments
+    ///
+    /// * `point` - The point in window-local coordinates (origin at top-left)
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // In your mouse press handler:
+    /// let result = window.chrome_hit_test(mouse_position);
+    ///
+    /// match result {
+    ///     ChromeHitTestResult::Caption => {
+    ///         window.drag_window()?;
+    ///     }
+    ///     ChromeHitTestResult::ResizeBorder(direction) => {
+    ///         window.drag_resize_window(direction)?;
+    ///     }
+    ///     ChromeHitTestResult::CloseButton => {
+    ///         // Handle close button click
+    ///     }
+    ///     _ => {
+    ///         // Normal mouse handling
+    ///     }
+    /// }
+    /// ```
+    pub fn chrome_hit_test(&self, point: Point) -> ChromeHitTestResult {
+        match &self.chrome {
+            Some(chrome) => {
+                let size = self.inner_size();
+                let window_size = Size::new(size.width as f32, size.height as f32);
+                chrome.hit_test(point, window_size)
+            }
+            None => ChromeHitTestResult::Client,
+        }
+    }
+
+    /// Show the system window menu at the specified position.
+    ///
+    /// This shows the context menu that normally appears when right-clicking
+    /// the title bar, containing options like Restore, Move, Size, Minimize,
+    /// Maximize, and Close.
+    ///
+    /// This is useful when implementing custom decorations and you want to
+    /// provide access to the system window menu.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - The position in window coordinates where the menu should appear
+    ///
+    /// # Platform Notes
+    ///
+    /// - **Windows**: Shows the standard system menu
+    /// - **macOS**: No-op (macOS doesn't have a traditional window menu)
+    /// - **Linux**: Behavior varies by window manager
+    pub fn show_window_menu(&self, position: Point) {
+        use winit::dpi::PhysicalPosition;
+        let physical = PhysicalPosition::new(position.x as f64, position.y as f64);
+        self.window.show_window_menu(physical);
     }
 }
 

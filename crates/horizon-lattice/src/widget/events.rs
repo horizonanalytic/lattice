@@ -59,6 +59,54 @@ impl KeyboardModifiers {
         meta: false,
     };
 
+    /// Shift modifier only.
+    pub const SHIFT: Self = Self {
+        shift: true,
+        control: false,
+        alt: false,
+        meta: false,
+    };
+
+    /// Control modifier only.
+    pub const CTRL: Self = Self {
+        shift: false,
+        control: true,
+        alt: false,
+        meta: false,
+    };
+
+    /// Alt modifier only.
+    pub const ALT: Self = Self {
+        shift: false,
+        control: false,
+        alt: true,
+        meta: false,
+    };
+
+    /// Meta modifier only.
+    pub const META: Self = Self {
+        shift: false,
+        control: false,
+        alt: false,
+        meta: true,
+    };
+
+    /// Control + Shift modifiers.
+    pub const CTRL_SHIFT: Self = Self {
+        shift: true,
+        control: true,
+        alt: false,
+        meta: false,
+    };
+
+    /// Control + Alt modifiers.
+    pub const CTRL_ALT: Self = Self {
+        shift: false,
+        control: true,
+        alt: true,
+        meta: false,
+    };
+
     /// Check if any modifier is pressed.
     pub fn any(&self) -> bool {
         self.shift || self.control || self.alt || self.meta

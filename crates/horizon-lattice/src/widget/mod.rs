@@ -149,7 +149,11 @@ pub use events::{
 pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
 pub use layout::{ContentMargins, Layout, LayoutBase, LayoutInvalidator, LayoutItem, SpacerItem};
 pub use painting::{FrameRenderer, FrameStats, RepaintManager};
-pub use shortcut::{parse_mnemonic, KeySequence, KeySequenceParseError, MnemonicText};
+pub use shortcut::{
+    mnemonic_to_key, parse_mnemonic, KeyCombination, KeySequence, KeySequenceParseError,
+    MnemonicText, SequenceMatch, Shortcut, ShortcutManager, ShortcutResult, StandardKey,
+    DEFAULT_CHORD_TIMEOUT_MS, MAX_KEY_SEQUENCE_LENGTH,
+};
 pub use traits::{AsWidget, PaintContext, Widget};
 
 // Re-export widgets for convenience

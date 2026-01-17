@@ -1133,8 +1133,8 @@ mod tests {
         let button = PushButton::new("Save").with_shortcut(KeySequence::ctrl(Key::S));
         assert!(button.shortcut().is_some());
         let shortcut = button.shortcut().unwrap();
-        assert_eq!(shortcut.key, Key::S);
-        assert!(shortcut.modifiers.control);
+        assert_eq!(shortcut.key(), Key::S);
+        assert!(shortcut.modifiers().control);
     }
 
     #[test]
@@ -1145,8 +1145,8 @@ mod tests {
         let button = PushButton::new("Save").with_shortcut_str("Ctrl+S");
         assert!(button.shortcut().is_some());
         let shortcut = button.shortcut().unwrap();
-        assert_eq!(shortcut.key, Key::S);
-        assert!(shortcut.modifiers.control);
+        assert_eq!(shortcut.key(), Key::S);
+        assert!(shortcut.modifiers().control);
     }
 
     #[test]

@@ -413,20 +413,36 @@ impl Default for ParagraphActions {
 // Color Toolbar Widgets
 // ============================================================================
 
+/// Maximum number of recent colors to store.
+const MAX_RECENT_COLORS: usize = 16;
+
 /// Color selection widgets for text foreground and background colors.
 ///
-/// Provides color buttons that display the current color. Connect to the
-/// buttons' `clicked` signals to handle color selection (typically by
-/// opening a color picker dialog).
+/// Provides color buttons with dropdown menus for quick access to recently
+/// used colors. The buttons display the current color and have a dropdown
+/// arrow for accessing the recent colors palette.
+///
+/// # Recent Colors
+///
+/// When a color is selected (via dialog or palette), call `add_recent_color()`
+/// to add it to the recent colors list. The list is shared between foreground
+/// and background buttons.
 ///
 /// # Example
 ///
 /// ```ignore
+/// use horizon_lattice::widget::widgets::ColorWidgets;
+///
 /// let mut color_widgets = ColorWidgets::new();
 ///
 /// // Connect to foreground button click to open color dialog
 /// color_widgets.foreground_button.clicked.connect(|&current_color| {
 ///     // Open color dialog, then call set_foreground_color with result
+/// });
+///
+/// // Connect to dropdown request to show recent colors palette
+/// color_widgets.foreground_button.dropdown_requested.connect(|()| {
+///     // Show recent colors palette popup
 /// });
 /// ```
 pub struct ColorWidgets {
@@ -434,17 +450,44 @@ pub struct ColorWidgets {
     pub foreground_button: ColorButton,
     /// Background (highlight) color button.
     pub background_button: ColorButton,
+    /// Recent colors (shared between foreground and background).
+    recent_colors: Vec<Color>,
 }
 
 impl ColorWidgets {
     /// Create new color widgets with default colors.
+    ///
+    /// Both buttons are created with `MenuButton` popup mode, showing a
+    /// dropdown arrow for accessing recent colors.
     pub fn new() -> Self {
+        use super::ColorButtonPopupMode;
+
+        let foreground_button = ColorButton::new()
+            .with_color(Color::BLACK)
+            .with_popup_mode(ColorButtonPopupMode::MenuButton);
+
+        let background_button = ColorButton::new()
+            .with_color(Color::TRANSPARENT)
+            .with_popup_mode(ColorButtonPopupMode::MenuButton);
+
+        Self {
+            foreground_button,
+            background_button,
+            recent_colors: Vec::new(),
+        }
+    }
+
+    /// Create new color widgets without dropdown functionality.
+    ///
+    /// Use this if you don't want the recent colors palette feature.
+    pub fn new_simple() -> Self {
         let foreground_button = ColorButton::new().with_color(Color::BLACK);
         let background_button = ColorButton::new().with_color(Color::TRANSPARENT);
 
         Self {
             foreground_button,
             background_button,
+            recent_colors: Vec::new(),
         }
     }
 
@@ -482,6 +525,57 @@ impl ColorWidgets {
     /// The signal parameter is the current color.
     pub fn background_clicked(&self) -> &Signal<Color> {
         &self.background_button.clicked
+    }
+
+    /// Get a reference to the foreground button's dropdown requested signal.
+    ///
+    /// Connect to this signal to show the recent colors palette for foreground.
+    pub fn foreground_dropdown_requested(&self) -> &Signal<()> {
+        &self.foreground_button.dropdown_requested
+    }
+
+    /// Get a reference to the background button's dropdown requested signal.
+    ///
+    /// Connect to this signal to show the recent colors palette for background.
+    pub fn background_dropdown_requested(&self) -> &Signal<()> {
+        &self.background_button.dropdown_requested
+    }
+
+    // =========================================================================
+    // Recent Colors
+    // =========================================================================
+
+    /// Get the recent colors list.
+    pub fn recent_colors(&self) -> &[Color] {
+        &self.recent_colors
+    }
+
+    /// Add a color to the recent colors list.
+    ///
+    /// The color is added to the front of the list. If it already exists,
+    /// it is moved to the front. The list is capped at 16 colors.
+    pub fn add_recent_color(&mut self, color: Color) {
+        // Remove if already exists
+        self.recent_colors.retain(|&c| c != color);
+        // Add to front
+        self.recent_colors.insert(0, color);
+        // Enforce max
+        if self.recent_colors.len() > MAX_RECENT_COLORS {
+            self.recent_colors.pop();
+        }
+    }
+
+    /// Set the recent colors list.
+    pub fn set_recent_colors(&mut self, colors: Vec<Color>) {
+        self.recent_colors = colors;
+        if self.recent_colors.len() > MAX_RECENT_COLORS {
+            self.recent_colors.truncate(MAX_RECENT_COLORS);
+        }
+    }
+
+    /// Clear the recent colors list.
+    pub fn clear_recent_colors(&mut self) {
+        self.recent_colors.clear();
     }
 }
 

@@ -122,6 +122,8 @@ mod table_widget;
 mod tree_widget;
 mod system_tray;
 mod text_edit_toolbar;
+mod recent_colors_palette;
+mod color_palette_popup;
 pub mod native_dialogs;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
@@ -132,7 +134,9 @@ pub use calendar::{
     DayFormatter, DefaultDayFormatter, WeekendHighlightFormatter,
 };
 pub use checkbox::{CheckBox, CheckState};
-pub use color_button::ColorButton;
+pub use color_button::{ColorButton, ColorButtonPopupMode};
+pub use recent_colors_palette::RecentColorsPalette;
+pub use color_palette_popup::ColorPalettePopup;
 pub use color_dialog::ColorDialog;
 pub use color_picker::ColorPicker;
 pub use combo_box::{

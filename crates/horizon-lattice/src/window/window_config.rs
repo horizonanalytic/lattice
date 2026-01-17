@@ -43,6 +43,11 @@ pub struct WindowConfig {
     min_size: Option<(u32, u32)>,
     /// Maximum window size.
     max_size: Option<(u32, u32)>,
+    /// Aspect ratio constraint (width / height).
+    ///
+    /// When set, the window will maintain this aspect ratio during resize operations.
+    /// For example, a ratio of 16.0/9.0 ≈ 1.78 maintains a 16:9 aspect ratio.
+    aspect_ratio: Option<f32>,
     /// Initial window position.
     position: Option<(i32, i32)>,
     /// Whether the window is resizable.
@@ -76,6 +81,7 @@ impl WindowConfig {
             size: None,
             min_size: None,
             max_size: None,
+            aspect_ratio: None,
             position: None,
             resizable: None,
             decorations: None,
@@ -120,6 +126,31 @@ impl WindowConfig {
     /// Set the maximum window size in logical pixels.
     pub fn with_max_size(mut self, width: u32, height: u32) -> Self {
         self.max_size = Some((width, height));
+        self
+    }
+
+    /// Set the aspect ratio constraint (width / height).
+    ///
+    /// When set, the window will maintain this aspect ratio during user resize operations.
+    /// The ratio should be positive (width divided by height).
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // 16:9 aspect ratio
+    /// let config = WindowConfig::new("Video Player")
+    ///     .with_aspect_ratio(16.0 / 9.0);
+    ///
+    /// // 4:3 aspect ratio
+    /// let config = WindowConfig::new("Classic App")
+    ///     .with_aspect_ratio(4.0 / 3.0);
+    ///
+    /// // Square window
+    /// let config = WindowConfig::new("Square")
+    ///     .with_aspect_ratio(1.0);
+    /// ```
+    pub fn with_aspect_ratio(mut self, ratio: f32) -> Self {
+        self.aspect_ratio = Some(ratio);
         self
     }
 
@@ -203,6 +234,11 @@ impl WindowConfig {
     /// the default flags for the window type.
     pub fn effective_flags(&self) -> WindowFlags {
         self.flags.unwrap_or_else(|| self.window_type.default_flags())
+    }
+
+    /// Get the aspect ratio constraint, if set.
+    pub fn aspect_ratio(&self) -> Option<f32> {
+        self.aspect_ratio
     }
 
     /// Convert to winit `WindowAttributes`.
@@ -365,5 +401,29 @@ mod tests {
         assert_eq!(config.max_size, Some((800, 600)));
         assert_eq!(config.position, Some((50, 50)));
         assert_eq!(config.level, Some(WindowLevel::AlwaysOnTop));
+    }
+
+    #[test]
+    fn test_window_config_aspect_ratio() {
+        // No aspect ratio by default
+        let config = WindowConfig::new("Test");
+        assert_eq!(config.aspect_ratio(), None);
+
+        // Set 16:9 aspect ratio
+        let config = WindowConfig::new("Video Player")
+            .with_aspect_ratio(16.0 / 9.0);
+        let ratio = config.aspect_ratio().unwrap();
+        assert!((ratio - 1.777).abs() < 0.01);
+
+        // Set 4:3 aspect ratio
+        let config = WindowConfig::new("Classic")
+            .with_aspect_ratio(4.0 / 3.0);
+        let ratio = config.aspect_ratio().unwrap();
+        assert!((ratio - 1.333).abs() < 0.01);
+
+        // Set square aspect ratio
+        let config = WindowConfig::new("Square")
+            .with_aspect_ratio(1.0);
+        assert_eq!(config.aspect_ratio(), Some(1.0));
     }
 }

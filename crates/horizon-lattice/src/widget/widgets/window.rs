@@ -390,6 +390,11 @@ pub struct Window {
     /// Maximum window size (None means no maximum).
     max_size: Option<Size>,
 
+    /// Aspect ratio constraint (width / height).
+    ///
+    /// When set, the window will maintain this aspect ratio during resize operations.
+    aspect_ratio: Option<f32>,
+
     /// Geometry when in normal state (for restore from maximize/fullscreen).
     normal_geometry: Rect,
 
@@ -596,6 +601,7 @@ impl Window {
             modality: WindowModality::NonModal,
             min_size: Size::new(150.0, 100.0),
             max_size: None,
+            aspect_ratio: None,
             normal_geometry: Rect::new(0.0, 0.0, 640.0, 480.0),
             title_bar_height: 28.0,
             button_size: 20.0,
@@ -847,6 +853,46 @@ impl Window {
     /// Set maximum size using builder pattern.
     pub fn with_max_size(mut self, width: f32, height: f32) -> Self {
         self.max_size = Some(Size::new(width, height));
+        self
+    }
+
+    /// Get the aspect ratio constraint.
+    ///
+    /// Returns the aspect ratio (width / height) if set, or `None` if the window
+    /// can be resized to any aspect ratio.
+    pub fn aspect_ratio(&self) -> Option<f32> {
+        self.aspect_ratio
+    }
+
+    /// Set the aspect ratio constraint (width / height).
+    ///
+    /// When set, the window will maintain this aspect ratio during resize operations.
+    /// Pass `None` to remove the constraint.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Set 16:9 aspect ratio
+    /// window.set_aspect_ratio(Some(16.0 / 9.0));
+    ///
+    /// // Remove aspect ratio constraint
+    /// window.set_aspect_ratio(None);
+    /// ```
+    pub fn set_aspect_ratio(&mut self, ratio: Option<f32>) {
+        self.aspect_ratio = ratio;
+    }
+
+    /// Set aspect ratio using builder pattern.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let window = Window::new("Video Player")
+    ///     .with_aspect_ratio(16.0 / 9.0)
+    ///     .with_size(1280.0, 720.0);
+    /// ```
+    pub fn with_aspect_ratio(mut self, ratio: f32) -> Self {
+        self.aspect_ratio = Some(ratio);
         self
     }
 
@@ -1893,6 +1939,88 @@ impl Window {
                 new_height = new_height.min(max.height);
             }
 
+            // Apply aspect ratio constraint if set
+            if let Some(ratio) = self.aspect_ratio {
+                // Determine which dimension is "primary" based on the resize edge
+                // Primary dimension drives the constraint; the other adjusts to match
+                let (primary_width, adjust_for_edge) = match self.resize_edge {
+                    // Horizontal edges: width is primary
+                    ResizeEdge::Left | ResizeEdge::Right => (true, false),
+                    // Vertical edges: height is primary
+                    ResizeEdge::Top | ResizeEdge::Bottom => (false, false),
+                    // Corners: use width as primary (more intuitive for most users)
+                    ResizeEdge::TopLeft | ResizeEdge::TopRight |
+                    ResizeEdge::BottomLeft | ResizeEdge::BottomRight => (true, true),
+                    ResizeEdge::None => (true, false),
+                };
+
+                if primary_width {
+                    // Adjust height to match width
+                    let target_height = new_width / ratio;
+                    // Clamp to min/max
+                    let target_height = target_height.max(self.min_size.height);
+                    let target_height = if let Some(max) = self.max_size {
+                        target_height.min(max.height)
+                    } else {
+                        target_height
+                    };
+
+                    // If height changed significantly, we may need to adjust width too
+                    // to maintain the ratio with the clamped height
+                    if (target_height - new_width / ratio).abs() > 0.5 {
+                        new_width = target_height * ratio;
+                        // Re-clamp width
+                        new_width = new_width.max(self.min_size.width);
+                        if let Some(max) = self.max_size {
+                            new_width = new_width.min(max.width);
+                        }
+                    }
+
+                    // Adjust position for edges that move origin
+                    if adjust_for_edge {
+                        let height_delta = target_height - new_height;
+                        match self.resize_edge {
+                            ResizeEdge::TopLeft | ResizeEdge::TopRight => {
+                                new_y -= height_delta;
+                            }
+                            _ => {}
+                        }
+                    }
+                    new_height = target_height;
+                } else {
+                    // Adjust width to match height
+                    let target_width = new_height * ratio;
+                    // Clamp to min/max
+                    let target_width = target_width.max(self.min_size.width);
+                    let target_width = if let Some(max) = self.max_size {
+                        target_width.min(max.width)
+                    } else {
+                        target_width
+                    };
+
+                    // If width changed significantly, adjust height too
+                    if (target_width - new_height * ratio).abs() > 0.5 {
+                        new_height = target_width / ratio;
+                        // Re-clamp height
+                        new_height = new_height.max(self.min_size.height);
+                        if let Some(max) = self.max_size {
+                            new_height = new_height.min(max.height);
+                        }
+                    }
+
+                    // Adjust position for edges that move origin
+                    let width_delta = target_width - new_width;
+                    match self.resize_edge {
+                        ResizeEdge::Top | ResizeEdge::Bottom => {
+                            // Center the width change
+                            new_x -= width_delta / 2.0;
+                        }
+                        _ => {}
+                    }
+                    new_width = target_width;
+                }
+            }
+
             self.base.set_geometry(Rect::new(new_x, new_y, new_width, new_height));
             if self.state == WindowState::Normal {
                 self.normal_geometry = Rect::new(new_x, new_y, new_width, new_height);
@@ -2497,5 +2625,52 @@ mod tests {
 
         window.close();
         assert!(!signal_received.load(Ordering::SeqCst));
+    }
+
+    // =========================================================================
+    // Aspect Ratio Tests
+    // =========================================================================
+
+    #[test]
+    fn test_window_aspect_ratio_default() {
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let window = Window::new("Test Window");
+        assert!(window.aspect_ratio().is_none());
+    }
+
+    #[test]
+    fn test_window_aspect_ratio_setter() {
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+
+        // Set 16:9 aspect ratio
+        window.set_aspect_ratio(Some(16.0 / 9.0));
+        let ratio = window.aspect_ratio().unwrap();
+        assert!((ratio - 1.777).abs() < 0.01);
+
+        // Clear aspect ratio
+        window.set_aspect_ratio(None);
+        assert!(window.aspect_ratio().is_none());
+    }
+
+    #[test]
+    fn test_window_aspect_ratio_builder() {
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        // Build with 4:3 aspect ratio
+        let window = Window::new("Test")
+            .with_aspect_ratio(4.0 / 3.0);
+        let ratio = window.aspect_ratio().unwrap();
+        assert!((ratio - 1.333).abs() < 0.01);
+
+        // Build with square aspect ratio
+        let window = Window::new("Square")
+            .with_aspect_ratio(1.0);
+        assert_eq!(window.aspect_ratio(), Some(1.0));
     }
 }

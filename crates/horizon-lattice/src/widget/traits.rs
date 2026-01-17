@@ -4,7 +4,7 @@
 //! UI elements in Horizon Lattice.
 
 use horizon_lattice_core::{Object, ObjectId};
-use horizon_lattice_render::{GpuRenderer, Point, Rect, Size};
+use horizon_lattice_render::{GpuRenderer, Point, Rect, Renderer, Size};
 
 use super::base::WidgetBase;
 use super::events::WidgetEvent;
@@ -21,6 +21,8 @@ pub struct PaintContext<'a> {
     widget_rect: Rect,
     /// Whether the Alt key is currently held (for mnemonic underline display).
     alt_held: bool,
+    /// Whether to show focus indicator (widget has focus and window is active).
+    show_focus: bool,
 }
 
 impl<'a> PaintContext<'a> {
@@ -30,6 +32,7 @@ impl<'a> PaintContext<'a> {
             renderer,
             widget_rect,
             alt_held: false,
+            show_focus: false,
         }
     }
 
@@ -40,6 +43,13 @@ impl<'a> PaintContext<'a> {
         self
     }
 
+    /// Set whether to show focus indicator (builder pattern).
+    #[inline]
+    pub fn with_show_focus(mut self, show_focus: bool) -> Self {
+        self.show_focus = show_focus;
+        self
+    }
+
     /// Check if the Alt key is currently held.
     ///
     /// This is used by widgets like Label to determine whether to display
@@ -47,6 +57,16 @@ impl<'a> PaintContext<'a> {
     #[inline]
     pub fn is_alt_held(&self) -> bool {
         self.alt_held
+    }
+
+    /// Check if the focus indicator should be shown.
+    ///
+    /// Returns `true` when the widget has focus and should display a visual
+    /// indicator. Widgets can check this in their `paint()` method to draw
+    /// focus rectangles or other focus visualization.
+    #[inline]
+    pub fn should_show_focus(&self) -> bool {
+        self.show_focus
     }
 
     /// Get the renderer.
@@ -77,6 +97,79 @@ impl<'a> PaintContext<'a> {
     #[inline]
     pub fn size(&self) -> Size {
         self.widget_rect.size
+    }
+
+    /// Draw a focus indicator around the widget.
+    ///
+    /// This draws a standard focus rectangle around the widget's bounds,
+    /// using the platform's focus indicator style. Widgets should call this
+    /// method in their `paint()` implementation when `should_show_focus()`
+    /// returns `true`.
+    ///
+    /// # Arguments
+    ///
+    /// * `inset` - How much to inset the focus rectangle from the widget bounds.
+    ///   Use 0.0 for a focus ring around the entire widget, or a positive value
+    ///   to draw the indicator inside the widget's border.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// fn paint(&self, ctx: &mut PaintContext<'_>) {
+    ///     // Paint widget content...
+    ///
+    ///     // Draw focus indicator if this widget has focus
+    ///     if ctx.should_show_focus() {
+    ///         ctx.draw_focus_indicator(1.0);
+    ///     }
+    /// }
+    /// ```
+    pub fn draw_focus_indicator(&mut self, inset: f32) {
+        use horizon_lattice_render::{Color, Stroke};
+
+        // Standard focus indicator color - platform-appropriate blue
+        let focus_color = Color::from_rgb8(0, 120, 215);
+
+        let rect = if inset > 0.0 {
+            Rect::new(
+                inset,
+                inset,
+                self.widget_rect.width() - inset * 2.0,
+                self.widget_rect.height() - inset * 2.0,
+            )
+        } else {
+            self.widget_rect
+        };
+
+        // Draw a 2-pixel focus outline
+        let stroke = Stroke::new(focus_color, 2.0);
+        self.renderer.stroke_rect(rect, &stroke);
+    }
+
+    /// Draw a focus indicator with custom color and width.
+    ///
+    /// Like `draw_focus_indicator` but allows customization of the appearance.
+    pub fn draw_focus_indicator_styled(
+        &mut self,
+        inset: f32,
+        color: horizon_lattice_render::Color,
+        width: f32,
+    ) {
+        use horizon_lattice_render::Stroke;
+
+        let rect = if inset > 0.0 {
+            Rect::new(
+                inset,
+                inset,
+                self.widget_rect.width() - inset * 2.0,
+                self.widget_rect.height() - inset * 2.0,
+            )
+        } else {
+            self.widget_rect
+        };
+
+        let stroke = Stroke::new(color, width);
+        self.renderer.stroke_rect(rect, &stroke);
     }
 }
 

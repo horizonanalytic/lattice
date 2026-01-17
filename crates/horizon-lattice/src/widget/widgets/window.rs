@@ -35,9 +35,9 @@ use horizon_lattice_render::{Color, Point, Rect, Renderer, Size, Stroke};
 
 use crate::widget::layout::ContentMargins;
 use crate::widget::{
-    FocusPolicy, Key, KeyPressEvent, KeyReleaseEvent, MouseButton, MouseDoubleClickEvent,
-    MouseMoveEvent, MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy,
-    SizePolicyPair, Widget, WidgetAccess, WidgetBase, WidgetEvent,
+    FocusManager, FocusPolicy, FocusReason, Key, KeyPressEvent, KeyReleaseEvent, MouseButton,
+    MouseDoubleClickEvent, MouseMoveEvent, MousePressEvent, MouseReleaseEvent, PaintContext,
+    SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetAccess, WidgetBase, WidgetEvent,
 };
 
 // ============================================================================
@@ -449,6 +449,13 @@ pub struct Window {
     /// Last shortcut pressed (for cycle management).
     last_shortcut: Option<crate::widget::KeySequence>,
 
+    // Focus management
+    /// The focus manager for this window's widget tree.
+    ///
+    /// Handles keyboard focus tracking and Tab/Shift+Tab navigation
+    /// for all widgets contained within this window.
+    focus_manager: FocusManager,
+
     // Signals
     /// Signal emitted when close is requested.
     pub close_requested: Signal<()>,
@@ -503,6 +510,32 @@ pub struct Window {
     /// The parameter is the ObjectId of the button that should be activated.
     /// Connect a handler to this signal to call `click()` on the button.
     pub shortcut_activated: Signal<ObjectId>,
+
+    /// Signal emitted when the focused widget changes.
+    ///
+    /// The parameter is `Some(ObjectId)` when a widget gains focus, or
+    /// `None` when all widgets lose focus.
+    pub focus_changed: Signal<Option<ObjectId>>,
+
+    /// Signal emitted when Tab key is pressed for focus navigation.
+    ///
+    /// Connect a handler to this signal to call `window.focus_next(storage)`
+    /// to move focus to the next focusable widget.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// window.tab_pressed.connect(|| {
+    ///     window.focus_next(&mut storage);
+    /// });
+    /// ```
+    pub tab_pressed: Signal<()>,
+
+    /// Signal emitted when Shift+Tab is pressed for reverse focus navigation.
+    ///
+    /// Connect a handler to this signal to call `window.focus_previous(storage)`
+    /// to move focus to the previous focusable widget.
+    pub backtab_pressed: Signal<()>,
 }
 
 impl Window {
@@ -553,6 +586,7 @@ impl Window {
             shortcut_registry: HashMap::new(),
             shortcut_cycle_state: HashMap::new(),
             last_shortcut: None,
+            focus_manager: FocusManager::new(),
             close_requested: Signal::new(),
             state_changed: Signal::new(),
             title_changed: Signal::new(),
@@ -563,6 +597,9 @@ impl Window {
             mnemonic_key_pressed: Signal::new(),
             default_button_activated: Signal::new(),
             shortcut_activated: Signal::new(),
+            focus_changed: Signal::new(),
+            tab_pressed: Signal::new(),
+            backtab_pressed: Signal::new(),
         }
     }
 
@@ -1083,6 +1120,163 @@ impl Window {
         }
 
         false
+    }
+
+    // =========================================================================
+    // Focus Management
+    // =========================================================================
+
+    /// Get an immutable reference to the window's focus manager.
+    ///
+    /// The focus manager tracks which widget has keyboard focus and handles
+    /// Tab/Shift+Tab navigation.
+    pub fn focus_manager(&self) -> &FocusManager {
+        &self.focus_manager
+    }
+
+    /// Get a mutable reference to the window's focus manager.
+    pub fn focus_manager_mut(&mut self) -> &mut FocusManager {
+        &mut self.focus_manager
+    }
+
+    /// Get the currently focused widget in this window.
+    pub fn focused_widget(&self) -> Option<ObjectId> {
+        self.focus_manager.focused_widget()
+    }
+
+    /// Set focus to a specific widget.
+    ///
+    /// This is a convenience method that delegates to the focus manager.
+    /// The widget must have an appropriate focus policy to receive focus.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - Widget storage implementing `WidgetAccess`
+    /// * `widget_id` - The widget to focus
+    /// * `reason` - The reason for the focus change
+    ///
+    /// # Returns
+    ///
+    /// `true` if focus was successfully set, `false` otherwise.
+    pub fn set_focus<S: WidgetAccess>(
+        &mut self,
+        storage: &mut S,
+        widget_id: ObjectId,
+        reason: FocusReason,
+    ) -> bool {
+        let old_focused = self.focus_manager.focused_widget();
+        let result = self.focus_manager.set_focus(storage, widget_id, reason);
+        let new_focused = self.focus_manager.focused_widget();
+
+        // Emit focus_changed signal if focus actually changed
+        if result && old_focused != new_focused {
+            self.focus_changed.emit(new_focused);
+        }
+
+        result
+    }
+
+    /// Clear focus from all widgets in this window.
+    ///
+    /// After calling this, no widget will have focus.
+    pub fn clear_focus<S: WidgetAccess>(&mut self, storage: &mut S, reason: FocusReason) {
+        let old_focused = self.focus_manager.focused_widget();
+        self.focus_manager.clear_focus(storage, reason);
+
+        if old_focused.is_some() {
+            self.focus_changed.emit(None);
+        }
+    }
+
+    /// Move focus to the next focusable widget (Tab navigation).
+    ///
+    /// Tab order is determined by depth-first traversal of the widget tree.
+    /// Only widgets with `TabFocus` or `StrongFocus` policy participate.
+    ///
+    /// # Returns
+    ///
+    /// `true` if focus was moved, `false` if no focusable widget was found.
+    pub fn focus_next<S: WidgetAccess>(&mut self, storage: &mut S) -> bool {
+        let Some(root_id) = self.content_widget else {
+            return false;
+        };
+
+        let old_focused = self.focus_manager.focused_widget();
+        let result = self.focus_manager.focus_next(storage, root_id);
+        let new_focused = self.focus_manager.focused_widget();
+
+        if result && old_focused != new_focused {
+            self.focus_changed.emit(new_focused);
+        }
+
+        result
+    }
+
+    /// Move focus to the previous focusable widget (Shift+Tab navigation).
+    ///
+    /// # Returns
+    ///
+    /// `true` if focus was moved, `false` if no focusable widget was found.
+    pub fn focus_previous<S: WidgetAccess>(&mut self, storage: &mut S) -> bool {
+        let Some(root_id) = self.content_widget else {
+            return false;
+        };
+
+        let old_focused = self.focus_manager.focused_widget();
+        let result = self.focus_manager.focus_previous(storage, root_id);
+        let new_focused = self.focus_manager.focused_widget();
+
+        if result && old_focused != new_focused {
+            self.focus_changed.emit(new_focused);
+        }
+
+        result
+    }
+
+    /// Handle click-to-focus for a mouse event.
+    ///
+    /// This method should be called when a mouse press event occurs to
+    /// potentially transfer focus to the clicked widget. It performs hit
+    /// testing to find the widget under the cursor and sets focus if the
+    /// widget accepts click focus.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - Widget storage implementing `WidgetAccess`
+    /// * `window_pos` - The position of the click in window coordinates
+    ///
+    /// # Returns
+    ///
+    /// `true` if focus was transferred to a new widget, `false` otherwise.
+    pub fn handle_click_focus<S: WidgetAccess>(
+        &mut self,
+        storage: &mut S,
+        window_pos: Point,
+    ) -> bool {
+        use crate::widget::EventDispatcher;
+
+        let Some(root_id) = self.content_widget else {
+            return false;
+        };
+
+        // Hit test to find the widget under the cursor
+        let Some(target_id) = EventDispatcher::hit_test(storage, root_id, window_pos) else {
+            return false;
+        };
+
+        // Check if the target widget accepts click focus
+        let accepts_click = {
+            let Some(widget) = storage.get_widget(target_id) else {
+                return false;
+            };
+            widget.widget_base().accepts_click_focus()
+        };
+
+        if accepts_click {
+            self.set_focus(storage, target_id, FocusReason::Mouse)
+        } else {
+            false
+        }
     }
 
     /// Dispatch a mnemonic key press to matching widgets.
@@ -1614,6 +1808,18 @@ impl Window {
             return true;
         }
 
+        // Handle Tab and Shift+Tab for focus navigation
+        if event.key == Key::Tab && !event.is_repeat {
+            if event.modifiers.shift {
+                // Shift+Tab: move focus backwards
+                self.backtab_pressed.emit(());
+            } else {
+                // Tab: move focus forwards
+                self.tab_pressed.emit(());
+            }
+            return true;
+        }
+
         // Handle Enter key for default button activation
         // This handles Enter at the window level when no focused widget consumed it
         if event.key == Key::Enter && !event.is_repeat {
@@ -1985,5 +2191,45 @@ mod tests {
         let button_id = button.object_id();
         let window = Window::new("Test Window").with_default_button(button_id);
         assert_eq!(window.default_button(), Some(button_id));
+    }
+
+    // =========================================================================
+    // Focus Management Tests
+    // =========================================================================
+
+    #[test]
+    fn test_window_has_focus_manager() {
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let window = Window::new("Test Window");
+        // Focus manager should exist and have no focused widget initially
+        assert!(window.focus_manager().focused_widget().is_none());
+        assert!(window.focused_widget().is_none());
+    }
+
+    #[test]
+    fn test_window_focus_manager_accessor() {
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let mut window = Window::new("Test Window");
+
+        // Can access focus manager mutably
+        let fm = window.focus_manager_mut();
+        assert!(fm.focused_widget().is_none());
+    }
+
+    #[test]
+    fn test_window_focus_signals_exist() {
+        use horizon_lattice_core::init_global_registry;
+        init_global_registry();
+
+        let window = Window::new("Test Window");
+
+        // Verify focus-related signals exist (they do if this compiles)
+        let _ = &window.focus_changed;
+        let _ = &window.tab_pressed;
+        let _ = &window.backtab_pressed;
     }
 }

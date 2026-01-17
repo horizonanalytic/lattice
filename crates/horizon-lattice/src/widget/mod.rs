@@ -124,6 +124,7 @@ mod dispatcher;
 mod events;
 mod focus;
 mod geometry;
+pub mod keyboard;
 pub mod layout;
 mod painting;
 mod shortcut;

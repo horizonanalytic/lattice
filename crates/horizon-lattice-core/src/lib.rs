@@ -102,7 +102,7 @@ pub mod signal;
 mod task;
 mod timer;
 
-pub use application::Application;
+pub use application::{Application, WindowEventHandler};
 pub use error::{LatticeError, Result, SignalError, TimerError};
 pub use event::{EventPriority, LatticeEvent};
 pub use logging::{ObjectTreeDebug, PerfSpan, TreeFormatOptions, TreeStyle};
@@ -120,5 +120,6 @@ pub use task::TaskId;
 pub use timer::TimerId;
 
 // Re-export winit types that users may need
+pub use winit::event::Modifiers;
 pub use winit::event_loop::ActiveEventLoop;
 pub use winit::window::{Window, WindowAttributes, WindowId};

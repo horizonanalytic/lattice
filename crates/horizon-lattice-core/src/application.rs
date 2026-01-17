@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use parking_lot::{Mutex, RwLock};
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{Modifiers, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::window::WindowId;
 
@@ -36,6 +36,12 @@ static APPLICATION: OnceLock<Application> = OnceLock::new();
 ///     Ok(app.run()?)
 /// }
 /// ```
+/// Type alias for window event handler callback.
+///
+/// The callback receives the window ID and window event, and returns whether
+/// the event was handled.
+pub type WindowEventHandler = Box<dyn Fn(WindowId, &WindowEvent) -> bool + Send + Sync>;
+
 pub struct Application {
     /// The event loop proxy for sending events from other threads.
     proxy: EventLoopProxy<LatticeEvent>,
@@ -51,6 +57,15 @@ pub struct Application {
     should_quit: AtomicBool,
     /// User-provided event handler.
     event_handler: RwLock<Option<Box<dyn Fn(&LatticeEvent) + Send + Sync>>>,
+    /// User-provided window event handler.
+    ///
+    /// This is called for raw window events (keyboard, mouse, etc.) before
+    /// any default processing occurs.
+    window_event_handler: RwLock<Option<WindowEventHandler>>,
+    /// Current keyboard modifier state.
+    ///
+    /// This tracks the state of Shift, Control, Alt, and Meta keys globally.
+    modifiers: Mutex<Modifiers>,
 }
 
 impl Application {
@@ -87,6 +102,8 @@ impl Application {
             event_sequence: AtomicU64::new(0),
             should_quit: AtomicBool::new(false),
             event_handler: RwLock::new(None),
+            window_event_handler: RwLock::new(None),
+            modifiers: Mutex::new(Modifiers::default()),
         };
 
         // Try to set the global instance.
@@ -184,6 +201,45 @@ impl Application {
     /// Clear the event handler.
     pub fn clear_event_handler(&self) {
         *self.event_handler.write() = None;
+    }
+
+    /// Set a handler for window events (keyboard, mouse, etc.).
+    ///
+    /// The handler receives the window ID and raw window event, and should
+    /// return `true` if it handled the event.
+    ///
+    /// This is called before any default processing of window events.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// app.set_window_event_handler(|window_id, event| {
+    ///     match event {
+    ///         WindowEvent::KeyboardInput { event, .. } => {
+    ///             // Handle keyboard input
+    ///             true
+    ///         }
+    ///         _ => false,
+    ///     }
+    /// });
+    /// ```
+    pub fn set_window_event_handler<F>(&self, handler: F)
+    where
+        F: Fn(WindowId, &WindowEvent) -> bool + Send + Sync + 'static,
+    {
+        *self.window_event_handler.write() = Some(Box::new(handler));
+    }
+
+    /// Clear the window event handler.
+    pub fn clear_window_event_handler(&self) {
+        *self.window_event_handler.write() = None;
+    }
+
+    /// Get the current keyboard modifier state.
+    ///
+    /// Returns the state of Shift, Control, Alt, and Meta keys.
+    pub fn modifiers(&self) -> Modifiers {
+        *self.modifiers.lock()
     }
 
     // -------------------------------------------------------------------------
@@ -344,19 +400,37 @@ impl ApplicationHandler<LatticeEvent> for AppHandler<'_> {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
-        _window_id: WindowId,
+        window_id: WindowId,
         event: WindowEvent,
     ) {
-        match event {
-            WindowEvent::CloseRequested => {
-                // For now, quit on window close.
-                // In the future, this will be handled by the widget system.
-                self.app.quit();
+        // Update modifier state for keyboard input
+        if let WindowEvent::ModifiersChanged(modifiers) = &event {
+            *self.app.modifiers.lock() = *modifiers;
+        }
+
+        // First, try the user-provided window event handler
+        let handled = {
+            let handler = self.app.window_event_handler.read();
+            if let Some(ref h) = *handler {
+                h(window_id, &event)
+            } else {
+                false
             }
-            WindowEvent::RedrawRequested => {
-                // Rendering will be handled by the graphics backend.
+        };
+
+        // If not handled by user, do default processing
+        if !handled {
+            match event {
+                WindowEvent::CloseRequested => {
+                    // For now, quit on window close.
+                    // In the future, this will be handled by the widget system.
+                    self.app.quit();
+                }
+                WindowEvent::RedrawRequested => {
+                    // Rendering will be handled by the graphics backend.
+                }
+                _ => {}
             }
-            _ => {}
         }
 
         self.update_control_flow(event_loop);

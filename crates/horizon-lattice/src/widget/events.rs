@@ -790,6 +790,12 @@ pub struct KeyPressEvent {
     pub text: String,
     /// Whether this is a key repeat event (key held down).
     pub is_repeat: bool,
+    /// The hardware scan code, if available.
+    ///
+    /// Scan codes represent the physical key position on the keyboard,
+    /// independent of the keyboard layout. This is useful for games
+    /// and applications that need consistent key positions.
+    pub scan_code: Option<u32>,
 }
 
 impl KeyPressEvent {
@@ -801,6 +807,25 @@ impl KeyPressEvent {
             modifiers,
             text: text.into(),
             is_repeat,
+            scan_code: None,
+        }
+    }
+
+    /// Create a new key press event with a scan code.
+    pub fn new_with_scan_code(
+        key: Key,
+        modifiers: KeyboardModifiers,
+        text: impl Into<String>,
+        is_repeat: bool,
+        scan_code: Option<u32>,
+    ) -> Self {
+        Self {
+            base: EventBase::new(),
+            key,
+            modifiers,
+            text: text.into(),
+            is_repeat,
+            scan_code,
         }
     }
 }
@@ -814,6 +839,11 @@ pub struct KeyReleaseEvent {
     pub key: Key,
     /// Keyboard modifiers held during the event.
     pub modifiers: KeyboardModifiers,
+    /// The hardware scan code, if available.
+    ///
+    /// Scan codes represent the physical key position on the keyboard,
+    /// independent of the keyboard layout.
+    pub scan_code: Option<u32>,
 }
 
 impl KeyReleaseEvent {
@@ -823,6 +853,21 @@ impl KeyReleaseEvent {
             base: EventBase::new(),
             key,
             modifiers,
+            scan_code: None,
+        }
+    }
+
+    /// Create a new key release event with a scan code.
+    pub fn new_with_scan_code(
+        key: Key,
+        modifiers: KeyboardModifiers,
+        scan_code: Option<u32>,
+    ) -> Self {
+        Self {
+            base: EventBase::new(),
+            key,
+            modifiers,
+            scan_code,
         }
     }
 }

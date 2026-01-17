@@ -11,6 +11,7 @@ authors.workspace = true
 horizon-lattice-core = { workspace = true }
 horizon-lattice-macros = { workspace = true }
 horizon-lattice-render = { workspace = true }
+winit = { workspace = true }
 parking_lot = { workspace = true }
 static_assertions = { workspace = true }
 unicode-segmentation = { workspace = true }

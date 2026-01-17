@@ -47,6 +47,7 @@ windows = { workspace = true }
 ashpd = { workspace = true }
 zbus = { workspace = true }
 pollster = { workspace = true }
+x11-clipboard = { workspace = true }
 
 [dev-dependencies]
 slotmap = { workspace = true }

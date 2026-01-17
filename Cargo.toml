@@ -88,6 +88,7 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
     "NSView", "NSRunningApplication", "NSGraphics", "NSControl", "NSCell",
     "NSWorkspace", "NSAccessibility",
     "NSPasteboard",
+    "NSDockTile",
 ] }
 block2 = "0.6"
 

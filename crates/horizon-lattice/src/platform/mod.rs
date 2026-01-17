@@ -92,12 +92,17 @@
 //! ```
 
 mod clipboard;
+mod desktop_integration;
 mod file_associations;
 mod high_contrast;
 #[cfg(feature = "notifications")]
 mod notifications;
 
 pub use clipboard::{Clipboard, ClipboardData, ClipboardError, ClipboardWatcher, ImageData};
+pub use desktop_integration::{
+    DesktopEntry, DesktopIntegrationError, JumpList, JumpListCategory, JumpListItem,
+    ProgressState, RecentDocument, RecentDocuments, TaskbarBadge, TaskbarProgress,
+};
 pub use file_associations::{
     FileAssociationError, FileTypeInfo, FileTypeRegistration, LaunchArgs, Opener,
     UrlSchemeInfo, UrlSchemeRegistration,

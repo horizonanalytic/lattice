@@ -40,6 +40,7 @@ use crate::widget::{
 
 use super::dialog_button_box::{ButtonRole, StandardButton};
 use super::window::{WindowFlags, WindowModality};
+use crate::widget::ModalManager;
 
 // ============================================================================
 // Dialog Result
@@ -209,8 +210,33 @@ pub struct Dialog {
     is_open: bool,
 
     // Default button state
-    /// The ObjectId of the default button in this dialog.
+    /// The ObjectId of the current default button in this dialog.
+    ///
+    /// This may be the explicitly set default, or temporarily an auto-default
+    /// button that has focus.
     default_button: Option<ObjectId>,
+
+    /// The ObjectId of the explicitly set default button.
+    ///
+    /// This is the "original" default that gets restored when an auto-default
+    /// button loses focus.
+    explicit_default_button: Option<ObjectId>,
+
+    /// Whether the current default button was set via auto-default.
+    ///
+    /// Used to track when to restore the explicit default.
+    is_auto_default_active: bool,
+
+    // Focus restoration state
+    /// The ObjectId of the widget that had focus before the dialog opened.
+    ///
+    /// This is used to restore focus when the dialog closes.
+    previously_focused_widget: Option<ObjectId>,
+
+    /// The ObjectId of the parent window for window-modal dialogs.
+    ///
+    /// Used for modal input blocking and determining which window to restore focus to.
+    parent_window: Option<ObjectId>,
 
     // Mnemonic state
     /// Whether the Alt key is currently held.
@@ -243,6 +269,23 @@ pub struct Dialog {
     pub default_button_activated: Signal<ObjectId>,
     /// Signal emitted when an Alt+key mnemonic combination is pressed.
     pub mnemonic_key_pressed: Signal<char>,
+    /// Signal emitted when the default button changes (including via auto-default).
+    ///
+    /// The parameter is the new default button ID (if any).
+    pub default_button_changed: Signal<Option<ObjectId>>,
+    /// Signal emitted when a widget receives focus inside the dialog.
+    ///
+    /// Used for auto-default button handling. The parameter is the focused widget ID.
+    pub focus_changed: Signal<Option<ObjectId>>,
+
+    /// Signal emitted when the dialog is about to close and focus should be restored.
+    ///
+    /// The parameter is the ObjectId of the widget that should receive focus,
+    /// or `None` if there was no previously focused widget.
+    ///
+    /// Connect to this signal to restore focus to the appropriate widget when
+    /// the dialog closes.
+    pub focus_restore_requested: Signal<Option<ObjectId>>,
 }
 
 impl Dialog {
@@ -286,6 +329,10 @@ impl Dialog {
             active: false,
             is_open: false,
             default_button: None,
+            explicit_default_button: None,
+            is_auto_default_active: false,
+            previously_focused_widget: None,
+            parent_window: None,
             alt_held: false,
             mnemonic_cycle_state: HashMap::new(),
             last_mnemonic_key: None,
@@ -300,6 +347,9 @@ impl Dialog {
             button_clicked: Signal::new(),
             default_button_activated: Signal::new(),
             mnemonic_key_pressed: Signal::new(),
+            default_button_changed: Signal::new(),
+            focus_changed: Signal::new(),
+            focus_restore_requested: Signal::new(),
         }
     }
 
@@ -456,6 +506,50 @@ impl Dialog {
     }
 
     // =========================================================================
+    // Parent Window
+    // =========================================================================
+
+    /// Get the parent window ID.
+    ///
+    /// This is used for window-modal dialogs to determine which window to block,
+    /// and for focus restoration when the dialog closes.
+    pub fn parent_window(&self) -> Option<ObjectId> {
+        self.parent_window
+    }
+
+    /// Set the parent window.
+    ///
+    /// The parent window is blocked when using `WindowModality::WindowModal`.
+    pub fn set_parent_window(&mut self, parent_id: Option<ObjectId>) {
+        self.parent_window = parent_id;
+    }
+
+    /// Set parent window using builder pattern.
+    pub fn with_parent_window(mut self, parent_id: ObjectId) -> Self {
+        self.parent_window = Some(parent_id);
+        self
+    }
+
+    // =========================================================================
+    // Focus Restoration
+    // =========================================================================
+
+    /// Get the widget that had focus before the dialog was opened.
+    ///
+    /// This is used to restore focus when the dialog closes.
+    pub fn previously_focused_widget(&self) -> Option<ObjectId> {
+        self.previously_focused_widget
+    }
+
+    /// Set the previously focused widget.
+    ///
+    /// This should be called before opening the dialog to save the current
+    /// focus state for restoration later.
+    pub fn set_previously_focused_widget(&mut self, widget_id: Option<ObjectId>) {
+        self.previously_focused_widget = widget_id;
+    }
+
+    // =========================================================================
     // Size Constraints
     // =========================================================================
 
@@ -483,20 +577,146 @@ impl Dialog {
     // Default Button
     // =========================================================================
 
-    /// Get the default button's ObjectId, if one is set.
+    /// Get the current default button's ObjectId, if one is set.
+    ///
+    /// This returns the currently active default button, which may be either:
+    /// - The explicitly set default button, or
+    /// - A temporarily promoted auto-default button that has focus
     pub fn default_button(&self) -> Option<ObjectId> {
         self.default_button
     }
 
+    /// Get the explicitly set default button's ObjectId.
+    ///
+    /// This is the "original" default button, not affected by auto-default behavior.
+    pub fn explicit_default_button(&self) -> Option<ObjectId> {
+        self.explicit_default_button
+    }
+
     /// Set the default button for this dialog.
+    ///
+    /// This sets both the current and explicit default button. The explicit
+    /// default will be restored when an auto-default button loses focus.
     pub fn set_default_button(&mut self, button_id: Option<ObjectId>) {
+        let old_default = self.default_button;
         self.default_button = button_id;
+        self.explicit_default_button = button_id;
+        self.is_auto_default_active = false;
+
+        if old_default != self.default_button {
+            self.default_button_changed.emit(self.default_button);
+        }
     }
 
     /// Set default button using builder pattern.
     pub fn with_default_button(mut self, button_id: ObjectId) -> Self {
         self.default_button = Some(button_id);
+        self.explicit_default_button = Some(button_id);
         self
+    }
+
+    /// Check if the current default was set via auto-default behavior.
+    pub fn is_auto_default_active(&self) -> bool {
+        self.is_auto_default_active
+    }
+
+    // =========================================================================
+    // Auto-Default Handling
+    // =========================================================================
+
+    /// Activate auto-default for a button.
+    ///
+    /// This should be called when a button with `is_auto_default() == true`
+    /// receives focus via Tab navigation. The button becomes the temporary
+    /// default button, and the original default is saved for restoration.
+    ///
+    /// # Arguments
+    ///
+    /// * `button_id` - The ObjectId of the auto-default button receiving focus
+    ///
+    /// # Returns
+    ///
+    /// `true` if the auto-default was activated, `false` if it was already the default.
+    pub fn activate_auto_default(&mut self, button_id: ObjectId) -> bool {
+        if self.default_button == Some(button_id) {
+            return false;
+        }
+
+        // Save the current explicit default if we haven't already
+        if !self.is_auto_default_active {
+            // The explicit_default_button is already set, so we just need to
+            // mark that auto-default is now active
+        }
+
+        let old_default = self.default_button;
+        self.default_button = Some(button_id);
+        self.is_auto_default_active = true;
+        self.base.update();
+
+        if old_default != self.default_button {
+            self.default_button_changed.emit(self.default_button);
+        }
+
+        true
+    }
+
+    /// Restore the explicit default button.
+    ///
+    /// This should be called when an auto-default button loses focus.
+    /// The original explicit default button (if any) becomes the default again.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the default was restored, `false` if auto-default wasn't active.
+    pub fn restore_explicit_default(&mut self) -> bool {
+        if !self.is_auto_default_active {
+            return false;
+        }
+
+        let old_default = self.default_button;
+        self.default_button = self.explicit_default_button;
+        self.is_auto_default_active = false;
+        self.base.update();
+
+        if old_default != self.default_button {
+            self.default_button_changed.emit(self.default_button);
+        }
+
+        true
+    }
+
+    /// Handle focus change for auto-default button behavior.
+    ///
+    /// This method should be called when focus changes within the dialog.
+    /// It checks if the newly focused widget is an auto-default button and
+    /// updates the default button accordingly.
+    ///
+    /// # Arguments
+    ///
+    /// * `focused_widget_id` - The ObjectId of the newly focused widget, or None
+    /// * `is_auto_default_button` - Whether the focused widget is an auto-default button
+    ///
+    /// # Returns
+    ///
+    /// `true` if the default button state changed, `false` otherwise.
+    pub fn handle_focus_for_auto_default(
+        &mut self,
+        focused_widget_id: Option<ObjectId>,
+        is_auto_default_button: bool,
+    ) -> bool {
+        self.focus_changed.emit(focused_widget_id);
+
+        match (focused_widget_id, is_auto_default_button) {
+            (Some(id), true) => {
+                // Auto-default button gained focus
+                self.activate_auto_default(id)
+            }
+            (Some(_), false) | (None, _) => {
+                // Non-auto-default widget gained focus, or focus cleared
+                // Restore the explicit default
+                self.restore_explicit_default()
+            }
+        }
     }
 
     // =========================================================================
@@ -526,10 +746,32 @@ impl Dialog {
         self.is_open = true;
         self.result = DialogResult::Rejected; // Default to rejected
 
+        // Register with the modal manager if this is a modal dialog
+        if self.modality.is_modal() {
+            ModalManager::push_modal(
+                self.base.object_id(),
+                self.modality,
+                self.parent_window,
+            );
+        }
+
         self.about_to_show.emit(());
         self.base.show();
         self.activate();
         self.base.update();
+    }
+
+    /// Open the dialog with focus restoration support.
+    ///
+    /// This is like `open()` but also saves the previously focused widget
+    /// for automatic focus restoration when the dialog closes.
+    ///
+    /// # Arguments
+    ///
+    /// * `previous_focus` - The ObjectId of the widget that currently has focus
+    pub fn open_with_focus(&mut self, previous_focus: Option<ObjectId>) {
+        self.previously_focused_widget = previous_focus;
+        self.open();
     }
 
     /// Show the dialog (alias for `open()`).
@@ -572,7 +814,9 @@ impl Dialog {
     /// 1. Sets the result code
     /// 2. Emits `accepted()` or `rejected()` based on the result
     /// 3. Emits `finished(result)`
-    /// 4. Hides the dialog
+    /// 4. Unregisters from the modal manager
+    /// 5. Emits `focus_restore_requested` for focus restoration
+    /// 6. Hides the dialog
     pub fn done(&mut self, result: DialogResult) {
         if !self.is_open {
             return;
@@ -588,6 +832,18 @@ impl Dialog {
 
         // Emit finished signal
         self.finished.emit(result);
+
+        // Unregister from modal manager
+        if self.modality.is_modal() {
+            ModalManager::pop_modal(self.base.object_id());
+        }
+
+        // Request focus restoration before hiding
+        // This allows the application to restore focus to the previously focused widget
+        self.focus_restore_requested.emit(self.previously_focused_widget);
+
+        // Clear the previously focused widget
+        self.previously_focused_widget = None;
 
         // Hide the dialog
         self.hide();
@@ -1186,5 +1442,191 @@ mod tests {
 
         assert!(hint.preferred.width > 100.0);
         assert!(hint.preferred.height > 50.0);
+    }
+
+    // =========================================================================
+    // Auto-Default Button Tests
+    // =========================================================================
+
+    #[test]
+    fn test_dialog_auto_default_activation() {
+        setup();
+        ModalManager::clear();
+
+        let mut dialog = Dialog::new("Test");
+        let button1_id = ObjectId::from_raw((1_u64 << 32) | 100).unwrap();
+        let button2_id = ObjectId::from_raw((1_u64 << 32) | 101).unwrap();
+
+        // Set an explicit default button
+        dialog.set_default_button(Some(button1_id));
+        assert_eq!(dialog.default_button(), Some(button1_id));
+        assert_eq!(dialog.explicit_default_button(), Some(button1_id));
+        assert!(!dialog.is_auto_default_active());
+
+        // Activate auto-default for another button
+        assert!(dialog.activate_auto_default(button2_id));
+        assert_eq!(dialog.default_button(), Some(button2_id));
+        assert_eq!(dialog.explicit_default_button(), Some(button1_id));
+        assert!(dialog.is_auto_default_active());
+
+        // Restore explicit default
+        assert!(dialog.restore_explicit_default());
+        assert_eq!(dialog.default_button(), Some(button1_id));
+        assert!(!dialog.is_auto_default_active());
+    }
+
+    #[test]
+    fn test_dialog_auto_default_signal() {
+        setup();
+        ModalManager::clear();
+
+        let mut dialog = Dialog::new("Test");
+        let button_id = ObjectId::from_raw((1_u64 << 32) | 100).unwrap();
+
+        let changed_value = Arc::new(std::sync::Mutex::new(None));
+        let changed_value_clone = changed_value.clone();
+
+        dialog.default_button_changed.connect(move |new_default| {
+            *changed_value_clone.lock().unwrap() = Some(*new_default);
+        });
+
+        dialog.activate_auto_default(button_id);
+
+        assert_eq!(*changed_value.lock().unwrap(), Some(Some(button_id)));
+    }
+
+    #[test]
+    fn test_dialog_handle_focus_for_auto_default() {
+        setup();
+        ModalManager::clear();
+
+        let mut dialog = Dialog::new("Test");
+        let explicit_id = ObjectId::from_raw((1_u64 << 32) | 100).unwrap();
+        let auto_id = ObjectId::from_raw((1_u64 << 32) | 101).unwrap();
+        let non_button_id = ObjectId::from_raw((1_u64 << 32) | 102).unwrap();
+
+        dialog.set_default_button(Some(explicit_id));
+
+        // Auto-default button gains focus
+        assert!(dialog.handle_focus_for_auto_default(Some(auto_id), true));
+        assert_eq!(dialog.default_button(), Some(auto_id));
+
+        // Non-button gains focus - should restore explicit
+        assert!(dialog.handle_focus_for_auto_default(Some(non_button_id), false));
+        assert_eq!(dialog.default_button(), Some(explicit_id));
+    }
+
+    // =========================================================================
+    // Modal Input Blocking Tests
+    // =========================================================================
+
+    #[test]
+    fn test_dialog_modal_manager_registration() {
+        setup();
+        ModalManager::clear();
+
+        let mut dialog = Dialog::new("Test");
+        assert_eq!(dialog.modality(), WindowModality::ApplicationModal);
+
+        // Before opening, no modals registered
+        assert!(!ModalManager::has_modal());
+
+        dialog.open();
+
+        // After opening, dialog should be registered
+        assert!(ModalManager::has_modal());
+        assert_eq!(ModalManager::active_modal(), Some(dialog.base.object_id()));
+
+        dialog.close();
+
+        // After closing, dialog should be unregistered
+        assert!(!ModalManager::has_modal());
+    }
+
+    #[test]
+    fn test_dialog_modal_blocking() {
+        setup();
+        ModalManager::clear();
+
+        let mut dialog = Dialog::new("Modal Dialog");
+        let other_window_id = ObjectId::from_raw((1_u64 << 32) | 200).unwrap();
+
+        dialog.open();
+
+        // Other windows should be blocked
+        assert!(ModalManager::is_blocked(other_window_id));
+
+        // The dialog itself should not be blocked
+        assert!(!ModalManager::is_blocked(dialog.base.object_id()));
+
+        dialog.close();
+
+        // After closing, nothing should be blocked
+        assert!(!ModalManager::is_blocked(other_window_id));
+    }
+
+    #[test]
+    fn test_non_modal_dialog_no_blocking() {
+        setup();
+        ModalManager::clear();
+
+        let mut dialog = Dialog::new("Non-Modal")
+            .with_modality(WindowModality::NonModal);
+
+        let other_window_id = ObjectId::from_raw((1_u64 << 32) | 200).unwrap();
+
+        dialog.open();
+
+        // Non-modal dialog should not block other windows
+        assert!(!ModalManager::is_blocked(other_window_id));
+        assert!(!ModalManager::has_modal());
+
+        dialog.close();
+    }
+
+    // =========================================================================
+    // Focus Restoration Tests
+    // =========================================================================
+
+    #[test]
+    fn test_dialog_focus_restoration_signal() {
+        setup();
+        ModalManager::clear();
+
+        let mut dialog = Dialog::new("Test");
+        let previous_focus_id = ObjectId::from_raw((1_u64 << 32) | 300).unwrap();
+
+        let restore_id = Arc::new(std::sync::Mutex::new(None));
+        let restore_id_clone = restore_id.clone();
+
+        dialog.focus_restore_requested.connect(move |widget_id| {
+            *restore_id_clone.lock().unwrap() = Some(*widget_id);
+        });
+
+        // Open with previous focus tracking
+        dialog.open_with_focus(Some(previous_focus_id));
+        assert_eq!(dialog.previously_focused_widget(), Some(previous_focus_id));
+
+        // Close the dialog
+        dialog.close();
+
+        // Focus restore signal should have been emitted with the previous widget
+        let restored = *restore_id.lock().unwrap();
+        assert_eq!(restored, Some(Some(previous_focus_id)));
+    }
+
+    #[test]
+    fn test_dialog_parent_window() {
+        setup();
+        ModalManager::clear();
+
+        let parent_id = ObjectId::from_raw((1_u64 << 32) | 400).unwrap();
+
+        let dialog = Dialog::new("Test")
+            .with_parent_window(parent_id)
+            .with_modality(WindowModality::WindowModal);
+
+        assert_eq!(dialog.parent_window(), Some(parent_id));
+        assert_eq!(dialog.modality(), WindowModality::WindowModal);
     }
 }

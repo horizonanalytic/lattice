@@ -156,6 +156,14 @@ pub struct AbstractButton {
     /// used for the primary action in dialogs (e.g., "OK", "Save").
     is_default: bool,
 
+    /// Whether this button has the auto-default property.
+    ///
+    /// An auto-default button becomes the default button when it receives
+    /// keyboard focus via Tab navigation. When focus moves away, the original
+    /// default button (if any) is restored. This is similar to Qt's autoDefault
+    /// property on QPushButton.
+    is_auto_default: bool,
+
     /// Optional keyboard shortcut to activate the button.
     ///
     /// When set, this shortcut will activate the button when pressed,
@@ -211,6 +219,7 @@ impl AbstractButton {
             icon_mode: IconMode::IconAndText,
             icon_spacing: 6.0,
             is_default: false,
+            is_auto_default: false,
             shortcut: None,
             mnemonic_cache,
             clicked: Signal::new(),
@@ -540,6 +549,43 @@ impl AbstractButton {
     /// Set default using builder pattern.
     pub fn with_default(mut self, is_default: bool) -> Self {
         self.is_default = is_default;
+        self
+    }
+
+    // =========================================================================
+    // Auto-Default Button
+    // =========================================================================
+
+    /// Check if this button has the auto-default property.
+    ///
+    /// An auto-default button becomes the default button when it receives
+    /// keyboard focus via Tab navigation. When focus moves away, the original
+    /// default button (if any) is restored.
+    ///
+    /// This is useful in dialogs where multiple buttons could be considered
+    /// "default" depending on what the user is focused on.
+    pub fn is_auto_default(&self) -> bool {
+        self.is_auto_default
+    }
+
+    /// Set whether this button has the auto-default property.
+    ///
+    /// When `true`:
+    /// - The button becomes the default button when focused via Tab
+    /// - The original default is saved and restored when focus leaves
+    /// - The button gets visual default styling when focused
+    ///
+    /// In dialogs, buttons are typically auto-default by default.
+    pub fn set_auto_default(&mut self, auto_default: bool) {
+        if self.is_auto_default != auto_default {
+            self.is_auto_default = auto_default;
+            self.base.update();
+        }
+    }
+
+    /// Set auto-default using builder pattern.
+    pub fn with_auto_default(mut self, auto_default: bool) -> Self {
+        self.is_auto_default = auto_default;
         self
     }
 

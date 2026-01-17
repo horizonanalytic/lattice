@@ -354,6 +354,47 @@ impl PushButton {
         self
     }
 
+    // =========================================================================
+    // Auto-Default Button
+    // =========================================================================
+
+    /// Check if this button has the auto-default property.
+    ///
+    /// An auto-default button becomes the default button when it receives
+    /// keyboard focus via Tab navigation. When focus moves away, the original
+    /// default button (if any) is restored.
+    ///
+    /// This is useful in dialogs where multiple buttons could be considered
+    /// "default" depending on what the user is focused on.
+    pub fn is_auto_default(&self) -> bool {
+        self.inner.is_auto_default()
+    }
+
+    /// Set whether this button has the auto-default property.
+    ///
+    /// When `true`:
+    /// - The button becomes the default button when focused via Tab
+    /// - The original default is saved and restored when focus leaves
+    /// - The button gets visual default styling when focused
+    ///
+    /// In dialogs, buttons are typically auto-default by default.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let button = PushButton::new("OK")
+    ///     .with_auto_default(true);
+    /// ```
+    pub fn set_auto_default(&mut self, auto_default: bool) {
+        self.inner.set_auto_default(auto_default);
+    }
+
+    /// Set auto-default using builder pattern.
+    pub fn with_auto_default(mut self, auto_default: bool) -> Self {
+        self.inner = self.inner.with_auto_default(auto_default);
+        self
+    }
+
     /// Programmatically click the button.
     pub fn click(&mut self) {
         self.inner.click();

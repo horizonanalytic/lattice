@@ -135,6 +135,7 @@ pub mod input_context;
 pub mod input_mask;
 pub mod keyboard;
 pub mod layout;
+mod modal;
 pub mod mouse;
 mod painting;
 mod shortcut;
@@ -156,6 +157,7 @@ pub use drag_drop::{
 };
 pub use file_drop::FileDropHandler;
 pub use focus::FocusManager;
+pub use modal::ModalManager;
 pub use events::{
     ContextMenuEvent, ContextMenuReason, CustomEvent, EnterEvent, EventBase, FocusInEvent,
     FocusOutEvent, FocusReason, GestureState, GestureType, HideEvent, ImeCommitEvent,

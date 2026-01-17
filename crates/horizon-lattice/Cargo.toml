@@ -8,8 +8,11 @@ repository.workspace = true
 authors.workspace = true
 
 [features]
-default = ["accessibility"]
+default = ["accessibility", "notifications"]
 accessibility = ["dep:accesskit", "dep:accesskit_winit"]
+notifications = ["dep:notify-rust"]
+# Linux-only: Enable notification actions and advanced urgency levels
+notification-actions = ["notifications"]
 
 [dependencies]
 horizon-lattice-core = { workspace = true }
@@ -30,6 +33,9 @@ tray-icon = { workspace = true }
 # Accessibility (optional)
 accesskit = { workspace = true, optional = true }
 accesskit_winit = { workspace = true, optional = true }
+
+# Notifications (optional)
+notify-rust = { workspace = true, optional = true }
 
 # Native dialog dependencies (macOS)
 [target.'cfg(target_os = "macos")'.dependencies]

@@ -28,6 +28,28 @@
 //! watcher.start();
 //! ```
 //!
+//! # Notifications
+//!
+//! The notifications module provides cross-platform desktop notifications:
+//!
+//! ```ignore
+//! use horizon_lattice::platform::{Notification, Timeout, Urgency};
+//!
+//! // Simple notification
+//! Notification::new()
+//!     .summary("Download Complete")
+//!     .body("Your file has been downloaded.")
+//!     .show()?;
+//!
+//! // Notification with options
+//! Notification::new()
+//!     .summary("Reminder")
+//!     .body("Meeting in 5 minutes")
+//!     .urgency(Urgency::Critical)
+//!     .timeout(Timeout::Milliseconds(10000))
+//!     .show()?;
+//! ```
+//!
 //! # High Contrast
 //!
 //! The high contrast module detects accessibility contrast settings:
@@ -42,9 +64,20 @@
 
 mod clipboard;
 mod high_contrast;
+#[cfg(feature = "notifications")]
+mod notifications;
 
 pub use clipboard::{Clipboard, ClipboardData, ClipboardError, ClipboardWatcher, ImageData};
 pub use high_contrast::HighContrast;
+
+// Notification exports
+#[cfg(feature = "notifications")]
+pub use notifications::{
+    CloseReason, Notification, NotificationError, NotificationHandle, Timeout, Urgency,
+};
+
+#[cfg(all(feature = "notifications", feature = "notification-actions"))]
+pub use notifications::NotificationAction;
 
 // X11-specific exports for Linux
 #[cfg(target_os = "linux")]

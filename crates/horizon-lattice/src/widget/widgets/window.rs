@@ -127,6 +127,18 @@ impl WindowFlags {
     /// Window has a border.
     pub const BORDER: WindowFlags = WindowFlags(1 << 8);
 
+    /// Window has a transparent background.
+    ///
+    /// When set, the window background will be transparent, allowing
+    /// content behind the window to show through. This is useful for
+    /// custom-shaped windows or windows with rounded corners.
+    ///
+    /// Note: Transparency support varies by platform and compositor.
+    pub const TRANSPARENT: WindowFlags = WindowFlags(1 << 9);
+
+    /// Window stays below other windows (desktop widget style).
+    pub const STAYS_ON_BOTTOM: WindowFlags = WindowFlags(1 << 10);
+
     /// Default flags for a standard window (title bar, all buttons, resizable, movable).
     pub const DEFAULT: WindowFlags = WindowFlags(
         Self::MINIMIZE_BUTTON.0
@@ -195,6 +207,16 @@ impl WindowFlags {
     /// Check if the window has a border.
     pub fn has_border(&self) -> bool {
         self.has(Self::BORDER) && !self.is_frameless()
+    }
+
+    /// Check if the window has a transparent background.
+    pub fn is_transparent(&self) -> bool {
+        self.has(Self::TRANSPARENT)
+    }
+
+    /// Check if the window stays on bottom.
+    pub fn stays_on_bottom(&self) -> bool {
+        self.has(Self::STAYS_ON_BOTTOM)
     }
 }
 

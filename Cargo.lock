@@ -2406,6 +2406,7 @@ dependencies = [
  "horizon-lattice-render",
  "horizon-lattice-style",
  "icu",
+ "image",
  "io-kit-sys",
  "keepawake",
  "notify-rust",

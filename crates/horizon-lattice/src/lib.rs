@@ -55,3 +55,6 @@ pub mod widget;
 
 /// Model/View architecture module.
 pub mod model;
+
+/// Native window management module.
+pub mod window;

@@ -36,6 +36,7 @@ ropey = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 tray-icon = { workspace = true }
+image = { workspace = true }
 
 # Accessibility (optional)
 accesskit = { workspace = true, optional = true }

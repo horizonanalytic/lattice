@@ -92,6 +92,7 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
     "NSWorkspace", "NSAccessibility",
     "NSPasteboard",
     "NSDockTile",
+    "NSScreen",
 ] }
 block2 = "0.6"
 core-foundation = "0.10"
@@ -111,6 +112,7 @@ windows = { version = "0.58", features = [
     "Win32_System_LibraryLoader",
     "Win32_System_Power",
     "Win32_System_Shutdown",
+    "Win32_UI_HiDpi",
     "UI_ViewManagement",
 ] }
 

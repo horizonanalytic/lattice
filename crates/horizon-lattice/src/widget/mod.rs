@@ -122,7 +122,9 @@ mod base;
 pub mod completer;
 pub mod cursor;
 mod dispatcher;
+pub mod drag_drop;
 mod events;
+pub mod file_drop;
 mod focus;
 pub mod gesture;
 mod geometry;
@@ -146,6 +148,11 @@ mod tests;
 pub use base::{ContextMenuPolicy, FocusPolicy, WidgetBase};
 pub use cursor::{CursorManager, CursorShape};
 pub use dispatcher::{DispatchResult, EventDispatcher, WidgetAccess};
+pub use drag_drop::{
+    DragData, DragDropManager, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DragState,
+    DropAction, DropEvent,
+};
+pub use file_drop::FileDropHandler;
 pub use focus::FocusManager;
 pub use events::{
     ContextMenuEvent, ContextMenuReason, CustomEvent, EnterEvent, EventBase, FocusInEvent,

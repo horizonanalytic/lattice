@@ -190,6 +190,14 @@ pub struct WidgetBase {
     /// to inherit from the parent.
     cursor: Option<CursorShape>,
 
+    /// Whether this widget accepts drop operations.
+    ///
+    /// When `true`, the widget will receive drag and drop events
+    /// (`DragEnter`, `DragMove`, `DragLeave`, `Drop`). When `false`,
+    /// the widget ignores drag operations and they pass through to
+    /// parent widgets.
+    accepts_drops: bool,
+
     /// Signal emitted when the geometry changes.
     pub geometry_changed: Signal<Rect>,
 
@@ -283,6 +291,7 @@ impl WidgetBase {
             event_filters: Vec::new(),
             context_menu_policy: ContextMenuPolicy::DefaultContextMenu,
             cursor: None,
+            accepts_drops: false,
             geometry_changed: Signal::new(),
             pressed_changed: Signal::new(),
             visible_changed: Signal::new(),
@@ -878,6 +887,64 @@ impl WidgetBase {
 
         // Default to arrow cursor
         CursorShape::Arrow
+    }
+
+    // =========================================================================
+    // Drag and Drop
+    // =========================================================================
+
+    /// Check if this widget accepts drop operations.
+    ///
+    /// When `true`, the widget will receive drag and drop events
+    /// (`DragEnter`, `DragMove`, `DragLeave`, `Drop`). When `false`,
+    /// drag operations pass through to parent widgets.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// if widget.accepts_drops() {
+    ///     // Widget is configured as a drop target
+    /// }
+    /// ```
+    #[inline]
+    pub fn accepts_drops(&self) -> bool {
+        self.accepts_drops
+    }
+
+    /// Set whether this widget accepts drop operations.
+    ///
+    /// Widgets that want to be drop targets should call this with `true`.
+    /// They will then receive drag/drop events that they can handle.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Make this widget a drop target
+    /// widget.widget_base_mut().set_accepts_drops(true);
+    ///
+    /// // Handle drops in the event handler
+    /// fn event(&mut self, event: &mut WidgetEvent) -> bool {
+    ///     match event {
+    ///         WidgetEvent::DragEnter(e) => {
+    ///             if e.data().has_text() {
+    ///                 e.accept_proposed_action();
+    ///             }
+    ///             true
+    ///         }
+    ///         WidgetEvent::Drop(e) => {
+    ///             if let Some(text) = e.data().text() {
+    ///                 println!("Dropped: {}", text);
+    ///                 e.accept();
+    ///             }
+    ///             true
+    ///         }
+    ///         _ => false,
+    ///     }
+    /// }
+    /// ```
+    #[inline]
+    pub fn set_accepts_drops(&mut self, accepts: bool) {
+        self.accepts_drops = accepts;
     }
 
     // =========================================================================

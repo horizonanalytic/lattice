@@ -2028,6 +2028,22 @@ pub enum WidgetEvent {
     ///
     /// Sent when a pan (drag) gesture is recognized.
     PanGesture(PanGestureEvent),
+    /// Drag enter event.
+    ///
+    /// Sent when a drag operation enters a widget's bounds.
+    DragEnter(super::drag_drop::DragEnterEvent),
+    /// Drag move event.
+    ///
+    /// Sent when a drag operation moves within a widget's bounds.
+    DragMove(super::drag_drop::DragMoveEvent),
+    /// Drag leave event.
+    ///
+    /// Sent when a drag operation leaves a widget's bounds.
+    DragLeave(super::drag_drop::DragLeaveEvent),
+    /// Drop event.
+    ///
+    /// Sent when data is dropped on a widget.
+    Drop(super::drag_drop::DropEvent),
 }
 
 impl WidgetEvent {
@@ -2064,6 +2080,10 @@ impl WidgetEvent {
             Self::RotationGesture(e) => e.base.is_accepted(),
             Self::SwipeGesture(e) => e.base.is_accepted(),
             Self::PanGesture(e) => e.base.is_accepted(),
+            Self::DragEnter(e) => e.base.is_accepted(),
+            Self::DragMove(e) => e.base.is_accepted(),
+            Self::DragLeave(e) => e.base.is_accepted(),
+            Self::Drop(e) => e.base.is_accepted(),
         }
     }
 
@@ -2100,6 +2120,10 @@ impl WidgetEvent {
             Self::RotationGesture(e) => e.base.accept(),
             Self::SwipeGesture(e) => e.base.accept(),
             Self::PanGesture(e) => e.base.accept(),
+            Self::DragEnter(e) => e.base.accept(),
+            Self::DragMove(e) => e.base.accept(),
+            Self::DragLeave(e) => e.base.accept(),
+            Self::Drop(e) => e.base.accept(),
         }
     }
 
@@ -2136,6 +2160,10 @@ impl WidgetEvent {
             Self::RotationGesture(e) => e.base.ignore(),
             Self::SwipeGesture(e) => e.base.ignore(),
             Self::PanGesture(e) => e.base.ignore(),
+            Self::DragEnter(e) => e.base.ignore(),
+            Self::DragMove(e) => e.base.ignore(),
+            Self::DragLeave(e) => e.base.ignore(),
+            Self::Drop(e) => e.base.ignore(),
         }
     }
 
@@ -2181,6 +2209,9 @@ impl WidgetEvent {
             | Self::RotationGesture(_)
             | Self::SwipeGesture(_)
             | Self::PanGesture(_) => !self.is_accepted(),
+            // Drag/drop events don't propagate - they are targeted at specific widgets
+            // based on hit testing during the drag operation
+            Self::DragEnter(_) | Self::DragMove(_) | Self::DragLeave(_) | Self::Drop(_) => false,
         }
     }
 

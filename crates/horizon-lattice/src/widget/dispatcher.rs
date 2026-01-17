@@ -423,4 +423,127 @@ impl EventDispatcher {
         // No explicit cursor found, use default
         CursorShape::Arrow
     }
+
+    // =========================================================================
+    // Drag and Drop
+    // =========================================================================
+
+    /// Find the drop target widget at a given point.
+    ///
+    /// Similar to `hit_test`, but only returns widgets that have
+    /// `accepts_drops() == true`. This is used to determine which widget
+    /// should receive drag/drop events.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - Widget storage implementing `WidgetAccess` with `get_children`.
+    /// * `root_id` - The root widget to start the search from.
+    /// * `window_point` - The point in window coordinates.
+    ///
+    /// # Returns
+    ///
+    /// The ObjectId of the deepest widget that accepts drops and contains
+    /// the point, or `None` if no drop target is found.
+    pub fn find_drop_target<S: WidgetAccess>(
+        storage: &S,
+        root_id: ObjectId,
+        window_point: Point,
+    ) -> Option<ObjectId> {
+        Self::find_drop_target_recursive(storage, root_id, window_point, Point::ZERO)
+    }
+
+    fn find_drop_target_recursive<S: WidgetAccess>(
+        storage: &S,
+        widget_id: ObjectId,
+        window_point: Point,
+        parent_offset: Point,
+    ) -> Option<ObjectId> {
+        let widget = storage.get_widget(widget_id)?;
+
+        // Check if widget is visible
+        if !widget.is_visible() {
+            return None;
+        }
+
+        // Calculate the widget's position in window coordinates
+        let geometry = widget.geometry();
+        let widget_window_pos = Point::new(
+            parent_offset.x + geometry.origin.x,
+            parent_offset.y + geometry.origin.y,
+        );
+
+        // Check if the point is within this widget's bounds
+        let local_point = Point::new(
+            window_point.x - widget_window_pos.x,
+            window_point.y - widget_window_pos.y,
+        );
+
+        if !widget.contains_point(local_point) {
+            return None;
+        }
+
+        // Check children first (in reverse z-order for front-to-back)
+        let children = storage.get_children(widget_id);
+
+        for child_id in children.into_iter().rev() {
+            if let Some(drop_target) =
+                Self::find_drop_target_recursive(storage, child_id, window_point, widget_window_pos)
+            {
+                return Some(drop_target);
+            }
+        }
+
+        // If this widget accepts drops, it's a valid target
+        if widget.widget_base().accepts_drops() {
+            Some(widget_id)
+        } else {
+            None
+        }
+    }
+
+    /// Calculate the local position for a widget given a window position.
+    ///
+    /// This traverses the widget tree from root to the target widget,
+    /// accumulating offsets to convert window coordinates to widget-local
+    /// coordinates.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - Widget storage implementing `WidgetAccess`.
+    /// * `widget_id` - The target widget.
+    /// * `window_point` - The point in window coordinates.
+    ///
+    /// # Returns
+    ///
+    /// The point in widget-local coordinates.
+    pub fn window_to_local<S: WidgetAccess>(
+        storage: &S,
+        widget_id: ObjectId,
+        window_point: Point,
+    ) -> Point {
+        // Get the ancestor chain from widget to root
+        let mut ancestors = Self::get_ancestor_chain(storage, widget_id);
+        ancestors.reverse(); // Now from root to parent
+
+        // Accumulate offsets
+        let mut offset = Point::ZERO;
+
+        for ancestor_id in ancestors {
+            if let Some(ancestor) = storage.get_widget(ancestor_id) {
+                let geometry = ancestor.geometry();
+                offset.x += geometry.origin.x;
+                offset.y += geometry.origin.y;
+            }
+        }
+
+        // Add the target widget's own offset
+        if let Some(widget) = storage.get_widget(widget_id) {
+            let geometry = widget.geometry();
+            offset.x += geometry.origin.x;
+            offset.y += geometry.origin.y;
+        }
+
+        // Convert to local coordinates
+        Point::new(window_point.x - offset.x, window_point.y - offset.y)
+    }
 }

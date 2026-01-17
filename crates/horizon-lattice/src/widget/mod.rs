@@ -136,14 +136,15 @@ pub mod widgets;
 #[cfg(test)]
 mod tests;
 
-pub use base::{FocusPolicy, WidgetBase};
+pub use base::{ContextMenuPolicy, FocusPolicy, WidgetBase};
 pub use dispatcher::{DispatchResult, EventDispatcher, WidgetAccess};
 pub use focus::FocusManager;
 pub use events::{
-    CustomEvent, EnterEvent, EventBase, FocusInEvent, FocusOutEvent, FocusReason, HideEvent, Key,
-    KeyPressEvent, KeyReleaseEvent, KeyboardModifiers, LeaveEvent, MouseButton,
-    MouseDoubleClickEvent, MouseMoveEvent, MousePressEvent, MouseReleaseEvent, MoveEvent,
-    PaintEvent, ResizeEvent, ShowEvent, TimerEvent, WheelEvent, WidgetEvent,
+    ContextMenuEvent, ContextMenuReason, CustomEvent, EnterEvent, EventBase, FocusInEvent,
+    FocusOutEvent, FocusReason, HideEvent, Key, KeyPressEvent, KeyReleaseEvent, KeyboardModifiers,
+    LeaveEvent, MouseButton, MouseDoubleClickEvent, MouseMoveEvent, MousePressEvent,
+    MouseReleaseEvent, MoveEvent, PaintEvent, ResizeEvent, ShowEvent, TimerEvent, WheelEvent,
+    WidgetEvent,
 };
 pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
 pub use layout::{ContentMargins, Layout, LayoutBase, LayoutInvalidator, LayoutItem, SpacerItem};

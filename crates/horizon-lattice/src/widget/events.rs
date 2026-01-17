@@ -951,6 +951,102 @@ impl TimerEvent {
     }
 }
 
+/// Context menu request event.
+///
+/// This event is sent when a context menu is requested for a widget.
+/// The request can come from:
+/// - Right mouse button click
+/// - Keyboard Menu key
+/// - Programmatic request
+///
+/// # Example
+///
+/// ```ignore
+/// fn event(&mut self, event: &mut WidgetEvent) -> bool {
+///     match event {
+///         WidgetEvent::ContextMenu(e) => {
+///             // Show a context menu at the requested position
+///             let mut menu = Menu::new();
+///             menu.add_action(Arc::new(Action::new("Cut")));
+///             menu.add_action(Arc::new(Action::new("Copy")));
+///             menu.add_action(Arc::new(Action::new("Paste")));
+///             menu.popup_at(e.global_pos.x, e.global_pos.y);
+///             event.accept();
+///             true
+///         }
+///         _ => false,
+///     }
+/// }
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct ContextMenuEvent {
+    /// Base event data.
+    pub base: EventBase,
+    /// Position in widget-local coordinates.
+    pub local_pos: Point,
+    /// Position in window coordinates.
+    pub window_pos: Point,
+    /// Position in global screen coordinates.
+    pub global_pos: Point,
+    /// The reason the context menu was requested.
+    pub reason: ContextMenuReason,
+}
+
+/// Reason a context menu was requested.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ContextMenuReason {
+    /// Context menu was triggered by mouse (typically right-click).
+    #[default]
+    Mouse,
+    /// Context menu was triggered by keyboard (Menu key).
+    Keyboard,
+    /// Context menu was triggered programmatically.
+    Other,
+}
+
+impl ContextMenuEvent {
+    /// Create a new context menu event from a mouse position.
+    pub fn from_mouse(local_pos: Point, window_pos: Point, global_pos: Point) -> Self {
+        Self {
+            base: EventBase::new(),
+            local_pos,
+            window_pos,
+            global_pos,
+            reason: ContextMenuReason::Mouse,
+        }
+    }
+
+    /// Create a new context menu event from a keyboard request.
+    ///
+    /// The position is typically the center of the widget or the current
+    /// selection position.
+    pub fn from_keyboard(local_pos: Point, window_pos: Point, global_pos: Point) -> Self {
+        Self {
+            base: EventBase::new(),
+            local_pos,
+            window_pos,
+            global_pos,
+            reason: ContextMenuReason::Keyboard,
+        }
+    }
+
+    /// Create a new context menu event with a custom reason.
+    pub fn new(
+        local_pos: Point,
+        window_pos: Point,
+        global_pos: Point,
+        reason: ContextMenuReason,
+    ) -> Self {
+        Self {
+            base: EventBase::new(),
+            local_pos,
+            window_pos,
+            global_pos,
+            reason,
+        }
+    }
+}
+
 /// Enumeration of all widget event types.
 ///
 /// This allows passing events through a unified interface while preserving
@@ -1005,6 +1101,12 @@ pub enum WidgetEvent {
     /// Sent when a widget-owned timer fires. Widgets can start timers
     /// using the widget timer API and receive events when they fire.
     Timer(TimerEvent),
+    /// Context menu event.
+    ///
+    /// Sent when a context menu is requested for the widget.
+    /// This occurs on right-click or Menu key press when the widget's
+    /// context menu policy allows it.
+    ContextMenu(ContextMenuEvent),
 }
 
 impl WidgetEvent {
@@ -1029,6 +1131,7 @@ impl WidgetEvent {
             Self::KeyRelease(e) => e.base.is_accepted(),
             Self::Custom(e) => e.base.is_accepted(),
             Self::Timer(e) => e.base.is_accepted(),
+            Self::ContextMenu(e) => e.base.is_accepted(),
         }
     }
 
@@ -1053,6 +1156,7 @@ impl WidgetEvent {
             Self::KeyRelease(e) => e.base.accept(),
             Self::Custom(e) => e.base.accept(),
             Self::Timer(e) => e.base.accept(),
+            Self::ContextMenu(e) => e.base.accept(),
         }
     }
 
@@ -1077,6 +1181,7 @@ impl WidgetEvent {
             Self::KeyRelease(e) => e.base.ignore(),
             Self::Custom(e) => e.base.ignore(),
             Self::Timer(e) => e.base.ignore(),
+            Self::ContextMenu(e) => e.base.ignore(),
         }
     }
 
@@ -1106,6 +1211,8 @@ impl WidgetEvent {
             Self::Custom(_) => !self.is_accepted(),
             // Timer events are specific to the widget that owns the timer
             Self::Timer(_) => false,
+            // Context menu events propagate if not accepted
+            Self::ContextMenu(_) => !self.is_accepted(),
         }
     }
 

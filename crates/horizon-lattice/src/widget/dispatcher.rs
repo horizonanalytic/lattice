@@ -49,7 +49,8 @@
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::Point;
 
-use super::events::WidgetEvent;
+use super::base::ContextMenuPolicy;
+use super::events::{ContextMenuEvent, ContextMenuReason, WidgetEvent};
 use super::Widget;
 
 /// Result of dispatching an event to a widget.
@@ -290,5 +291,82 @@ impl EventDispatcher {
 
         // No child was hit, so this widget is the target
         Some(widget_id)
+    }
+
+    /// Handle a context menu request for a widget.
+    ///
+    /// This should be called by the application layer when a context menu trigger
+    /// is detected (e.g., right-click or Menu key press). It handles the context
+    /// menu based on the widget's policy:
+    ///
+    /// - `DefaultContextMenu`: Creates and dispatches a `ContextMenuEvent` to the widget
+    /// - `CustomContextMenu`: Emits the widget's `context_menu_requested` signal
+    /// - `NoContextMenu`: Ignores the request
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - Widget storage implementing `WidgetAccess`
+    /// * `target_id` - The ObjectId of the widget that should receive the context menu
+    /// * `local_pos` - Position in widget-local coordinates
+    /// * `window_pos` - Position in window coordinates
+    /// * `global_pos` - Position in global screen coordinates
+    /// * `reason` - Why the context menu was requested
+    ///
+    /// # Returns
+    ///
+    /// A `DispatchResult` indicating how the context menu request was handled.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // In your mouse event handler when right-click is detected:
+    /// if event.button == MouseButton::Right {
+    ///     EventDispatcher::trigger_context_menu(
+    ///         &mut storage,
+    ///         target_widget_id,
+    ///         event.local_pos,
+    ///         event.window_pos,
+    ///         event.global_pos,
+    ///         ContextMenuReason::Mouse,
+    ///     );
+    /// }
+    /// ```
+    pub fn trigger_context_menu<S: WidgetAccess>(
+        storage: &mut S,
+        target_id: ObjectId,
+        local_pos: Point,
+        window_pos: Point,
+        global_pos: Point,
+        reason: ContextMenuReason,
+    ) -> DispatchResult {
+        // Get the widget's context menu policy
+        let policy = {
+            let Some(widget) = storage.get_widget(target_id) else {
+                return DispatchResult::WidgetNotFound;
+            };
+            widget.widget_base().context_menu_policy()
+        };
+
+        match policy {
+            ContextMenuPolicy::NoContextMenu => {
+                // Widget doesn't want context menus - ignore
+                DispatchResult::Ignored
+            }
+            ContextMenuPolicy::CustomContextMenu => {
+                // Emit the signal for custom handling
+                let Some(widget) = storage.get_widget(target_id) else {
+                    return DispatchResult::WidgetNotFound;
+                };
+                widget.widget_base().context_menu_requested.emit(local_pos);
+                DispatchResult::Accepted
+            }
+            ContextMenuPolicy::DefaultContextMenu => {
+                // Create and dispatch a ContextMenuEvent
+                let mut event = WidgetEvent::ContextMenu(ContextMenuEvent::new(
+                    local_pos, window_pos, global_pos, reason,
+                ));
+                Self::send_event(storage, target_id, &mut event)
+            }
+        }
     }
 }

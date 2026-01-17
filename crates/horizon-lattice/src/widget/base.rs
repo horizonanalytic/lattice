@@ -41,6 +41,44 @@ pub enum FocusPolicy {
     StrongFocus,
 }
 
+/// Context menu policy for a widget.
+///
+/// Determines how a widget handles context menu requests (typically right-click
+/// or the Menu key). This follows Qt's design pattern for context menu behavior.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Widget uses default context menu behavior (widget provides its own menu)
+/// widget.set_context_menu_policy(ContextMenuPolicy::DefaultContextMenu);
+///
+/// // Widget emits a signal so application can provide custom menu
+/// widget.set_context_menu_policy(ContextMenuPolicy::CustomContextMenu);
+///
+/// // Widget ignores context menu requests
+/// widget.set_context_menu_policy(ContextMenuPolicy::NoContextMenu);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ContextMenuPolicy {
+    /// Widget provides its own default context menu.
+    ///
+    /// When a context menu is requested, the widget's built-in context menu
+    /// is shown (if it has one). This is the default behavior for widgets
+    /// like LineEdit that have standard editing context menus.
+    #[default]
+    DefaultContextMenu,
+    /// Widget emits `context_menu_requested` signal for custom handling.
+    ///
+    /// The application can connect to this signal to provide a custom
+    /// context menu. The widget will not show any default menu.
+    CustomContextMenu,
+    /// Widget ignores context menu requests.
+    ///
+    /// No context menu is shown and no signal is emitted. Use this to
+    /// completely disable context menus for a widget.
+    NoContextMenu,
+}
+
 /// The base implementation for all widgets.
 ///
 /// This struct provides common functionality that all widgets need:
@@ -141,6 +179,9 @@ pub struct WidgetBase {
     /// reach this widget.
     event_filters: Vec<ObjectId>,
 
+    /// Context menu policy determining how context menu requests are handled.
+    context_menu_policy: ContextMenuPolicy,
+
     /// Signal emitted when the geometry changes.
     pub geometry_changed: Signal<Rect>,
 
@@ -155,6 +196,28 @@ pub struct WidgetBase {
 
     /// Signal emitted when focus state changes.
     pub focus_changed: Signal<bool>,
+
+    /// Signal emitted when a context menu is requested.
+    ///
+    /// This signal is emitted when the widget's context menu policy is
+    /// `ContextMenuPolicy::CustomContextMenu` and a context menu is requested
+    /// (typically via right-click or Menu key).
+    ///
+    /// The signal parameter is the position in widget-local coordinates where
+    /// the context menu was requested.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// widget.set_context_menu_policy(ContextMenuPolicy::CustomContextMenu);
+    /// widget.context_menu_requested.connect(|pos| {
+    ///     // Create and show a custom context menu at the position
+    ///     let mut menu = Menu::new();
+    ///     menu.add_action(Arc::new(Action::new("Option 1")));
+    ///     menu.popup_at(pos.x, pos.y);
+    /// });
+    /// ```
+    pub context_menu_requested: Signal<Point>,
 
     /// Signal emitted when the widget is about to be destroyed.
     ///
@@ -210,11 +273,13 @@ impl WidgetBase {
             dirty_region: None, // Will be set when geometry is set
             opaque: false,
             event_filters: Vec::new(),
+            context_menu_policy: ContextMenuPolicy::DefaultContextMenu,
             geometry_changed: Signal::new(),
             pressed_changed: Signal::new(),
             visible_changed: Signal::new(),
             enabled_changed: Signal::new(),
             focus_changed: Signal::new(),
+            context_menu_requested: Signal::new(),
             destroyed: Signal::new(),
         }
     }
@@ -703,6 +768,37 @@ impl WidgetBase {
             self.needs_repaint = true;
             self.focus_changed.emit(focused);
         }
+    }
+
+    // =========================================================================
+    // Context Menu
+    // =========================================================================
+
+    /// Get the widget's context menu policy.
+    #[inline]
+    pub fn context_menu_policy(&self) -> ContextMenuPolicy {
+        self.context_menu_policy
+    }
+
+    /// Set the widget's context menu policy.
+    ///
+    /// The context menu policy determines how context menu requests are handled.
+    /// See [`ContextMenuPolicy`] for available options.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Use custom context menu handling
+    /// widget.set_context_menu_policy(ContextMenuPolicy::CustomContextMenu);
+    /// widget.context_menu_requested.connect(|pos| {
+    ///     // Show custom menu at pos
+    /// });
+    ///
+    /// // Disable context menus entirely
+    /// widget.set_context_menu_policy(ContextMenuPolicy::NoContextMenu);
+    /// ```
+    pub fn set_context_menu_policy(&mut self, policy: ContextMenuPolicy) {
+        self.context_menu_policy = policy;
     }
 
     // =========================================================================

@@ -1724,4 +1724,240 @@ mod tests {
             &["child", "parent"]
         );
     }
+
+    // =========================================================================
+    // Context Menu Tests
+    // =========================================================================
+
+    use crate::widget::{ContextMenuEvent, ContextMenuPolicy, ContextMenuReason};
+
+    #[test]
+    fn test_context_menu_policy_default() {
+        setup();
+
+        let widget = TestWidget::new(Color::RED);
+
+        // Default context menu policy is DefaultContextMenu
+        assert_eq!(
+            widget.widget_base().context_menu_policy(),
+            ContextMenuPolicy::DefaultContextMenu
+        );
+    }
+
+    #[test]
+    fn test_context_menu_policy_set() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+
+        // Set to CustomContextMenu
+        widget
+            .widget_base_mut()
+            .set_context_menu_policy(ContextMenuPolicy::CustomContextMenu);
+        assert_eq!(
+            widget.widget_base().context_menu_policy(),
+            ContextMenuPolicy::CustomContextMenu
+        );
+
+        // Set to NoContextMenu
+        widget
+            .widget_base_mut()
+            .set_context_menu_policy(ContextMenuPolicy::NoContextMenu);
+        assert_eq!(
+            widget.widget_base().context_menu_policy(),
+            ContextMenuPolicy::NoContextMenu
+        );
+    }
+
+    #[test]
+    fn test_context_menu_event_creation() {
+        setup();
+
+        // From mouse
+        let event = ContextMenuEvent::from_mouse(
+            Point::new(10.0, 20.0),
+            Point::new(50.0, 60.0),
+            Point::new(100.0, 200.0),
+        );
+        assert_eq!(event.local_pos.x, 10.0);
+        assert_eq!(event.local_pos.y, 20.0);
+        assert_eq!(event.reason, ContextMenuReason::Mouse);
+
+        // From keyboard
+        let event = ContextMenuEvent::from_keyboard(
+            Point::new(0.0, 0.0),
+            Point::new(50.0, 50.0),
+            Point::new(100.0, 100.0),
+        );
+        assert_eq!(event.reason, ContextMenuReason::Keyboard);
+    }
+
+    #[test]
+    fn test_context_menu_event_dispatch() {
+        setup();
+
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let received_clone = received.clone();
+
+        // A widget that handles context menu events
+        struct ContextMenuWidget {
+            base: WidgetBase,
+            received: Arc<Mutex<Vec<ContextMenuReason>>>,
+        }
+
+        impl Object for ContextMenuWidget {
+            fn object_id(&self) -> ObjectId {
+                self.base.object_id()
+            }
+        }
+
+        impl Widget for ContextMenuWidget {
+            fn widget_base(&self) -> &WidgetBase {
+                &self.base
+            }
+
+            fn widget_base_mut(&mut self) -> &mut WidgetBase {
+                &mut self.base
+            }
+
+            fn size_hint(&self) -> SizeHint {
+                SizeHint::from_dimensions(100.0, 50.0)
+            }
+
+            fn paint(&self, _ctx: &mut PaintContext<'_>) {}
+
+            fn event(&mut self, event: &mut WidgetEvent) -> bool {
+                if let WidgetEvent::ContextMenu(e) = event {
+                    self.received.lock().unwrap().push(e.reason);
+                    event.accept();
+                    return true;
+                }
+                false
+            }
+        }
+
+        let widget = ContextMenuWidget {
+            base: WidgetBase::new::<ContextMenuWidget>(),
+            received: received_clone,
+        };
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        // Dispatch a context menu event
+        let mut event = WidgetEvent::ContextMenu(ContextMenuEvent::from_mouse(
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+        ));
+
+        let result = EventDispatcher::send_event(&mut storage, widget_id, &mut event);
+
+        assert_eq!(result, DispatchResult::Accepted);
+        assert_eq!(received.lock().unwrap().as_slice(), &[ContextMenuReason::Mouse]);
+    }
+
+    #[test]
+    fn test_context_menu_requested_signal() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+
+        // Set policy to CustomContextMenu
+        widget
+            .widget_base_mut()
+            .set_context_menu_policy(ContextMenuPolicy::CustomContextMenu);
+
+        // Track signal emissions
+        let positions: Arc<Mutex<Vec<Point>>> = Arc::new(Mutex::new(Vec::new()));
+        let positions_clone = positions.clone();
+
+        widget
+            .widget_base()
+            .context_menu_requested
+            .connect(move |pos| {
+                positions_clone.lock().unwrap().push(*pos);
+            });
+
+        // Emit the signal (simulating what EventDispatcher::trigger_context_menu does)
+        widget
+            .widget_base()
+            .context_menu_requested
+            .emit(Point::new(50.0, 75.0));
+
+        let received = positions.lock().unwrap();
+        assert_eq!(received.len(), 1);
+        assert_eq!(received[0].x, 50.0);
+        assert_eq!(received[0].y, 75.0);
+    }
+
+    #[test]
+    fn test_trigger_context_menu_no_policy() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        widget
+            .widget_base_mut()
+            .set_context_menu_policy(ContextMenuPolicy::NoContextMenu);
+        let widget_id = widget.object_id();
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        // Trigger context menu - should be ignored
+        let result = EventDispatcher::trigger_context_menu(
+            &mut storage,
+            widget_id,
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            Point::new(10.0, 10.0),
+            ContextMenuReason::Mouse,
+        );
+
+        assert_eq!(result, DispatchResult::Ignored);
+    }
+
+    #[test]
+    fn test_trigger_context_menu_custom_policy() {
+        setup();
+
+        let mut widget = TestWidget::new(Color::RED);
+        widget
+            .widget_base_mut()
+            .set_context_menu_policy(ContextMenuPolicy::CustomContextMenu);
+        let widget_id = widget.object_id();
+
+        // Track signal emissions
+        let positions: Arc<Mutex<Vec<Point>>> = Arc::new(Mutex::new(Vec::new()));
+        let positions_clone = positions.clone();
+
+        widget
+            .widget_base()
+            .context_menu_requested
+            .connect(move |pos| {
+                positions_clone.lock().unwrap().push(*pos);
+            });
+
+        let mut storage = TestWidgetStorage::new();
+        storage.add(widget);
+
+        // Trigger context menu - should emit signal
+        let result = EventDispatcher::trigger_context_menu(
+            &mut storage,
+            widget_id,
+            Point::new(25.0, 35.0),
+            Point::new(50.0, 60.0),
+            Point::new(100.0, 120.0),
+            ContextMenuReason::Mouse,
+        );
+
+        assert_eq!(result, DispatchResult::Accepted);
+
+        // Signal should have been emitted with local position
+        let received = positions.lock().unwrap();
+        assert_eq!(received.len(), 1);
+        assert_eq!(received[0].x, 25.0);
+        assert_eq!(received[0].y, 35.0);
+    }
 }

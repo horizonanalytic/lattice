@@ -74,6 +74,9 @@ tray-icon = "0.21"
 # Desktop notifications
 notify-rust = "4"
 
+# File opener (open files/URLs with default application)
+open = "5"
+
 # Native dialog dependencies (macOS)
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSURL", "NSArray", "NSEnumerator"] }

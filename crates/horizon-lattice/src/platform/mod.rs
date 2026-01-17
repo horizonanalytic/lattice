@@ -1,7 +1,7 @@
 //! Platform services and system integration.
 //!
 //! This module provides cross-platform abstractions for system-level functionality
-//! such as clipboard access, notifications, and desktop integration.
+//! such as clipboard access, notifications, file associations, and desktop integration.
 //!
 //! # Clipboard
 //!
@@ -50,6 +50,35 @@
 //!     .show()?;
 //! ```
 //!
+//! # File Associations
+//!
+//! The file associations module provides file/URL opening and registration:
+//!
+//! ```ignore
+//! use horizon_lattice::platform::{Opener, LaunchArgs, FileTypeRegistration};
+//!
+//! // Open a file with the default application
+//! Opener::open("document.pdf")?;
+//!
+//! // Open a URL in the browser
+//! Opener::open_url("https://example.com")?;
+//!
+//! // Reveal a file in the file manager
+//! Opener::reveal("/path/to/file.txt")?;
+//!
+//! // Parse launch arguments for files/URLs
+//! let args = LaunchArgs::parse();
+//! for file in args.files() {
+//!     println!("Opening: {}", file.display());
+//! }
+//!
+//! // Register file type association (Windows/Linux only)
+//! FileTypeRegistration::new()
+//!     .extension("myext")
+//!     .description("My Application Document")
+//!     .register()?;
+//! ```
+//!
 //! # High Contrast
 //!
 //! The high contrast module detects accessibility contrast settings:
@@ -63,11 +92,16 @@
 //! ```
 
 mod clipboard;
+mod file_associations;
 mod high_contrast;
 #[cfg(feature = "notifications")]
 mod notifications;
 
 pub use clipboard::{Clipboard, ClipboardData, ClipboardError, ClipboardWatcher, ImageData};
+pub use file_associations::{
+    FileAssociationError, FileTypeInfo, FileTypeRegistration, LaunchArgs, Opener,
+    UrlSchemeInfo, UrlSchemeRegistration,
+};
 pub use high_contrast::HighContrast;
 
 // Notification exports

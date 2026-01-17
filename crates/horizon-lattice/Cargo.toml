@@ -37,6 +37,9 @@ accesskit_winit = { workspace = true, optional = true }
 # Notifications (optional)
 notify-rust = { workspace = true, optional = true }
 
+# File opener (open files/URLs with default application)
+open = { workspace = true }
+
 # Native dialog dependencies (macOS)
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true }

@@ -48,6 +48,10 @@
 //! - [`FontComboBox`]: Dropdown for selecting font families with preview
 //! - [`KeySequenceEdit`]: Keyboard shortcut capture and editing widget
 //! - [`StatusBar`]: Status bar with temporary messages and permanent widgets
+//! - [`SystemTrayIcon`]: System tray (notification area) icon with context menu support
+//! - [`TrayMenu`]: Context menu adapter for system tray icons
+//! - [`TrayIconImage`]: Image wrapper for tray icons
+//! - [`ActivationReason`]: Enum indicating how a tray icon was activated
 
 mod abstract_button;
 mod action;
@@ -116,6 +120,7 @@ mod timezone;
 mod list_widget;
 mod table_widget;
 mod tree_widget;
+mod system_tray;
 pub mod native_dialogs;
 
 pub use abstract_button::{AbstractButton, ButtonVariant};
@@ -217,3 +222,4 @@ pub use tool_bar::{ToolBar, ToolBarArea, ToolBarAreas, ToolBarFeatures, ToolBarI
 pub use list_widget::{ListWidget, ListWidgetItem, MatchFlags};
 pub use table_widget::{TableWidget, TableWidgetItem};
 pub use tree_widget::{TreeWidget, TreeWidgetItem, TreeIndentationStyle};
+pub use system_tray::{ActivationReason, SystemTrayIcon, TrayError, TrayIconImage, TrayMenu};

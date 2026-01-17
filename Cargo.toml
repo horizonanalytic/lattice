@@ -67,6 +67,9 @@ ropey = "1.6"
 chrono = "0.4"
 chrono-tz = "0.10"
 
+# System tray support
+tray-icon = "0.21"
+
 # Native dialog dependencies (macOS)
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSURL", "NSArray", "NSEnumerator"] }

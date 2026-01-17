@@ -19,6 +19,7 @@ regex = { workspace = true }
 ropey = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
+tray-icon = { workspace = true }
 
 # Native dialog dependencies (macOS)
 [target.'cfg(target_os = "macos")'.dependencies]

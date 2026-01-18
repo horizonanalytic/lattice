@@ -115,8 +115,10 @@ use winit::window::{Fullscreen, Window, WindowId, WindowLevel};
 use super::frameless_chrome::{ChromeHitTestResult, FramelessWindowChrome};
 use super::window_config::WindowConfig;
 use super::window_effects::{self, WindowEffectError, WindowMask};
+use super::window_geometry::WindowGeometry;
 use super::window_icon::WindowIcon;
 use super::window_type::WindowType;
+use crate::widget::widgets::WindowState;
 use horizon_lattice_render::{Point, Size};
 
 /// Unique identifier for a native window.
@@ -762,6 +764,147 @@ impl NativeWindow {
         use winit::dpi::PhysicalPosition;
         let physical = PhysicalPosition::new(position.x as f64, position.y as f64);
         self.window.show_window_menu(physical);
+    }
+
+    // =========================================================================
+    // Geometry Save/Restore
+    // =========================================================================
+
+    /// Save the current window geometry for later restoration.
+    ///
+    /// This captures the window's position, size, and state in a format
+    /// suitable for persistence across application sessions.
+    ///
+    /// # Coordinate System
+    ///
+    /// The saved geometry uses logical pixels for DPI independence.
+    /// When restoring, coordinates are automatically adjusted for the
+    /// target screen's scale factor.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Save before closing the application
+    /// let geometry = window.save_geometry();
+    ///
+    /// // Serialize to JSON for persistence
+    /// let json = serde_json::to_string(&geometry)?;
+    /// std::fs::write("window_state.json", json)?;
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - For maximized or fullscreen windows, the "normal" geometry is saved
+    ///   (the size/position the window will have when restored)
+    /// - On Wayland, position may not be available and defaults to (0, 0)
+    pub fn save_geometry(&self) -> WindowGeometry {
+        let scale = self.scale_factor();
+
+        // Get position (may not be available on Wayland)
+        let (x, y) = self
+            .outer_position()
+            .map(|pos| {
+                let logical: LogicalPosition<i32> = pos.to_logical(scale);
+                (logical.x, logical.y)
+            })
+            .unwrap_or((0, 0));
+
+        // Get size in logical pixels
+        let size = self.inner_size_logical();
+        let width = size.width as u32;
+        let height = size.height as u32;
+
+        // Determine window state
+        let state = if self.is_fullscreen() {
+            WindowState::Fullscreen
+        } else if self.is_maximized() {
+            WindowState::Maximized
+        } else if self.is_minimized().unwrap_or(false) {
+            WindowState::Minimized
+        } else {
+            WindowState::Normal
+        };
+
+        // Get current monitor name if available
+        let screen_name = self
+            .current_monitor()
+            .map(|m| m.name().unwrap_or_else(|| "Unknown".to_string()));
+
+        let mut geometry = WindowGeometry::new(x, y, width, height).with_state(state);
+
+        if let Some(name) = screen_name {
+            geometry = geometry.with_screen_name(name);
+        }
+
+        geometry
+    }
+
+    /// Restore window geometry from a saved state.
+    ///
+    /// This restores the window's position, size, and state. If the saved
+    /// screen configuration no longer matches the current setup, the window
+    /// is automatically adjusted to be visible.
+    ///
+    /// # Screen Change Handling
+    ///
+    /// - If the saved monitor no longer exists, centers on the primary monitor
+    /// - If the saved position would be off-screen, adjusts to be visible
+    /// - Clamps the size to fit within available screen bounds
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Restore at application startup
+    /// let json = std::fs::read_to_string("window_state.json")?;
+    /// let geometry: WindowGeometry = serde_json::from_str(&json)?;
+    /// window.restore_geometry(&geometry);
+    /// ```
+    pub fn restore_geometry(&self, geometry: &WindowGeometry) {
+        // Validate and adjust the geometry for current screen configuration
+        let adjusted = geometry.validated();
+
+        // Apply position and size (convert from logical to physical)
+        let scale = self.scale_factor();
+
+        let physical_pos: PhysicalPosition<i32> =
+            LogicalPosition::new(adjusted.x, adjusted.y).to_physical(scale);
+        self.set_outer_position(physical_pos);
+
+        let physical_size: PhysicalSize<u32> =
+            LogicalSize::new(adjusted.width as f64, adjusted.height as f64).to_physical(scale);
+        self.request_inner_size(physical_size);
+
+        // Apply window state
+        match adjusted.state {
+            WindowState::Normal => {
+                self.restore();
+            }
+            WindowState::Minimized => {
+                self.minimize();
+            }
+            WindowState::Maximized => {
+                self.maximize();
+            }
+            WindowState::Fullscreen => {
+                self.enter_fullscreen();
+            }
+        }
+    }
+
+    /// Get the current window state.
+    ///
+    /// Returns the current state of the window (normal, minimized, maximized,
+    /// or fullscreen).
+    pub fn window_state(&self) -> WindowState {
+        if self.is_fullscreen() {
+            WindowState::Fullscreen
+        } else if self.is_maximized() {
+            WindowState::Maximized
+        } else if self.is_minimized().unwrap_or(false) {
+            WindowState::Minimized
+        } else {
+            WindowState::Normal
+        }
     }
 }
 

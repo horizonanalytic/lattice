@@ -243,6 +243,28 @@ impl Screen {
         }
     }
 
+    /// Create a screen for testing purposes.
+    ///
+    /// This is public for use in tests within the crate.
+    #[doc(hidden)]
+    pub fn new_for_testing(
+        id: u64,
+        name: String,
+        geometry: ScreenRect,
+        work_area: ScreenRect,
+        scale_factor: f64,
+        is_primary: bool,
+    ) -> Self {
+        Self::new(
+            ScreenId::new(id),
+            name,
+            geometry,
+            work_area,
+            scale_factor,
+            is_primary,
+        )
+    }
+
     /// Get the platform-specific screen identifier.
     pub fn id(&self) -> ScreenId {
         self.id

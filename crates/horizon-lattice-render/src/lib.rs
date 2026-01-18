@@ -104,7 +104,9 @@ pub mod layer;
 mod paint;
 mod path;
 mod renderer;
+mod scalable_image;
 pub mod stencil;
+mod svg;
 mod surface;
 pub mod text;
 mod text_render_pass;
@@ -142,6 +144,8 @@ pub use types::{Color, CornerRadii, Path, PathCommand, Point, Rect, RoundedRect,
 pub use async_image::{AsyncImageHandle, AsyncImageLoader, AsyncImageLoaderConfig, LoadingState};
 pub use atlas::{ImageManager, TextureAtlas};
 pub use image::{Image, ImageLoader, ImageScaleMode, NinePatch};
+pub use scalable_image::ScalableImage;
+pub use svg::SvgImage;
 
 // Icon types
 pub use icon::{

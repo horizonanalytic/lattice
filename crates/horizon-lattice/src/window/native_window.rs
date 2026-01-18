@@ -2,6 +2,109 @@
 //!
 //! This module provides `NativeWindow`, a wrapper around the platform's
 //! native window (winit::Window) with additional Horizon Lattice functionality.
+//!
+//! # HiDPI Support and Coordinate Systems
+//!
+//! Horizon Lattice fully supports HiDPI (High Dots Per Inch) displays, including
+//! fractional scaling. Understanding the difference between logical and physical
+//! pixels is essential for correct rendering across different display configurations.
+//!
+//! ## Logical Pixels vs Physical Pixels
+//!
+//! - **Logical pixels**: Device-independent units used for UI layout and API
+//!   consistency. A button that's 100 logical pixels wide will appear roughly
+//!   the same physical size on any display, regardless of DPI.
+//!
+//! - **Physical pixels**: Actual hardware pixels on the display. These are what
+//!   the GPU renders to. On a 2x HiDPI display, 100 logical pixels = 200 physical
+//!   pixels.
+//!
+//! ## Scale Factor
+//!
+//! The scale factor is the ratio of physical pixels to logical pixels:
+//!
+//! ```text
+//! physical_pixels = logical_pixels * scale_factor
+//! ```
+//!
+//! Common scale factors:
+//! - **1.0**: Standard DPI display (96 DPI on Windows, 72 DPI on macOS)
+//! - **1.25, 1.5**: Common fractional scaling values
+//! - **2.0**: Retina/HiDPI display (e.g., 4K on 27" or MacBook Pro)
+//! - **3.0**: Very high DPI displays (e.g., iPhone Plus models)
+//!
+//! ## API Usage
+//!
+//! ### Window Size
+//!
+//! - [`NativeWindow::inner_size()`]: Returns physical pixels (for rendering)
+//! - [`NativeWindow::inner_size_logical()`]: Returns logical pixels (for layout)
+//! - [`NativeWindow::request_inner_size()`]: Takes physical pixels
+//! - [`NativeWindow::request_inner_size_logical()`]: Takes logical pixels
+//!
+//! ### Position
+//!
+//! - [`NativeWindow::outer_position()`]: Returns physical pixels
+//! - [`NativeWindow::set_outer_position()`]: Takes physical pixels
+//! - [`NativeWindow::set_outer_position_logical()`]: Takes logical pixels
+//!
+//! ### Rendering
+//!
+//! When rendering, always use physical pixels for GPU operations:
+//!
+//! ```ignore
+//! // Get physical size for render target/viewport
+//! let physical_size = window.inner_size();
+//! surface.configure(physical_size.width, physical_size.height);
+//!
+//! // Scale factor for coordinate conversion
+//! let scale = window.scale_factor();
+//!
+//! // Convert logical UI coordinates to physical for rendering
+//! let physical_x = logical_x * scale;
+//! let physical_y = logical_y * scale;
+//! ```
+//!
+//! ## Handling Scale Factor Changes
+//!
+//! When a window moves between monitors with different DPIs, or when the
+//! user changes their display scaling settings, you'll receive a
+//! `ScaleFactorChanged` event through [`WindowManager::window_scale_factor_changed()`].
+//!
+//! ```ignore
+//! let manager = WindowManager::instance();
+//! manager.window_scale_factor_changed().connect(|(window_id, new_scale)| {
+//!     // 1. Update render surface resolution
+//!     // 2. Reload images at appropriate resolution (@2x, @3x)
+//!     // 3. Recalculate layout if needed
+//!     // 4. Request redraw
+//! });
+//! ```
+//!
+//! ## Best Practices
+//!
+//! 1. **Use logical pixels for layout**: Design your UI in logical pixels.
+//!    A 100px button should be 100 logical pixels on all displays.
+//!
+//! 2. **Use physical pixels for rendering**: Configure GPU surfaces and
+//!    render targets using physical dimensions.
+//!
+//! 3. **Provide multi-resolution assets**: For bitmap images, provide @2x
+//!    and @3x variants. Use [`ScalableImage`](crate::ScalableImage) for
+//!    automatic resolution selection.
+//!
+//! 4. **Prefer vector graphics**: SVG and procedural drawing scale perfectly.
+//!    Use [`SvgImage`](crate::SvgImage) for resolution-independent icons.
+//!
+//! 5. **Handle scale changes gracefully**: Subscribe to scale factor change
+//!    signals and update your rendering accordingly.
+//!
+//! ## Platform Notes
+//!
+//! - **macOS**: Reports fractional scale factors. Retina displays are typically 2.0.
+//! - **Windows**: Scale factor comes from display settings. Can be 1.0, 1.25, 1.5, 1.75, 2.0, etc.
+//! - **Linux/Wayland**: Scale factor is typically an integer (1, 2, 3).
+//! - **Linux/X11**: Behavior varies by DE; may report 1.0 with large fonts instead.
 
 use std::sync::Arc;
 

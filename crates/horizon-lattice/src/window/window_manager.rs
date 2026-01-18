@@ -80,6 +80,12 @@ pub struct WindowManager {
     /// Signal emitted when a window is moved.
     /// Parameters: (window_id, new_x, new_y)
     window_moved: Signal<(NativeWindowId, i32, i32)>,
+    /// Signal emitted when a window's scale factor changes.
+    /// Parameters: (window_id, new_scale_factor)
+    ///
+    /// This is emitted when a window moves to a monitor with a different DPI,
+    /// or when the system DPI setting changes.
+    window_scale_factor_changed: Signal<(NativeWindowId, f64)>,
 }
 
 impl WindowManager {
@@ -95,6 +101,7 @@ impl WindowManager {
             window_unfocused: Signal::new(),
             window_resized: Signal::new(),
             window_moved: Signal::new(),
+            window_scale_factor_changed: Signal::new(),
         }
     }
 
@@ -474,6 +481,40 @@ impl WindowManager {
     /// This should be called by the event handler when a window is moved.
     pub fn notify_move(&self, id: NativeWindowId, x: i32, y: i32) {
         self.window_moved.emit((id, x, y));
+    }
+
+    /// Signal emitted when a window's scale factor changes.
+    ///
+    /// The parameters are (window_id, new_scale_factor).
+    ///
+    /// This is typically emitted when:
+    /// - A window moves to a monitor with a different DPI
+    /// - The system DPI setting changes
+    /// - The user changes their display scaling preference
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let manager = WindowManager::instance();
+    /// manager.window_scale_factor_changed().connect(|(id, scale)| {
+    ///     println!("Window {:?} scale factor changed to {}", id, scale);
+    ///     // Update rendering resolution, redraw at new scale, etc.
+    /// });
+    /// ```
+    pub fn window_scale_factor_changed(&self) -> &Signal<(NativeWindowId, f64)> {
+        &self.window_scale_factor_changed
+    }
+
+    /// Notify that a window's scale factor changed.
+    ///
+    /// This should be called by the event handler when a window's scale factor changes.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The window that changed
+    /// * `scale_factor` - The new scale factor (e.g., 1.0, 2.0, 1.5)
+    pub fn notify_scale_factor_change(&self, id: NativeWindowId, scale_factor: f64) {
+        self.window_scale_factor_changed.emit((id, scale_factor));
     }
 
     // =========================================================================

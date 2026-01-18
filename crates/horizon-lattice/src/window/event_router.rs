@@ -37,6 +37,7 @@ use super::window_manager::WindowManager;
 /// - `Moved`: Emits `WindowManager::window_moved` signal
 /// - `Focused(true)`: Emits `WindowManager::window_focused` signal
 /// - `Focused(false)`: Emits `WindowManager::window_unfocused` signal
+/// - `ScaleFactorChanged`: Emits `WindowManager::window_scale_factor_changed` signal
 ///
 /// # Example
 ///
@@ -85,6 +86,14 @@ fn handle_window_event(window_id: WindowId, event: &WindowEvent) -> bool {
         }
         WindowEvent::CloseRequested => {
             // Let the user handler or default behavior handle this
+            false
+        }
+        WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+            // Notify about scale factor change for HiDPI handling.
+            // This is emitted when a window moves to a monitor with different DPI,
+            // or when the system DPI setting changes.
+            manager.notify_scale_factor_change(native_id, *scale_factor);
+            // Return false to allow default processing (surface resize may be needed)
             false
         }
         _ => false,

@@ -32,6 +32,9 @@ pollster = { workspace = true }
 # Image handling
 image = { workspace = true }
 
+# SVG rendering
+resvg = "0.44"
+
 # Text rendering
 cosmic-text = { workspace = true }
 fontdb = { workspace = true }

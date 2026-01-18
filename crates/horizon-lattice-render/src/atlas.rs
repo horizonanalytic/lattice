@@ -9,9 +9,13 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
+use std::path::Path;
+
 use crate::context::GraphicsContext;
 use crate::error::{RenderError, RenderResult};
 use crate::image::Image;
+use crate::scalable_image::{scaled_path, ScalableImage};
+use crate::svg::SvgImage;
 
 /// Global atlas ID counter.
 static ATLAS_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -425,6 +429,132 @@ impl ImageManager {
             RenderError::ImageLoad(format!("Failed to load image: {}", e))
         })?;
         self.load_dynamic_image(img)
+    }
+
+    /// Load an image with automatic @2x/@3x variant discovery.
+    ///
+    /// Given a base path like "icon.png", this method will:
+    /// 1. Load the base image as the @1x variant
+    /// 2. Look for "icon@2x.png" and load it as the @2x variant (if it exists)
+    /// 3. Look for "icon@3x.png" and load it as the @3x variant (if it exists)
+    ///
+    /// The returned [`ScalableImage`] can then select the best variant for
+    /// any given scale factor.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the base (@1x) image file
+    ///
+    /// # Returns
+    ///
+    /// A `ScalableImage` containing all found resolution variants.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the base image cannot be loaded. Missing @2x/@3x
+    /// variants are silently ignored.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Given these files:
+    /// //   assets/icon.png      (32x32)
+    /// //   assets/icon@2x.png   (64x64)
+    /// //   assets/icon@3x.png   (96x96)
+    ///
+    /// let mut manager = ImageManager::new()?;
+    /// let icon = manager.load_scalable("assets/icon.png")?;
+    ///
+    /// // On a 2x display:
+    /// let image = icon.best_for_scale(2.0);  // Returns the @2x variant
+    /// ```
+    pub fn load_scalable(&mut self, path: impl AsRef<Path>) -> RenderResult<ScalableImage> {
+        let path = path.as_ref();
+
+        // Load the base @1x image (required)
+        let image_1x = self.load_file(path)?;
+        let mut scalable = ScalableImage::new(image_1x);
+
+        // Try to load @2x variant (optional)
+        if let Some(path_2x) = scaled_path(path, 2) {
+            if path_2x.exists() {
+                if let Ok(image_2x) = self.load_file(path_2x.as_path()) {
+                    scalable.add_variant(2, image_2x);
+                }
+            }
+        }
+
+        // Try to load @3x variant (optional)
+        if let Some(path_3x) = scaled_path(path, 3) {
+            if path_3x.exists() {
+                if let Ok(image_3x) = self.load_file(path_3x.as_path()) {
+                    scalable.add_variant(3, image_3x);
+                }
+            }
+        }
+
+        Ok(scalable)
+    }
+
+    /// Load an SVG and render it at a specific pixel size.
+    ///
+    /// This is a convenience method that loads an SVG file and renders it
+    /// immediately to a GPU texture at the specified dimensions.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the SVG file
+    /// * `width` - Target width in pixels
+    /// * `height` - Target height in pixels
+    ///
+    /// # Returns
+    ///
+    /// An `Image` containing the rendered SVG.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Render a 24x24 SVG at 48x48 for a 2x display
+    /// let icon = manager.load_svg("icons/settings.svg", 48, 48)?;
+    /// ```
+    pub fn load_svg(
+        &mut self,
+        path: impl AsRef<Path>,
+        width: u32,
+        height: u32,
+    ) -> RenderResult<Image> {
+        let svg = SvgImage::from_file(path)?;
+        svg.render_to_image(self, width, height)
+    }
+
+    /// Load an SVG and render it at its natural size scaled by a factor.
+    ///
+    /// This is the most common way to load SVGs for HiDPI displays. The SVG
+    /// is rendered at `natural_size * scale_factor` pixels.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the SVG file
+    /// * `scale_factor` - The scale factor to render at (e.g., 1.0, 2.0)
+    ///
+    /// # Returns
+    ///
+    /// An `Image` containing the rendered SVG.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // For a 24x24 SVG on a 2x display, renders at 48x48 pixels
+    /// let scale = window.scale_factor();
+    /// let icon = manager.load_svg_scaled("icons/menu.svg", scale)?;
+    /// ```
+    pub fn load_svg_scaled(
+        &mut self,
+        path: impl AsRef<Path>,
+        scale_factor: f64,
+    ) -> RenderResult<Image> {
+        let svg = SvgImage::from_file(path)?;
+        svg.render_scaled(self, scale_factor)
     }
 
     /// Load an image from bytes in memory.

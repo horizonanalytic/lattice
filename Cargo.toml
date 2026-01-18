@@ -4,6 +4,7 @@ members = [
     "crates/horizon-lattice",
     "crates/horizon-lattice-core",
     "crates/horizon-lattice-macros",
+    "crates/horizon-lattice-net",
     "crates/horizon-lattice-render",
     "crates/horizon-lattice-style",
 ]
@@ -139,8 +140,24 @@ zbus_systemd = { version = "0.0.15", features = ["login1"] }
 # Localization (ICU4X for locale-aware formatting)
 icu = { version = "2.1", default-features = false, features = ["compiled_data"] }
 
+# HTTP/Networking
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "stream",
+    "multipart",
+    "cookies",
+    "rustls-tls",
+] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "time", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+url = "2"
+http = "1"
+bytes = "1"
+
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }
 horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }
+horizon-lattice-net = { path = "crates/horizon-lattice-net" }
 horizon-lattice-render = { path = "crates/horizon-lattice-render" }
 horizon-lattice-style = { path = "crates/horizon-lattice-style" }

@@ -58,3 +58,9 @@ pub mod model;
 
 /// Native window management module.
 pub mod window;
+
+/// Networking module (requires `networking` feature).
+#[cfg(feature = "networking")]
+pub mod net {
+    pub use horizon_lattice_net::*;
+}

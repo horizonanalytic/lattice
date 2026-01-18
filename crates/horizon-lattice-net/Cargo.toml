@@ -1,0 +1,43 @@
+[package]
+name = "horizon-lattice-net"
+description = "Networking module for Horizon Lattice: HTTP client, WebSocket, TCP/UDP sockets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = []
+# Enable integration tests that require network mocking
+integration-tests = []
+
+[dependencies]
+horizon-lattice-core = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+futures-util = { workspace = true }
+
+# HTTP client
+reqwest = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# URL handling
+url = { workspace = true }
+
+# HTTP types
+http = { workspace = true }
+
+# Bytes for binary data
+bytes = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+wiremock = "0.6"

@@ -170,6 +170,12 @@ http = "1"
 bytes = "1"
 base64 = "0.22"
 
+# gRPC dependencies
+tonic = { version = "0.13", features = ["tls-ring", "tls-native-roots", "transport", "channel"] }
+prost = "0.13"
+tower = "0.5"
+hyper-util = "0.1"
+
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }
 horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }

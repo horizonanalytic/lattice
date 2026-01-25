@@ -101,6 +101,8 @@
 
 mod error;
 pub mod dns;
+pub mod graphql;
+pub mod grpc;
 pub mod http;
 pub mod network_info;
 pub mod tcp;
@@ -139,4 +141,13 @@ pub use dns::{DnsConfig, DnsLookupResult, DnsResolver, IpStrategy};
 pub use network_info::{
     check_connectivity, GatewayInfo, InterfaceChange, InterfaceEvent, InterfaceType, Ipv4Info,
     Ipv6Info, MacAddress, NetworkInterface, NetworkMonitor,
+};
+
+pub use graphql::{
+    GraphQLClient, GraphQLClientBuilder, GraphQLError, GraphQLRequest, GraphQLResponse,
+    SubscriptionMessage, SubscriptionStream,
+};
+
+pub use grpc::{
+    GrpcChannel, GrpcChannelBuilder, GrpcMetadata, GrpcStatus, GrpcStatusCode,
 };

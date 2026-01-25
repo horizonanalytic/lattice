@@ -46,6 +46,10 @@ pub enum NetworkError {
     UdpSocket(String),
     /// DNS resolution error.
     Dns(String),
+    /// GraphQL error (query/mutation failed).
+    GraphQL(String),
+    /// gRPC error.
+    Grpc(String),
 }
 
 impl fmt::Display for NetworkError {
@@ -75,6 +79,8 @@ impl fmt::Display for NetworkError {
             Self::TcpSocket(msg) => write!(f, "TCP socket error: {msg}"),
             Self::UdpSocket(msg) => write!(f, "UDP socket error: {msg}"),
             Self::Dns(msg) => write!(f, "DNS resolution error: {msg}"),
+            Self::GraphQL(msg) => write!(f, "GraphQL error: {msg}"),
+            Self::Grpc(msg) => write!(f, "gRPC error: {msg}"),
         }
     }
 }

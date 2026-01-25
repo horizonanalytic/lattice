@@ -59,6 +59,12 @@ rustls-pemfile = { workspace = true }
 rustls-pki-types = { workspace = true }
 webpki-roots = { workspace = true }
 
+# gRPC support
+tonic = { workspace = true }
+prost = { workspace = true }
+tower = { workspace = true }
+hyper-util = { workspace = true }
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
 wiremock = "0.6"

@@ -17,6 +17,11 @@
 //!         WatchEventKind::Created => println!("Created: {}", event.path.display()),
 //!         WatchEventKind::Modified => println!("Modified: {}", event.path.display()),
 //!         WatchEventKind::Removed => println!("Removed: {}", event.path.display()),
+//!         WatchEventKind::Renamed => {
+//!             if let Some(old) = &event.old_path {
+//!                 println!("Renamed: {} -> {}", old.display(), event.path.display());
+//!             }
+//!         }
 //!     }
 //! });
 //!
@@ -39,8 +44,9 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::Duration;
 
-use notify::{RecommendedWatcher, RecursiveMode};
-use notify_debouncer_mini::{new_debouncer, Debouncer, DebouncedEvent, DebouncedEventKind};
+use notify::event::{ModifyKind, RenameMode};
+use notify::{EventKind, RecommendedWatcher, RecursiveMode};
+use notify_debouncer_full::{new_debouncer, DebouncedEvent, Debouncer, RecommendedCache};
 
 use horizon_lattice_core::signal::Signal;
 
@@ -55,6 +61,9 @@ pub enum WatchEventKind {
     Modified,
     /// A file or directory was removed.
     Removed,
+    /// A file or directory was renamed.
+    /// Check `old_path` on the event for the previous path.
+    Renamed,
 }
 
 impl std::fmt::Display for WatchEventKind {
@@ -63,6 +72,7 @@ impl std::fmt::Display for WatchEventKind {
             WatchEventKind::Created => write!(f, "created"),
             WatchEventKind::Modified => write!(f, "modified"),
             WatchEventKind::Removed => write!(f, "removed"),
+            WatchEventKind::Renamed => write!(f, "renamed"),
         }
     }
 }
@@ -71,7 +81,11 @@ impl std::fmt::Display for WatchEventKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileWatchEvent {
     /// The path of the changed file or directory.
+    /// For rename events, this is the new (target) path.
     pub path: PathBuf,
+    /// The previous path before a rename operation.
+    /// Only set for `Renamed` events.
+    pub old_path: Option<PathBuf>,
     /// The type of change.
     pub kind: WatchEventKind,
 }
@@ -79,7 +93,20 @@ pub struct FileWatchEvent {
 impl FileWatchEvent {
     /// Create a new file watch event.
     pub fn new(path: PathBuf, kind: WatchEventKind) -> Self {
-        Self { path, kind }
+        Self {
+            path,
+            old_path: None,
+            kind,
+        }
+    }
+
+    /// Create a new rename event with both old and new paths.
+    pub fn renamed(old_path: PathBuf, new_path: PathBuf) -> Self {
+        Self {
+            path: new_path,
+            old_path: Some(old_path),
+            kind: WatchEventKind::Renamed,
+        }
     }
 
     /// Returns true if this is a creation event.
@@ -95,6 +122,11 @@ impl FileWatchEvent {
     /// Returns true if this is a removal event.
     pub fn is_removed(&self) -> bool {
         self.kind == WatchEventKind::Removed
+    }
+
+    /// Returns true if this is a rename event.
+    pub fn is_renamed(&self) -> bool {
+        self.kind == WatchEventKind::Renamed
     }
 }
 
@@ -165,9 +197,9 @@ enum WatchMode {
 /// ```
 pub struct FileWatcher {
     /// The debounced watcher instance.
-    debouncer: Debouncer<RecommendedWatcher>,
+    debouncer: Debouncer<RecommendedWatcher, RecommendedCache>,
     /// Channel receiver for debounced events.
-    rx: Receiver<Result<Vec<DebouncedEvent>, notify::Error>>,
+    rx: Receiver<Result<Vec<DebouncedEvent>, Vec<notify::Error>>>,
     /// Set of paths being watched with their watch modes.
     watched_paths: HashSet<PathBuf>,
     /// Maps paths to their watch modes.
@@ -186,7 +218,9 @@ impl FileWatcher {
     pub fn with_options(options: WatchOptions) -> FileResult<Self> {
         let (tx, rx) = mpsc::channel();
 
-        let debouncer = new_debouncer(options.debounce_duration, tx)
+        // Use tick_rate = None to let the debouncer choose (1/4 of timeout)
+        // RecommendedCache automatically enables file ID tracking on Windows/macOS
+        let debouncer = new_debouncer(options.debounce_duration, None, tx)
             .map_err(|e| FileError::new(
                 FileErrorKind::Other,
                 None,
@@ -232,7 +266,6 @@ impl FileWatcher {
         }
 
         self.debouncer
-            .watcher()
             .watch(&canonical, mode)
             .map_err(|e| FileError::new(
                 FileErrorKind::Other,
@@ -275,7 +308,7 @@ impl FileWatcher {
         };
 
         if self.watched_paths.remove(&canonical) {
-            let _ = self.debouncer.watcher().unwatch(&canonical);
+            let _ = self.debouncer.unwatch(&canonical);
             self.watch_modes.remove(&canonical);
         }
 
@@ -320,8 +353,10 @@ impl FileWatcher {
                         }
                     }
                 }
-                Ok(Err(e)) => {
-                    tracing::warn!(target: "horizon_lattice::file::watcher", "File watcher error: {}", e);
+                Ok(Err(errors)) => {
+                    for e in errors {
+                        tracing::warn!(target: "horizon_lattice::file::watcher", "File watcher error: {}", e);
+                    }
                 }
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
@@ -338,27 +373,63 @@ impl FileWatcher {
     }
 
     /// Convert a debounced event to a FileWatchEvent.
-    fn convert_event(&self, event: &DebouncedEvent) -> Option<FileWatchEvent> {
-        // notify-debouncer-mini uses DebouncedEventKind::Any for all events
-        // We determine the actual kind by checking if the file exists
-        if event.kind != DebouncedEventKind::Any {
-            return None;
+    fn convert_event(&self, debounced: &DebouncedEvent) -> Option<FileWatchEvent> {
+        let event = &debounced.event;
+        let paths = &event.paths;
+
+        // Handle rename events specially (they have two paths: old and new)
+        if let EventKind::Modify(ModifyKind::Name(rename_mode)) = &event.kind {
+            match rename_mode {
+                RenameMode::Both => {
+                    // Both paths available: paths[0] = old, paths[1] = new
+                    if paths.len() >= 2 {
+                        return Some(FileWatchEvent::renamed(
+                            paths[0].clone(),
+                            paths[1].clone(),
+                        ));
+                    }
+                }
+                RenameMode::From => {
+                    // Only old path - treat as removal
+                    if let Some(path) = paths.first() {
+                        return Some(FileWatchEvent::new(path.clone(), WatchEventKind::Removed));
+                    }
+                }
+                RenameMode::To => {
+                    // Only new path - treat as creation
+                    if let Some(path) = paths.first() {
+                        return Some(FileWatchEvent::new(path.clone(), WatchEventKind::Created));
+                    }
+                }
+                _ => {}
+            }
         }
 
-        let kind = if event.path.exists() {
-            // Check if this is a new file (not in our watched set)
-            // For non-recursive watches, we only care about explicitly watched paths
-            // For recursive watches, new files in subdirectories are "created"
-            if self.is_newly_created(&event.path) {
-                WatchEventKind::Created
-            } else {
-                WatchEventKind::Modified
+        // Get the primary path
+        let path = paths.first()?;
+
+        // Map event kind to our WatchEventKind
+        let kind = match &event.kind {
+            EventKind::Create(_) => WatchEventKind::Created,
+            EventKind::Remove(_) => WatchEventKind::Removed,
+            EventKind::Modify(_) => WatchEventKind::Modified,
+            EventKind::Any => {
+                // Fallback: determine by checking if file exists
+                if path.exists() {
+                    if self.is_newly_created(path) {
+                        WatchEventKind::Created
+                    } else {
+                        WatchEventKind::Modified
+                    }
+                } else {
+                    WatchEventKind::Removed
+                }
             }
-        } else {
-            WatchEventKind::Removed
+            // Access and Other events are not relevant for file watching
+            EventKind::Access(_) | EventKind::Other => return None,
         };
 
-        Some(FileWatchEvent::new(event.path.clone(), kind))
+        Some(FileWatchEvent::new(path.clone(), kind))
     }
 
     /// Check if a path appears to be newly created.
@@ -390,14 +461,19 @@ impl FileWatcher {
         // Remove duplicates, keeping the last one (which is more recent)
         events.dedup_by(|a, b| {
             if a.path == b.path {
-                // Keep the more "severe" event: Removed > Created > Modified
+                // Keep the more "severe" event: Removed > Renamed > Created > Modified
                 let priority = |k: WatchEventKind| match k {
-                    WatchEventKind::Removed => 2,
+                    WatchEventKind::Removed => 3,
+                    WatchEventKind::Renamed => 2,
                     WatchEventKind::Created => 1,
                     WatchEventKind::Modified => 0,
                 };
                 if priority(a.kind) > priority(b.kind) {
                     b.kind = a.kind;
+                    // Also copy old_path for renamed events
+                    if a.kind == WatchEventKind::Renamed {
+                        b.old_path = a.old_path.clone();
+                    }
                 }
                 true
             } else {
@@ -556,6 +632,7 @@ mod tests {
         assert_eq!(WatchEventKind::Created.to_string(), "created");
         assert_eq!(WatchEventKind::Modified.to_string(), "modified");
         assert_eq!(WatchEventKind::Removed.to_string(), "removed");
+        assert_eq!(WatchEventKind::Renamed.to_string(), "renamed");
     }
 
     #[test]
@@ -564,16 +641,34 @@ mod tests {
         assert!(event.is_created());
         assert!(!event.is_modified());
         assert!(!event.is_removed());
+        assert!(!event.is_renamed());
+        assert!(event.old_path.is_none());
 
         let event = FileWatchEvent::new(PathBuf::from("/test"), WatchEventKind::Modified);
         assert!(!event.is_created());
         assert!(event.is_modified());
         assert!(!event.is_removed());
+        assert!(!event.is_renamed());
 
         let event = FileWatchEvent::new(PathBuf::from("/test"), WatchEventKind::Removed);
         assert!(!event.is_created());
         assert!(!event.is_modified());
         assert!(event.is_removed());
+        assert!(!event.is_renamed());
+    }
+
+    #[test]
+    fn test_file_watch_event_renamed() {
+        let event = FileWatchEvent::renamed(
+            PathBuf::from("/old/path"),
+            PathBuf::from("/new/path"),
+        );
+        assert!(!event.is_created());
+        assert!(!event.is_modified());
+        assert!(!event.is_removed());
+        assert!(event.is_renamed());
+        assert_eq!(event.path, PathBuf::from("/new/path"));
+        assert_eq!(event.old_path, Some(PathBuf::from("/old/path")));
     }
 
     #[test]

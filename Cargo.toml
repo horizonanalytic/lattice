@@ -53,6 +53,7 @@ proc-macro2 = "1.0"
 # File watching (for shader hot-reload)
 notify = "7"
 notify-debouncer-mini = "0.5"
+notify-debouncer-full = "0.4"
 
 # Memory-mapped files
 memmap2 = "0.9"

@@ -71,7 +71,7 @@ directories = { workspace = true }
 
 # File watching
 notify = { workspace = true }
-notify-debouncer-mini = { workspace = true }
+notify-debouncer-full = { workspace = true }
 
 # Memory-mapped files
 memmap2 = { workspace = true }

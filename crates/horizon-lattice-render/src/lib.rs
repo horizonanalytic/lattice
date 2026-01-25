@@ -100,6 +100,7 @@ mod gpu_renderer;
 mod embedded_icon;
 mod icon;
 mod image;
+mod image_buffer;
 pub mod image_data;
 pub mod layer;
 mod paint;
@@ -145,6 +146,7 @@ pub use types::{Color, CornerRadii, Path, PathCommand, Point, Rect, RoundedRect,
 pub use async_image::{AsyncImageHandle, AsyncImageLoader, AsyncImageLoaderConfig, LoadingState};
 pub use atlas::{ImageManager, TextureAtlas};
 pub use image::{Image, ImageLoader, ImageScaleMode, NinePatch};
+pub use image_buffer::{ImageBlendMode, ImageBuffer, OutputFormat, ResizeFilter};
 pub use scalable_image::ScalableImage;
 pub use svg::SvgImage;
 

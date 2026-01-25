@@ -182,6 +182,7 @@ toml = "0.8"
 rust-ini = "0.21"
 quick-xml = { version = "0.37", features = ["serialize"] }
 csv = "1.3"
+tempfile = "3"
 url = "2"
 http = "1"
 bytes = "1"

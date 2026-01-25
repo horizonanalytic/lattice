@@ -90,6 +90,9 @@ rust-ini = { workspace = true }
 quick-xml = { workspace = true }
 csv = { workspace = true }
 
+# Temporary files and directories
+tempfile = { workspace = true }
+
 # Async directory iteration
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
@@ -120,4 +123,3 @@ futures-util = { workspace = true }
 
 [dev-dependencies]
 slotmap = { workspace = true }
-tempfile = "3"

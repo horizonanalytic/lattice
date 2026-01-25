@@ -193,6 +193,30 @@
 //!     println!("{} (depth {})", entry.path().display(), entry.depth());
 //! }
 //! ```
+//!
+//! # Temporary Files and Directories
+//!
+//! ```ignore
+//! use horizon_lattice::file::{TempFile, TempDirectory};
+//!
+//! // Create a temp file (auto-deleted on drop)
+//! let mut temp = TempFile::new()?;
+//! temp.write_all(b"temporary data")?;
+//!
+//! // Create a temp directory (auto-deleted with contents on drop)
+//! let temp_dir = TempDirectory::new()?;
+//! let file_path = temp_dir.join("test.txt");
+//! std::fs::write(&file_path, "content")?;
+//!
+//! // Builder pattern for customization
+//! let temp = TempFile::builder()
+//!     .prefix("myapp_")
+//!     .suffix(".tmp")
+//!     .create()?;
+//!
+//! // Keep a temp file (prevent auto-deletion)
+//! let path = temp.keep();
+//! ```
 
 mod async_directory;
 pub mod csv_support;
@@ -203,6 +227,7 @@ pub mod ini_support;
 pub mod json;
 mod mmap;
 mod resource;
+mod temp;
 pub mod xml_support;
 mod operations;
 mod path;
@@ -246,3 +271,4 @@ pub use resource::{
     EmbeddedDir, IncludeDir, LazyResource, ResourceEntry, ResourceManager, ResourcePath,
     TypedLazyResource,
 };
+pub use temp::{TempDirectory, TempDirectoryBuilder, TempFile, TempFileBuilder};

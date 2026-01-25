@@ -115,11 +115,12 @@ pub use tls::{AlpnProtocol, Certificate, Identity, TlsConfig, TlsVersion};
 
 // Re-export commonly used types at the crate root
 pub use http::{
-    AsyncHttpClient, Authentication, DownloadEvent, DownloadId, DownloadManager, DownloadState,
-    HttpClient, HttpClientBuilder, HttpMethod, HttpRequest, HttpRequestBuilder, HttpResponse,
-    MultipartForm, RequestBody, RequestHandle, RequestId, RequestStatus, ResponseBody,
-    RetryConfig, TransferProgress, UploadConfig, UploadEvent, UploadId, UploadManager,
-    UploadState,
+    ApiAuth, AsyncHttpClient, Authentication, DownloadEvent, DownloadId, DownloadManager,
+    DownloadState, ErrorTransformer, HttpClient, HttpClientBuilder, HttpMethod, HttpRequest,
+    HttpRequestBuilder, HttpResponse, MultipartForm, RateLimitInfo, RateLimiter, RequestBody,
+    RequestHandle, RequestId, RequestInterceptor, RequestStatus, ResponseBody,
+    ResponseInterceptor, RestApiClient, RestApiClientBuilder, RestApiRequestBuilder, RetryConfig,
+    TransferProgress, UploadConfig, UploadEvent, UploadId, UploadManager, UploadState,
 };
 
 pub use tcp::{

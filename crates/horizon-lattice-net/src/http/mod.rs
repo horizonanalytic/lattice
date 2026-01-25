@@ -49,6 +49,7 @@ mod client;
 mod download;
 mod request;
 mod response;
+mod rest_api;
 mod upload;
 
 pub use async_client::{AsyncHttpClient, RequestHandle, RequestId, RequestStatus, runtime};
@@ -56,4 +57,8 @@ pub use client::{Authentication, HttpClient, HttpClientBuilder, HttpClientConfig
 pub use download::{DownloadEvent, DownloadId, DownloadManager, DownloadState, RetryConfig};
 pub use request::{HttpMethod, HttpRequest, HttpRequestBuilder, MultipartForm, RequestBody};
 pub use response::{HttpResponse, ResponseBody, TransferProgress};
+pub use rest_api::{
+    ApiAuth, RateLimitInfo, RateLimiter, RequestInterceptor, ResponseInterceptor,
+    ErrorTransformer, RestApiClient, RestApiClientBuilder, RestApiRequestBuilder,
+};
 pub use upload::{UploadConfig, UploadEvent, UploadId, UploadManager, UploadState};

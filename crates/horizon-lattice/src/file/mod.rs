@@ -178,6 +178,7 @@ mod info;
 pub mod ini_support;
 pub mod json;
 mod mmap;
+pub mod xml_support;
 mod operations;
 mod path;
 mod reader;

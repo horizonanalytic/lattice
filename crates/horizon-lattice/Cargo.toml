@@ -93,6 +93,11 @@ csv = { workspace = true }
 # Temporary files and directories
 tempfile = { workspace = true }
 
+# Compression
+flate2 = { workspace = true }
+zip = { workspace = true }
+tar = { workspace = true }
+
 # Async directory iteration
 tokio = { workspace = true }
 tokio-stream = { workspace = true }

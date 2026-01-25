@@ -219,6 +219,7 @@
 //! ```
 
 mod async_directory;
+pub mod compression;
 pub mod csv_support;
 mod directory;
 mod error;
@@ -272,3 +273,14 @@ pub use resource::{
     TypedLazyResource,
 };
 pub use temp::{TempDirectory, TempDirectoryBuilder, TempFile, TempFileBuilder};
+pub use compression::{
+    CompressionLevel, GzipOptions, ZipOptions, TarOptions,
+    ZipEntry, TarEntry,
+    compress_gzip, compress_gzip_with_options, decompress_gzip,
+    compress_gzip_file, compress_gzip_file_with_options, decompress_gzip_file,
+    read_gzip, write_gzip, write_gzip_with_options,
+    create_zip, create_zip_with_options, extract_zip, extract_zip_with_options, list_zip,
+    create_tar, create_tar_with_options, extract_tar, extract_tar_with_options, list_tar,
+    create_tar_gz, create_tar_gz_with_options, extract_tar_gz, extract_tar_gz_with_options,
+    list_tar_gz,
+};

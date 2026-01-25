@@ -101,6 +101,7 @@
 
 mod error;
 pub mod http;
+pub mod tcp;
 pub mod websocket;
 
 pub use error::{NetworkError, Result};
@@ -112,6 +113,11 @@ pub use http::{
     MultipartForm, RequestBody, RequestHandle, RequestId, RequestStatus, ResponseBody,
     RetryConfig, TransferProgress, UploadConfig, UploadEvent, UploadId, UploadManager,
     UploadState,
+};
+
+pub use tcp::{
+    ConnectionId, TcpClient, TcpClientConfig, TcpConnection, TcpConnectionState, TcpServer,
+    TcpServerConfig, TcpServerState, TcpSocketConfig,
 };
 
 pub use websocket::{

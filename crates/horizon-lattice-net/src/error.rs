@@ -40,6 +40,8 @@ pub enum NetworkError {
     Authentication(String),
     /// WebSocket error.
     WebSocket(String),
+    /// TCP socket error.
+    TcpSocket(String),
 }
 
 impl fmt::Display for NetworkError {
@@ -66,6 +68,7 @@ impl fmt::Display for NetworkError {
             Self::Proxy(msg) => write!(f, "Proxy error: {msg}"),
             Self::Authentication(msg) => write!(f, "Authentication error: {msg}"),
             Self::WebSocket(msg) => write!(f, "WebSocket error: {msg}"),
+            Self::TcpSocket(msg) => write!(f, "TCP socket error: {msg}"),
         }
     }
 }

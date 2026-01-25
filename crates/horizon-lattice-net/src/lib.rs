@@ -100,6 +100,7 @@
 //! ```
 
 mod error;
+pub mod dns;
 pub mod http;
 pub mod tcp;
 pub mod tls;
@@ -130,3 +131,5 @@ pub use udp::{Datagram, MulticastConfig, UdpSocket, UdpSocketConfig, UdpSocketSt
 pub use websocket::{
     CloseCode, CloseReason, ReconnectConfig, WebSocketClient, WebSocketConfig, WebSocketState,
 };
+
+pub use dns::{DnsConfig, DnsLookupResult, DnsResolver, IpStrategy};

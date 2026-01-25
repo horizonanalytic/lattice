@@ -19,6 +19,9 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 futures-util = { workspace = true }
 
+# DNS resolution
+hickory-resolver = { workspace = true }
+
 # HTTP client
 reqwest = { workspace = true }
 

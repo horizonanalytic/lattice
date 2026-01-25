@@ -44,6 +44,8 @@ pub enum NetworkError {
     TcpSocket(String),
     /// UDP socket error.
     UdpSocket(String),
+    /// DNS resolution error.
+    Dns(String),
 }
 
 impl fmt::Display for NetworkError {
@@ -72,6 +74,7 @@ impl fmt::Display for NetworkError {
             Self::WebSocket(msg) => write!(f, "WebSocket error: {msg}"),
             Self::TcpSocket(msg) => write!(f, "TCP socket error: {msg}"),
             Self::UdpSocket(msg) => write!(f, "UDP socket error: {msg}"),
+            Self::Dns(msg) => write!(f, "DNS resolution error: {msg}"),
         }
     }
 }

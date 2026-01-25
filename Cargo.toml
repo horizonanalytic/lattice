@@ -140,6 +140,9 @@ zbus_systemd = { version = "0.0.15", features = ["login1"] }
 # Localization (ICU4X for locale-aware formatting)
 icu = { version = "2.1", default-features = false, features = ["compiled_data"] }
 
+# DNS resolution
+hickory-resolver = { version = "0.25", features = ["tokio"] }
+
 # HTTP/Networking
 reqwest = { version = "0.12", default-features = false, features = [
     "json",

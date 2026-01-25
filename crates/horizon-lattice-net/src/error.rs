@@ -42,6 +42,8 @@ pub enum NetworkError {
     WebSocket(String),
     /// TCP socket error.
     TcpSocket(String),
+    /// UDP socket error.
+    UdpSocket(String),
 }
 
 impl fmt::Display for NetworkError {
@@ -69,6 +71,7 @@ impl fmt::Display for NetworkError {
             Self::Authentication(msg) => write!(f, "Authentication error: {msg}"),
             Self::WebSocket(msg) => write!(f, "WebSocket error: {msg}"),
             Self::TcpSocket(msg) => write!(f, "TCP socket error: {msg}"),
+            Self::UdpSocket(msg) => write!(f, "UDP socket error: {msg}"),
         }
     }
 }

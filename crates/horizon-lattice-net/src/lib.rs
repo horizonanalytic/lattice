@@ -102,6 +102,7 @@
 mod error;
 pub mod http;
 pub mod tcp;
+pub mod udp;
 pub mod websocket;
 
 pub use error::{NetworkError, Result};
@@ -119,6 +120,8 @@ pub use tcp::{
     ConnectionId, TcpClient, TcpClientConfig, TcpConnection, TcpConnectionState, TcpServer,
     TcpServerConfig, TcpServerState, TcpSocketConfig,
 };
+
+pub use udp::{Datagram, MulticastConfig, UdpSocket, UdpSocketConfig, UdpSocketState};
 
 pub use websocket::{
     CloseCode, CloseReason, ReconnectConfig, WebSocketClient, WebSocketConfig, WebSocketState,

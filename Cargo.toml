@@ -143,6 +143,10 @@ icu = { version = "2.1", default-features = false, features = ["compiled_data"] 
 # DNS resolution
 hickory-resolver = { version = "0.25", features = ["tokio"] }
 
+# Network information
+netdev = "0.32"
+netwatcher = "0.2"
+
 # HTTP/Networking
 reqwest = { version = "0.12", default-features = false, features = [
     "json",

@@ -92,6 +92,8 @@
 //! ```
 
 mod application;
+#[cfg(feature = "tokio")]
+pub mod async_runtime;
 mod error;
 mod event;
 pub mod invocation;

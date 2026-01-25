@@ -2910,6 +2910,7 @@ dependencies = [
  "parking_lot",
  "rayon",
  "slotmap",
+ "tokio",
  "tracing",
  "winit",
 ]

@@ -50,6 +50,9 @@ syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 
+# Embedded resources (compile-time file embedding)
+include_dir = "0.7"
+
 # File watching (for shader hot-reload)
 notify = "7"
 notify-debouncer-mini = "0.5"

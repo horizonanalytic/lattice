@@ -76,6 +76,9 @@ notify-debouncer-full = { workspace = true }
 # Memory-mapped files
 memmap2 = { workspace = true }
 
+# Embedded resources
+include_dir = { workspace = true }
+
 # Logging
 tracing = { workspace = true }
 

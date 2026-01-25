@@ -84,6 +84,29 @@
 //! println!("Readable: {}", info.is_readable());
 //! ```
 //!
+//! # Embedded Resources
+//!
+//! ```ignore
+//! use include_dir::{include_dir, Dir};
+//! use horizon_lattice::file::{ResourceManager, EmbeddedDir};
+//!
+//! // Embed assets at compile time
+//! static ASSETS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets");
+//!
+//! // Register with the resource manager
+//! ResourceManager::global().register_embedded("", EmbeddedDir::new(&ASSETS));
+//!
+//! // Access resources by path
+//! if let Some(data) = ResourceManager::global().get(":/images/icon.png") {
+//!     // data is &'static [u8]
+//! }
+//!
+//! // Get text resources
+//! if let Some(css) = ResourceManager::global().get_text(":/styles/main.css") {
+//!     // css is &'static str
+//! }
+//! ```
+//!
 //! # Settings/Preferences
 //!
 //! ```ignore
@@ -179,6 +202,7 @@ mod info;
 pub mod ini_support;
 pub mod json;
 mod mmap;
+mod resource;
 pub mod xml_support;
 mod operations;
 mod path;
@@ -218,3 +242,7 @@ pub use watcher::{FileWatchEvent, FileWatcher, WatchEventKind, WatchOptions};
 pub use settings::{FromSettingsValue, Settings, SettingsFormat, SettingsValue, SharedSettings};
 pub use writer::{AtomicWriter, FileWriter};
 pub use mmap::{map_file, map_file_mut, MappedFile, MappedFileMut, MmapOptions};
+pub use resource::{
+    EmbeddedDir, IncludeDir, LazyResource, ResourceEntry, ResourceManager, ResourcePath,
+    TypedLazyResource,
+};

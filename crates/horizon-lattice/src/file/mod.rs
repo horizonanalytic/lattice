@@ -123,10 +123,12 @@
 mod directory;
 mod error;
 mod info;
+pub mod json;
 mod operations;
 mod path;
 mod reader;
 mod settings;
+pub mod toml_support;
 mod watcher;
 mod writer;
 

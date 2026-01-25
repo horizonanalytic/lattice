@@ -94,6 +94,7 @@ mod directory;
 mod error;
 mod info;
 mod operations;
+mod path;
 mod reader;
 mod writer;
 
@@ -110,6 +111,13 @@ pub use info::{
 pub use operations::{
     append_bytes, append_text, atomic_write, copy_file, read_bytes, read_lines, read_text,
     remove_file, rename_file, write_bytes, write_text,
+};
+pub use path::{
+    absolute_path, cache_dir, canonicalize, config_dir, data_dir, data_local_dir, desktop_dir,
+    documents_dir, downloads_dir, extension, file_name, file_name_os, file_stem, home_dir,
+    is_absolute, is_relative, join_path, join_paths, music_dir, normalize_path, parent,
+    pictures_dir, relative_to, temp_dir, videos_dir, with_extension, with_file_name, AppPaths,
+    PathBuilder,
 };
 pub use reader::{File, LineIterator};
 pub use writer::{AtomicWriter, FileWriter};

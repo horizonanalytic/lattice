@@ -82,6 +82,9 @@ dark-light = "1"
 # File opener (open files/URLs with default application)
 open = "5"
 
+# Standard directory paths (home, config, data, cache, documents)
+directories = "6"
+
 # Native dialog dependencies (macOS)
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSURL", "NSArray", "NSEnumerator"] }

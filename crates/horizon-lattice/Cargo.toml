@@ -66,6 +66,9 @@ horizon-lattice-net = { workspace = true, optional = true }
 # File opener (open files/URLs with default application)
 open = { workspace = true }
 
+# Standard directory paths
+directories = { workspace = true }
+
 # Native dialog dependencies (macOS)
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true }

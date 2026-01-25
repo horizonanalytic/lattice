@@ -9,6 +9,7 @@
 //! - **Property System**: Reactive properties with change notification
 //! - **Timers**: One-shot and repeating timer system
 //! - **Task Queue**: Deferred/idle task processing
+//! - **Scheduler**: Background work scheduling with one-shot and periodic tasks
 //!
 //! # Signal/Slot Example
 //!
@@ -98,12 +99,13 @@ pub mod logging;
 pub mod meta;
 pub mod object;
 pub mod property;
+mod scheduler;
 pub mod signal;
 mod task;
 mod timer;
 
 pub use application::{Application, WindowEventHandler};
-pub use error::{LatticeError, Result, SignalError, TimerError};
+pub use error::{LatticeError, Result, SchedulerError, SignalError, TimerError};
 pub use event::{EventPriority, LatticeEvent};
 pub use logging::{ObjectTreeDebug, PerfSpan, TreeFormatOptions, TreeStyle};
 pub use meta::{
@@ -116,6 +118,7 @@ pub use object::{
 };
 pub use property::{Binding, IntoProperty, Property, PropertyError, PropertyMeta, ReadOnlyProperty};
 pub use signal::{ConnectionGuard, ConnectionId, ConnectionType, Signal, SignalEmitter};
+pub use scheduler::{ScheduledTaskId, ScheduledTaskKind};
 pub use task::TaskId;
 pub use timer::TimerId;
 

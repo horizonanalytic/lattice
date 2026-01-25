@@ -18,6 +18,8 @@ pub enum LatticeError {
     WindowCreation(String),
     /// Timer-related error.
     Timer(TimerError),
+    /// Scheduler-related error.
+    Scheduler(SchedulerError),
     /// Object-related error.
     Object(ObjectError),
     /// Property-related error.
@@ -44,6 +46,7 @@ impl fmt::Display for LatticeError {
                 write!(f, "Failed to create window: {msg}")
             }
             Self::Timer(err) => write!(f, "Timer error: {err}"),
+            Self::Scheduler(err) => write!(f, "Scheduler error: {err}"),
             Self::Object(err) => write!(f, "Object error: {err}"),
             Self::Property(err) => write!(f, "Property error: {err}"),
             Self::Signal(err) => write!(f, "Signal error: {err}"),
@@ -58,6 +61,7 @@ impl std::error::Error for LatticeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Timer(err) => Some(err),
+            Self::Scheduler(err) => Some(err),
             Self::Object(err) => Some(err),
             Self::Property(err) => Some(err),
             Self::Signal(err) => Some(err),
@@ -89,6 +93,32 @@ impl std::error::Error for TimerError {}
 impl From<TimerError> for LatticeError {
     fn from(err: TimerError) -> Self {
         Self::Timer(err)
+    }
+}
+
+/// Scheduler-specific errors.
+#[derive(Debug)]
+pub enum SchedulerError {
+    /// The scheduled task ID is invalid or has already been removed.
+    InvalidTaskId,
+    /// Failed to send scheduler event to the event loop.
+    EventDispatchFailed,
+}
+
+impl fmt::Display for SchedulerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidTaskId => write!(f, "Invalid or expired scheduled task ID"),
+            Self::EventDispatchFailed => write!(f, "Failed to dispatch scheduler event"),
+        }
+    }
+}
+
+impl std::error::Error for SchedulerError {}
+
+impl From<SchedulerError> for LatticeError {
+    fn from(err: SchedulerError) -> Self {
+        Self::Scheduler(err)
     }
 }
 

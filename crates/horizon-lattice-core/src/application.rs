@@ -15,6 +15,7 @@ use crate::error::{LatticeError, Result};
 use crate::event::{LatticeEvent, PrioritizedEvent};
 use crate::invocation::invocation_registry;
 use crate::object::init_global_registry;
+use crate::scheduler::{ScheduledTaskId, SharedTaskScheduler};
 use crate::task::{SharedTaskQueue, TaskId};
 use crate::timer::{SharedTimerManager, TimerId};
 
@@ -47,6 +48,8 @@ pub struct Application {
     proxy: EventLoopProxy<LatticeEvent>,
     /// Timer manager (thread-safe).
     timers: SharedTimerManager,
+    /// Background task scheduler (thread-safe).
+    scheduler: SharedTaskScheduler,
     /// Deferred task queue (thread-safe).
     tasks: SharedTaskQueue,
     /// Internal event queue with priorities.
@@ -97,6 +100,7 @@ impl Application {
         let app = Application {
             proxy,
             timers: SharedTimerManager::new(),
+            scheduler: SharedTaskScheduler::new(),
             tasks: SharedTaskQueue::new(),
             event_queue: Mutex::new(BinaryHeap::new()),
             event_sequence: AtomicU64::new(0),
@@ -300,6 +304,119 @@ impl Application {
     }
 
     // -------------------------------------------------------------------------
+    // Scheduler API (Background Work Scheduling)
+    // -------------------------------------------------------------------------
+
+    /// Schedule a one-shot task to execute after the specified delay.
+    ///
+    /// The task will be executed once during the event loop's idle processing
+    /// after the delay has elapsed.
+    ///
+    /// Returns a `ScheduledTaskId` that can be used to cancel or reschedule the task.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// app.schedule_task(Duration::from_secs(5), || {
+    ///     println!("Executed after 5 seconds!");
+    /// });
+    /// ```
+    pub fn schedule_task<F>(&self, delay: Duration, task: F) -> ScheduledTaskId
+    where
+        F: FnMut() + Send + 'static,
+    {
+        let id = self.scheduler.schedule_once(delay, task);
+        // Wake up the event loop to recalculate timing.
+        let _ = self.proxy.send_event(LatticeEvent::WakeUp);
+        id
+    }
+
+    /// Schedule a task to execute at a specific instant.
+    ///
+    /// If the instant is in the past, the task will execute immediately
+    /// on the next scheduler processing cycle.
+    ///
+    /// Returns a `ScheduledTaskId` that can be used to cancel or reschedule the task.
+    pub fn schedule_task_at<F>(&self, instant: std::time::Instant, task: F) -> ScheduledTaskId
+    where
+        F: FnMut() + Send + 'static,
+    {
+        let id = self.scheduler.schedule_at(instant, task);
+        let _ = self.proxy.send_event(LatticeEvent::WakeUp);
+        id
+    }
+
+    /// Schedule a repeating task that executes at the specified interval.
+    ///
+    /// The first execution occurs after `interval` duration, then repeats
+    /// every `interval` thereafter until cancelled.
+    ///
+    /// Returns a `ScheduledTaskId` that can be used to cancel the task.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let task_id = app.schedule_repeating_task(Duration::from_secs(1), || {
+    ///     println!("Executed every second!");
+    /// });
+    ///
+    /// // Later, cancel the task
+    /// app.cancel_scheduled_task(task_id);
+    /// ```
+    pub fn schedule_repeating_task<F>(&self, interval: Duration, task: F) -> ScheduledTaskId
+    where
+        F: FnMut() + Send + 'static,
+    {
+        let id = self.scheduler.schedule_repeating(interval, task);
+        let _ = self.proxy.send_event(LatticeEvent::WakeUp);
+        id
+    }
+
+    /// Schedule a repeating task with an initial delay different from the interval.
+    ///
+    /// The first execution occurs after `initial_delay`, then repeats every `interval`.
+    ///
+    /// Returns a `ScheduledTaskId` that can be used to cancel the task.
+    pub fn schedule_repeating_task_with_delay<F>(
+        &self,
+        initial_delay: Duration,
+        interval: Duration,
+        task: F,
+    ) -> ScheduledTaskId
+    where
+        F: FnMut() + Send + 'static,
+    {
+        let id = self
+            .scheduler
+            .schedule_repeating_with_delay(initial_delay, interval, task);
+        let _ = self.proxy.send_event(LatticeEvent::WakeUp);
+        id
+    }
+
+    /// Cancel a scheduled task.
+    ///
+    /// Returns `Ok(())` if the task was found and cancelled.
+    pub fn cancel_scheduled_task(&self, id: ScheduledTaskId) -> Result<()> {
+        self.scheduler.cancel(id)
+    }
+
+    /// Reschedule an existing task with a new delay.
+    ///
+    /// The task's next execution will be reset to `delay` from now.
+    ///
+    /// Returns `Ok(())` if successful.
+    pub fn reschedule_task(&self, id: ScheduledTaskId, delay: Duration) -> Result<()> {
+        self.scheduler.reschedule(id, delay)?;
+        let _ = self.proxy.send_event(LatticeEvent::WakeUp);
+        Ok(())
+    }
+
+    /// Check if a scheduled task is active.
+    pub fn is_scheduled_task_active(&self, id: ScheduledTaskId) -> bool {
+        self.scheduler.is_active(id)
+    }
+
+    // -------------------------------------------------------------------------
     // Internal methods
     // -------------------------------------------------------------------------
 
@@ -341,6 +458,21 @@ impl Application {
         self.timers.process_expired()
     }
 
+    /// Get time until next scheduled task, for setting ControlFlow.
+    fn time_until_next_scheduled(&self) -> Option<Duration> {
+        self.scheduler.time_until_next()
+    }
+
+    /// Process ready scheduled tasks.
+    fn process_scheduled_tasks(&self) -> usize {
+        self.scheduler.process_ready()
+    }
+
+    /// Check if there are scheduled tasks ready to run.
+    fn has_ready_scheduled_tasks(&self) -> bool {
+        self.scheduler.has_ready()
+    }
+
     /// Process pending idle tasks.
     fn process_idle_tasks(&self) -> usize {
         self.tasks.process_batch()
@@ -375,15 +507,20 @@ impl<'a> AppHandler<'a> {
         }
 
         // Determine the appropriate control flow based on pending work.
-        let control_flow = if self.app.has_pending_tasks() {
-            // We have idle tasks, so poll to process them.
+        let control_flow = if self.app.has_pending_tasks() || self.app.has_ready_scheduled_tasks() {
+            // We have idle tasks or scheduled tasks ready, so poll to process them.
             ControlFlow::Poll
-        } else if let Some(duration) = self.app.time_until_next_timer() {
-            // Wait until the next timer fires.
-            ControlFlow::wait_duration(duration)
         } else {
-            // No timers, no tasks - wait for events.
-            ControlFlow::Wait
+            // Calculate wait duration based on timers and scheduled tasks.
+            let timer_wait = self.app.time_until_next_timer();
+            let scheduled_wait = self.app.time_until_next_scheduled();
+
+            match (timer_wait, scheduled_wait) {
+                (Some(t), Some(s)) => ControlFlow::wait_duration(t.min(s)),
+                (Some(t), None) => ControlFlow::wait_duration(t),
+                (None, Some(s)) => ControlFlow::wait_duration(s),
+                (None, None) => ControlFlow::Wait,
+            }
         };
 
         event_loop.set_control_flow(control_flow);
@@ -509,7 +646,13 @@ impl ApplicationHandler<LatticeEvent> for AppHandler<'_> {
             }
         }
 
-        // Process idle tasks if no timers are pending soon.
+        // Process ready scheduled tasks.
+        let scheduled_count = self.app.process_scheduled_tasks();
+        if scheduled_count > 0 {
+            tracing::trace!(target: "horizon_lattice_core::event_loop", count = scheduled_count, "processed scheduled tasks");
+        }
+
+        // Process idle tasks.
         if self.app.has_pending_tasks() {
             self.app.process_idle_tasks();
         }

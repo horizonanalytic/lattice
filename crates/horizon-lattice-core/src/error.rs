@@ -26,6 +26,8 @@ pub enum LatticeError {
     Property(PropertyError),
     /// Signal-related error.
     Signal(SignalError),
+    /// Thread pool-related error.
+    ThreadPool(ThreadPoolError),
     /// The event loop has already exited.
     EventLoopExited,
 }
@@ -50,6 +52,7 @@ impl fmt::Display for LatticeError {
             Self::Object(err) => write!(f, "Object error: {err}"),
             Self::Property(err) => write!(f, "Property error: {err}"),
             Self::Signal(err) => write!(f, "Signal error: {err}"),
+            Self::ThreadPool(err) => write!(f, "Thread pool error: {err}"),
             Self::EventLoopExited => {
                 write!(f, "The event loop has already exited")
             }
@@ -65,6 +68,7 @@ impl std::error::Error for LatticeError {
             Self::Object(err) => Some(err),
             Self::Property(err) => Some(err),
             Self::Signal(err) => Some(err),
+            Self::ThreadPool(err) => Some(err),
             _ => None,
         }
     }
@@ -162,6 +166,38 @@ impl fmt::Display for SignalError {
 }
 
 impl std::error::Error for SignalError {}
+
+/// Thread pool-specific errors.
+#[derive(Debug)]
+pub enum ThreadPoolError {
+    /// The thread pool has already been initialized.
+    AlreadyInitialized,
+    /// Failed to create the thread pool.
+    CreationFailed(String),
+    /// Task was cancelled.
+    TaskCancelled,
+    /// Failed to submit task to the pool.
+    SubmissionFailed,
+}
+
+impl fmt::Display for ThreadPoolError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AlreadyInitialized => write!(f, "Thread pool has already been initialized"),
+            Self::CreationFailed(msg) => write!(f, "Failed to create thread pool: {msg}"),
+            Self::TaskCancelled => write!(f, "Task was cancelled"),
+            Self::SubmissionFailed => write!(f, "Failed to submit task to thread pool"),
+        }
+    }
+}
+
+impl std::error::Error for ThreadPoolError {}
+
+impl From<ThreadPoolError> for LatticeError {
+    fn from(err: ThreadPoolError) -> Self {
+        Self::ThreadPool(err)
+    }
+}
 
 /// A specialized Result type for Horizon Lattice operations.
 pub type Result<T> = std::result::Result<T, LatticeError>;

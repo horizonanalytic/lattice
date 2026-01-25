@@ -102,10 +102,11 @@ pub mod property;
 mod scheduler;
 pub mod signal;
 mod task;
+pub mod threadpool;
 mod timer;
 
 pub use application::{Application, WindowEventHandler};
-pub use error::{LatticeError, Result, SchedulerError, SignalError, TimerError};
+pub use error::{LatticeError, Result, SchedulerError, SignalError, ThreadPoolError, TimerError};
 pub use event::{EventPriority, LatticeEvent};
 pub use logging::{ObjectTreeDebug, PerfSpan, TreeFormatOptions, TreeStyle};
 pub use meta::{

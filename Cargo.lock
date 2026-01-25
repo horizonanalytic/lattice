@@ -2905,8 +2905,10 @@ dependencies = [
 name = "horizon-lattice-core"
 version = "0.1.0"
 dependencies = [
+ "crossbeam-channel",
  "horizon-lattice-macros",
  "parking_lot",
+ "rayon",
  "slotmap",
  "tracing",
  "winit",

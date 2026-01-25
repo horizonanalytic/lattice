@@ -490,6 +490,14 @@ thread_local! {
         const { std::cell::RefCell::new(None) };
 }
 
+/// Try to get an event loop proxy for posting events from other threads.
+///
+/// Returns `None` if the application has not been initialized.
+/// This is used internally by the thread pool to deliver results to the UI thread.
+pub(crate) fn try_get_event_proxy() -> Option<EventLoopProxy<LatticeEvent>> {
+    APPLICATION.get().map(|app| app.proxy.clone())
+}
+
 /// Internal handler that implements winit's ApplicationHandler.
 struct AppHandler<'a> {
     app: &'a Application,

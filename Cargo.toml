@@ -26,6 +26,10 @@ slotmap = "1.0"
 tracing = "0.1"
 thiserror = "2.0"
 
+# Threading dependencies
+rayon = "1.10"
+crossbeam-channel = "0.5"
+
 # Graphics dependencies
 wgpu = "24"
 bytemuck = { version = "1.14", features = ["derive"] }

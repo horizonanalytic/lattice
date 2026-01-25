@@ -12,6 +12,8 @@ winit = { workspace = true }
 parking_lot = { workspace = true }
 slotmap = { workspace = true }
 tracing = { workspace = true }
+rayon = { workspace = true }
+crossbeam-channel = { workspace = true }
 
 [dev-dependencies]
 horizon-lattice-macros = { path = "../horizon-lattice-macros" }

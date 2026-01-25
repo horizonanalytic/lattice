@@ -101,9 +101,11 @@
 //! // Persist to file
 //! settings.save_json("config.json")?;
 //! settings.save_toml("config.toml")?;
+//! settings.save_ini("config.ini")?;
 //!
 //! // Load from file
 //! let settings = Settings::load_json("config.json")?;
+//! let settings = Settings::load_ini("config.ini")?;
 //!
 //! // Enable auto-save
 //! settings.set_auto_save("config.json", SettingsFormat::Json);
@@ -148,6 +150,7 @@
 mod directory;
 mod error;
 mod info;
+pub mod ini_support;
 pub mod json;
 mod mmap;
 mod operations;

@@ -225,6 +225,8 @@ pub enum SettingsFormat {
     Json,
     /// TOML format.
     Toml,
+    /// INI format.
+    Ini,
 }
 
 /// Auto-save configuration.
@@ -554,6 +556,52 @@ impl Settings {
         })
     }
 
+    /// Loads settings from an INI file.
+    ///
+    /// INI files use section.key notation for hierarchical keys.
+    /// Global (sectionless) keys become top-level settings.
+    pub fn load_ini(path: impl AsRef<Path>) -> FileResult<Self> {
+        let content = read_text(&path)?;
+        let ini = ini::Ini::load_from_str(&content).map_err(|e| {
+            FileError::new(
+                FileErrorKind::InvalidData,
+                Some(path.as_ref().to_path_buf()),
+                Some(std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())),
+            )
+        })?;
+
+        let data = Self::ini_to_settings(&ini);
+        match data {
+            SettingsValue::Object(map) => Ok(Self::from_data(map)),
+            _ => Ok(Self::new()),
+        }
+    }
+
+    /// Saves settings to an INI file.
+    ///
+    /// The file is written atomically using a temporary file and rename.
+    /// Note: INI format only supports string values, so numbers and booleans
+    /// are converted to strings. Nested objects become sections with dot notation.
+    pub fn save_ini(&self, path: impl AsRef<Path>) -> FileResult<()> {
+        let data = self.data.read();
+        let mut ini = ini::Ini::new();
+
+        Self::settings_to_ini_recursive(&data, &mut ini, None);
+
+        let mut output = Vec::new();
+        ini.write_to(&mut output).map_err(|e| {
+            FileError::new(
+                FileErrorKind::Other,
+                Some(path.as_ref().to_path_buf()),
+                Some(e),
+            )
+        })?;
+
+        atomic_write(&path, |writer| {
+            writer.write_all(&output)
+        })
+    }
+
     /// Syncs settings to disk if auto-save is enabled.
     ///
     /// This is called automatically after each modification when auto-save
@@ -564,6 +612,7 @@ impl Settings {
             match config.format {
                 SettingsFormat::Json => self.save_json(&config.path),
                 SettingsFormat::Toml => self.save_toml(&config.path),
+                SettingsFormat::Ini => self.save_ini(&config.path),
             }
         } else {
             Ok(())
@@ -659,6 +708,7 @@ impl Settings {
             let result = match config.format {
                 SettingsFormat::Json => self.save_json(&config.path),
                 SettingsFormat::Toml => self.save_toml(&config.path),
+                SettingsFormat::Ini => self.save_ini(&config.path),
             };
             if let Err(e) = result {
                 tracing::error!("Failed to auto-save settings: {}", e);
@@ -751,6 +801,105 @@ impl Settings {
                     .map(|(k, v)| (k.clone(), Self::settings_to_toml(v)))
                     .collect(),
             ),
+        }
+    }
+
+    /// Converts an ini::Ini to SettingsValue.
+    fn ini_to_settings(ini: &ini::Ini) -> SettingsValue {
+        let mut data = HashMap::new();
+
+        for (section, props) in ini.iter() {
+            match section {
+                Some(section_name) => {
+                    // Create or get the section object
+                    let section_obj = data
+                        .entry(section_name.to_string())
+                        .or_insert_with(|| SettingsValue::Object(HashMap::new()));
+
+                    if let SettingsValue::Object(obj) = section_obj {
+                        for (key, value) in props.iter() {
+                            obj.insert(key.to_string(), Self::parse_ini_value(value));
+                        }
+                    }
+                }
+                None => {
+                    // Global (sectionless) properties become top-level
+                    for (key, value) in props.iter() {
+                        data.insert(key.to_string(), Self::parse_ini_value(value));
+                    }
+                }
+            }
+        }
+
+        SettingsValue::Object(data)
+    }
+
+    /// Parses an INI string value into a SettingsValue.
+    ///
+    /// Attempts to parse as bool, integer, or float, falling back to string.
+    fn parse_ini_value(s: &str) -> SettingsValue {
+        // Try bool
+        match s.to_lowercase().as_str() {
+            "true" | "yes" | "on" => return SettingsValue::Bool(true),
+            "false" | "no" | "off" => return SettingsValue::Bool(false),
+            _ => {}
+        }
+
+        // Try integer
+        if let Ok(i) = s.parse::<i64>() {
+            return SettingsValue::Integer(i);
+        }
+
+        // Try float
+        if let Ok(f) = s.parse::<f64>() {
+            return SettingsValue::Float(f);
+        }
+
+        // Default to string
+        SettingsValue::String(s.to_string())
+    }
+
+    /// Recursively writes settings to an INI structure.
+    fn settings_to_ini_recursive(
+        data: &HashMap<String, SettingsValue>,
+        ini: &mut ini::Ini,
+        section: Option<&str>,
+    ) {
+        for (key, value) in data {
+            match value {
+                SettingsValue::Object(nested) => {
+                    // Nested objects become sections
+                    let section_name = match section {
+                        Some(s) => format!("{}.{}", s, key),
+                        None => key.clone(),
+                    };
+                    Self::settings_to_ini_recursive(nested, ini, Some(&section_name));
+                }
+                _ => {
+                    // Scalar values
+                    let str_value = Self::settings_value_to_string(value);
+                    ini.with_section(section).set(key, str_value);
+                }
+            }
+        }
+    }
+
+    /// Converts a SettingsValue to a string representation for INI.
+    fn settings_value_to_string(value: &SettingsValue) -> String {
+        match value {
+            SettingsValue::Null => String::new(),
+            SettingsValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
+            SettingsValue::Integer(i) => i.to_string(),
+            SettingsValue::Float(f) => f.to_string(),
+            SettingsValue::String(s) => s.clone(),
+            SettingsValue::Array(arr) => {
+                // Arrays in INI are typically comma-separated
+                arr.iter()
+                    .map(Self::settings_value_to_string)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            }
+            SettingsValue::Object(_) => String::new(), // Objects handled separately
         }
     }
 }
@@ -952,6 +1101,26 @@ mod tests {
         assert_eq!(loaded.get::<String>("name"), Some("test".to_string()));
         assert_eq!(loaded.get::<i32>("count"), Some(42));
         assert_eq!(loaded.get::<bool>("nested.value"), Some(true));
+
+        std::fs::remove_file(&temp_path).ok();
+    }
+
+    #[test]
+    fn test_ini_roundtrip() {
+        let settings = Settings::new();
+        settings.set("app.name", "test");
+        settings.set("app.version", "v1.0.0");  // Use string that won't parse as float
+        settings.set("server.port", 8080);
+        settings.set("server.enabled", true);
+
+        let temp_path = std::env::temp_dir().join("horizon_settings_test.ini");
+        settings.save_ini(&temp_path).unwrap();
+
+        let loaded = Settings::load_ini(&temp_path).unwrap();
+        assert_eq!(loaded.get::<String>("app.name"), Some("test".to_string()));
+        assert_eq!(loaded.get::<String>("app.version"), Some("v1.0.0".to_string()));
+        assert_eq!(loaded.get::<i32>("server.port"), Some(8080));
+        assert_eq!(loaded.get::<bool>("server.enabled"), Some(true));
 
         std::fs::remove_file(&temp_path).ok();
     }

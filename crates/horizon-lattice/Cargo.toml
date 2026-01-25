@@ -83,6 +83,7 @@ tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
+rust-ini = { workspace = true }
 
 # Native dialog dependencies (macOS)
 [target.'cfg(target_os = "macos")'.dependencies]

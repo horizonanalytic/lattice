@@ -3,12 +3,12 @@
 use std::fmt;
 
 /// Network-specific errors.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NetworkError {
     /// HTTP request failed.
-    Request(reqwest::Error),
+    Request(String),
     /// Invalid URL provided.
-    InvalidUrl(url::ParseError),
+    InvalidUrl(String),
     /// Request timed out.
     Timeout,
     /// Connection refused or failed.
@@ -18,9 +18,9 @@ pub enum NetworkError {
     /// Invalid header name or value.
     InvalidHeader(String),
     /// JSON serialization/deserialization error.
-    Json(serde_json::Error),
+    Json(String),
     /// I/O error.
-    Io(std::io::Error),
+    Io(String),
     /// Request was cancelled.
     Cancelled,
     /// Invalid response body.
@@ -38,19 +38,21 @@ pub enum NetworkError {
     Proxy(String),
     /// Authentication failed.
     Authentication(String),
+    /// WebSocket error.
+    WebSocket(String),
 }
 
 impl fmt::Display for NetworkError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Request(err) => write!(f, "HTTP request error: {err}"),
-            Self::InvalidUrl(err) => write!(f, "Invalid URL: {err}"),
+            Self::Request(msg) => write!(f, "HTTP request error: {msg}"),
+            Self::InvalidUrl(msg) => write!(f, "Invalid URL: {msg}"),
             Self::Timeout => write!(f, "Request timed out"),
             Self::Connection(msg) => write!(f, "Connection error: {msg}"),
             Self::Tls(msg) => write!(f, "TLS error: {msg}"),
             Self::InvalidHeader(msg) => write!(f, "Invalid header: {msg}"),
-            Self::Json(err) => write!(f, "JSON error: {err}"),
-            Self::Io(err) => write!(f, "I/O error: {err}"),
+            Self::Json(msg) => write!(f, "JSON error: {msg}"),
+            Self::Io(msg) => write!(f, "I/O error: {msg}"),
             Self::Cancelled => write!(f, "Request was cancelled"),
             Self::InvalidBody(msg) => write!(f, "Invalid response body: {msg}"),
             Self::HttpStatus { status, message } => {
@@ -63,21 +65,12 @@ impl fmt::Display for NetworkError {
             Self::TooManyRedirects => write!(f, "Too many redirects"),
             Self::Proxy(msg) => write!(f, "Proxy error: {msg}"),
             Self::Authentication(msg) => write!(f, "Authentication error: {msg}"),
+            Self::WebSocket(msg) => write!(f, "WebSocket error: {msg}"),
         }
     }
 }
 
-impl std::error::Error for NetworkError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Request(err) => Some(err),
-            Self::InvalidUrl(err) => Some(err),
-            Self::Json(err) => Some(err),
-            Self::Io(err) => Some(err),
-            _ => None,
-        }
-    }
-}
+impl std::error::Error for NetworkError {}
 
 impl From<reqwest::Error> for NetworkError {
     fn from(err: reqwest::Error) -> Self {
@@ -88,26 +81,26 @@ impl From<reqwest::Error> for NetworkError {
         } else if err.is_redirect() {
             Self::TooManyRedirects
         } else {
-            Self::Request(err)
+            Self::Request(err.to_string())
         }
     }
 }
 
 impl From<url::ParseError> for NetworkError {
     fn from(err: url::ParseError) -> Self {
-        Self::InvalidUrl(err)
+        Self::InvalidUrl(err.to_string())
     }
 }
 
 impl From<serde_json::Error> for NetworkError {
     fn from(err: serde_json::Error) -> Self {
-        Self::Json(err)
+        Self::Json(err.to_string())
     }
 }
 
 impl From<std::io::Error> for NetworkError {
     fn from(err: std::io::Error) -> Self {
-        Self::Io(err)
+        Self::Io(err.to_string())
     }
 }
 

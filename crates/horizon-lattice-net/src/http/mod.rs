@@ -46,10 +46,14 @@
 
 mod async_client;
 mod client;
+mod download;
 mod request;
 mod response;
+mod upload;
 
 pub use async_client::{AsyncHttpClient, RequestHandle, RequestId, RequestStatus, runtime};
 pub use client::{Authentication, HttpClient, HttpClientBuilder, HttpClientConfig};
+pub use download::{DownloadEvent, DownloadId, DownloadManager, DownloadState, RetryConfig};
 pub use request::{HttpMethod, HttpRequest, HttpRequestBuilder, MultipartForm, RequestBody};
 pub use response::{HttpResponse, ResponseBody, TransferProgress};
+pub use upload::{UploadConfig, UploadEvent, UploadId, UploadManager, UploadState};

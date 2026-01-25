@@ -149,11 +149,14 @@ reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
 ] }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "time", "macros"] }
+tokio-tungstenite = { version = "0.26", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
+rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 url = "2"
 http = "1"
 bytes = "1"
+base64 = "0.22"
 
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }

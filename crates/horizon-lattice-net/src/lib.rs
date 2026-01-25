@@ -3,7 +3,7 @@
 //! This crate provides networking capabilities for Horizon Lattice applications:
 //!
 //! - **HTTP Client**: Full-featured HTTP client with async support
-//! - **WebSocket**: Real-time bidirectional communication (planned)
+//! - **WebSocket**: Real-time bidirectional communication
 //! - **TCP/UDP Sockets**: Low-level socket communication (planned)
 //!
 //! # HTTP Client
@@ -101,12 +101,19 @@
 
 mod error;
 pub mod http;
+pub mod websocket;
 
 pub use error::{NetworkError, Result};
 
 // Re-export commonly used types at the crate root
 pub use http::{
-    AsyncHttpClient, Authentication, HttpClient, HttpClientBuilder, HttpMethod, HttpRequest,
-    HttpRequestBuilder, HttpResponse, MultipartForm, RequestBody, RequestHandle, RequestId,
-    RequestStatus, ResponseBody, TransferProgress,
+    AsyncHttpClient, Authentication, DownloadEvent, DownloadId, DownloadManager, DownloadState,
+    HttpClient, HttpClientBuilder, HttpMethod, HttpRequest, HttpRequestBuilder, HttpResponse,
+    MultipartForm, RequestBody, RequestHandle, RequestId, RequestStatus, ResponseBody,
+    RetryConfig, TransferProgress, UploadConfig, UploadEvent, UploadId, UploadManager,
+    UploadState,
+};
+
+pub use websocket::{
+    CloseCode, CloseReason, ReconnectConfig, WebSocketClient, WebSocketConfig, WebSocketState,
 };

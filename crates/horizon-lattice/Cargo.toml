@@ -69,6 +69,13 @@ open = { workspace = true }
 # Standard directory paths
 directories = { workspace = true }
 
+# File watching
+notify = { workspace = true }
+notify-debouncer-mini = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
 # Native dialog dependencies (macOS)
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true }
@@ -93,3 +100,4 @@ futures-util = { workspace = true }
 
 [dev-dependencies]
 slotmap = { workspace = true }
+tempfile = "3"

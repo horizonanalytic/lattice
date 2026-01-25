@@ -96,6 +96,7 @@ mod info;
 mod operations;
 mod path;
 mod reader;
+mod watcher;
 mod writer;
 
 pub use directory::{
@@ -120,4 +121,5 @@ pub use path::{
     PathBuilder,
 };
 pub use reader::{File, LineIterator};
+pub use watcher::{FileWatchEvent, FileWatcher, WatchEventKind, WatchOptions};
 pub use writer::{AtomicWriter, FileWriter};

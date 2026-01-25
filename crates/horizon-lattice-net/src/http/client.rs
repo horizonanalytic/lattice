@@ -6,6 +6,7 @@ use std::time::Duration;
 use reqwest::redirect::Policy;
 
 use crate::error::{NetworkError, Result};
+use crate::tls::{Certificate, Identity, TlsConfig, TlsVersion};
 use super::request::{HttpMethod, HttpRequestBuilder};
 
 /// Configuration for the HTTP client.
@@ -25,8 +26,8 @@ pub struct HttpClientConfig {
     pub user_agent: Option<String>,
     /// Proxy URL.
     pub proxy: Option<String>,
-    /// Accept invalid TLS certificates (for testing only).
-    pub danger_accept_invalid_certs: bool,
+    /// TLS configuration.
+    pub tls: TlsConfig,
 }
 
 impl Default for HttpClientConfig {
@@ -42,7 +43,7 @@ impl Default for HttpClientConfig {
                 env!("CARGO_PKG_VERSION")
             )),
             proxy: None,
-            danger_accept_invalid_certs: false,
+            tls: TlsConfig::default(),
         }
     }
 }
@@ -116,13 +117,84 @@ impl HttpClientBuilder {
         self
     }
 
+    /// Add a custom root certificate to trust.
+    ///
+    /// This can be used to connect to servers with self-signed or custom CA certificates.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice_net::{HttpClient, Certificate};
+    ///
+    /// let ca_cert = Certificate::from_pem_file("/path/to/ca.crt")?;
+    /// let client = HttpClient::builder()
+    ///     .add_root_certificate(ca_cert)
+    ///     .build()?;
+    /// ```
+    pub fn add_root_certificate(mut self, cert: Certificate) -> Self {
+        self.config.tls.root_certificates.push(cert);
+        self
+    }
+
+    /// Use only the provided root certificates, ignoring system certificates.
+    ///
+    /// This must be combined with `add_root_certificate()` to provide at least one CA.
+    pub fn tls_certs_only(mut self) -> Self {
+        self.config.tls.use_only_custom_roots = true;
+        self
+    }
+
+    /// Set the client identity for mutual TLS (mTLS) authentication.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice_net::{HttpClient, Identity};
+    ///
+    /// let identity = Identity::from_pem_files(
+    ///     "/path/to/client.crt",
+    ///     "/path/to/client.key",
+    /// )?;
+    /// let client = HttpClient::builder()
+    ///     .identity(identity)
+    ///     .build()?;
+    /// ```
+    pub fn identity(mut self, identity: Identity) -> Self {
+        self.config.tls.identity = Some(identity);
+        self
+    }
+
+    /// Set the minimum TLS version.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice_net::{HttpClient, TlsVersion};
+    ///
+    /// let client = HttpClient::builder()
+    ///     .min_tls_version(TlsVersion::Tls1_3)
+    ///     .build()?;
+    /// ```
+    pub fn min_tls_version(mut self, version: TlsVersion) -> Self {
+        self.config.tls.min_version = version;
+        self
+    }
+
+    /// Set the complete TLS configuration.
+    ///
+    /// This replaces any previously configured TLS settings.
+    pub fn tls_config(mut self, config: TlsConfig) -> Self {
+        self.config.tls = config;
+        self
+    }
+
     /// Accept invalid TLS certificates.
     ///
     /// # Warning
     ///
     /// This is insecure and should only be used for testing.
     pub fn danger_accept_invalid_certs(mut self) -> Self {
-        self.config.danger_accept_invalid_certs = true;
+        self.config.tls.danger_accept_invalid_certs = true;
         self
     }
 
@@ -179,7 +251,31 @@ impl HttpClientBuilder {
         }
 
         // TLS configuration
-        if self.config.danger_accept_invalid_certs {
+        let tls = &self.config.tls;
+
+        // Add custom root certificates
+        for cert in &tls.root_certificates {
+            for reqwest_cert in cert.to_reqwest_certificates() {
+                builder = builder.add_root_certificate(reqwest_cert);
+            }
+        }
+
+        // Disable built-in root certificates if using only custom roots
+        if tls.use_only_custom_roots {
+            builder = builder.tls_built_in_root_certs(false);
+        }
+
+        // Set client identity for mTLS
+        if let Some(ref identity) = tls.identity {
+            let reqwest_identity = identity.to_reqwest_identity()?;
+            builder = builder.identity(reqwest_identity);
+        }
+
+        // Set minimum TLS version
+        builder = builder.min_tls_version(tls.min_version.to_reqwest_version());
+
+        // Accept invalid certificates (dangerous - testing only)
+        if tls.danger_accept_invalid_certs {
             builder = builder.danger_accept_invalid_certs(true);
         }
 

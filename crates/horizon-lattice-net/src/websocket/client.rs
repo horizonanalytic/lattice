@@ -14,10 +14,11 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode as TungsteniteCloseCode;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{Connector, MaybeTlsStream, WebSocketStream};
 
 use super::message::{CloseCode, CloseReason, WebSocketState};
 use crate::error::{NetworkError, Result};
+use crate::tls::TlsConfig;
 
 /// Type alias for a connected WebSocket stream.
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -31,6 +32,8 @@ pub struct WebSocketConfig {
     pub headers: HashMap<String, String>,
     /// Auto-reconnect configuration. If `None`, auto-reconnect is disabled.
     pub reconnect: Option<ReconnectConfig>,
+    /// TLS configuration for secure connections (wss://).
+    pub tls: Option<TlsConfig>,
 }
 
 impl WebSocketConfig {
@@ -40,6 +43,7 @@ impl WebSocketConfig {
             url: url.into(),
             headers: HashMap::new(),
             reconnect: None,
+            tls: None,
         }
     }
 
@@ -64,6 +68,37 @@ impl WebSocketConfig {
     /// Enable auto-reconnect with custom configuration.
     pub fn reconnect_config(mut self, config: ReconnectConfig) -> Self {
         self.reconnect = Some(config);
+        self
+    }
+
+    /// Set TLS configuration for secure connections.
+    ///
+    /// This allows custom CA certificates, client certificates (mTLS),
+    /// and TLS version configuration.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice_net::{WebSocketConfig, TlsConfig, Certificate};
+    ///
+    /// let ca_cert = Certificate::from_pem_file("/path/to/ca.crt")?;
+    /// let config = WebSocketConfig::new("wss://example.com/ws")
+    ///     .tls_config(TlsConfig::new().add_root_certificate(ca_cert));
+    /// ```
+    pub fn tls_config(mut self, config: TlsConfig) -> Self {
+        self.tls = Some(config);
+        self
+    }
+
+    /// Accept invalid TLS certificates (DANGEROUS - for testing only).
+    ///
+    /// # Warning
+    ///
+    /// This disables certificate verification and makes the connection
+    /// vulnerable to man-in-the-middle attacks.
+    pub fn danger_accept_invalid_certs(mut self) -> Self {
+        let tls = self.tls.get_or_insert_with(TlsConfig::default);
+        tls.danger_accept_invalid_certs = true;
         self
     }
 }
@@ -304,9 +339,43 @@ impl WebSocketClient {
                     }
                 };
 
-                // Attempt to connect
+                // Attempt to connect with optional custom TLS configuration
                 let connect_result: std::result::Result<(WsStream, _), _> =
-                    tokio_tungstenite::connect_async(request).await;
+                    if let Some(ref tls_config) = config.tls {
+                        // Build custom TLS connector
+                        let rustls_config = if tls_config.danger_accept_invalid_certs {
+                            match tls_config.build_dangerous_rustls_config() {
+                                Ok(cfg) => cfg,
+                                Err(e) => {
+                                    emit_error(e);
+                                    inner.lock().state = WebSocketState::Disconnected;
+                                    is_running.store(false, Ordering::SeqCst);
+                                    return;
+                                }
+                            }
+                        } else {
+                            match tls_config.build_rustls_config() {
+                                Ok(cfg) => cfg,
+                                Err(e) => {
+                                    emit_error(e);
+                                    inner.lock().state = WebSocketState::Disconnected;
+                                    is_running.store(false, Ordering::SeqCst);
+                                    return;
+                                }
+                            }
+                        };
+                        let connector = Connector::Rustls(rustls_config);
+                        tokio_tungstenite::connect_async_tls_with_config(
+                            request,
+                            None,
+                            false,
+                            Some(connector),
+                        )
+                        .await
+                    } else {
+                        // Use default TLS handling
+                        tokio_tungstenite::connect_async(request).await
+                    };
 
                 match connect_result {
                     Ok((ws_stream, _response)) => {

@@ -45,6 +45,13 @@ base64 = { workspace = true }
 tokio-tungstenite = { workspace = true }
 rand = { workspace = true }
 
+# TLS support
+tokio-rustls = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+rustls-pki-types = { workspace = true }
+webpki-roots = { workspace = true }
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
 wiremock = "0.6"

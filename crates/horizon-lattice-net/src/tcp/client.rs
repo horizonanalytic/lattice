@@ -1,20 +1,81 @@
 //! TCP client with signal-based event delivery.
 
+use std::io;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use horizon_lattice_core::Signal;
 use parking_lot::Mutex;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use rustls::pki_types::ServerName;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
+use tokio_rustls::TlsConnector;
 
 use super::config::TcpClientConfig;
 use super::state::TcpConnectionState;
 use crate::error::NetworkError;
 use crate::websocket::ReconnectConfig;
 use crate::Result;
+
+/// A stream that may or may not be TLS-encrypted.
+enum MaybeTlsStream {
+    Plain(TcpStream),
+    Tls(tokio_rustls::client::TlsStream<TcpStream>),
+}
+
+impl AsyncRead for MaybeTlsStream {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(stream) => Pin::new(stream).poll_read(cx, buf),
+            MaybeTlsStream::Tls(stream) => Pin::new(stream).poll_read(cx, buf),
+        }
+    }
+}
+
+impl AsyncWrite for MaybeTlsStream {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(stream) => Pin::new(stream).poll_write(cx, buf),
+            MaybeTlsStream::Tls(stream) => Pin::new(stream).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(stream) => Pin::new(stream).poll_flush(cx),
+            MaybeTlsStream::Tls(stream) => Pin::new(stream).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match self.get_mut() {
+            MaybeTlsStream::Plain(stream) => Pin::new(stream).poll_shutdown(cx),
+            MaybeTlsStream::Tls(stream) => Pin::new(stream).poll_shutdown(cx),
+        }
+    }
+}
+
+impl MaybeTlsStream {
+    /// Set TCP_NODELAY on the underlying stream.
+    fn set_nodelay(&self, nodelay: bool) -> io::Result<()> {
+        match self {
+            MaybeTlsStream::Plain(stream) => stream.set_nodelay(nodelay),
+            MaybeTlsStream::Tls(stream) => stream.get_ref().0.set_nodelay(nodelay),
+        }
+    }
+}
 
 /// Internal state for the TCP client.
 struct TcpClientInner {
@@ -190,8 +251,8 @@ impl TcpClient {
                         let (tx, mut rx) = mpsc::unbounded_channel::<Command>();
                         *command_tx.lock() = Some(tx);
 
-                        // Split the stream
-                        let (mut reader, mut writer) = stream.into_split();
+                        // Split the stream into read and write halves
+                        let (mut reader, mut writer) = tokio::io::split(stream);
 
                         // Handle messages and commands
                         let mut closed_normally = false;
@@ -297,21 +358,46 @@ impl TcpClient {
         });
     }
 
-    /// Connect with the given configuration.
-    async fn connect_with_config(config: &TcpClientConfig) -> crate::Result<TcpStream> {
+    /// Connect with the given configuration, optionally with TLS.
+    async fn connect_with_config(config: &TcpClientConfig) -> crate::Result<MaybeTlsStream> {
         let addr = config.address();
 
-        match config.socket.connect_timeout {
+        // Establish TCP connection
+        let tcp_stream = match config.socket.connect_timeout {
             Some(timeout_duration) => {
                 match timeout(timeout_duration, TcpStream::connect(&addr)).await {
-                    Ok(Ok(stream)) => Ok(stream),
-                    Ok(Err(e)) => Err(NetworkError::TcpSocket(e.to_string())),
-                    Err(_) => Err(NetworkError::Timeout),
+                    Ok(Ok(stream)) => stream,
+                    Ok(Err(e)) => return Err(NetworkError::TcpSocket(e.to_string())),
+                    Err(_) => return Err(NetworkError::Timeout),
                 }
             }
             None => TcpStream::connect(&addr)
                 .await
-                .map_err(|e| NetworkError::TcpSocket(e.to_string())),
+                .map_err(|e| NetworkError::TcpSocket(e.to_string()))?,
+        };
+
+        // Wrap with TLS if configured
+        if let Some(ref tls_config) = config.tls {
+            let rustls_config = if tls_config.danger_accept_invalid_certs {
+                tls_config.build_dangerous_rustls_config()?
+            } else {
+                tls_config.build_rustls_config()?
+            };
+
+            let connector = TlsConnector::from(rustls_config);
+
+            // Parse the server name for SNI
+            let server_name = ServerName::try_from(config.host.clone())
+                .map_err(|e| NetworkError::Tls(format!("Invalid server name '{}': {}", config.host, e)))?;
+
+            let tls_stream = connector
+                .connect(server_name, tcp_stream)
+                .await
+                .map_err(|e| NetworkError::Tls(format!("TLS handshake failed: {}", e)))?;
+
+            Ok(MaybeTlsStream::Tls(tls_stream))
+        } else {
+            Ok(MaybeTlsStream::Plain(tcp_stream))
         }
     }
 

@@ -102,10 +102,14 @@
 mod error;
 pub mod http;
 pub mod tcp;
+pub mod tls;
 pub mod udp;
 pub mod websocket;
 
 pub use error::{NetworkError, Result};
+
+// Re-export TLS types
+pub use tls::{AlpnProtocol, Certificate, Identity, TlsConfig, TlsVersion};
 
 // Re-export commonly used types at the crate root
 pub use http::{

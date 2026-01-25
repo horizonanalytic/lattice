@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use crate::tls::TlsConfig;
 use crate::websocket::ReconnectConfig;
 
 /// Socket-level options for TCP connections.
@@ -109,6 +110,8 @@ pub struct TcpClientConfig {
     pub socket: TcpSocketConfig,
     /// Auto-reconnect configuration. If `None`, auto-reconnect is disabled.
     pub reconnect: Option<ReconnectConfig>,
+    /// TLS configuration. If `Some`, the connection will use TLS.
+    pub tls: Option<TlsConfig>,
 }
 
 impl TcpClientConfig {
@@ -119,6 +122,7 @@ impl TcpClientConfig {
             port,
             socket: TcpSocketConfig::default(),
             reconnect: None,
+            tls: None,
         }
     }
 
@@ -158,9 +162,50 @@ impl TcpClientConfig {
         self
     }
 
+    /// Enable TLS for this connection.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use horizon_lattice_net::{TcpClientConfig, TlsConfig};
+    ///
+    /// // Simple TLS with system CA certificates
+    /// let config = TcpClientConfig::new("example.com", 443)
+    ///     .use_tls();
+    ///
+    /// // TLS with custom CA certificate
+    /// let ca_cert = Certificate::from_pem_file("/path/to/ca.crt")?;
+    /// let config = TcpClientConfig::new("internal.example.com", 443)
+    ///     .tls_config(TlsConfig::new().add_root_certificate(ca_cert));
+    /// ```
+    pub fn use_tls(mut self) -> Self {
+        self.tls = Some(TlsConfig::default());
+        self
+    }
+
+    /// Set TLS configuration for this connection.
+    pub fn tls_config(mut self, config: TlsConfig) -> Self {
+        self.tls = Some(config);
+        self
+    }
+
+    /// Accept invalid TLS certificates (DANGEROUS - for testing only).
+    ///
+    /// This enables TLS if not already enabled.
+    pub fn danger_accept_invalid_certs(mut self) -> Self {
+        let tls = self.tls.get_or_insert_with(TlsConfig::default);
+        tls.danger_accept_invalid_certs = true;
+        self
+    }
+
     /// Get the address string (host:port).
     pub fn address(&self) -> String {
         format!("{}:{}", self.host, self.port)
+    }
+
+    /// Check if TLS is enabled.
+    pub fn is_tls_enabled(&self) -> bool {
+        self.tls.is_some()
     }
 }
 

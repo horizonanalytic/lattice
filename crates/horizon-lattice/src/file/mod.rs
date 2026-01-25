@@ -172,6 +172,7 @@
 //! ```
 
 mod async_directory;
+pub mod csv_support;
 mod directory;
 mod error;
 mod info;

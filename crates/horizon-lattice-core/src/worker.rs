@@ -75,6 +75,7 @@ use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 use parking_lot::{Condvar, Mutex};
 
 use crate::invocation::{invocation_registry, QueuedInvocation};
+use crate::progress::ProgressReporter;
 use crate::signal::Signal;
 use crate::threadpool::CancellationToken;
 
@@ -431,6 +432,65 @@ impl<T: Clone + Send + 'static> Worker<T> {
             Err(TrySendError::Full(_)) | Err(TrySendError::Disconnected(_)) => {
                 self.state.pending_tasks.fetch_sub(1, Ordering::AcqRel);
                 false
+            }
+        }
+    }
+
+    /// Send a task with progress reporting.
+    ///
+    /// Similar to `send()`, but the task receives a `ProgressReporter` that can
+    /// be used to report progress updates. The reporter's signals can be connected
+    /// to UI elements like `ProgressBar`.
+    ///
+    /// Returns a `ProgressReporter` if the task was queued successfully,
+    /// or `None` if the worker has been stopped or the queue is full.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use horizon_lattice_core::worker::Worker;
+    /// use horizon_lattice_core::signal::ConnectionType;
+    ///
+    /// let worker = Worker::<String>::new();
+    ///
+    /// if let Some(reporter) = worker.send_with_progress(|progress| {
+    ///     for i in 0..100 {
+    ///         progress.update(i as f32 / 100.0, format!("Step {}", i));
+    ///         std::thread::sleep(std::time::Duration::from_millis(10));
+    ///     }
+    ///     progress.set_progress(1.0);
+    ///     "Done!".to_string()
+    /// }) {
+    ///     // Connect to progress updates
+    ///     reporter.on_progress_changed().connect_with_type(
+    ///         |&p| println!("Progress: {:.0}%", p * 100.0),
+    ///         ConnectionType::Queued,
+    ///     );
+    /// }
+    /// ```
+    pub fn send_with_progress<F>(&self, task: F) -> Option<ProgressReporter>
+    where
+        F: FnOnce(ProgressReporter) -> T + Send + 'static,
+    {
+        if !self.is_running() {
+            return None;
+        }
+
+        let reporter = ProgressReporter::new();
+        let reporter_for_task = reporter.clone();
+
+        self.state.pending_tasks.fetch_add(1, Ordering::AcqRel);
+
+        match self
+            .task_sender
+            .try_send(WorkerTask::Execute(Box::new(move || {
+                task(reporter_for_task)
+            })))
+        {
+            Ok(()) => Some(reporter),
+            Err(TrySendError::Full(_)) | Err(TrySendError::Disconnected(_)) => {
+                self.state.pending_tasks.fetch_sub(1, Ordering::AcqRel);
+                None
             }
         }
     }
@@ -791,6 +851,56 @@ mod tests {
         // Should return None after stop
         let result = worker.send_sync(|| 42);
         assert!(result.is_none());
+
+        worker.join();
+    }
+
+    #[test]
+    fn test_send_with_progress() {
+        let worker = Worker::<String>::new();
+        let progress_values = Arc::new(Mutex::new(Vec::new()));
+        let progress_clone = progress_values.clone();
+
+        let reporter = worker.send_with_progress(|progress| {
+            for i in 0..=10 {
+                progress.set_progress(i as f32 / 10.0);
+                thread::sleep(Duration::from_millis(5));
+            }
+            "done".to_string()
+        });
+
+        assert!(reporter.is_some());
+        let reporter = reporter.unwrap();
+
+        // Connect to progress updates
+        reporter.on_progress_changed().connect(move |&p| {
+            progress_clone.lock().push(p);
+        });
+
+        // Wait for processing
+        thread::sleep(Duration::from_millis(200));
+
+        // Verify progress was reported
+        let values = progress_values.lock();
+        assert!(!values.is_empty());
+        // Final progress should be 1.0
+        assert!((reporter.progress() - 1.0).abs() < f32::EPSILON);
+
+        worker.stop_and_join();
+    }
+
+    #[test]
+    fn test_send_with_progress_after_stop() {
+        let worker = Worker::<String>::new();
+        worker.stop();
+
+        // Should return None after stop
+        let reporter = worker.send_with_progress(|progress| {
+            progress.set_progress(1.0);
+            "done".to_string()
+        });
+
+        assert!(reporter.is_none());
 
         worker.join();
     }

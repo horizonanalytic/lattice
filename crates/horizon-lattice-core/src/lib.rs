@@ -100,6 +100,7 @@ pub mod invocation;
 pub mod logging;
 pub mod meta;
 pub mod object;
+pub mod progress;
 pub mod property;
 mod scheduler;
 pub mod signal;
@@ -126,6 +127,7 @@ pub use scheduler::{ScheduledTaskId, ScheduledTaskKind};
 pub use task::TaskId;
 pub use timer::TimerId;
 pub use worker::{Worker, WorkerBuilder, WorkerConfig};
+pub use progress::{AggregateProgress, ProgressReporter, ProgressUpdate};
 
 // Re-export winit types that users may need
 pub use winit::event::Modifiers;

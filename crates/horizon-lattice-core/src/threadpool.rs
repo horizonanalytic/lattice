@@ -82,6 +82,7 @@ use rayon::{ThreadPool as RayonThreadPool, ThreadPoolBuilder};
 
 use crate::error::{LatticeError, ThreadPoolError};
 use crate::invocation::{invocation_registry, QueuedInvocation};
+use crate::progress::ProgressReporter;
 
 /// Global thread pool instance.
 static GLOBAL_POOL: OnceLock<ThreadPool> = OnceLock::new();
@@ -408,6 +409,66 @@ impl ThreadPool {
         let token_for_task = token.clone();
         let handle = self.spawn_internal(move || task(token_for_task), Some(token.clone()));
         (handle, token)
+    }
+
+    /// Spawn a task with both cancellation token and progress reporter.
+    ///
+    /// This combines cancellation support with progress reporting, useful for
+    /// long-running background tasks that need to report their progress to the UI.
+    ///
+    /// The task receives both a `CancellationToken` for cooperative cancellation
+    /// and a `ProgressReporter` for reporting progress updates. The reporter's
+    /// signals can be connected to UI widgets like `ProgressBar`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use horizon_lattice_core::threadpool::ThreadPool;
+    /// use horizon_lattice_core::signal::ConnectionType;
+    ///
+    /// let pool = ThreadPool::global();
+    ///
+    /// let (handle, token, reporter) = pool.spawn_with_progress(|cancel, progress| {
+    ///     for i in 0..100 {
+    ///         if cancel.is_cancelled() {
+    ///             return None;
+    ///         }
+    ///         progress.update(i as f32 / 100.0, format!("Processing item {}", i));
+    ///         std::thread::sleep(std::time::Duration::from_millis(10));
+    ///     }
+    ///     progress.set_progress(1.0);
+    ///     Some("Done!")
+    /// });
+    ///
+    /// // Connect progress to UI (use Queued for cross-thread safety)
+    /// reporter.on_progress_changed().connect_with_type(
+    ///     |&progress| println!("Progress: {:.0}%", progress * 100.0),
+    ///     ConnectionType::Queued,
+    /// );
+    ///
+    /// // Cancel if needed
+    /// token.cancel();
+    /// ```
+    pub fn spawn_with_progress<F, T>(
+        &self,
+        task: F,
+    ) -> (TaskHandle<T>, CancellationToken, ProgressReporter)
+    where
+        F: FnOnce(CancellationToken, ProgressReporter) -> T + Send + 'static,
+        T: Send + 'static,
+    {
+        let token = CancellationToken::new();
+        let reporter = ProgressReporter::new();
+
+        let token_for_task = token.clone();
+        let reporter_for_task = reporter.clone();
+
+        let handle = self.spawn_internal(
+            move || task(token_for_task, reporter_for_task),
+            Some(token.clone()),
+        );
+
+        (handle, token, reporter)
     }
 
     /// Spawn a task and deliver the result to the UI thread via a callback.
@@ -738,5 +799,61 @@ mod tests {
         let pool = ThreadPool::global();
         let handle = pool.spawn(|| 42);
         assert_eq!(handle.wait(), Some(42));
+    }
+
+    #[test]
+    fn test_spawn_with_progress() {
+        let pool = ThreadPool::new(ThreadPoolConfig::with_threads(2)).unwrap();
+        let progress_values = Arc::new(Mutex::new(Vec::new()));
+        let progress_clone = progress_values.clone();
+
+        let (handle, _token, reporter) = pool.spawn_with_progress(|cancel, progress| {
+            for i in 0..=10 {
+                if cancel.is_cancelled() {
+                    return -1;
+                }
+                progress.set_progress(i as f32 / 10.0);
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            42
+        });
+
+        // Connect to progress updates
+        reporter.on_progress_changed().connect(move |&p| {
+            progress_clone.lock().push(p);
+        });
+
+        let result = handle.wait();
+        assert_eq!(result, Some(42));
+
+        // Verify progress was reported
+        let values = progress_values.lock();
+        assert!(!values.is_empty());
+        // Final progress should be 1.0
+        assert!((reporter.progress() - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_spawn_with_progress_cancellation() {
+        let pool = ThreadPool::new(ThreadPoolConfig::with_threads(2)).unwrap();
+
+        let (handle, token, _reporter) = pool.spawn_with_progress(|cancel, progress| {
+            for i in 0..100 {
+                if cancel.is_cancelled() {
+                    progress.set_message("Cancelled");
+                    return "cancelled".to_string();
+                }
+                progress.update(i as f32 / 100.0, format!("Step {}", i));
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            "completed".to_string()
+        });
+
+        // Cancel after a short delay
+        std::thread::sleep(Duration::from_millis(50));
+        token.cancel();
+
+        let result = handle.wait();
+        assert!(result == Some("cancelled".to_string()) || result == Some("completed".to_string()));
     }
 }

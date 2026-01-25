@@ -19,6 +19,7 @@ tracing = { workspace = true }
 rayon = { workspace = true }
 crossbeam-channel = { workspace = true }
 tokio = { workspace = true, optional = true }
+static_assertions = { workspace = true }
 
 [dev-dependencies]
 horizon-lattice-macros = { path = "../horizon-lattice-macros" }

@@ -47,6 +47,9 @@ pub mod render {
     pub use horizon_lattice_render::*;
 }
 
+/// File I/O operations and utilities.
+pub mod file;
+
 /// Platform services and system integration.
 pub mod platform;
 

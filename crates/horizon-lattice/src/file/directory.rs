@@ -1018,16 +1018,15 @@ mod tests {
     use super::*;
     use std::fs::File;
     use std::io::Write;
+    use tempfile::TempDir;
 
-    fn setup_test_dir() -> PathBuf {
-        let temp = std::env::temp_dir();
-        let test_dir = temp.join("horizon_test_directory");
-
-        // Clean up if exists
-        let _ = fs::remove_dir_all(&test_dir);
+    /// Creates a unique test directory with a standard structure.
+    /// Returns the TempDir (which auto-cleans on drop) and the path.
+    fn setup_test_dir() -> (TempDir, PathBuf) {
+        let temp_dir = TempDir::new().unwrap();
+        let test_dir = temp_dir.path().to_path_buf();
 
         // Create test structure
-        fs::create_dir_all(&test_dir).unwrap();
         fs::create_dir_all(test_dir.join("subdir1")).unwrap();
         fs::create_dir_all(test_dir.join("subdir2/nested")).unwrap();
 
@@ -1053,28 +1052,22 @@ mod tests {
             .write_all(b"hidden")
             .unwrap();
 
-        test_dir
-    }
-
-    fn cleanup_test_dir(path: &Path) {
-        let _ = fs::remove_dir_all(path);
+        (temp_dir, test_dir)
     }
 
     #[test]
     fn test_read_dir() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let entries: Vec<_> = read_dir(&test_dir).unwrap().filter_map(Result::ok).collect();
 
         // Should have: file1.txt, file2.rs, subdir1, subdir2, .hidden
         assert_eq!(entries.len(), 5);
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_read_dir_filtered() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         // Filter to only files
         let files: Vec<_> = read_dir(&test_dir)
@@ -1085,13 +1078,11 @@ mod tests {
 
         // Should have: file1.txt, file2.rs, .hidden
         assert_eq!(files.len(), 3);
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_read_dir_glob() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         // Find .txt files
         let txt_files: Vec<_> = read_dir(&test_dir)
@@ -1114,13 +1105,11 @@ mod tests {
 
         assert_eq!(rs_files.len(), 1);
         assert_eq!(rs_files[0].name(), "file2.rs");
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_walk_dir_recursive() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let entries: Vec<_> = WalkDir::new(&test_dir)
             .unwrap()
@@ -1131,13 +1120,11 @@ mod tests {
         // subdir1, subdir2, subdir2/nested, file1.txt, file2.rs, .hidden,
         // subdir1/nested_file.txt, subdir2/nested/deep.txt
         assert!(entries.len() >= 8);
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_walk_dir_files_only() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let files: Vec<_> =
             WalkDir::with_options(&test_dir, WalkDirOptions::new().files_only())
@@ -1150,13 +1137,11 @@ mod tests {
 
         // Should have: file1.txt, file2.rs, .hidden, nested_file.txt, deep.txt
         assert_eq!(files.len(), 5);
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_walk_dir_max_depth() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let entries: Vec<_> =
             WalkDir::with_options(&test_dir, WalkDirOptions::new().max_depth(1))
@@ -1167,13 +1152,11 @@ mod tests {
         // Should not include deep nested files
         let paths: Vec<_> = entries.iter().map(|e| e.path().to_path_buf()).collect();
         assert!(!paths.iter().any(|p| p.ends_with("deep.txt")));
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_walk_dir_skip_hidden() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let entries: Vec<_> =
             WalkDir::with_options(&test_dir, WalkDirOptions::new().skip_hidden(true))
@@ -1184,13 +1167,11 @@ mod tests {
         // Should not include .hidden
         let names: Vec<_> = entries.iter().map(|e| e.name()).collect();
         assert!(!names.contains(&".hidden".to_string()));
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_walk_dir_with_glob() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let txt_files: Vec<_> =
             WalkDir::with_options(&test_dir, WalkDirOptions::new().glob("*.txt"))
@@ -1201,17 +1182,12 @@ mod tests {
         // Should find file1.txt, nested_file.txt, deep.txt
         assert_eq!(txt_files.len(), 3);
         assert!(txt_files.iter().all(|e| e.name().ends_with(".txt")));
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_create_and_remove_dir() {
-        let temp = std::env::temp_dir();
-        let test_dir = temp.join("horizon_test_create_dir");
-
-        // Clean up if exists
-        let _ = fs::remove_dir_all(&test_dir);
+        let temp_dir = TempDir::new().unwrap();
+        let test_dir = temp_dir.path().join("subdir");
 
         // Create directory
         create_dir(&test_dir).unwrap();
@@ -1224,23 +1200,17 @@ mod tests {
 
     #[test]
     fn test_create_dir_all() {
-        let temp = std::env::temp_dir();
-        let test_dir = temp.join("horizon_test_create_dir_all/nested/deeply");
-
-        // Clean up if exists
-        let _ = fs::remove_dir_all(temp.join("horizon_test_create_dir_all"));
+        let temp_dir = TempDir::new().unwrap();
+        let test_dir = temp_dir.path().join("nested/deeply");
 
         // Create nested directories
         create_dir_all(&test_dir).unwrap();
         assert!(test_dir.is_dir());
-
-        // Cleanup
-        let _ = fs::remove_dir_all(temp.join("horizon_test_create_dir_all"));
     }
 
     #[test]
     fn test_remove_dir_all() {
-        let test_dir = setup_test_dir();
+        let (temp_dir, test_dir) = setup_test_dir();
 
         // Verify it has contents
         assert!(!is_dir_empty(&test_dir).unwrap());
@@ -1248,14 +1218,15 @@ mod tests {
         // Remove all
         remove_dir_all(&test_dir).unwrap();
         assert!(!test_dir.exists());
+
+        // Keep temp_dir alive until end
+        drop(temp_dir);
     }
 
     #[test]
     fn test_is_dir_empty() {
-        let temp = std::env::temp_dir();
-        let test_dir = temp.join("horizon_test_empty_dir");
-
-        let _ = fs::remove_dir_all(&test_dir);
+        let temp_dir = TempDir::new().unwrap();
+        let test_dir = temp_dir.path().join("empty_dir");
         fs::create_dir(&test_dir).unwrap();
 
         assert!(is_dir_empty(&test_dir).unwrap());
@@ -1263,13 +1234,11 @@ mod tests {
         // Add a file
         File::create(test_dir.join("file.txt")).unwrap();
         assert!(!is_dir_empty(&test_dir).unwrap());
-
-        let _ = fs::remove_dir_all(&test_dir);
     }
 
     #[test]
     fn test_dir_size() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let size = dir_size(&test_dir).unwrap();
 
@@ -1277,31 +1246,25 @@ mod tests {
         // "hello" (5) + "fn main() {}" (12) + "nested content" (14) +
         // "deep content" (12) + "hidden" (6) = 49
         assert_eq!(size, 49);
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_count_entries() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let direct_count = count_entries(&test_dir, false).unwrap();
         assert_eq!(direct_count, 5); // file1.txt, file2.rs, subdir1, subdir2, .hidden
 
         let recursive_count = count_entries(&test_dir, true).unwrap();
         assert!(recursive_count >= 8); // All files and dirs
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_list_dir_glob() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let txt_files = list_dir_glob(&test_dir, "*.txt").unwrap();
         assert_eq!(txt_files.len(), 1);
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
@@ -1325,7 +1288,7 @@ mod tests {
 
     #[test]
     fn test_dir_entry_metadata() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let entries: Vec<_> = read_dir(&test_dir).unwrap().filter_map(Result::ok).collect();
 
@@ -1336,13 +1299,11 @@ mod tests {
             // Should be able to get metadata
             assert!(entry.metadata().is_ok());
         }
-
-        cleanup_test_dir(&test_dir);
     }
 
     #[test]
     fn test_walk_entry_depth() {
-        let test_dir = setup_test_dir();
+        let (_temp_dir, test_dir) = setup_test_dir();
 
         let entries: Vec<_> = WalkDir::new(&test_dir)
             .unwrap()
@@ -1356,7 +1317,5 @@ mod tests {
             let expected_depth = relative.components().count();
             assert_eq!(entry.depth(), expected_depth);
         }
-
-        cleanup_test_dir(&test_dir);
     }
 }

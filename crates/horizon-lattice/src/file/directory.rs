@@ -714,7 +714,7 @@ impl Iterator for WalkDir {
 /// - `[a-z]` matches any character in the range
 /// - `[!abc]` or `[^abc]` matches any character not in the brackets
 /// - `**` matches any sequence of characters including path separators
-fn glob_to_regex(pattern: &str) -> FileResult<regex::Regex> {
+pub(crate) fn glob_to_regex(pattern: &str) -> FileResult<regex::Regex> {
     let mut regex = String::with_capacity(pattern.len() * 2);
     regex.push('^');
 

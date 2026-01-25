@@ -146,7 +146,32 @@
 //! // Create nested directories
 //! create_dir_all("path/to/nested/folder")?;
 //! ```
+//!
+//! # Async Directory Operations
+//!
+//! ```ignore
+//! use horizon_lattice::file::{read_dir_async, AsyncWalkDir, WalkDirOptions};
+//!
+//! // Async directory listing
+//! let mut entries = read_dir_async("src").await?;
+//! while let Some(entry) = entries.next().await {
+//!     let entry = entry?;
+//!     println!("{}", entry.name());
+//! }
+//!
+//! // Async recursive walk with options
+//! let mut walker = AsyncWalkDir::with_options("src", WalkDirOptions::new()
+//!     .files_only()
+//!     .glob("*.rs")
+//!     .skip_hidden(true)).await?;
+//!
+//! while let Some(entry) = walker.next().await {
+//!     let entry = entry?;
+//!     println!("{} (depth {})", entry.path().display(), entry.depth());
+//! }
+//! ```
 
+mod async_directory;
 mod directory;
 mod error;
 mod info;
@@ -161,6 +186,10 @@ pub mod toml_support;
 mod watcher;
 mod writer;
 
+pub use async_directory::{
+    count_entries_async, dir_size_async, is_dir_empty_async, list_dir_async, read_dir_async,
+    read_dir_recursive_async, AsyncDirEntry, AsyncDirIterator, AsyncWalkDir, AsyncWalkEntry,
+};
 pub use directory::{
     count_entries, create_dir, create_dir_all, dir_size, is_dir_empty, list_dir, list_dir_glob,
     read_dir, read_dir_recursive, remove_dir, remove_dir_all, DirEntry, DirIterator,

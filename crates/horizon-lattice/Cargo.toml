@@ -76,6 +76,11 @@ notify-debouncer-mini = { workspace = true }
 # Logging
 tracing = { workspace = true }
 
+# Serialization (for settings)
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+
 # Native dialog dependencies (macOS)
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true }

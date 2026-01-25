@@ -59,6 +59,36 @@
 //! println!("Readable: {}", info.is_readable());
 //! ```
 //!
+//! # Settings/Preferences
+//!
+//! ```ignore
+//! use horizon_lattice::file::{Settings, SettingsFormat};
+//!
+//! // Create settings and set values
+//! let settings = Settings::new();
+//! settings.set("app.window.width", 1024);
+//! settings.set("app.theme.name", "dark");
+//!
+//! // Get values with type inference
+//! let width: i32 = settings.get("app.window.width").unwrap();
+//! let theme: String = settings.get_or("app.theme.name", "light".to_string());
+//!
+//! // Persist to file
+//! settings.save_json("config.json")?;
+//! settings.save_toml("config.toml")?;
+//!
+//! // Load from file
+//! let settings = Settings::load_json("config.json")?;
+//!
+//! // Enable auto-save
+//! settings.set_auto_save("config.json", SettingsFormat::Json);
+//!
+//! // Listen for changes
+//! settings.changed().connect(|key| {
+//!     println!("Setting changed: {}", key);
+//! });
+//! ```
+//!
 //! # Directory Operations
 //!
 //! ```ignore
@@ -96,6 +126,7 @@ mod info;
 mod operations;
 mod path;
 mod reader;
+mod settings;
 mod watcher;
 mod writer;
 
@@ -122,4 +153,5 @@ pub use path::{
 };
 pub use reader::{File, LineIterator};
 pub use watcher::{FileWatchEvent, FileWatcher, WatchEventKind, WatchOptions};
+pub use settings::{FromSettingsValue, Settings, SettingsFormat, SettingsValue, SharedSettings};
 pub use writer::{AtomicWriter, FileWriter};

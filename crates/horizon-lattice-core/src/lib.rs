@@ -105,12 +105,13 @@ pub mod property;
 mod scheduler;
 pub mod signal;
 mod task;
+pub mod thread_check;
 pub mod threadpool;
 mod timer;
 pub mod worker;
 
 pub use application::{Application, WindowEventHandler};
-pub use error::{LatticeError, Result, SchedulerError, SignalError, ThreadPoolError, TimerError};
+pub use error::{LatticeError, Result, SchedulerError, SignalError, ThreadError, ThreadPoolError, TimerError};
 pub use event::{EventPriority, LatticeEvent};
 pub use logging::{ObjectTreeDebug, PerfSpan, TreeFormatOptions, TreeStyle};
 pub use meta::{
@@ -128,6 +129,10 @@ pub use task::TaskId;
 pub use timer::TimerId;
 pub use worker::{Worker, WorkerBuilder, WorkerConfig};
 pub use progress::{AggregateProgress, ProgressReporter, ProgressUpdate};
+pub use thread_check::{
+    are_thread_checks_enabled, is_main_thread, main_thread_id, set_thread_checks_enabled,
+    ThreadAffinity,
+};
 
 // Re-export winit types that users may need
 pub use winit::event::Modifiers;

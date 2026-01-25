@@ -86,6 +86,9 @@ impl Application {
     ///
     /// May panic on some platforms if not called from the main thread.
     pub fn new() -> Result<&'static Application> {
+        // Register this thread as the main (UI) thread for thread safety checks.
+        crate::thread_check::set_main_thread();
+
         // Initialize the global object registry.
         init_global_registry();
 

@@ -180,6 +180,48 @@ pub enum ThreadPoolError {
     SubmissionFailed,
 }
 
+/// Thread safety-specific errors.
+#[derive(Debug, Clone)]
+pub enum ThreadError {
+    /// Operation was called from the wrong thread.
+    WrongThread {
+        /// Description of the operation that failed.
+        operation: String,
+        /// The expected thread (if known).
+        expected: Option<String>,
+        /// The actual thread name/id.
+        actual: String,
+    },
+    /// Object was accessed from a thread other than its owning thread.
+    AffinityViolation {
+        /// Description of the object.
+        object: String,
+    },
+}
+
+impl fmt::Display for ThreadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::WrongThread {
+                operation,
+                expected,
+                actual,
+            } => {
+                write!(f, "'{operation}' called from wrong thread (got: {actual}")?;
+                if let Some(exp) = expected {
+                    write!(f, ", expected: {exp}")?;
+                }
+                write!(f, ")")
+            }
+            Self::AffinityViolation { object } => {
+                write!(f, "'{object}' accessed from wrong thread (thread affinity violation)")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ThreadError {}
+
 impl fmt::Display for ThreadPoolError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -58,15 +58,55 @@
 //! println!("Is file: {}", info.is_file());
 //! println!("Readable: {}", info.is_readable());
 //! ```
+//!
+//! # Directory Operations
+//!
+//! ```ignore
+//! use horizon_lattice::file::{read_dir, read_dir_recursive, create_dir_all, WalkDirOptions};
+//!
+//! // List directory entries
+//! for entry in read_dir("src")? {
+//!     let entry = entry?;
+//!     println!("{}: {:?}", entry.name(), entry.file_type()?);
+//! }
+//!
+//! // Filter with glob pattern
+//! for entry in read_dir("src")?.filter_glob("*.rs")? {
+//!     println!("{}", entry?.name());
+//! }
+//!
+//! // Recursive listing with options
+//! let walker = WalkDir::with_options("src", WalkDirOptions::new()
+//!     .files_only()
+//!     .glob("*.rs")
+//!     .skip_hidden(true))?;
+//!
+//! for entry in walker {
+//!     let entry = entry?;
+//!     println!("{} (depth {})", entry.path().display(), entry.depth());
+//! }
+//!
+//! // Create nested directories
+//! create_dir_all("path/to/nested/folder")?;
+//! ```
 
+mod directory;
 mod error;
 mod info;
 mod operations;
 mod reader;
 mod writer;
 
+pub use directory::{
+    count_entries, create_dir, create_dir_all, dir_size, is_dir_empty, list_dir, list_dir_glob,
+    read_dir, read_dir_recursive, remove_dir, remove_dir_all, DirEntry, DirIterator,
+    FilteredDirIterator, GlobDirIterator, WalkDir, WalkDirOptions, WalkEntry,
+};
 pub use error::{FileError, FileErrorKind, FileResult};
-pub use info::{exists, exists_no_follow, file_size, is_dir, is_file, is_symlink, FileInfo, FileType, Permissions};
+pub use info::{
+    exists, exists_no_follow, file_size, is_dir, is_file, is_symlink, FileInfo, FileType,
+    Permissions,
+};
 pub use operations::{
     append_bytes, append_text, atomic_write, copy_file, read_bytes, read_lines, read_text,
     remove_file, rename_file, write_bytes, write_text,

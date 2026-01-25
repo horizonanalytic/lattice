@@ -10,6 +10,7 @@ authors.workspace = true
 [features]
 default = []
 shader-hot-reload = ["dep:notify", "dep:notify-debouncer-mini"]
+networking = ["dep:horizon-lattice-net", "dep:tokio"]
 
 [dependencies]
 # Graphics
@@ -32,6 +33,9 @@ pollster = { workspace = true }
 # Image handling
 image = { workspace = true }
 
+# EXIF metadata
+kamadak-exif = "0.6"
+
 # SVG rendering
 resvg = "0.44"
 
@@ -46,6 +50,10 @@ unicode-bidi = { workspace = true }
 # Shader hot-reload (optional)
 notify = { workspace = true, optional = true }
 notify-debouncer-mini = { workspace = true, optional = true }
+
+# Networking (optional, for URL loading)
+horizon-lattice-net = { path = "../horizon-lattice-net", optional = true }
+tokio = { workspace = true, features = ["rt"], optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

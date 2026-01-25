@@ -156,6 +156,12 @@ enum LoadRequest {
         handle: AsyncImageHandle,
         data: Vec<u8>,
     },
+    /// Load an image from a URL.
+    #[cfg(feature = "networking")]
+    Url {
+        handle: AsyncImageHandle,
+        url: String,
+    },
     /// Signal to shut down the worker thread.
     Shutdown,
 }
@@ -270,6 +276,11 @@ impl AsyncImageLoader {
                     let result = Self::decode_bytes(&data);
                     let _ = completed_tx.send(CompletedLoad { handle, result });
                 }
+                #[cfg(feature = "networking")]
+                LoadRequest::Url { handle, url } => {
+                    let result = Self::decode_url(&url);
+                    let _ = completed_tx.send(CompletedLoad { handle, result });
+                }
                 LoadRequest::Shutdown => break,
             }
         }
@@ -298,6 +309,44 @@ impl AsyncImageLoader {
             width,
             height,
         })
+    }
+
+    /// Decode an image from a URL.
+    #[cfg(feature = "networking")]
+    fn decode_url(url: &str) -> Result<DecodedImage, String> {
+        use horizon_lattice_net::HttpClient;
+
+        // Create a runtime for blocking HTTP request
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| format!("Failed to create runtime: {}", e))?;
+
+        // Fetch the image data
+        let bytes = rt.block_on(async {
+            let client = HttpClient::new();
+            let response = client
+                .get(url)
+                .send()
+                .await
+                .map_err(|e| format!("Failed to fetch image: {}", e))?;
+
+            if !response.is_success() {
+                return Err(format!(
+                    "HTTP error {}: {}",
+                    response.status_code(),
+                    response.status_text()
+                ));
+            }
+
+            response
+                .bytes()
+                .await
+                .map_err(|e| format!("Failed to read response body: {}", e))
+        })?;
+
+        // Decode the image
+        Self::decode_bytes(&bytes)
     }
 
     /// Start loading an image from a file path.
@@ -344,6 +393,43 @@ impl AsyncImageLoader {
 
         self.request_tx
             .send(LoadRequest::Bytes { handle, data })
+            .map_err(|_| RenderError::ImageLoad("Worker threads have shut down".to_string()))?;
+
+        self.states.insert(handle, LoadingState::Loading);
+        self.in_progress += 1;
+
+        Ok(handle)
+    }
+
+    /// Start loading an image from a URL.
+    ///
+    /// Returns a handle that can be used to query the loading state.
+    /// The image will be downloaded and decoded on a background thread.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let handle = loader.load_url("https://example.com/image.png")?;
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there are too many pending loads or if the
+    /// worker threads have shut down.
+    #[cfg(feature = "networking")]
+    pub fn load_url(&mut self, url: impl Into<String>) -> RenderResult<AsyncImageHandle> {
+        if self.in_progress >= self.config.max_pending {
+            return Err(RenderError::ImageLoad(format!(
+                "Too many pending loads (max {})",
+                self.config.max_pending
+            )));
+        }
+
+        let handle = AsyncImageHandle::new();
+        let url = url.into();
+
+        self.request_tx
+            .send(LoadRequest::Url { handle, url })
             .map_err(|_| RenderError::ImageLoad("Worker threads have shut down".to_string()))?;
 
         self.states.insert(handle, LoadingState::Loading);

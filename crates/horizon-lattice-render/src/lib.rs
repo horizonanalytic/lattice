@@ -100,6 +100,7 @@ mod gpu_renderer;
 mod embedded_icon;
 mod icon;
 mod image;
+pub mod image_data;
 pub mod layer;
 mod paint;
 mod path;
@@ -156,6 +157,12 @@ pub use icon::{
 
 // Embedded icon support
 pub use embedded_icon::{EmbeddedIconData, EmbeddedIconSet, ImageFormat};
+
+// Image metadata
+pub use image_data::{
+    read_dimensions, read_dimensions_from_bytes, read_metadata, read_metadata_from_bytes,
+    ColorType, ExifData, ImageMetadata, Orientation,
+};
 
 // Damage tracking
 pub use damage::DamageTracker;

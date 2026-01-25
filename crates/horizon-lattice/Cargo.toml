@@ -73,6 +73,9 @@ directories = { workspace = true }
 notify = { workspace = true }
 notify-debouncer-mini = { workspace = true }
 
+# Memory-mapped files
+memmap2 = { workspace = true }
+
 # Logging
 tracing = { workspace = true }
 

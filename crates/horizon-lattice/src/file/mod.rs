@@ -47,6 +47,31 @@
 //! })?;
 //! ```
 //!
+//! # Memory-Mapped Files
+//!
+//! ```ignore
+//! use horizon_lattice::file::{MappedFile, MappedFileMut, MmapOptions};
+//!
+//! // Read-only memory mapping (zero-copy access)
+//! let mapped = MappedFile::open("large_file.bin")?;
+//! let first_byte = mapped[0];
+//! let slice = &mapped[100..200];
+//!
+//! // Mutable memory mapping
+//! let mut mapped = MappedFileMut::open("data.bin")?;
+//! mapped[0] = 0xFF;
+//! mapped.flush()?;
+//!
+//! // Create new file with specified size
+//! let mut mapped = MappedFileMut::create("new_file.bin", 1024)?;
+//! mapped.as_mut_slice().fill(0);
+//! mapped.flush()?;
+//!
+//! // Advanced options (offset, length, populate)
+//! let options = MmapOptions::new().offset(1024).len(4096).populate(true);
+//! let mapped = MappedFile::with_options("large.bin", &options)?;
+//! ```
+//!
 //! # File Information
 //!
 //! ```ignore
@@ -124,6 +149,7 @@ mod directory;
 mod error;
 mod info;
 pub mod json;
+mod mmap;
 mod operations;
 mod path;
 mod reader;
@@ -157,3 +183,4 @@ pub use reader::{File, LineIterator};
 pub use watcher::{FileWatchEvent, FileWatcher, WatchEventKind, WatchOptions};
 pub use settings::{FromSettingsValue, Settings, SettingsFormat, SettingsValue, SharedSettings};
 pub use writer::{AtomicWriter, FileWriter};
+pub use mmap::{map_file, map_file_mut, MappedFile, MappedFileMut, MmapOptions};

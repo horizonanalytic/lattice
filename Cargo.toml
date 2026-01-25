@@ -54,6 +54,9 @@ proc-macro2 = "1.0"
 notify = "7"
 notify-debouncer-mini = "0.5"
 
+# Memory-mapped files
+memmap2 = "0.9"
+
 # CSS parsing
 cssparser = "0.34"
 

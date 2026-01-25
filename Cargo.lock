@@ -2703,6 +2703,7 @@ dependencies = [
  "image",
  "io-kit-sys",
  "keepawake",
+ "memmap2",
  "notify",
  "notify-debouncer-mini",
  "notify-rust",

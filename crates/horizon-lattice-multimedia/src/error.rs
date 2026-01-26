@@ -23,6 +23,12 @@ pub enum MultimediaError {
     NoOutputDevice,
     /// Invalid audio data.
     InvalidData(String),
+    /// Timer error.
+    Timer(String),
+    /// Timer was already running.
+    TimerAlreadyRunning,
+    /// Timer was not running.
+    TimerNotRunning,
 }
 
 impl fmt::Display for MultimediaError {
@@ -37,6 +43,9 @@ impl fmt::Display for MultimediaError {
             Self::StreamEnded => write!(f, "Audio stream ended unexpectedly"),
             Self::NoOutputDevice => write!(f, "No audio output device available"),
             Self::InvalidData(msg) => write!(f, "Invalid audio data: {msg}"),
+            Self::Timer(msg) => write!(f, "Timer error: {msg}"),
+            Self::TimerAlreadyRunning => write!(f, "Timer is already running"),
+            Self::TimerNotRunning => write!(f, "Timer is not running"),
         }
     }
 }

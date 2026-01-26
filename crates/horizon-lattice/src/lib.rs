@@ -67,3 +67,9 @@ pub mod window;
 pub mod net {
     pub use horizon_lattice_net::*;
 }
+
+/// Multimedia module (requires `multimedia` feature).
+#[cfg(feature = "multimedia")]
+pub mod multimedia {
+    pub use horizon_lattice_multimedia::*;
+}

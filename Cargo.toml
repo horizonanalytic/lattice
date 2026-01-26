@@ -4,6 +4,7 @@ members = [
     "crates/horizon-lattice",
     "crates/horizon-lattice-core",
     "crates/horizon-lattice-macros",
+    "crates/horizon-lattice-multimedia",
     "crates/horizon-lattice-net",
     "crates/horizon-lattice-render",
     "crates/horizon-lattice-style",
@@ -204,6 +205,7 @@ hyper-util = "0.1"
 # Internal crates
 horizon-lattice-core = { path = "crates/horizon-lattice-core" }
 horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }
+horizon-lattice-multimedia = { path = "crates/horizon-lattice-multimedia" }
 horizon-lattice-net = { path = "crates/horizon-lattice-net" }
 horizon-lattice-render = { path = "crates/horizon-lattice-render" }
 horizon-lattice-style = { path = "crates/horizon-lattice-style" }

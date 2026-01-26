@@ -1,0 +1,23 @@
+[package]
+name = "horizon-lattice-multimedia"
+description = "Multimedia module for Horizon Lattice: audio playback, sound effects"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = []
+
+[dependencies]
+horizon-lattice-core = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+# Audio playback
+rodio = "0.20"
+
+[dev-dependencies]
+tempfile = { workspace = true }

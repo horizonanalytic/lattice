@@ -21,6 +21,8 @@ system-theme = ["dep:dark-light"]
 localization = ["dep:icu", "dep:sys-locale"]
 # Networking (HTTP client, WebSocket, TCP/UDP sockets)
 networking = ["dep:horizon-lattice-net"]
+# Multimedia (audio playback, sound effects)
+multimedia = ["dep:horizon-lattice-multimedia"]
 
 [dependencies]
 horizon-lattice-core = { workspace = true }
@@ -62,6 +64,9 @@ unicode-bidi = { workspace = true }
 
 # Networking (optional)
 horizon-lattice-net = { workspace = true, optional = true }
+
+# Multimedia (optional)
+horizon-lattice-multimedia = { workspace = true, optional = true }
 
 # File opener (open files/URLs with default application)
 open = { workspace = true }

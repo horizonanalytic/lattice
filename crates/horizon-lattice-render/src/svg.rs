@@ -43,6 +43,7 @@ use resvg::usvg;
 use crate::atlas::ImageManager;
 use crate::error::{RenderError, RenderResult};
 use crate::image::Image;
+use crate::svg_cache::SvgCache;
 use crate::types::Size;
 
 /// An SVG image that can be rendered at any resolution.
@@ -312,6 +313,120 @@ impl SvgImage {
         // Walk the tree to check for gradients
         // This is a simplified check - a full implementation would walk all nodes
         self.tree.root().has_children()
+    }
+
+    // ========================================================================
+    // CACHED RENDERING METHODS
+    // ========================================================================
+
+    /// Render the SVG to an Image with caching support.
+    ///
+    /// If the rasterization exists in the cache, it's used directly.
+    /// Otherwise, the SVG is rendered and the result is cached.
+    ///
+    /// # Arguments
+    ///
+    /// * `manager` - The image manager to upload the rendered image to
+    /// * `cache` - The SVG cache to check/store rasterizations
+    /// * `width` - Target width in pixels
+    /// * `height` - Target height in pixels
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut cache = SvgCache::with_defaults();
+    /// let image = svg.render_cached(&mut manager, &mut cache, 48, 48)?;
+    /// ```
+    pub fn render_cached(
+        &self,
+        manager: &mut ImageManager,
+        cache: &mut SvgCache,
+        width: u32,
+        height: u32,
+    ) -> RenderResult<Image> {
+        let rgba = cache.get_or_render(self, width, height);
+        manager.load_rgba(&rgba, width, height)
+    }
+
+    /// Render the SVG with caching using a file path as the cache key.
+    ///
+    /// This provides better cache key stability than `render_cached` since
+    /// the file path is used directly as part of the key.
+    ///
+    /// # Arguments
+    ///
+    /// * `manager` - The image manager to upload the rendered image to
+    /// * `cache` - The SVG cache to check/store rasterizations
+    /// * `path` - The original file path (for cache key)
+    /// * `width` - Target width in pixels
+    /// * `height` - Target height in pixels
+    pub fn render_cached_with_path(
+        &self,
+        manager: &mut ImageManager,
+        cache: &mut SvgCache,
+        path: impl AsRef<Path>,
+        width: u32,
+        height: u32,
+    ) -> RenderResult<Image> {
+        let rgba = cache.get_or_render_file(self, path, width, height);
+        manager.load_rgba(&rgba, width, height)
+    }
+
+    /// Render the SVG at its natural size scaled by a factor, with caching.
+    ///
+    /// # Arguments
+    ///
+    /// * `manager` - The image manager to upload the rendered image to
+    /// * `cache` - The SVG cache to check/store rasterizations
+    /// * `scale_factor` - The scale factor (e.g., 1.0, 2.0, 1.5)
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut cache = SvgCache::with_defaults();
+    /// let image = svg.render_scaled_cached(&mut manager, &mut cache, 2.0)?;
+    /// ```
+    pub fn render_scaled_cached(
+        &self,
+        manager: &mut ImageManager,
+        cache: &mut SvgCache,
+        scale_factor: f64,
+    ) -> RenderResult<Image> {
+        let width = (self.default_size.width as f64 * scale_factor).round() as u32;
+        let height = (self.default_size.height as f64 * scale_factor).round() as u32;
+
+        // Ensure minimum size of 1x1
+        let width = width.max(1);
+        let height = height.max(1);
+
+        self.render_cached(manager, cache, width, height)
+    }
+
+    /// Render at a specific logical size with scale factor, using cache.
+    ///
+    /// # Arguments
+    ///
+    /// * `manager` - The image manager to upload the rendered image to
+    /// * `cache` - The SVG cache to check/store rasterizations
+    /// * `logical_width` - Desired logical width
+    /// * `logical_height` - Desired logical height
+    /// * `scale_factor` - The display scale factor
+    pub fn render_at_size_cached(
+        &self,
+        manager: &mut ImageManager,
+        cache: &mut SvgCache,
+        logical_width: f32,
+        logical_height: f32,
+        scale_factor: f64,
+    ) -> RenderResult<Image> {
+        let width = (logical_width as f64 * scale_factor).round() as u32;
+        let height = (logical_height as f64 * scale_factor).round() as u32;
+
+        // Ensure minimum size of 1x1
+        let width = width.max(1);
+        let height = height.max(1);
+
+        self.render_cached(manager, cache, width, height)
     }
 }
 

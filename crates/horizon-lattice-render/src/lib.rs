@@ -91,6 +91,7 @@
 //! # }
 //! ```
 
+mod animated_image;
 mod async_image;
 mod atlas;
 mod context;
@@ -111,6 +112,7 @@ mod renderer;
 mod scalable_image;
 pub mod stencil;
 mod svg;
+mod svg_cache;
 mod surface;
 pub mod text;
 mod text_render_pass;
@@ -145,6 +147,7 @@ pub use transform::{Transform2D, TransformStack};
 pub use types::{Color, CornerRadii, Path, PathCommand, Point, Rect, RoundedRect, Size};
 
 // Image types
+pub use animated_image::{AnimatedImage, AnimationController, AnimationFrame, LoopCount, PlaybackState};
 pub use async_image::{AsyncImageHandle, AsyncImageLoader, AsyncImageLoaderConfig, LoadingState};
 pub use atlas::{ImageManager, TextureAtlas};
 pub use disk_cache::{DiskCacheConfig, DiskCacheStats, DiskImageCache};
@@ -153,6 +156,7 @@ pub use image_buffer::{ImageBlendMode, ImageBuffer, OutputFormat, ResizeFilter};
 pub use image_cache::{CacheKey, ImageCache, ImageCacheConfig, ImageCacheStats};
 pub use scalable_image::ScalableImage;
 pub use svg::SvgImage;
+pub use svg_cache::{SvgCache, SvgCacheConfig, SvgCacheKey, SvgCacheStats, SvgSource};
 
 // Icon types
 pub use icon::{

@@ -39,6 +39,23 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # Disk Caching for URL Downloads
+//!
+//! When loading images from URLs (with the `networking` feature), you can enable
+//! disk caching to avoid re-downloading images:
+//!
+//! ```ignore
+//! use horizon_lattice_render::{AsyncImageLoader, AsyncImageLoaderConfig, DiskImageCache};
+//!
+//! let disk_cache = DiskImageCache::with_defaults()?;
+//! let config = AsyncImageLoaderConfig::default();
+//! let mut loader = AsyncImageLoader::with_config(config)
+//!     .with_disk_cache(disk_cache);
+//!
+//! // URL downloads will be cached to disk
+//! let handle = loader.load_url("https://example.com/image.png")?;
+//! ```
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -48,6 +65,8 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use parking_lot::Mutex;
+
+use crate::disk_cache::DiskImageCache;
 
 use crate::atlas::ImageManager;
 use crate::error::{RenderError, RenderResult};
@@ -209,6 +228,8 @@ pub struct AsyncImageLoader {
     in_progress: usize,
     /// Configuration.
     config: AsyncImageLoaderConfig,
+    /// Optional disk cache for URL downloads.
+    disk_cache: Option<Arc<Mutex<DiskImageCache>>>,
 }
 
 impl AsyncImageLoader {
@@ -233,7 +254,7 @@ impl AsyncImageLoader {
             let handle = thread::Builder::new()
                 .name(format!("async-image-worker-{}", i))
                 .spawn(move || {
-                    Self::worker_thread(rx, tx);
+                    Self::worker_thread(rx, tx, None);
                 })
                 .expect("Failed to spawn worker thread");
             workers.push(handle);
@@ -247,13 +268,69 @@ impl AsyncImageLoader {
             pending_uploads: Vec::new(),
             in_progress: 0,
             config,
+            disk_cache: None,
         }
     }
 
+    /// Attach a disk cache for URL downloads.
+    ///
+    /// When a disk cache is attached, URL downloads will be cached to disk.
+    /// Subsequent requests for the same URL will use the cached data instead
+    /// of re-downloading.
+    ///
+    /// Note: This requires recreating the worker threads to pass the cache reference.
+    #[must_use]
+    pub fn with_disk_cache(mut self, cache: DiskImageCache) -> Self {
+        let disk_cache = Arc::new(Mutex::new(cache));
+        self.disk_cache = Some(disk_cache.clone());
+
+        // Recreate worker threads with disk cache
+        // First, shutdown existing workers
+        for _ in 0..self.workers.len() {
+            let _ = self.request_tx.send(LoadRequest::Shutdown);
+        }
+        for worker in self.workers.drain(..) {
+            let _ = worker.join();
+        }
+
+        // Create new channels
+        let (request_tx, request_rx) = channel::<LoadRequest>();
+        let (completed_tx, completed_rx) = channel::<CompletedLoad>();
+        let request_rx = Arc::new(Mutex::new(request_rx));
+
+        // Spawn new workers with disk cache
+        let mut workers = Vec::with_capacity(self.config.worker_threads);
+        for i in 0..self.config.worker_threads {
+            let rx = Arc::clone(&request_rx);
+            let tx = completed_tx.clone();
+            let cache = Some(disk_cache.clone());
+            let handle = thread::Builder::new()
+                .name(format!("async-image-worker-{}", i))
+                .spawn(move || {
+                    Self::worker_thread(rx, tx, cache);
+                })
+                .expect("Failed to spawn worker thread");
+            workers.push(handle);
+        }
+
+        self.request_tx = request_tx;
+        self.completed_rx = completed_rx;
+        self.workers = workers;
+
+        self
+    }
+
+    /// Get a reference to the disk cache if one is attached.
+    pub fn disk_cache(&self) -> Option<&Arc<Mutex<DiskImageCache>>> {
+        self.disk_cache.as_ref()
+    }
+
     /// Worker thread function that processes load requests.
+    #[allow(unused_variables)]
     fn worker_thread(
         request_rx: Arc<Mutex<Receiver<LoadRequest>>>,
         completed_tx: Sender<CompletedLoad>,
+        disk_cache: Option<Arc<Mutex<DiskImageCache>>>,
     ) {
         loop {
             // Try to get a request (blocking)
@@ -278,7 +355,7 @@ impl AsyncImageLoader {
                 }
                 #[cfg(feature = "networking")]
                 LoadRequest::Url { handle, url } => {
-                    let result = Self::decode_url(&url);
+                    let result = Self::decode_url_cached(&url, disk_cache.as_ref());
                     let _ = completed_tx.send(CompletedLoad { handle, result });
                 }
                 LoadRequest::Shutdown => break,
@@ -311,9 +388,38 @@ impl AsyncImageLoader {
         })
     }
 
-    /// Decode an image from a URL.
+    /// Decode an image from a URL, optionally using disk cache.
     #[cfg(feature = "networking")]
-    fn decode_url(url: &str) -> Result<DecodedImage, String> {
+    fn decode_url_cached(
+        url: &str,
+        disk_cache: Option<&Arc<Mutex<DiskImageCache>>>,
+    ) -> Result<DecodedImage, String> {
+        // Check disk cache first
+        if let Some(cache) = disk_cache {
+            let mut cache_guard = cache.lock();
+            if let Ok(Some(cached_bytes)) = cache_guard.get(url) {
+                // Cache hit - decode from cached bytes
+                return Self::decode_bytes(&cached_bytes);
+            }
+        }
+
+        // Cache miss or no cache - fetch from network
+        let bytes = Self::fetch_url(url)?;
+
+        // Store in disk cache if available
+        if let Some(cache) = disk_cache {
+            let mut cache_guard = cache.lock();
+            // Ignore cache insert errors - we still have the data
+            let _ = cache_guard.insert(url, &bytes);
+        }
+
+        // Decode the image
+        Self::decode_bytes(&bytes)
+    }
+
+    /// Fetch raw bytes from a URL.
+    #[cfg(feature = "networking")]
+    fn fetch_url(url: &str) -> Result<Vec<u8>, String> {
         use horizon_lattice_net::HttpClient;
 
         // Create a runtime for blocking HTTP request
@@ -323,7 +429,7 @@ impl AsyncImageLoader {
             .map_err(|e| format!("Failed to create runtime: {}", e))?;
 
         // Fetch the image data
-        let bytes = rt.block_on(async {
+        rt.block_on(async {
             let client = HttpClient::new();
             let response = client
                 .get(url)
@@ -343,10 +449,7 @@ impl AsyncImageLoader {
                 .bytes()
                 .await
                 .map_err(|e| format!("Failed to read response body: {}", e))
-        })?;
-
-        // Decode the image
-        Self::decode_bytes(&bytes)
+        })
     }
 
     /// Start loading an image from a file path.

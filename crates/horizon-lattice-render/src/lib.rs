@@ -95,12 +95,14 @@ mod async_image;
 mod atlas;
 mod context;
 pub mod damage;
+mod disk_cache;
 mod error;
 mod gpu_renderer;
 mod embedded_icon;
 mod icon;
 mod image;
 mod image_buffer;
+mod image_cache;
 pub mod image_data;
 pub mod layer;
 mod paint;
@@ -145,8 +147,10 @@ pub use types::{Color, CornerRadii, Path, PathCommand, Point, Rect, RoundedRect,
 // Image types
 pub use async_image::{AsyncImageHandle, AsyncImageLoader, AsyncImageLoaderConfig, LoadingState};
 pub use atlas::{ImageManager, TextureAtlas};
+pub use disk_cache::{DiskCacheConfig, DiskCacheStats, DiskImageCache};
 pub use image::{Image, ImageLoader, ImageScaleMode, NinePatch};
 pub use image_buffer::{ImageBlendMode, ImageBuffer, OutputFormat, ResizeFilter};
+pub use image_cache::{CacheKey, ImageCache, ImageCacheConfig, ImageCacheStats};
 pub use scalable_image::ScalableImage;
 pub use svg::SvgImage;
 

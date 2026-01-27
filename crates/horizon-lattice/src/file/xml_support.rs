@@ -186,7 +186,7 @@ impl XmlDocument {
     }
 
     /// Converts the document to an XML string (compact format).
-    pub fn to_string(&self) -> String {
+    pub fn as_xml_string(&self) -> String {
         let mut writer = Writer::new(Vec::new());
         self.write_to(&mut writer);
         String::from_utf8(writer.into_inner()).unwrap_or_default()
@@ -597,7 +597,7 @@ impl XmlElement {
     // ========================================================================
 
     /// Converts the element to an XML string (compact format).
-    pub fn to_string(&self) -> String {
+    pub fn as_xml_string(&self) -> String {
         let mut writer = Writer::new(Vec::new());
         self.write_to(&mut writer);
         String::from_utf8(writer.into_inner()).unwrap_or_default()

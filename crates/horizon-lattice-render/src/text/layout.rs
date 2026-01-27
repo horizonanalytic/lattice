@@ -1316,7 +1316,7 @@ impl TextLayout {
                     top_y: run.line_top,
                     height: run.line_height,
                     width: 0.0,
-                    text_range: usize::MAX..0,
+                    text_range: usize::MAX..usize::MAX,
                     is_hard_break: false,
                 };
 
@@ -1345,9 +1345,12 @@ impl TextLayout {
 
                 // Update text range
                 if current_line.text_range.start == usize::MAX {
+                    // First glyph on this line - initialize both start and end
                     current_line.text_range.start = layout_glyph.start;
+                    current_line.text_range.end = layout_glyph.end;
+                } else {
+                    current_line.text_range.end = current_line.text_range.end.max(layout_glyph.end);
                 }
-                current_line.text_range.end = current_line.text_range.end.max(layout_glyph.end);
 
                 current_line.glyphs.push(glyph);
             }

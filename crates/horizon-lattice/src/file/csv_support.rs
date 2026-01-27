@@ -487,7 +487,7 @@ impl CsvTable {
     // ========================================================================
 
     /// Converts this table to a CSV string.
-    pub fn to_string(&self) -> String {
+    pub fn as_csv_string(&self) -> String {
         self.to_string_with_options(&CsvOptions::default())
     }
 
@@ -527,7 +527,7 @@ impl Default for CsvTable {
 
 impl fmt::Display for CsvTable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self.to_string_with_options(&CsvOptions::default()))
     }
 }
 

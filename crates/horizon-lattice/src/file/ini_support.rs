@@ -322,7 +322,7 @@ impl IniValue {
     // ========================================================================
 
     /// Converts this value to an INI string.
-    pub fn to_string(&self) -> String {
+    pub fn as_ini_string(&self) -> String {
         let ini = self.to_ini();
         let mut output = Vec::new();
         ini.write_to(&mut output).unwrap_or_default();
@@ -331,7 +331,7 @@ impl IniValue {
 
     /// Saves this value to a file.
     pub fn save(&self, path: impl AsRef<Path>) -> FileResult<()> {
-        let content = self.to_string();
+        let content = self.as_ini_string();
         atomic_write(&path, |writer| writer.write_all(content.as_bytes()))
     }
 }
@@ -348,7 +348,7 @@ impl Default for IniValue {
 
 impl fmt::Display for IniValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self.as_ini_string())
     }
 }
 

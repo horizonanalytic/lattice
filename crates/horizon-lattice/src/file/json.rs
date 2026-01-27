@@ -500,7 +500,7 @@ impl JsonValue {
     // ========================================================================
 
     /// Converts this value to a compact JSON string.
-    pub fn to_string(&self) -> String {
+    pub fn as_json_string(&self) -> String {
         self.0.to_string()
     }
 

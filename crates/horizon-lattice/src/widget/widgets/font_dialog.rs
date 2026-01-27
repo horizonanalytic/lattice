@@ -725,33 +725,36 @@ impl FontDialog {
                 native_options = native_options.initial_font(desc);
             }
 
-            if let Some(native_font) = native_dialogs::pick_font(native_options) {
-                // Convert native font to our Font type
-                let weight = if native_font.bold {
-                    FontWeight::BOLD
-                } else {
-                    FontWeight::NORMAL
-                };
-                let style = if native_font.italic {
-                    FontStyle::Italic
-                } else {
-                    FontStyle::Normal
-                };
+            match native_dialogs::pick_font(native_options) {
+                Some(native_font) => {
+                    // Convert native font to our Font type
+                    let weight = if native_font.bold {
+                        FontWeight::BOLD
+                    } else {
+                        FontWeight::NORMAL
+                    };
+                    let style = if native_font.italic {
+                        FontStyle::Italic
+                    } else {
+                        FontStyle::Normal
+                    };
 
-                // Create a font from the native selection using builder pattern
-                let family = FontFamily::Name(native_font.family);
-                let font = Font::builder()
-                    .family(family)
-                    .size(native_font.size)
-                    .weight(weight)
-                    .style(style)
-                    .build();
+                    // Create a font from the native selection using builder pattern
+                    let family = FontFamily::Name(native_font.family);
+                    let font = Font::builder()
+                        .family(family)
+                        .size(native_font.size)
+                        .weight(weight)
+                        .style(style)
+                        .build();
 
-                self.font_selected.emit(font);
-                return;
+                    self.font_selected.emit(font);
+                    return;
+                }
+                None => {
+                    // Native dialog not implemented or not available - fall through to custom
+                }
             }
-            // Native dialog cancelled or not available - don't fall through
-            return;
         }
 
         // Use custom dialog

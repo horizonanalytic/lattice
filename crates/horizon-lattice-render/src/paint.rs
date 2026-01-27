@@ -255,52 +255,90 @@ impl DashPattern {
 }
 
 /// Blend mode for compositing.
+///
+/// # Hardware-Supported Modes
+///
+/// The following blend modes are implemented using wgpu hardware blend states
+/// and are fully supported for layer compositing:
+///
+/// - [`Normal`](BlendMode::Normal) - Standard alpha blending (source-over)
+/// - [`Multiply`](BlendMode::Multiply) - Multiplies colors together
+/// - [`Screen`](BlendMode::Screen) - Inverse of multiply
+/// - [`Darken`](BlendMode::Darken) - Takes minimum of source and destination
+/// - [`Lighten`](BlendMode::Lighten) - Takes maximum of source and destination
+/// - [`Add`](BlendMode::Add) - Adds colors together (clamped)
+/// - [`Source`](BlendMode::Source) - Replaces destination completely
+/// - [`Destination`](BlendMode::Destination) - Ignores source
+/// - [`SourceIn`](BlendMode::SourceIn) - Source where destination has alpha
+/// - [`DestinationIn`](BlendMode::DestinationIn) - Destination where source has alpha
+/// - [`SourceOut`](BlendMode::SourceOut) - Source where destination is transparent
+/// - [`DestinationOut`](BlendMode::DestinationOut) - Destination where source is transparent
+/// - [`SourceAtop`](BlendMode::SourceAtop) - Source atop destination
+/// - [`DestinationAtop`](BlendMode::DestinationAtop) - Destination atop source
+/// - [`Xor`](BlendMode::Xor) - Source or destination but not both
+///
+/// # Unsupported Complex Modes
+///
+/// The following modes require reading the destination color in the fragment shader,
+/// which is not supported by wgpu's blend states. These modes **fall back to Normal
+/// blending** when used in layer compositing:
+///
+/// - [`Overlay`](BlendMode::Overlay)
+/// - [`ColorDodge`](BlendMode::ColorDodge)
+/// - [`ColorBurn`](BlendMode::ColorBurn)
+/// - [`HardLight`](BlendMode::HardLight)
+/// - [`SoftLight`](BlendMode::SoftLight)
+/// - [`Difference`](BlendMode::Difference)
+/// - [`Exclusion`](BlendMode::Exclusion)
+///
+/// These enum variants exist for API completeness but are not currently implemented.
+/// A debug log message is emitted when these modes are used.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum BlendMode {
-    /// Normal (source-over) blending.
+    /// Normal (source-over) blending. **Fully supported.**
     #[default]
     Normal,
-    /// Multiply colors.
+    /// Multiply colors. **Fully supported.**
     Multiply,
-    /// Screen colors.
+    /// Screen colors. **Fully supported.**
     Screen,
-    /// Overlay.
+    /// Overlay. **Unsupported - falls back to Normal.**
     Overlay,
-    /// Darken (min).
+    /// Darken (min). **Fully supported.**
     Darken,
-    /// Lighten (max).
+    /// Lighten (max). **Fully supported.**
     Lighten,
-    /// Color dodge.
+    /// Color dodge. **Unsupported - falls back to Normal.**
     ColorDodge,
-    /// Color burn.
+    /// Color burn. **Unsupported - falls back to Normal.**
     ColorBurn,
-    /// Hard light.
+    /// Hard light. **Unsupported - falls back to Normal.**
     HardLight,
-    /// Soft light.
+    /// Soft light. **Unsupported - falls back to Normal.**
     SoftLight,
-    /// Difference.
+    /// Difference. **Unsupported - falls back to Normal.**
     Difference,
-    /// Exclusion.
+    /// Exclusion. **Unsupported - falls back to Normal.**
     Exclusion,
-    /// Source (replace destination completely).
+    /// Source (replace destination completely). **Fully supported.**
     Source,
-    /// Destination (keep destination, ignore source).
+    /// Destination (keep destination, ignore source). **Fully supported.**
     Destination,
-    /// Source in (source where destination alpha).
+    /// Source in (source where destination alpha). **Fully supported.**
     SourceIn,
-    /// Destination in.
+    /// Destination in. **Fully supported.**
     DestinationIn,
-    /// Source out.
+    /// Source out. **Fully supported.**
     SourceOut,
-    /// Destination out.
+    /// Destination out. **Fully supported.**
     DestinationOut,
-    /// Source atop.
+    /// Source atop. **Fully supported.**
     SourceAtop,
-    /// Destination atop.
+    /// Destination atop. **Fully supported.**
     DestinationAtop,
-    /// XOR.
+    /// XOR. **Fully supported.**
     Xor,
-    /// Additive blending.
+    /// Additive blending. **Fully supported.**
     Add,
 }
 

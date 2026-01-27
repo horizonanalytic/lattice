@@ -43,12 +43,278 @@
 //! // (in actual usage, you'd draw widgets here)
 //! ```
 
+use std::collections::HashMap;
+
 use tracing::debug;
 
 use crate::context::GraphicsContext;
 use crate::error::{RenderError, RenderResult};
 use crate::paint::BlendMode;
 use crate::types::{Color, Point, Rect, Size};
+
+/// Returns the wgpu BlendState for the given blend mode when compositing layers.
+/// Complex blend modes (Overlay, SoftLight, etc.) that require shader-based
+/// blending return Normal blend state with a warning logged.
+fn blend_state_for_mode(mode: BlendMode) -> wgpu::BlendState {
+    use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState};
+
+    match mode {
+        // Normal: src_over blending (premultiplied alpha)
+        BlendMode::Normal => BlendState::PREMULTIPLIED_ALPHA_BLENDING,
+
+        // Multiply: dst * src (darkens the image)
+        BlendMode::Multiply => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::Dst,
+                dst_factor: BlendFactor::Zero,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Screen: 1 - (1-src) * (1-dst) = src + dst - src*dst
+        BlendMode::Screen => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::OneMinusSrc,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Add: src + dst (clamped to 1)
+        BlendMode::Add => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Darken: min(src, dst)
+        BlendMode::Darken => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Min,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Lighten: max(src, dst)
+        BlendMode::Lighten => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Max,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Source: replace destination completely
+        BlendMode::Source => BlendState::REPLACE,
+
+        // Destination: keep destination, ignore source
+        BlendMode::Destination => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Source In: source where destination has alpha
+        BlendMode::SourceIn => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::DstAlpha,
+                dst_factor: BlendFactor::Zero,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::DstAlpha,
+                dst_factor: BlendFactor::Zero,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Destination In: destination where source has alpha
+        BlendMode::DestinationIn => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::SrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::SrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Source Out: source where destination is transparent
+        BlendMode::SourceOut => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::Zero,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::Zero,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Destination Out: destination where source is transparent
+        BlendMode::DestinationOut => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::Zero,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Source Atop: source over destination, only where destination exists
+        BlendMode::SourceAtop => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::DstAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::DstAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Destination Atop: destination over source, only where source exists
+        BlendMode::DestinationAtop => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::SrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::SrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Xor: source or destination but not both
+        BlendMode::Xor => BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent {
+                src_factor: BlendFactor::OneMinusDstAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+        },
+
+        // Complex blend modes require fragment shader destination reads.
+        // Fall back to Normal blending as these cannot be implemented
+        // with wgpu's hardware blend states.
+        BlendMode::Overlay
+        | BlendMode::ColorDodge
+        | BlendMode::ColorBurn
+        | BlendMode::HardLight
+        | BlendMode::SoftLight
+        | BlendMode::Difference
+        | BlendMode::Exclusion => {
+            tracing::debug!(
+                mode = ?mode,
+                "Complex blend mode not supported in layer compositing, using Normal"
+            );
+            BlendState::PREMULTIPLIED_ALPHA_BLENDING
+        }
+    }
+}
+
+/// Create a composite pipeline for a specific blend mode.
+fn create_composite_pipeline(
+    device: &wgpu::Device,
+    shader: &wgpu::ShaderModule,
+    layout: &wgpu::PipelineLayout,
+    format: wgpu::TextureFormat,
+    blend_mode: BlendMode,
+) -> wgpu::RenderPipeline {
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some(&format!("composite_pipeline_{:?}", blend_mode)),
+        layout: Some(layout),
+        vertex: wgpu::VertexState {
+            module: shader,
+            entry_point: Some("vs_main"),
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<CompositeVertex>() as wgpu::BufferAddress,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &wgpu::vertex_attr_array![
+                    0 => Float32x2, // position
+                    1 => Float32x2, // uv
+                ],
+            }],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: Some(blend_state_for_mode(blend_mode)),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: Default::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: None,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            unclipped_depth: false,
+            conservative: false,
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    })
+}
 
 /// Configuration for creating a layer.
 #[derive(Debug, Clone)]
@@ -469,8 +735,12 @@ pub struct Compositor {
     format: wgpu::TextureFormat,
     /// Bind group layout for layer textures.
     layer_bind_group_layout: wgpu::BindGroupLayout,
-    /// Compositing pipeline.
-    composite_pipeline: wgpu::RenderPipeline,
+    /// Compositing shader module.
+    composite_shader: wgpu::ShaderModule,
+    /// Pipeline layout for compositing.
+    pipeline_layout: wgpu::PipelineLayout,
+    /// Compositing pipeline cache by blend mode.
+    composite_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     /// Uniform buffer for compositing.
     uniform_buffer: wgpu::Buffer,
     /// Bind group for uniforms.
@@ -587,47 +857,10 @@ impl Compositor {
             push_constant_ranges: &[],
         });
 
-        // Create compositing pipeline
-        let composite_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("composite_pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<CompositeVertex>() as wgpu::BufferAddress,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![
-                        0 => Float32x2, // position
-                        1 => Float32x2, // uv
-                    ],
-                }],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
+        // Create initial compositing pipeline for Normal blend mode
+        let normal_pipeline = create_composite_pipeline(device, &shader, &pipeline_layout, format, BlendMode::Normal);
+        let mut composite_pipelines = HashMap::new();
+        composite_pipelines.insert(BlendMode::Normal, normal_pipeline);
 
         // Create vertex buffer for fullscreen quad
         let vertices = [
@@ -662,7 +895,9 @@ impl Compositor {
             output_height,
             format,
             layer_bind_group_layout,
-            composite_pipeline,
+            composite_shader: shader,
+            pipeline_layout,
+            composite_pipelines,
             uniform_buffer,
             uniform_bind_group,
             vertex_buffer,
@@ -736,17 +971,48 @@ impl Compositor {
         &self.layer_bind_group_layout
     }
 
+    /// Get or create a composite pipeline for the given blend mode.
+    fn get_or_create_pipeline(&mut self, blend_mode: BlendMode) -> &wgpu::RenderPipeline {
+        if !self.composite_pipelines.contains_key(&blend_mode) {
+            let ctx = GraphicsContext::get();
+            let pipeline = create_composite_pipeline(
+                ctx.device(),
+                &self.composite_shader,
+                &self.pipeline_layout,
+                self.format,
+                blend_mode,
+            );
+            self.composite_pipelines.insert(blend_mode, pipeline);
+            debug!(
+                target: "horizon_lattice_render::layer",
+                ?blend_mode,
+                "created composite pipeline for blend mode"
+            );
+        }
+        self.composite_pipelines.get(&blend_mode).unwrap()
+    }
+
     /// Composite all layers to the target view.
     ///
     /// Layers are composited in order (first layer is at the bottom).
+    /// Each layer uses its configured blend mode for compositing.
     pub fn composite_to(
-        &self,
+        &mut self,
         target_view: &wgpu::TextureView,
         clear_color: Color,
     ) -> RenderResult<()> {
         let ctx = GraphicsContext::try_get().ok_or(RenderError::NotInitialized)?;
         let device = ctx.device();
         let queue = ctx.queue();
+
+        // Ensure all needed blend mode pipelines exist
+        let blend_modes: Vec<BlendMode> = self.layers.iter()
+            .filter(|l| l.opacity > 0.0)
+            .map(|l| l.blend_mode)
+            .collect();
+        for blend_mode in blend_modes {
+            self.get_or_create_pipeline(blend_mode);
+        }
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("compositor_encoder"),
@@ -769,9 +1035,10 @@ impl Compositor {
                 occlusion_query_set: None,
             });
 
-            render_pass.set_pipeline(&self.composite_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+
+            let mut current_blend_mode: Option<BlendMode> = None;
 
             // Composite each layer
             for layer in &self.layers {
@@ -779,11 +1046,12 @@ impl Compositor {
                     continue;
                 }
 
-                // TODO: Support per-layer blend modes in compositing.
-                // Currently, all layers use Normal (source-over) blending.
-                // The layer.blend_mode value is stored but not yet applied.
-                // To implement: create a HashMap<BlendMode, RenderPipeline> and
-                // select the appropriate pipeline based on layer.blend_mode.
+                // Set pipeline if blend mode changed
+                if current_blend_mode != Some(layer.blend_mode) {
+                    let pipeline = self.composite_pipelines.get(&layer.blend_mode).unwrap();
+                    render_pass.set_pipeline(pipeline);
+                    current_blend_mode = Some(layer.blend_mode);
+                }
 
                 // Update uniforms for this layer
                 let uniforms = CompositeUniforms {
@@ -808,13 +1076,23 @@ impl Compositor {
     /// Composite layers to the target view without clearing.
     ///
     /// This is useful when you want to composite layers onto existing content.
+    /// Each layer uses its configured blend mode for compositing.
     pub fn composite_over(
-        &self,
+        &mut self,
         target_view: &wgpu::TextureView,
     ) -> RenderResult<()> {
         let ctx = GraphicsContext::try_get().ok_or(RenderError::NotInitialized)?;
         let device = ctx.device();
         let queue = ctx.queue();
+
+        // Ensure all needed blend mode pipelines exist
+        let blend_modes: Vec<BlendMode> = self.layers.iter()
+            .filter(|l| l.opacity > 0.0)
+            .map(|l| l.blend_mode)
+            .collect();
+        for blend_mode in blend_modes {
+            self.get_or_create_pipeline(blend_mode);
+        }
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("compositor_over_encoder"),
@@ -836,16 +1114,22 @@ impl Compositor {
                 occlusion_query_set: None,
             });
 
-            render_pass.set_pipeline(&self.composite_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+
+            let mut current_blend_mode: Option<BlendMode> = None;
 
             for layer in &self.layers {
                 if layer.opacity <= 0.0 {
                     continue;
                 }
 
-                // TODO: Support per-layer blend modes (see composite_to)
+                // Set pipeline if blend mode changed
+                if current_blend_mode != Some(layer.blend_mode) {
+                    let pipeline = self.composite_pipelines.get(&layer.blend_mode).unwrap();
+                    render_pass.set_pipeline(pipeline);
+                    current_blend_mode = Some(layer.blend_mode);
+                }
 
                 let uniforms = CompositeUniforms {
                     viewport_size: [self.output_width as f32, self.output_height as f32],

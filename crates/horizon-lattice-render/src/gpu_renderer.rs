@@ -13,6 +13,7 @@ use crate::atlas::TextureAtlas;
 use crate::context::GraphicsContext;
 use crate::damage::DamageTracker;
 use crate::error::RenderResult;
+use crate::gradient::{create_gradient_bind_group_layout, GradientAtlas};
 use crate::image::{Image, ImageScaleMode, NinePatch};
 use crate::layer::Layer;
 use crate::offscreen::OffscreenSurface;
@@ -27,6 +28,8 @@ use crate::types::{Color, CornerRadii, Point, Rect, RoundedRect, Size};
 const PAINT_TYPE_SOLID: u32 = 0;
 const PAINT_TYPE_LINEAR_GRADIENT: u32 = 1;
 const PAINT_TYPE_RADIAL_GRADIENT: u32 = 2;
+const PAINT_TYPE_LINEAR_GRADIENT_TEX: u32 = 3;
+const PAINT_TYPE_RADIAL_GRADIENT_TEX: u32 = 4;
 
 /// Blend modes that can be implemented with hardware blending.
 /// Returns the wgpu BlendState for the given blend mode.
@@ -357,6 +360,56 @@ impl RectVertex {
             color1: stop1_color.to_array(),
         }
     }
+
+    /// Create a vertex for texture-based linear gradient rendering.
+    /// Used when gradient has more than 2 stops.
+    fn linear_gradient_tex(
+        position: [f32; 2],
+        rect_pos: [f32; 2],
+        rect_size: [f32; 2],
+        corner_radii: [f32; 4],
+        start: [f32; 2],
+        end: [f32; 2],
+        tex_v: f32,
+        opacity: f32,
+    ) -> Self {
+        Self {
+            position,
+            // Store opacity in color0.a for shader to apply
+            color0: [1.0, 1.0, 1.0, opacity],
+            rect_pos,
+            rect_size,
+            corner_radii,
+            gradient_info: [PAINT_TYPE_LINEAR_GRADIENT_TEX as f32, start[0], start[1], end[0]],
+            gradient_end_stops: [end[1], 0.0, 0.0, tex_v],
+            color1: [0.0; 4],
+        }
+    }
+
+    /// Create a vertex for texture-based radial gradient rendering.
+    /// Used when gradient has more than 2 stops.
+    fn radial_gradient_tex(
+        position: [f32; 2],
+        rect_pos: [f32; 2],
+        rect_size: [f32; 2],
+        corner_radii: [f32; 4],
+        center: [f32; 2],
+        radius: f32,
+        tex_v: f32,
+        opacity: f32,
+    ) -> Self {
+        Self {
+            position,
+            // Store opacity in color0.a for shader to apply
+            color0: [1.0, 1.0, 1.0, opacity],
+            rect_pos,
+            rect_size,
+            corner_radii,
+            gradient_info: [PAINT_TYPE_RADIAL_GRADIENT_TEX as f32, center[0], center[1], radius],
+            gradient_end_stops: [0.0, 0.0, 0.0, tex_v],
+            color1: [0.0; 4],
+        }
+    }
 }
 
 /// Vertex data for textured quads (images).
@@ -637,6 +690,7 @@ pub struct GpuRenderer {
     /// Index buffer for images.
     image_index_buffer: wgpu::Buffer,
     /// Bind group layout for image textures.
+    #[allow(dead_code)]
     image_bind_group_layout: wgpu::BindGroupLayout,
 
     /// Image batches (one per atlas used this frame).
@@ -670,6 +724,22 @@ pub struct GpuRenderer {
     shadow_vertices: Vec<ShadowVertex>,
     /// Shadow indices waiting to be rendered.
     shadow_indices: Vec<u32>,
+
+    // === Multi-stop gradient support ===
+    /// Gradient texture atlas for gradients with >2 stops.
+    gradient_atlas: GradientAtlas,
+    /// Bind group layout for gradient textures.
+    #[allow(dead_code)]
+    gradient_bind_group_layout: wgpu::BindGroupLayout,
+    /// Pipeline layout for texture-based gradients (includes gradient texture bind group).
+    #[allow(dead_code)]
+    gradient_tex_pipeline_layout: wgpu::PipelineLayout,
+    /// Pipeline for texture-based gradient rendering.
+    gradient_tex_pipeline: wgpu::RenderPipeline,
+    /// Vertices for texture-based gradients (separate batch).
+    gradient_tex_vertices: Vec<RectVertex>,
+    /// Indices for texture-based gradients.
+    gradient_tex_indices: Vec<u32>,
 }
 
 impl GpuRenderer {
@@ -976,12 +1046,58 @@ impl GpuRenderer {
             mapped_at_creation: false,
         });
 
+        // === Multi-stop gradient support ===
+        let gradient_bind_group_layout = create_gradient_bind_group_layout(device);
+        let gradient_atlas = GradientAtlas::new(device, &gradient_bind_group_layout);
+
+        // Create pipeline layout for texture-based gradients (uniforms + gradient texture)
+        let gradient_tex_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("gradient_tex_pipeline_layout"),
+            bind_group_layouts: &[&bind_group_layout, &gradient_bind_group_layout],
+            push_constant_ranges: &[],
+        });
+
+        // Create texture-based gradient pipeline
+        let gradient_tex_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("gradient_tex_pipeline"),
+            layout: Some(&gradient_tex_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[RectVertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
         debug!(
             target: "horizon_lattice_render::gpu_renderer",
             format = ?format,
             max_vertices = MAX_VERTICES,
             max_indices = MAX_INDICES,
-            "created GPU renderer with stencil clipping and box shadow support"
+            "created GPU renderer with stencil clipping, box shadow, and multi-stop gradient support"
         );
 
         Ok(Self {
@@ -1036,6 +1152,14 @@ impl GpuRenderer {
             shadow_index_buffer,
             shadow_vertices: Vec::with_capacity(MAX_VERTICES),
             shadow_indices: Vec::with_capacity(MAX_INDICES),
+
+            // Multi-stop gradients
+            gradient_atlas,
+            gradient_bind_group_layout,
+            gradient_tex_pipeline_layout,
+            gradient_tex_pipeline,
+            gradient_tex_vertices: Vec::with_capacity(MAX_VERTICES / 4),
+            gradient_tex_indices: Vec::with_capacity(MAX_INDICES / 4),
         })
     }
 
@@ -1119,6 +1243,11 @@ impl GpuRenderer {
         if !self.vertices.is_empty() {
             queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
             queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.indices));
+        }
+
+        // Upload gradient atlas if needed
+        if !self.gradient_tex_vertices.is_empty() {
+            self.gradient_atlas.upload(queue);
         }
 
         // Upload vertex and index data for shadows
@@ -1249,6 +1378,21 @@ impl GpuRenderer {
                 self.draw_calls += 1;
             }
 
+            // Render texture-based gradients (multi-stop gradients)
+            if !self.gradient_tex_indices.is_empty() {
+                // Upload gradient texture vertices
+                queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.gradient_tex_vertices));
+                queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.gradient_tex_indices));
+
+                render_pass.set_pipeline(&self.gradient_tex_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
+                render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.draw_indexed(0..self.gradient_tex_indices.len() as u32, 0, 0..1);
+                self.draw_calls += 1;
+            }
+
             // Render images (one draw call per atlas)
             if !self.image_batches.is_empty() {
                 // Get pipeline for current blend mode (already ensured to exist)
@@ -1288,6 +1432,9 @@ impl GpuRenderer {
         self.vertices.clear();
         self.indices.clear();
         self.image_batches.clear();
+        self.gradient_tex_vertices.clear();
+        self.gradient_tex_indices.clear();
+        self.gradient_atlas.clear();
         self.draw_calls = 0;
         self.vertex_count = 0;
         self.state_changes = 0;
@@ -1383,6 +1530,24 @@ impl GpuRenderer {
                 self.draw_calls += 1;
             }
 
+            // Render texture-based gradients (multi-stop gradients)
+            if !self.gradient_tex_indices.is_empty() {
+                // Upload gradient atlas
+                self.gradient_atlas.upload(queue);
+
+                // Upload gradient texture vertices
+                queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.gradient_tex_vertices));
+                queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.gradient_tex_indices));
+
+                render_pass.set_pipeline(&self.gradient_tex_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
+                render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.draw_indexed(0..self.gradient_tex_indices.len() as u32, 0, 0..1);
+                self.draw_calls += 1;
+            }
+
             // Render images (one draw call per atlas)
             if !self.image_batches.is_empty() {
                 let image_pipeline = self.image_pipelines.get(&batch_blend_mode).unwrap();
@@ -1422,6 +1587,9 @@ impl GpuRenderer {
         self.shadow_vertices.clear();
         self.shadow_indices.clear();
         self.image_batches.clear();
+        self.gradient_tex_vertices.clear();
+        self.gradient_tex_indices.clear();
+        self.gradient_atlas.clear();
         self.draw_calls = 0;
         self.vertex_count = 0;
         self.state_changes = 0;
@@ -1487,8 +1655,6 @@ impl GpuRenderer {
 
     /// Add a filled quad with a linear gradient.
     fn add_linear_gradient_quad(&mut self, rect: Rect, radii: CornerRadii, gradient: &crate::paint::LinearGradient) {
-        let base_index = self.vertices.len() as u32;
-
         let rect_pos = [rect.left(), rect.top()];
         let rect_size = [rect.width(), rect.height()];
         let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
@@ -1503,20 +1669,53 @@ impl GpuRenderer {
             (gradient.end.y - rect.top()) / rect.height(),
         ];
 
-        // Get the first two stops (we support 2 stops in the current implementation)
-        let (stop0_offset, stop0_color, stop1_offset, stop1_color) = self.extract_two_stops(&gradient.stops);
-
-        // Apply opacity to colors
-        let stop0_color = self.apply_opacity(stop0_color);
-        let stop1_color = self.apply_opacity(stop1_color);
-
-        // Add four vertices for the quad
         let positions = [
             [rect.left(), rect.top()],
             [rect.right(), rect.top()],
             [rect.right(), rect.bottom()],
             [rect.left(), rect.bottom()],
         ];
+
+        // Use texture-based gradient for >2 stops
+        if gradient.stops.len() > 2 {
+            if let Some(gradient_id) = self.gradient_atlas.get_or_create(&gradient.stops) {
+                let tex_v = gradient_id.tex_v();
+                let opacity = self.current_opacity;
+                let base_index = self.gradient_tex_vertices.len() as u32;
+
+                for pos in positions {
+                    self.gradient_tex_vertices.push(RectVertex::linear_gradient_tex(
+                        pos,
+                        rect_pos,
+                        rect_size,
+                        corner_radii,
+                        start,
+                        end,
+                        tex_v,
+                        opacity,
+                    ));
+                }
+
+                self.gradient_tex_indices.extend_from_slice(&[
+                    base_index,
+                    base_index + 1,
+                    base_index + 2,
+                    base_index,
+                    base_index + 2,
+                    base_index + 3,
+                ]);
+
+                self.vertex_count += 4;
+                return;
+            }
+            // Fall through to 2-stop path if atlas is full
+        }
+
+        // Use the 2-stop gradient path
+        let base_index = self.vertices.len() as u32;
+        let (stop0_offset, stop0_color, stop1_offset, stop1_color) = self.extract_two_stops(&gradient.stops);
+        let stop0_color = self.apply_opacity(stop0_color);
+        let stop1_color = self.apply_opacity(stop1_color);
 
         for pos in positions {
             self.vertices.push(RectVertex::linear_gradient(
@@ -1533,7 +1732,6 @@ impl GpuRenderer {
             ));
         }
 
-        // Add indices for two triangles
         self.indices.extend_from_slice(&[
             base_index,
             base_index + 1,
@@ -1548,8 +1746,6 @@ impl GpuRenderer {
 
     /// Add a filled quad with a radial gradient.
     fn add_radial_gradient_quad(&mut self, rect: Rect, radii: CornerRadii, gradient: &crate::paint::RadialGradient) {
-        let base_index = self.vertices.len() as u32;
-
         let rect_pos = [rect.left(), rect.top()];
         let rect_size = [rect.width(), rect.height()];
         let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
@@ -1564,20 +1760,53 @@ impl GpuRenderer {
         let avg_size = (rect.width() + rect.height()) / 2.0;
         let normalized_radius = gradient.radius / avg_size;
 
-        // Get the first two stops
-        let (stop0_offset, stop0_color, stop1_offset, stop1_color) = self.extract_two_stops(&gradient.stops);
-
-        // Apply opacity to colors
-        let stop0_color = self.apply_opacity(stop0_color);
-        let stop1_color = self.apply_opacity(stop1_color);
-
-        // Add four vertices for the quad
         let positions = [
             [rect.left(), rect.top()],
             [rect.right(), rect.top()],
             [rect.right(), rect.bottom()],
             [rect.left(), rect.bottom()],
         ];
+
+        // Use texture-based gradient for >2 stops
+        if gradient.stops.len() > 2 {
+            if let Some(gradient_id) = self.gradient_atlas.get_or_create(&gradient.stops) {
+                let tex_v = gradient_id.tex_v();
+                let opacity = self.current_opacity;
+                let base_index = self.gradient_tex_vertices.len() as u32;
+
+                for pos in positions {
+                    self.gradient_tex_vertices.push(RectVertex::radial_gradient_tex(
+                        pos,
+                        rect_pos,
+                        rect_size,
+                        corner_radii,
+                        center,
+                        normalized_radius,
+                        tex_v,
+                        opacity,
+                    ));
+                }
+
+                self.gradient_tex_indices.extend_from_slice(&[
+                    base_index,
+                    base_index + 1,
+                    base_index + 2,
+                    base_index,
+                    base_index + 2,
+                    base_index + 3,
+                ]);
+
+                self.vertex_count += 4;
+                return;
+            }
+            // Fall through to 2-stop path if atlas is full
+        }
+
+        // Use the 2-stop gradient path
+        let base_index = self.vertices.len() as u32;
+        let (stop0_offset, stop0_color, stop1_offset, stop1_color) = self.extract_two_stops(&gradient.stops);
+        let stop0_color = self.apply_opacity(stop0_color);
+        let stop1_color = self.apply_opacity(stop1_color);
 
         for pos in positions {
             self.vertices.push(RectVertex::radial_gradient(
@@ -1594,7 +1823,6 @@ impl GpuRenderer {
             ));
         }
 
-        // Add indices for two triangles
         self.indices.extend_from_slice(&[
             base_index,
             base_index + 1,

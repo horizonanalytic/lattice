@@ -98,6 +98,7 @@ mod context;
 pub mod damage;
 mod disk_cache;
 mod error;
+mod gradient;
 mod gpu_renderer;
 mod embedded_icon;
 mod icon;

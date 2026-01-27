@@ -484,6 +484,24 @@ impl Color {
         [self.r, self.g, self.b, self.a]
     }
 
+    /// Convert to 8-bit RGBA array.
+    #[inline]
+    pub fn to_rgba8(self) -> [u8; 4] {
+        [
+            (self.r.clamp(0.0, 1.0) * 255.0) as u8,
+            (self.g.clamp(0.0, 1.0) * 255.0) as u8,
+            (self.b.clamp(0.0, 1.0) * 255.0) as u8,
+            (self.a.clamp(0.0, 1.0) * 255.0) as u8,
+        ]
+    }
+
+    /// Convert to a 32-bit RGBA value (0xRRGGBBAA).
+    #[inline]
+    pub fn to_u32(self) -> u32 {
+        let [r, g, b, a] = self.to_rgba8();
+        ((r as u32) << 24) | ((g as u32) << 16) | ((b as u32) << 8) | (a as u32)
+    }
+
     /// Convert to wgpu Color.
     #[inline]
     pub fn to_wgpu(self) -> wgpu::Color {

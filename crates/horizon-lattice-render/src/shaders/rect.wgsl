@@ -5,6 +5,8 @@
 const PAINT_TYPE_SOLID: u32 = 0u;
 const PAINT_TYPE_LINEAR_GRADIENT: u32 = 1u;
 const PAINT_TYPE_RADIAL_GRADIENT: u32 = 2u;
+const PAINT_TYPE_LINEAR_GRADIENT_TEX: u32 = 3u;
+const PAINT_TYPE_RADIAL_GRADIENT_TEX: u32 = 4u;
 
 struct Uniforms {
     // Transform matrix (3x2 stored as 4 vec2s for alignment)
@@ -38,6 +40,12 @@ struct VertexOutput {
 
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
+
+// Gradient texture atlas (optional, bound when using texture-based gradients)
+@group(1) @binding(0)
+var gradient_texture: texture_2d<f32>;
+@group(1) @binding(1)
+var gradient_sampler: sampler;
 
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
@@ -166,6 +174,51 @@ fn radial_gradient_color(
     return mix(color0, color1, factor);
 }
 
+// Calculate color for texture-based linear gradient
+fn linear_gradient_color_tex(
+    local_pos: vec2<f32>,
+    start: vec2<f32>,
+    end: vec2<f32>,
+    tex_v: f32
+) -> vec4<f32> {
+    // Direction vector from start to end
+    let dir = end - start;
+    let dir_len_sq = dot(dir, dir);
+
+    // Handle degenerate case (start == end)
+    if dir_len_sq < 0.0001 {
+        return textureSample(gradient_texture, gradient_sampler, vec2<f32>(0.0, tex_v));
+    }
+
+    // Project current position onto gradient line
+    let to_pos = local_pos - start;
+    var t = dot(to_pos, dir) / dir_len_sq;
+
+    // Clamp to [0, 1]
+    t = clamp(t, 0.0, 1.0);
+
+    // Sample from gradient texture
+    return textureSample(gradient_texture, gradient_sampler, vec2<f32>(t, tex_v));
+}
+
+// Calculate color for texture-based radial gradient
+fn radial_gradient_color_tex(
+    local_pos: vec2<f32>,
+    center: vec2<f32>,
+    radius: f32,
+    tex_v: f32
+) -> vec4<f32> {
+    // Distance from center, normalized by radius
+    let dist = length(local_pos - center);
+    var t = dist / max(radius, 0.0001);
+
+    // Clamp to [0, 1]
+    t = clamp(t, 0.0, 1.0);
+
+    // Sample from gradient texture
+    return textureSample(gradient_texture, gradient_sampler, vec2<f32>(t, tex_v));
+}
+
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // Determine the base color based on paint type
@@ -202,6 +255,20 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             input.color0,
             input.color1
         );
+    } else if paint_type == PAINT_TYPE_LINEAR_GRADIENT_TEX {
+        let start = vec2<f32>(input.gradient_info.y, input.gradient_info.z);
+        let end = vec2<f32>(input.gradient_info.w, input.gradient_end_stops.x);
+        let tex_v = input.gradient_end_stops.w;
+        base_color = linear_gradient_color_tex(input.local_pos, start, end, tex_v);
+        // Apply opacity from color0.a (stored there for texture gradients)
+        base_color = vec4<f32>(base_color.rgb * input.color0.a, base_color.a * input.color0.a);
+    } else if paint_type == PAINT_TYPE_RADIAL_GRADIENT_TEX {
+        let center = vec2<f32>(input.gradient_info.y, input.gradient_info.z);
+        let radius = input.gradient_info.w;
+        let tex_v = input.gradient_end_stops.w;
+        base_color = radial_gradient_color_tex(input.local_pos, center, radius, tex_v);
+        // Apply opacity from color0.a (stored there for texture gradients)
+        base_color = vec4<f32>(base_color.rgb * input.color0.a, base_color.a * input.color0.a);
     } else {
         // Fallback to first color
         base_color = input.color0;

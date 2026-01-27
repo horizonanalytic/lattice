@@ -469,41 +469,131 @@ impl Default for NumberFormatter {
     }
 }
 
-// Non-feature stub
+// Non-feature stub with locale-aware fallback formatting
 #[cfg(not(feature = "localization"))]
 pub struct NumberFormatter {
     locale: String,
+    /// Thousands separator character
+    thousands_sep: char,
+    /// Decimal separator character
+    decimal_sep: char,
 }
 
 #[cfg(not(feature = "localization"))]
 impl NumberFormatter {
     /// Create a new number formatter (stub without localization feature).
     pub fn new() -> Self {
-        Self {
-            locale: "en-US".to_string(),
-        }
+        Self::with_locale("en-US")
     }
 
     /// Create a number formatter for a specific locale (stub).
+    ///
+    /// Supports locale-aware formatting for common locales:
+    /// - `en-US`, `en-GB`, `en-AU`, etc.: 1,234.56
+    /// - `de-DE`, `de-AT`, `de-CH`: 1.234,56
+    /// - `fr-FR`, `fr-CA`: 1 234,56
+    /// - `es-ES`, `it-IT`, `pt-BR`: 1.234,56
+    /// - `ja-JP`, `zh-CN`, `ko-KR`: 1,234.56
     pub fn with_locale(locale: &str) -> Self {
+        let (thousands_sep, decimal_sep) = Self::separators_for_locale(locale);
         Self {
             locale: locale.to_string(),
+            thousands_sep,
+            decimal_sep,
         }
     }
 
-    /// Format an integer (basic formatting without locale support).
+    /// Determine separators based on locale.
+    fn separators_for_locale(locale: &str) -> (char, char) {
+        // Extract language and region from locale string
+        let lang = locale.split(['-', '_']).next().unwrap_or("en").to_lowercase();
+
+        // Locales using comma as decimal separator (and period/space as thousands)
+        let comma_decimal = matches!(
+            lang.as_str(),
+            "de" | "fr" | "es" | "it" | "pt" | "nl" | "da" | "fi" | "nb" | "nn" | "sv"
+            | "pl" | "cs" | "sk" | "hu" | "ro" | "bg" | "hr" | "sl" | "sr" | "uk" | "ru"
+            | "el" | "tr" | "vi" | "id" | "ca" | "gl" | "eu" | "et" | "lv" | "lt"
+        );
+
+        // French and some others use space as thousands separator
+        let space_thousands = matches!(lang.as_str(), "fr" | "fi" | "sv" | "nb" | "nn" | "pl" | "cs" | "sk" | "ru" | "uk" | "bg");
+
+        if comma_decimal {
+            if space_thousands {
+                ('\u{202F}', ',') // Narrow no-break space, comma
+            } else {
+                ('.', ',') // Period, comma
+            }
+        } else {
+            (',', '.') // Comma, period (default for English, etc.)
+        }
+    }
+
+    /// Format an integer with thousands separators.
     pub fn format_integer(&self, value: i64) -> String {
-        format!("{value}")
+        let is_negative = value < 0;
+        let abs_value = value.unsigned_abs();
+        let formatted = self.format_with_thousands(abs_value.to_string());
+        if is_negative {
+            format!("-{formatted}")
+        } else {
+            formatted
+        }
     }
 
-    /// Format a floating-point number (basic formatting).
+    /// Format a floating-point number with 2 decimal places.
     pub fn format(&self, value: f64) -> String {
-        format!("{value:.2}")
+        self.format_with_precision(value, 2)
     }
 
-    /// Format with precision (basic formatting).
+    /// Format with specified precision.
     pub fn format_with_precision(&self, value: f64, decimal_places: i16) -> String {
-        format!("{value:.prec$}", prec = decimal_places as usize)
+        let is_negative = value < 0.0;
+        let abs_value = value.abs();
+
+        // Format with default decimal point first
+        let formatted = format!("{:.prec$}", abs_value, prec = decimal_places as usize);
+
+        // Split into integer and decimal parts
+        let parts: Vec<&str> = formatted.split('.').collect();
+        let integer_part = parts[0];
+        let decimal_part = parts.get(1);
+
+        // Add thousands separators to integer part
+        let integer_formatted = self.format_with_thousands(integer_part.to_string());
+
+        // Combine with locale-appropriate decimal separator
+        let result = if let Some(dec) = decimal_part {
+            format!("{}{}{}", integer_formatted, self.decimal_sep, dec)
+        } else {
+            integer_formatted
+        };
+
+        if is_negative {
+            format!("-{result}")
+        } else {
+            result
+        }
+    }
+
+    /// Add thousands separators to a numeric string.
+    fn format_with_thousands(&self, s: String) -> String {
+        let chars: Vec<char> = s.chars().collect();
+        let len = chars.len();
+
+        if len <= 3 {
+            return s;
+        }
+
+        let mut result = String::with_capacity(len + len / 3);
+        for (i, c) in chars.iter().enumerate() {
+            if i > 0 && (len - i) % 3 == 0 {
+                result.push(self.thousands_sep);
+            }
+            result.push(*c);
+        }
+        result
     }
 
     /// Get the locale identifier.
@@ -667,44 +757,159 @@ impl Default for DateTimeFormatter {
     }
 }
 
-// Non-feature stub
+// Non-feature stub with locale-aware fallback formatting
 #[cfg(not(feature = "localization"))]
 pub struct DateTimeFormatter {
     locale: String,
+    /// Date format style (DMY, MDY, YMD)
+    date_order: DateOrder,
+    /// Whether to use 24-hour time
+    use_24_hour: bool,
+    /// Date separator character
+    date_sep: char,
+}
+
+/// Date component ordering
+#[cfg(not(feature = "localization"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DateOrder {
+    /// Day/Month/Year (most of the world)
+    Dmy,
+    /// Month/Day/Year (US)
+    Mdy,
+    /// Year/Month/Day (ISO, East Asian)
+    Ymd,
 }
 
 #[cfg(not(feature = "localization"))]
 impl DateTimeFormatter {
     /// Create a new date/time formatter (stub).
     pub fn new() -> Self {
-        Self {
-            locale: "en-US".to_string(),
-        }
+        Self::with_locale("en-US")
     }
 
     /// Create a date/time formatter for a specific locale (stub).
+    ///
+    /// Supports locale-aware date/time formatting for common locales:
+    /// - `en-US`: MM/DD/YY, 12-hour time
+    /// - `en-GB`, `en-AU`: DD/MM/YY, 24-hour time
+    /// - `de-DE`, `de-AT`: DD.MM.YY, 24-hour time
+    /// - `fr-FR`: DD/MM/YY, 24-hour time
+    /// - `ja-JP`, `zh-CN`, `ko-KR`: YY/MM/DD, 24-hour time
     pub fn with_locale(locale: &str) -> Self {
+        let parts: Vec<&str> = locale.split(['-', '_']).collect();
+        let lang = parts.first().map(|s| s.to_lowercase()).unwrap_or_else(|| "en".to_string());
+        let region = parts.get(1).map(|s| s.to_uppercase());
+
+        // Determine date order and separator
+        let (date_order, date_sep) = Self::date_format_for_locale(&lang, region.as_deref());
+
+        // Determine 12/24 hour preference
+        // US, Canada (English), Australia, Philippines use 12-hour
+        let use_24_hour = !matches!(
+            (lang.as_str(), region.as_deref()),
+            ("en", Some("US")) | ("en", Some("PH")) | ("es", Some("US")) | ("fil", _)
+        );
+
         Self {
             locale: locale.to_string(),
+            date_order,
+            use_24_hour,
+            date_sep,
         }
     }
 
-    /// Format a date (basic formatting).
+    /// Determine date format based on locale.
+    fn date_format_for_locale(lang: &str, region: Option<&str>) -> (DateOrder, char) {
+        // YMD locales (East Asian, Baltic, Hungarian, Swedish, etc.)
+        let ymd_langs = ["ja", "zh", "ko", "hu", "lt", "mn", "fa"];
+        if ymd_langs.contains(&lang) {
+            return (DateOrder::Ymd, '/');
+        }
+
+        // MDY locales (primarily US-influenced)
+        match (lang, region) {
+            ("en", Some("US")) | ("en", Some("PH")) | ("es", Some("US")) | ("fil", _) => {
+                return (DateOrder::Mdy, '/');
+            }
+            _ => {}
+        }
+
+        // DMY with period separator (German, Norwegian, etc.)
+        let period_sep_langs = ["de", "no", "nb", "nn", "fi", "et", "lv", "sl", "sk", "cs", "hr", "ro", "bg"];
+        if period_sep_langs.contains(&lang) {
+            return (DateOrder::Dmy, '.');
+        }
+
+        // DMY with dash separator (Dutch, Danish, Swedish, etc.)
+        let dash_sep_langs = ["nl", "da", "sv", "is"];
+        if dash_sep_langs.contains(&lang) {
+            return (DateOrder::Dmy, '-');
+        }
+
+        // Default: DMY with slash (most of the world)
+        (DateOrder::Dmy, '/')
+    }
+
+    /// Format a date according to the locale.
     pub fn format_date(&self, datetime: &chrono::DateTime<chrono::Local>, length: DateLength) -> String {
+        use chrono::Datelike;
+
+        let d = datetime.day();
+        let m = datetime.month();
+        let y = datetime.year();
+        let y_short = y % 100;
+
         match length {
-            DateLength::Short => datetime.format("%m/%d/%y").to_string(),
-            DateLength::Medium => datetime.format("%b %d, %Y").to_string(),
-            DateLength::Long => datetime.format("%B %d, %Y").to_string(),
-            DateLength::Full => datetime.format("%A, %B %d, %Y").to_string(),
+            DateLength::Short => {
+                match self.date_order {
+                    DateOrder::Dmy => format!("{:02}{}{:02}{}{:02}", d, self.date_sep, m, self.date_sep, y_short),
+                    DateOrder::Mdy => format!("{:02}{}{:02}{}{:02}", m, self.date_sep, d, self.date_sep, y_short),
+                    DateOrder::Ymd => format!("{:02}{}{:02}{}{:02}", y_short, self.date_sep, m, self.date_sep, d),
+                }
+            }
+            DateLength::Medium => {
+                let month_abbr = datetime.format("%b").to_string();
+                match self.date_order {
+                    DateOrder::Dmy => format!("{} {} {}", d, month_abbr, y),
+                    DateOrder::Mdy => format!("{} {}, {}", month_abbr, d, y),
+                    DateOrder::Ymd => format!("{} {} {}", y, month_abbr, d),
+                }
+            }
+            DateLength::Long => {
+                let month_full = datetime.format("%B").to_string();
+                match self.date_order {
+                    DateOrder::Dmy => format!("{} {} {}", d, month_full, y),
+                    DateOrder::Mdy => format!("{} {}, {}", month_full, d, y),
+                    DateOrder::Ymd => format!("{} {} {}", y, month_full, d),
+                }
+            }
+            DateLength::Full => {
+                let weekday = datetime.format("%A").to_string();
+                let month_full = datetime.format("%B").to_string();
+                match self.date_order {
+                    DateOrder::Dmy => format!("{}, {} {} {}", weekday, d, month_full, y),
+                    DateOrder::Mdy => format!("{}, {} {}, {}", weekday, month_full, d, y),
+                    DateOrder::Ymd => format!("{}, {} {} {}", weekday, y, month_full, d),
+                }
+            }
         }
     }
 
-    /// Format a time (basic formatting).
+    /// Format a time according to the locale.
     pub fn format_time(&self, datetime: &chrono::DateTime<chrono::Local>, length: TimeLength) -> String {
-        match length {
-            TimeLength::Short => datetime.format("%I:%M %p").to_string(),
-            TimeLength::Medium => datetime.format("%I:%M:%S %p").to_string(),
-            TimeLength::Long => datetime.format("%I:%M:%S %p %Z").to_string(),
+        if self.use_24_hour {
+            match length {
+                TimeLength::Short => datetime.format("%H:%M").to_string(),
+                TimeLength::Medium => datetime.format("%H:%M:%S").to_string(),
+                TimeLength::Long => datetime.format("%H:%M:%S %Z").to_string(),
+            }
+        } else {
+            match length {
+                TimeLength::Short => datetime.format("%I:%M %p").to_string(),
+                TimeLength::Medium => datetime.format("%I:%M:%S %p").to_string(),
+                TimeLength::Long => datetime.format("%I:%M:%S %p %Z").to_string(),
+            }
         }
     }
 

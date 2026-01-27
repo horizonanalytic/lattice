@@ -27,6 +27,7 @@
 //! });
 //! ```
 
+use std::collections::HashMap;
 use std::ops::{BitAnd, BitOr, BitOrAssign};
 use std::sync::Arc;
 
@@ -444,6 +445,9 @@ pub struct ToolBar {
     /// Action buttons with their state.
     action_buttons: Vec<ActionButton>,
 
+    /// Custom widget sizes (for proper overflow calculation).
+    widget_sizes: HashMap<ObjectId, Size>,
+
     /// Toolbar orientation.
     orientation: Orientation,
 
@@ -520,6 +524,7 @@ impl ToolBar {
             title: title.into(),
             items: Vec::new(),
             action_buttons: Vec::new(),
+            widget_sizes: HashMap::new(),
             orientation: Orientation::Horizontal,
             allowed_areas: ToolBarAreas::ALL,
             features: ToolBarFeatures::all(),
@@ -589,9 +594,44 @@ impl ToolBar {
     }
 
     /// Add a custom widget to the toolbar.
+    ///
+    /// Uses a default size of 50x50 pixels for overflow calculation.
+    /// Use [`add_widget_with_size`](Self::add_widget_with_size) to specify custom dimensions.
     pub fn add_widget(&mut self, widget_id: ObjectId) {
+        self.add_widget_with_size(widget_id, Size::new(50.0, 50.0));
+    }
+
+    /// Add a custom widget to the toolbar with an explicit size.
+    ///
+    /// The size is used for overflow calculation to determine when widgets
+    /// should be moved to the overflow menu. Use the widget's preferred size
+    /// from its `size_hint()` for accurate layout.
+    ///
+    /// # Arguments
+    ///
+    /// * `widget_id` - The ObjectId of the widget to add
+    /// * `size` - The preferred size of the widget for layout purposes
+    pub fn add_widget_with_size(&mut self, widget_id: ObjectId, size: Size) {
+        self.widget_sizes.insert(widget_id, size);
         self.items.push(ToolBarItem::Widget(widget_id));
         self.update_layout();
+    }
+
+    /// Set the size of a widget already in the toolbar.
+    ///
+    /// Use this to update the size used for overflow calculation after
+    /// the widget's size has changed.
+    pub fn set_widget_size(&mut self, widget_id: ObjectId, size: Size) {
+        self.widget_sizes.insert(widget_id, size);
+        self.update_layout();
+    }
+
+    /// Get the stored size of a widget in the toolbar.
+    ///
+    /// Returns the size used for overflow calculation, or `None` if the
+    /// widget is not in this toolbar.
+    pub fn widget_size(&self, widget_id: ObjectId) -> Option<Size> {
+        self.widget_sizes.get(&widget_id).copied()
     }
 
     // =========================================================================
@@ -622,8 +662,20 @@ impl ToolBar {
     }
 
     /// Insert a widget at a specific index.
+    ///
+    /// Uses a default size of 50x50 pixels for overflow calculation.
+    /// Use [`insert_widget_with_size`](Self::insert_widget_with_size) to specify custom dimensions.
     pub fn insert_widget(&mut self, index: usize, widget_id: ObjectId) {
+        self.insert_widget_with_size(index, widget_id, Size::new(50.0, 50.0));
+    }
+
+    /// Insert a widget at a specific index with an explicit size.
+    ///
+    /// The size is used for overflow calculation to determine when widgets
+    /// should be moved to the overflow menu.
+    pub fn insert_widget_with_size(&mut self, index: usize, widget_id: ObjectId, size: Size) {
         let index = index.min(self.items.len());
+        self.widget_sizes.insert(widget_id, size);
         self.items.insert(index, ToolBarItem::Widget(widget_id));
         self.update_layout();
     }
@@ -655,6 +707,20 @@ impl ToolBar {
     pub fn clear(&mut self) {
         self.items.clear();
         self.action_buttons.clear();
+        self.widget_sizes.clear();
+        self.update_layout();
+    }
+
+    /// Remove a widget from the toolbar.
+    pub fn remove_widget(&mut self, widget_id: ObjectId) {
+        self.items.retain(|item| {
+            if let ToolBarItem::Widget(id) = item {
+                *id != widget_id
+            } else {
+                true
+            }
+        });
+        self.widget_sizes.remove(&widget_id);
         self.update_layout();
     }
 
@@ -966,9 +1032,11 @@ impl ToolBar {
                     if is_horizontal { button_size.width } else { button_size.height }
                 }
                 ToolBarItem::Separator => separator_size,
-                ToolBarItem::Widget(_) => {
-                    // TODO: Get actual widget size
-                    if is_horizontal { 50.0 } else { 50.0 }
+                ToolBarItem::Widget(widget_id) => {
+                    // Use stored widget size, with fallback to default
+                    let size = self.widget_sizes.get(widget_id).copied()
+                        .unwrap_or(Size::new(50.0, 50.0));
+                    if is_horizontal { size.width } else { size.height }
                 }
             };
 
@@ -1429,9 +1497,11 @@ impl ToolBar {
                         button_idx += 1;
                     }
                 }
-                ToolBarItem::Widget(_) => {
+                ToolBarItem::Widget(widget_id) => {
                     // Widget painting is handled by the widget itself
-                    pos += 50.0 + self.style.spacing;
+                    let size = self.widget_sizes.get(widget_id).copied()
+                        .unwrap_or(Size::new(50.0, 50.0));
+                    pos += (if is_horizontal { size.width } else { size.height }) + self.style.spacing;
                 }
             }
         }

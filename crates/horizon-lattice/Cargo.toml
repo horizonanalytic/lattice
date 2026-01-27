@@ -133,3 +133,8 @@ futures-util = { workspace = true }
 
 [dev-dependencies]
 slotmap = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[[example]]
+name = "verification"
+path = "examples/verification.rs"

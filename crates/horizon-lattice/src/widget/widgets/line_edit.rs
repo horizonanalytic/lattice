@@ -66,6 +66,24 @@ use crate::widget::{
 use super::{Action, Menu};
 
 // =========================================================================
+// Context Menu Action Handling
+// =========================================================================
+
+/// Actions that can be triggered from the context menu.
+///
+/// This enum is used to queue context menu actions for execution
+/// in the widget's event handler, where we have mutable access.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ContextMenuAction {
+    Undo,
+    Redo,
+    Cut,
+    Copy,
+    Paste,
+    SelectAll,
+}
+
+// =========================================================================
 // Undo/Redo System
 // =========================================================================
 
@@ -375,6 +393,10 @@ pub struct LineEdit {
     /// Optional completer for autocomplete functionality.
     completer: Option<Completer>,
 
+    /// Pending context menu action to be executed in the event handler.
+    /// This is used because action callbacks cannot directly call &mut self methods.
+    pending_context_action: Arc<RwLock<Option<ContextMenuAction>>>,
+
     // Signals
 
     /// Signal emitted when text changes (and validation passes, if a validator is set).
@@ -438,6 +460,7 @@ impl LineEdit {
             show_clear_button: false,
             clear_button_hovered: false,
             completer: None,
+            pending_context_action: Arc::new(RwLock::new(None)),
             text_changed: Signal::new(),
             text_edited: Signal::new(),
             editing_finished: Signal::new(),
@@ -2035,15 +2058,30 @@ impl LineEdit {
     fn show_context_menu(&mut self, event: &ContextMenuEvent) {
         let mut menu = Menu::new();
 
+        // Clone the pending action reference for use in closures
+        let pending = self.pending_context_action.clone();
+
         // Undo action
         let can_undo = self.can_undo() && !self.read_only;
         let undo_action = Arc::new(Action::new("&Undo").with_enabled(can_undo));
-        menu.add_action(undo_action.clone());
+        {
+            let pending = pending.clone();
+            undo_action.triggered.connect(move |_| {
+                *pending.write() = Some(ContextMenuAction::Undo);
+            });
+        }
+        menu.add_action(undo_action);
 
         // Redo action
         let can_redo = self.can_redo() && !self.read_only;
         let redo_action = Arc::new(Action::new("&Redo").with_enabled(can_redo));
-        menu.add_action(redo_action.clone());
+        {
+            let pending = pending.clone();
+            redo_action.triggered.connect(move |_| {
+                *pending.write() = Some(ContextMenuAction::Redo);
+            });
+        }
+        menu.add_action(redo_action);
 
         menu.add_separator();
 
@@ -2051,12 +2089,24 @@ impl LineEdit {
         let has_selection = self.has_selection();
         let can_cut = has_selection && !self.read_only && self.echo_mode == EchoMode::Normal;
         let cut_action = Arc::new(Action::new("Cu&t").with_enabled(can_cut));
-        menu.add_action(cut_action.clone());
+        {
+            let pending = pending.clone();
+            cut_action.triggered.connect(move |_| {
+                *pending.write() = Some(ContextMenuAction::Cut);
+            });
+        }
+        menu.add_action(cut_action);
 
         // Copy action
         let can_copy = has_selection && self.echo_mode == EchoMode::Normal;
         let copy_action = Arc::new(Action::new("&Copy").with_enabled(can_copy));
-        menu.add_action(copy_action.clone());
+        {
+            let pending = pending.clone();
+            copy_action.triggered.connect(move |_| {
+                *pending.write() = Some(ContextMenuAction::Copy);
+            });
+        }
+        menu.add_action(copy_action);
 
         // Paste action - check if clipboard has text by trying to get it
         let clipboard_has_text = Clipboard::new()
@@ -2066,32 +2116,65 @@ impl LineEdit {
             .unwrap_or(false);
         let can_paste = !self.read_only && clipboard_has_text;
         let paste_action = Arc::new(Action::new("&Paste").with_enabled(can_paste));
-        menu.add_action(paste_action.clone());
+        {
+            let pending = pending.clone();
+            paste_action.triggered.connect(move |_| {
+                *pending.write() = Some(ContextMenuAction::Paste);
+            });
+        }
+        menu.add_action(paste_action);
 
         menu.add_separator();
 
         // Select All action
         let has_text = !self.text.is_empty();
         let select_all_action = Arc::new(Action::new("Select &All").with_enabled(has_text));
-        menu.add_action(select_all_action.clone());
+        {
+            let pending = pending.clone();
+            select_all_action.triggered.connect(move |_| {
+                *pending.write() = Some(ContextMenuAction::SelectAll);
+            });
+        }
+        menu.add_action(select_all_action);
 
         // Show the menu at the requested position
+        // The menu will handle its own event loop and trigger actions when clicked
         menu.popup_at(event.global_pos.x, event.global_pos.y);
 
-        // Note: In a full implementation, we would connect the action signals
-        // to actually perform the operations. However, since Menu uses popups
-        // and signals, the actual triggering would need to be handled through
-        // the signal connections. For now, the menu will display but actions
-        // won't be connected. A complete implementation would require storing
-        // the menu and connecting signals properly.
-        //
-        // TODO: Connect action triggered signals to perform operations:
-        // undo_action.triggered.connect(|| self.undo());
-        // redo_action.triggered.connect(|| self.redo());
-        // cut_action.triggered.connect(|| self.cut());
-        // copy_action.triggered.connect(|| self.copy());
-        // paste_action.triggered.connect(|| self.paste());
-        // select_all_action.triggered.connect(|| self.select_all());
+        // Process any pending action immediately after the menu closes
+        // This is needed because popup_at may return before or after action execution
+        self.process_pending_context_action();
+    }
+
+    /// Process any pending context menu action.
+    ///
+    /// This method checks for and executes any action that was triggered
+    /// from the context menu. It's called after the context menu closes
+    /// and during event processing.
+    fn process_pending_context_action(&mut self) {
+        let action = self.pending_context_action.write().take();
+        if let Some(action) = action {
+            match action {
+                ContextMenuAction::Undo => {
+                    self.undo();
+                }
+                ContextMenuAction::Redo => {
+                    self.redo();
+                }
+                ContextMenuAction::Cut => {
+                    self.cut();
+                }
+                ContextMenuAction::Copy => {
+                    self.copy();
+                }
+                ContextMenuAction::Paste => {
+                    self.paste();
+                }
+                ContextMenuAction::SelectAll => {
+                    self.select_all();
+                }
+            }
+        }
     }
 
     // =========================================================================

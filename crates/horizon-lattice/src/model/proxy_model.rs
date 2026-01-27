@@ -97,8 +97,10 @@ impl RowMapping {
 /// ```
 pub struct ProxyModel<S: ItemModel> {
     source: Arc<S>,
-    filter: Option<FilterFn<S>>,
-    compare: Option<CompareFn<S>>,
+    /// Filter function with interior mutability for dynamic updates.
+    filter: RwLock<Option<FilterFn<S>>>,
+    /// Sort comparator with interior mutability for dynamic updates.
+    compare: RwLock<Option<CompareFn<S>>>,
     /// Mapping for the root level. Child mappings would need a HashMap<NodeId, RowMapping>
     /// for hierarchical models, but we keep it simple for now.
     mapping: RwLock<RowMapping>,
@@ -114,8 +116,8 @@ impl<S: ItemModel + 'static> ProxyModel<S> {
     pub fn new(source: Arc<S>) -> Self {
         let proxy = Self {
             source,
-            filter: None,
-            compare: None,
+            filter: RwLock::new(None),
+            compare: RwLock::new(None),
             mapping: RwLock::new(RowMapping::new()),
             signals: ModelSignals::new(),
             sort_column: RwLock::new(None),
@@ -129,11 +131,11 @@ impl<S: ItemModel + 'static> ProxyModel<S> {
     ///
     /// The filter function receives the source model, source row index, and parent index.
     /// Return `true` to include the row, `false` to filter it out.
-    pub fn with_filter<F>(mut self, filter: F) -> Self
+    pub fn with_filter<F>(self, filter: F) -> Self
     where
         F: Fn(&S, usize, &ModelIndex) -> bool + Send + Sync + 'static,
     {
-        self.filter = Some(Arc::new(filter));
+        *self.filter.write() = Some(Arc::new(filter));
         self.rebuild_mapping();
         self
     }
@@ -141,30 +143,77 @@ impl<S: ItemModel + 'static> ProxyModel<S> {
     /// Sets a sort comparator.
     ///
     /// The comparator receives the source model and two source row indices to compare.
-    pub fn with_sort<F>(mut self, compare: F) -> Self
+    pub fn with_sort<F>(self, compare: F) -> Self
     where
         F: Fn(&S, usize, usize, &ModelIndex) -> Ordering + Send + Sync + 'static,
     {
-        self.compare = Some(Arc::new(compare));
+        *self.compare.write() = Some(Arc::new(compare));
         self.rebuild_mapping();
         self
     }
 
     /// Sets the filter function dynamically.
     ///
-    /// Note: Currently this method just rebuilds the mapping without actually
-    /// updating the filter. Full dynamic filter support requires interior mutability.
-    pub fn set_filter<F>(&self, _filter: F)
+    /// This method allows changing the filter criteria at runtime. The view
+    /// will be automatically updated to reflect the new filter.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let proxy = ProxyModel::new(source);
+    /// // Later, change the filter dynamically
+    /// proxy.set_filter(|model, row, parent| {
+    ///     let index = model.index(row, 0, parent);
+    ///     let value = model.data(&index, ItemRole::Display).as_int().unwrap_or(0);
+    ///     value > 10
+    /// });
+    /// ```
+    pub fn set_filter<F>(&self, filter: F)
     where
         F: Fn(&S, usize, &ModelIndex) -> bool + Send + Sync + 'static,
     {
-        // TODO: Implement proper dynamic filter update with interior mutability
-        self.rebuild_mapping();
+        *self.filter.write() = Some(Arc::new(filter));
+        self.invalidate();
     }
 
-    /// Clears the filter.
+    /// Clears the filter, showing all rows from the source model.
     pub fn clear_filter(&self) {
-        self.rebuild_mapping();
+        *self.filter.write() = None;
+        self.invalidate();
+    }
+
+    /// Sets the sort comparator dynamically.
+    ///
+    /// This method allows changing the sort criteria at runtime. The view
+    /// will be automatically updated to reflect the new sort order.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let proxy = ProxyModel::new(source);
+    /// // Later, change the sort dynamically
+    /// proxy.set_sort(|model, row_a, row_b, parent| {
+    ///     let index_a = model.index(row_a, 0, parent);
+    ///     let index_b = model.index(row_b, 0, parent);
+    ///     let name_a = model.data(&index_a, ItemRole::Display).into_string().unwrap_or_default();
+    ///     let name_b = model.data(&index_b, ItemRole::Display).into_string().unwrap_or_default();
+    ///     name_a.cmp(&name_b)
+    /// });
+    /// ```
+    pub fn set_sort<F>(&self, compare: F)
+    where
+        F: Fn(&S, usize, usize, &ModelIndex) -> Ordering + Send + Sync + 'static,
+    {
+        *self.compare.write() = Some(Arc::new(compare));
+        self.invalidate();
+    }
+
+    /// Clears the custom sort comparator.
+    ///
+    /// Note: This does not clear column-based sorting set via `sort_by_column`.
+    pub fn clear_custom_sort(&self) {
+        *self.compare.write() = None;
+        self.invalidate();
     }
 
     /// Sets simple column-based sorting.
@@ -238,18 +287,21 @@ impl<S: ItemModel + 'static> ProxyModel<S> {
         mapping.source_to_proxy.resize(source_count, None);
 
         // First, collect rows that pass the filter
+        let filter_guard = self.filter.read();
         let mut visible_rows: Vec<usize> = (0..source_count)
             .filter(|&row| {
-                if let Some(ref filter) = self.filter {
+                if let Some(ref filter) = *filter_guard {
                     filter(&self.source, row, &parent)
                 } else {
                     true
                 }
             })
             .collect();
+        drop(filter_guard);
 
         // Then, sort if we have a comparator
-        if let Some(ref compare) = self.compare {
+        let compare_guard = self.compare.read();
+        if let Some(ref compare) = *compare_guard {
             visible_rows.sort_by(|&a, &b| compare(&self.source, a, b, &parent));
         } else if let Some(column) = *self.sort_column.read() {
             // Simple column-based sorting
@@ -384,9 +436,9 @@ impl<S: ItemModel + 'static> ProxyModelBuilder<S> {
 
     /// Builds the proxy model.
     pub fn build(self) -> ProxyModel<S> {
-        let mut proxy = ProxyModel::new(self.source);
-        proxy.filter = self.filter;
-        proxy.compare = self.compare;
+        let proxy = ProxyModel::new(self.source);
+        *proxy.filter.write() = self.filter;
+        *proxy.compare.write() = self.compare;
         proxy.rebuild_mapping();
         proxy
     }
@@ -592,5 +644,95 @@ mod tests {
             .collect();
 
         assert_eq!(names, vec!["David", "Charlie", "Bob", "Alice"]);
+    }
+
+    #[test]
+    fn test_dynamic_set_filter() {
+        let source = create_test_model();
+        let proxy = ProxyModel::new(source);
+
+        // Initially all rows visible
+        assert_eq!(proxy.row_count(&ModelIndex::invalid()), 4);
+
+        // Set a filter dynamically to only show age >= 30
+        proxy.set_filter(|model, row, parent| {
+            let index = model.index(row, 0, parent);
+            let age = model.data(&index, ItemRole::User(0)).as_int().unwrap_or(0);
+            age >= 30
+        });
+
+        // Now only 2 rows should be visible (Charlie 35, Alice 30)
+        assert_eq!(proxy.row_count(&ModelIndex::invalid()), 2);
+
+        // Change the filter to show age >= 25
+        proxy.set_filter(|model, row, parent| {
+            let index = model.index(row, 0, parent);
+            let age = model.data(&index, ItemRole::User(0)).as_int().unwrap_or(0);
+            age >= 25
+        });
+
+        // Now 3 rows should be visible (Charlie 35, Alice 30, Bob 25)
+        assert_eq!(proxy.row_count(&ModelIndex::invalid()), 3);
+
+        // Clear the filter
+        proxy.clear_filter();
+
+        // All rows visible again
+        assert_eq!(proxy.row_count(&ModelIndex::invalid()), 4);
+    }
+
+    #[test]
+    fn test_dynamic_set_sort() {
+        let source = create_test_model();
+        let proxy = ProxyModel::new(source);
+
+        // Set a dynamic sort by name
+        proxy.set_sort(|model, row_a, row_b, parent| {
+            let index_a = model.index(row_a, 0, parent);
+            let index_b = model.index(row_b, 0, parent);
+            let name_a = model.data(&index_a, ItemRole::Display).into_string().unwrap_or_default();
+            let name_b = model.data(&index_b, ItemRole::Display).into_string().unwrap_or_default();
+            name_a.cmp(&name_b)
+        });
+
+        let names: Vec<_> = (0..4)
+            .map(|i| {
+                let index = proxy.index(i, 0, &ModelIndex::invalid());
+                proxy.data(&index, ItemRole::Display).into_string().unwrap()
+            })
+            .collect();
+
+        assert_eq!(names, vec!["Alice", "Bob", "Charlie", "David"]);
+
+        // Change to reverse sort
+        proxy.set_sort(|model, row_a, row_b, parent| {
+            let index_a = model.index(row_a, 0, parent);
+            let index_b = model.index(row_b, 0, parent);
+            let name_a = model.data(&index_a, ItemRole::Display).into_string().unwrap_or_default();
+            let name_b = model.data(&index_b, ItemRole::Display).into_string().unwrap_or_default();
+            name_b.cmp(&name_a) // Reversed
+        });
+
+        let names: Vec<_> = (0..4)
+            .map(|i| {
+                let index = proxy.index(i, 0, &ModelIndex::invalid());
+                proxy.data(&index, ItemRole::Display).into_string().unwrap()
+            })
+            .collect();
+
+        assert_eq!(names, vec!["David", "Charlie", "Bob", "Alice"]);
+
+        // Clear custom sort
+        proxy.clear_custom_sort();
+
+        // Should be back to original order
+        let names: Vec<_> = (0..4)
+            .map(|i| {
+                let index = proxy.index(i, 0, &ModelIndex::invalid());
+                proxy.data(&index, ItemRole::Display).into_string().unwrap()
+            })
+            .collect();
+
+        assert_eq!(names, vec!["Charlie", "Alice", "Bob", "David"]);
     }
 }

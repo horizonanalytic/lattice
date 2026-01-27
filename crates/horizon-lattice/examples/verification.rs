@@ -121,16 +121,85 @@ impl App {
         // Begin frame with background
         renderer.begin_frame(Color::from_rgb8(245, 245, 250), viewport);
 
-        // Draw mode indicator (colored bar at top)
+        // Draw prominent mode indicator panel at top
         let mode_colors = [
             Color::from_rgb8(0, 122, 255),   // Blue - Shapes
             Color::from_rgb8(255, 100, 100), // Red - Gradients
             Color::from_rgb8(100, 200, 100), // Green - Transforms
         ];
+        let current_mode_color = mode_colors[active_mode % 3];
+
+        // Mode indicator bar
         renderer.fill_rect(
-            Rect::new(0.0, 0.0, viewport.width, 8.0),
-            mode_colors[active_mode % 3],
+            Rect::new(0.0, 0.0, viewport.width, 10.0),
+            current_mode_color,
         );
+
+        // Mode label area with icon representing each mode
+        let mode_icon_x = viewport.width - 80.0;
+        renderer.fill_rounded_rect(
+            RoundedRect::new(Rect::new(mode_icon_x - 10.0, 15.0, 80.0, 35.0), 8.0),
+            Color::from_rgba8(0, 0, 0, 40),
+        );
+
+        // Draw mode icon
+        match active_mode % 3 {
+            0 => {
+                // Shapes: square + circle
+                renderer.fill_rect(
+                    Rect::new(mode_icon_x, 22.0, 20.0, 20.0),
+                    current_mode_color,
+                );
+                renderer.fill_circle(Point::new(mode_icon_x + 45.0, 32.0), 10.0, current_mode_color);
+            }
+            1 => {
+                // Gradients: gradient bar
+                renderer.fill_rect(
+                    Rect::new(mode_icon_x, 25.0, 55.0, 15.0),
+                    Paint::linear_gradient(
+                        Point::new(mode_icon_x, 25.0),
+                        Point::new(mode_icon_x + 55.0, 25.0),
+                        vec![
+                            GradientStop { offset: 0.0, color: Color::from_rgb8(255, 100, 100) },
+                            GradientStop { offset: 0.5, color: Color::from_rgb8(100, 200, 255) },
+                            GradientStop { offset: 1.0, color: Color::from_rgb8(100, 200, 100) },
+                        ],
+                    ),
+                );
+            }
+            2 => {
+                // Transforms: rotated squares
+                renderer.save();
+                renderer.translate(mode_icon_x + 28.0, 32.0);
+                renderer.rotate(0.3);
+                renderer.fill_rect(Rect::new(-10.0, -10.0, 20.0, 20.0), Color::from_rgba8(100, 200, 100, 180));
+                renderer.restore();
+                renderer.save();
+                renderer.translate(mode_icon_x + 28.0, 32.0);
+                renderer.rotate(-0.2);
+                renderer.fill_rect(Rect::new(-8.0, -8.0, 16.0, 16.0), current_mode_color);
+                renderer.restore();
+            }
+            _ => {}
+        }
+
+        // Click counter display (top left)
+        renderer.fill_rounded_rect(
+            RoundedRect::new(Rect::new(10.0, 15.0, 70.0, 35.0), 8.0),
+            Color::from_rgba8(0, 0, 0, 40),
+        );
+        // Show count as filled circles (up to 10)
+        for i in 0..10 {
+            let x = 20.0 + (i % 5) as f32 * 10.0;
+            let y = 25.0 + (i / 5) as f32 * 12.0;
+            let filled = (i as u32) < click_count % 11;
+            let color = if filled {
+                Color::WHITE
+            } else {
+                Color::from_rgba8(255, 255, 255, 60)
+            };
+            renderer.fill_circle(Point::new(x, y), 3.5, color);
+        }
 
         // Draw content based on active mode
         match active_mode % 3 {

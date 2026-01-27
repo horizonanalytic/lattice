@@ -731,9 +731,6 @@ pub struct GpuRenderer {
     /// Bind group layout for gradient textures.
     #[allow(dead_code)]
     gradient_bind_group_layout: wgpu::BindGroupLayout,
-    /// Pipeline layout for texture-based gradients (includes gradient texture bind group).
-    #[allow(dead_code)]
-    gradient_tex_pipeline_layout: wgpu::PipelineLayout,
     /// Pipeline for texture-based gradient rendering.
     gradient_tex_pipeline: wgpu::RenderPipeline,
     /// Vertices for texture-based gradients (separate batch).
@@ -797,10 +794,15 @@ impl GpuRenderer {
             }],
         });
 
-        // Create pipeline layout
+        // Create gradient bind group layout early (needed for rect pipeline layout)
+        // The rect shader expects gradient texture bindings at group 1
+        let gradient_bind_group_layout = create_gradient_bind_group_layout(device);
+
+        // Create pipeline layout with both uniform and gradient bind groups
+        // The rect shader requires group 1 bindings even for solid colors
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("rect_pipeline_layout"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[&bind_group_layout, &gradient_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -1047,20 +1049,13 @@ impl GpuRenderer {
         });
 
         // === Multi-stop gradient support ===
-        let gradient_bind_group_layout = create_gradient_bind_group_layout(device);
+        // gradient_bind_group_layout was created earlier (needed for rect pipeline layout)
         let gradient_atlas = GradientAtlas::new(device, &gradient_bind_group_layout);
 
-        // Create pipeline layout for texture-based gradients (uniforms + gradient texture)
-        let gradient_tex_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("gradient_tex_pipeline_layout"),
-            bind_group_layouts: &[&bind_group_layout, &gradient_bind_group_layout],
-            push_constant_ranges: &[],
-        });
-
-        // Create texture-based gradient pipeline
+        // Create texture-based gradient pipeline (uses same layout as rect pipeline)
         let gradient_tex_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("gradient_tex_pipeline"),
-            layout: Some(&gradient_tex_pipeline_layout),
+            layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
@@ -1156,7 +1151,6 @@ impl GpuRenderer {
             // Multi-stop gradients
             gradient_atlas,
             gradient_bind_group_layout,
-            gradient_tex_pipeline_layout,
             gradient_tex_pipeline,
             gradient_tex_vertices: Vec::with_capacity(MAX_VERTICES / 4),
             gradient_tex_indices: Vec::with_capacity(MAX_INDICES / 4),
@@ -1337,6 +1331,7 @@ impl GpuRenderer {
                     }
 
                     render_pass.set_bind_group(0, &self.bind_group, &[]);
+                    render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                     render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                     render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                     render_pass.draw_indexed(0..clip_indices.len() as u32, 0, 0..1);
@@ -1354,6 +1349,7 @@ impl GpuRenderer {
             if !self.shadow_indices.is_empty() {
                 render_pass.set_pipeline(&self.shadow_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.shadow_vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.shadow_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.shadow_indices.len() as u32, 0, 0..1);
@@ -1372,6 +1368,7 @@ impl GpuRenderer {
                     render_pass.set_pipeline(rect_pipeline);
                 }
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
@@ -1513,6 +1510,7 @@ impl GpuRenderer {
             if !self.shadow_indices.is_empty() {
                 render_pass.set_pipeline(&self.shadow_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.shadow_vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.shadow_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.shadow_indices.len() as u32, 0, 0..1);
@@ -1524,6 +1522,7 @@ impl GpuRenderer {
                 let rect_pipeline = self.rect_pipelines.get(&batch_blend_mode).unwrap();
                 render_pass.set_pipeline(rect_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
@@ -2212,6 +2211,7 @@ impl GpuRenderer {
             if !self.shadow_indices.is_empty() {
                 render_pass.set_pipeline(&self.shadow_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.shadow_vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.shadow_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.shadow_indices.len() as u32, 0, 0..1);
@@ -2223,6 +2223,7 @@ impl GpuRenderer {
                 let rect_pipeline = self.rect_pipelines.get(&batch_blend_mode).unwrap();
                 render_pass.set_pipeline(rect_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);

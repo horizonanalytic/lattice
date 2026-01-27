@@ -17,6 +17,7 @@
 //! - [`SpinBox`]: Integer input with increment/decrement buttons
 //! - [`DoubleSpinBox`]: Floating-point input with increment/decrement buttons
 //! - [`ProgressBar`]: Progress indicator widget
+//! - [`ImageWidget`]: Image display widget with animation and scaling support
 //! - [`ContainerWidget`]: Generic container widget with layout support
 //! - [`Frame`]: Container widget with border decoration
 //! - [`GroupBox`]: Titled container with optional checkbox mode
@@ -82,6 +83,7 @@ mod font_combo_box;
 mod frame;
 mod group_box;
 mod header_view;
+mod image_widget;
 mod label;
 mod line_edit;
 mod list_view;
@@ -155,6 +157,7 @@ pub use dock_widget::{DockArea, DockAreas, DockWidget, DockWidgetFeatures};
 pub use frame::{Frame, FrameShadow, FrameShape};
 pub use group_box::GroupBox;
 pub use header_view::{HeaderView, ResizeMode, SortOrder};
+pub use image_widget::{ImageSource, ImageWidget, ImageWidgetState};
 pub use label::{ElideMode, Label};
 pub use line_edit::{EchoMode, LineEdit};
 pub use list_view::{Flow, ListView, ListViewMode};

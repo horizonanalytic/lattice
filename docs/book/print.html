@@ -1,0 +1,3316 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Horizon Lattice Guide</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="A comprehensive guide to the Horizon Lattice GUI framework">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-db8e3b91.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-b89355f2.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Horizon Lattice Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p>Welcome to <strong>Horizon Lattice</strong>, a Rust-native GUI framework inspired by Qt6’s comprehensive design philosophy.</p>
+<h2 id="what-is-horizon-lattice"><a class="header" href="#what-is-horizon-lattice">What is Horizon Lattice?</a></h2>
+<p>Horizon Lattice is a cross-platform GUI toolkit built from the ground up in Rust. It takes Qt’s proven concepts—signals/slots, declarative UI, comprehensive widget set, cross-platform support—and implements them idiomatically using Rust’s ownership model and safety guarantees.</p>
+<h2 id="why-horizon-lattice"><a class="header" href="#why-horizon-lattice">Why Horizon Lattice?</a></h2>
+<h3 id="pure-rust-no-c-dependencies"><a class="header" href="#pure-rust-no-c-dependencies">Pure Rust, No C++ Dependencies</a></h3>
+<p>Unlike Qt bindings, Horizon Lattice is written entirely in Rust. This means:</p>
+<ul>
+<li>No external MOC tool required</li>
+<li>Compile-time type checking for signals and slots</li>
+<li>Memory safety guaranteed by the Rust compiler</li>
+<li>Easy integration with the Rust ecosystem</li>
+</ul>
+<h3 id="qt-inspired-rust-idiomatic"><a class="header" href="#qt-inspired-rust-idiomatic">Qt-Inspired, Rust-Idiomatic</a></h3>
+<p>We’ve adopted Qt’s battle-tested design patterns while making them feel natural in Rust:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>Qt</th><th>Horizon Lattice</th></tr>
+</thead>
+<tbody>
+<tr><td>Code generation</td><td>External MOC tool</td><td>Rust proc-macros</td></tr>
+<tr><td>Signal type safety</td><td>Runtime</td><td>Compile-time</td></tr>
+<tr><td>Memory management</td><td>Manual + parent-child</td><td>Rust ownership</td></tr>
+<tr><td>License</td><td>LGPL/Commercial</td><td>MIT/Apache 2.0</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="modern-graphics"><a class="header" href="#modern-graphics">Modern Graphics</a></h3>
+<p>Horizon Lattice uses modern graphics APIs through wgpu:</p>
+<ul>
+<li>Vulkan, Metal, DX12, and WebGPU backends</li>
+<li>GPU-accelerated 2D rendering</li>
+<li>Efficient damage tracking for minimal redraws</li>
+</ul>
+<h2 id="quick-example"><a class="header" href="#quick-example">Quick Example</a></h2>
+<pre><code class="language-rust ignore">use horizon_lattice::prelude::*;
+
+fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let app = Application::new()?;
+
+    let mut window = Window::new();
+    window.set_title("Hello, Horizon Lattice!");
+    window.set_size(400, 300);
+
+    let button = Button::new("Click me!");
+    button.clicked().connect(|_| {
+        println!("Button clicked!");
+    });
+
+    window.set_central_widget(button);
+    window.show();
+
+    app.run()
+}</code></pre>
+<h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
+<ul>
+<li><strong>API Documentation</strong>: <a href="https://docs.rs/horizon-lattice">docs.rs/horizon-lattice</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/horizon-analytic-studios/horizon-lattice">github.com/horizon-analytic-studios/horizon-lattice</a></li>
+<li><strong>Issues</strong>: Report bugs or request features on GitHub</li>
+</ul>
+<h2 id="license"><a class="header" href="#license">License</a></h2>
+<p>Horizon Lattice is dual-licensed under MIT and Apache 2.0. You may use it under either license.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p>This guide covers how to add Horizon Lattice to your Rust project.</p>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<ul>
+<li><strong>Rust</strong>: 1.75 or later (for async features)</li>
+<li><strong>Platform</strong>: Windows 10+, macOS 11+, or Linux with X11/Wayland</li>
+</ul>
+<h3 id="platform-specific-dependencies"><a class="header" href="#platform-specific-dependencies">Platform-Specific Dependencies</a></h3>
+<h4 id="linux"><a class="header" href="#linux">Linux</a></h4>
+<p>On Linux, you’ll need development headers for graphics and windowing:</p>
+<pre><code class="language-bash"># Ubuntu/Debian
+sudo apt install libxkbcommon-dev libwayland-dev
+
+# Fedora
+sudo dnf install libxkbcommon-devel wayland-devel
+
+# Arch
+sudo pacman -S libxkbcommon wayland
+</code></pre>
+<h4 id="macos"><a class="header" href="#macos">macOS</a></h4>
+<p>No additional dependencies required. Xcode Command Line Tools are recommended:</p>
+<pre><code class="language-bash">xcode-select --install
+</code></pre>
+<h4 id="windows"><a class="header" href="#windows">Windows</a></h4>
+<p>No additional dependencies required. Visual Studio Build Tools are recommended.</p>
+<h2 id="adding-to-your-project"><a class="header" href="#adding-to-your-project">Adding to Your Project</a></h2>
+<p>Add Horizon Lattice to your <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">[dependencies]
+horizon-lattice = "0.1"
+</code></pre>
+<h3 id="optional-features"><a class="header" href="#optional-features">Optional Features</a></h3>
+<p>Horizon Lattice provides several optional features:</p>
+<pre><code class="language-toml">[dependencies]
+horizon-lattice = { version = "0.1", features = ["multimedia", "network"] }
+</code></pre>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>multimedia</code></td><td>Audio/video playback support</td></tr>
+<tr><td><code>network</code></td><td>HTTP client, WebSocket, TCP/UDP</td></tr>
+<tr><td><code>accessibility</code></td><td>Screen reader support</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="verifying-installation"><a class="header" href="#verifying-installation">Verifying Installation</a></h2>
+<p>Create a simple test application:</p>
+<pre><code class="language-rust ignore">// src/main.rs
+use horizon_lattice::prelude::*;
+
+fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let app = Application::new()?;
+
+    let mut window = Window::new();
+    window.set_title("Installation Test");
+    window.set_size(300, 200);
+    window.show();
+
+    app.run()
+}</code></pre>
+<p>Run it:</p>
+<pre><code class="language-bash">cargo run
+</code></pre>
+<p>If a window appears, you’re ready to go!</p>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="failed-to-create-graphics-context"><a class="header" href="#failed-to-create-graphics-context">“Failed to create graphics context”</a></h3>
+<p>This usually means the GPU drivers don’t support the required graphics API. Try:</p>
+<ul>
+<li>Updating your GPU drivers</li>
+<li>On Linux, ensure Vulkan is installed: <code>sudo apt install mesa-vulkan-drivers</code></li>
+</ul>
+<h3 id="build-errors-on-linux"><a class="header" href="#build-errors-on-linux">Build errors on Linux</a></h3>
+<p>Ensure you have all development headers installed (see Platform-Specific Dependencies above).</p>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<p>Continue to <a href="#your-first-application">Your First Application</a> to build something more interesting.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="your-first-application"><a class="header" href="#your-first-application">Your First Application</a></h1>
+<p>Let’s build a simple counter application to learn the basics of Horizon Lattice.</p>
+<h2 id="project-setup"><a class="header" href="#project-setup">Project Setup</a></h2>
+<p>Create a new Rust project:</p>
+<pre><code class="language-bash">cargo new counter-app
+cd counter-app
+</code></pre>
+<p>Add Horizon Lattice to <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">[dependencies]
+horizon-lattice = "0.1"
+</code></pre>
+<h2 id="the-counter-app"><a class="header" href="#the-counter-app">The Counter App</a></h2>
+<p>Replace <code>src/main.rs</code> with:</p>
+<pre><code class="language-rust ignore">use horizon_lattice::prelude::*;
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Arc;
+
+fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    // Initialize the application
+    let app = Application::new()?;
+
+    // Create the main window
+    let mut window = Window::new();
+    window.set_title("Counter");
+    window.set_size(300, 150);
+
+    // Shared counter state
+    let count = Arc::new(AtomicI32::new(0));
+
+    // Create widgets
+    let label = Label::new("Count: 0");
+    let increment_btn = Button::new("+");
+    let decrement_btn = Button::new("-");
+
+    // Connect signals
+    let label_clone = label.clone();
+    let count_clone = count.clone();
+    increment_btn.clicked().connect(move |_| {
+        let new_value = count_clone.fetch_add(1, Ordering::SeqCst) + 1;
+        label_clone.set_text(&amp;format!("Count: {}", new_value));
+    });
+
+    let label_clone = label.clone();
+    let count_clone = count.clone();
+    decrement_btn.clicked().connect(move |_| {
+        let new_value = count_clone.fetch_sub(1, Ordering::SeqCst) - 1;
+        label_clone.set_text(&amp;format!("Count: {}", new_value));
+    });
+
+    // Layout
+    let mut layout = HBoxLayout::new();
+    layout.add_widget(decrement_btn);
+    layout.add_widget(label);
+    layout.add_widget(increment_btn);
+
+    let mut container = Container::new();
+    container.set_layout(layout);
+
+    window.set_central_widget(container);
+    window.show();
+
+    app.run()
+}</code></pre>
+<h2 id="understanding-the-code"><a class="header" href="#understanding-the-code">Understanding the Code</a></h2>
+<h3 id="application-initialization"><a class="header" href="#application-initialization">Application Initialization</a></h3>
+<pre><code class="language-rust ignore">let app = Application::new()?;</code></pre>
+<p>Every Horizon Lattice application starts with <code>Application::new()</code>. This initializes the event loop, graphics context, and platform integration. There can only be one <code>Application</code> per process.</p>
+<h3 id="creating-windows"><a class="header" href="#creating-windows">Creating Windows</a></h3>
+<pre><code class="language-rust ignore">let mut window = Window::new();
+window.set_title("Counter");
+window.set_size(300, 150);</code></pre>
+<p>Windows are top-level containers for your UI. Set properties like title, size, and position before calling <code>show()</code>.</p>
+<h3 id="widgets"><a class="header" href="#widgets">Widgets</a></h3>
+<pre><code class="language-rust ignore">let label = Label::new("Count: 0");
+let increment_btn = Button::new("+");</code></pre>
+<p>Widgets are the building blocks of your UI. Common widgets include:</p>
+<ul>
+<li><code>Label</code> - Display text</li>
+<li><code>Button</code> - Clickable button</li>
+<li><code>TextEdit</code> - Text input</li>
+<li><code>Container</code> - Group other widgets</li>
+</ul>
+<h3 id="signals-and-slots"><a class="header" href="#signals-and-slots">Signals and Slots</a></h3>
+<pre><code class="language-rust ignore">increment_btn.clicked().connect(move |_| {
+    // Handle click
+});</code></pre>
+<p>Signals are the Qt-inspired way to handle events. When a button is clicked, it emits a <code>clicked</code> signal. You connect a closure (slot) to respond to it.</p>
+<h3 id="layouts"><a class="header" href="#layouts">Layouts</a></h3>
+<pre><code class="language-rust ignore">let mut layout = HBoxLayout::new();
+layout.add_widget(decrement_btn);
+layout.add_widget(label);
+layout.add_widget(increment_btn);</code></pre>
+<p>Layouts automatically arrange widgets. <code>HBoxLayout</code> arranges them horizontally. Other layouts include:</p>
+<ul>
+<li><code>VBoxLayout</code> - Vertical arrangement</li>
+<li><code>GridLayout</code> - Grid arrangement</li>
+<li><code>FormLayout</code> - Label/field pairs</li>
+</ul>
+<h3 id="running-the-event-loop"><a class="header" href="#running-the-event-loop">Running the Event Loop</a></h3>
+<pre><code class="language-rust ignore">app.run()</code></pre>
+<p>This starts the event loop, which:</p>
+<ul>
+<li>Processes user input (mouse, keyboard)</li>
+<li>Dispatches signals</li>
+<li>Repaints widgets as needed</li>
+</ul>
+<p>The function blocks until all windows are closed.</p>
+<h2 id="run-it"><a class="header" href="#run-it">Run It</a></h2>
+<pre><code class="language-bash">cargo run
+</code></pre>
+<p>You should see a window with - and + buttons around a “Count: 0” label. Clicking the buttons updates the counter.</p>
+<h2 id="next-steps-1"><a class="header" href="#next-steps-1">Next Steps</a></h2>
+<p>Continue to <a href="#basic-concepts">Basic Concepts</a> to learn more about the widget system, signals, and layouts.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="basic-concepts"><a class="header" href="#basic-concepts">Basic Concepts</a></h1>
+<p>This page covers the fundamental concepts you’ll use throughout Horizon Lattice.</p>
+<h2 id="the-widget-tree"><a class="header" href="#the-widget-tree">The Widget Tree</a></h2>
+<p>Widgets in Horizon Lattice form a tree structure. Every widget (except the root) has a parent, and can have children.</p>
+<pre><code>Window
+└── Container
+    ├── Label
+    ├── Button
+    └── Container
+        ├── TextEdit
+        └── Button
+</code></pre>
+<p>This hierarchy determines:</p>
+<ul>
+<li><strong>Rendering order</strong>: Parents paint before children</li>
+<li><strong>Event propagation</strong>: Events bubble up from children to parents</li>
+<li><strong>Lifetime management</strong>: When a parent is destroyed, its children are too</li>
+</ul>
+<h2 id="widget-lifecycle"><a class="header" href="#widget-lifecycle">Widget Lifecycle</a></h2>
+<ol>
+<li><strong>Creation</strong>: <code>Widget::new()</code> creates the widget</li>
+<li><strong>Configuration</strong>: Set properties, connect signals</li>
+<li><strong>Layout</strong>: Widget is added to a layout or parent</li>
+<li><strong>Showing</strong>: <code>show()</code> makes it visible</li>
+<li><strong>Running</strong>: Widget responds to events and repaints</li>
+<li><strong>Destruction</strong>: Widget goes out of scope or is explicitly removed</li>
+</ol>
+<h2 id="signals-and-slots-1"><a class="header" href="#signals-and-slots-1">Signals and Slots</a></h2>
+<p>Signals are a type-safe way to connect events to handlers.</p>
+<h3 id="emitting-signals"><a class="header" href="#emitting-signals">Emitting Signals</a></h3>
+<p>Widgets define signals for events they can produce:</p>
+<pre><code class="language-rust ignore">// Button has a clicked signal
+button.clicked().connect(|_| {
+    println!("Clicked!");
+});</code></pre>
+<h3 id="signal-parameters"><a class="header" href="#signal-parameters">Signal Parameters</a></h3>
+<p>Signals can carry data:</p>
+<pre><code class="language-rust ignore">// TextEdit emits the new text when changed
+text_edit.text_changed().connect(|new_text: &amp;String| {
+    println!("Text is now: {}", new_text);
+});</code></pre>
+<h3 id="connection-types"><a class="header" href="#connection-types">Connection Types</a></h3>
+<p>By default, connections are automatic—direct if on the same thread, queued if cross-thread:</p>
+<pre><code class="language-rust ignore">// Explicit connection type
+button.clicked().connect_with_type(
+    |_| { /* handler */ },
+    ConnectionType::Queued,
+);</code></pre>
+<h2 id="layouts-1"><a class="header" href="#layouts-1">Layouts</a></h2>
+<p>Layouts automatically position and size child widgets.</p>
+<h3 id="hboxlayout-and-vboxlayout"><a class="header" href="#hboxlayout-and-vboxlayout">HBoxLayout and VBoxLayout</a></h3>
+<p>Arrange widgets in a row or column:</p>
+<pre><code class="language-rust ignore">let mut hbox = HBoxLayout::new();
+hbox.add_widget(button1);
+hbox.add_spacing(10);
+hbox.add_widget(button2);
+hbox.add_stretch(1); // Pushes remaining widgets to the right
+hbox.add_widget(button3);</code></pre>
+<h3 id="gridlayout"><a class="header" href="#gridlayout">GridLayout</a></h3>
+<p>Arrange widgets in a grid:</p>
+<pre><code class="language-rust ignore">let mut grid = GridLayout::new();
+grid.add_widget(widget, row, column);
+grid.add_widget_with_span(wide_widget, row, column, row_span, col_span);</code></pre>
+<h3 id="size-policies"><a class="header" href="#size-policies">Size Policies</a></h3>
+<p>Control how widgets grow and shrink:</p>
+<pre><code class="language-rust ignore">// Fixed size - won't grow or shrink
+widget.set_size_policy(SizePolicy::Fixed, SizePolicy::Fixed);
+
+// Expanding - actively wants more space
+widget.set_size_policy(SizePolicy::Expanding, SizePolicy::Preferred);</code></pre>
+<h2 id="styling"><a class="header" href="#styling">Styling</a></h2>
+<p>Widgets can be styled with CSS-like syntax:</p>
+<pre><code class="language-rust ignore">// Inline style
+button.set_style("background-color: #3498db; color: white;");
+
+// From stylesheet
+app.set_stylesheet(r#"
+    Button {
+        background-color: #3498db;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 4px;
+    }
+
+    Button:hover {
+        background-color: #2980b9;
+    }
+"#)?;</code></pre>
+<h2 id="coordinate-systems"><a class="header" href="#coordinate-systems">Coordinate Systems</a></h2>
+<p>Widgets use several coordinate systems:</p>
+<ul>
+<li><strong>Local</strong>: Origin at widget’s top-left (0, 0)</li>
+<li><strong>Parent</strong>: Relative to parent widget</li>
+<li><strong>Window</strong>: Relative to window’s top-left</li>
+<li><strong>Global</strong>: Screen coordinates</li>
+</ul>
+<p>Convert between them:</p>
+<pre><code class="language-rust ignore">let parent_pos = widget.map_to_parent(local_pos);
+let window_pos = widget.map_to_window(local_pos);
+let global_pos = widget.map_to_global(local_pos);</code></pre>
+<h2 id="event-handling"><a class="header" href="#event-handling">Event Handling</a></h2>
+<p>Widgets receive events through the <code>event()</code> method:</p>
+<pre><code class="language-rust ignore">impl Widget for MyWidget {
+    fn event(&amp;mut self, event: &amp;mut WidgetEvent) -&gt; bool {
+        match event {
+            WidgetEvent::MousePress(e) =&gt; {
+                println!("Clicked at {:?}", e.position());
+                event.accept();
+                true // Event was handled
+            }
+            WidgetEvent::KeyPress(e) =&gt; {
+                if e.key() == Key::Enter {
+                    self.submit();
+                    event.accept();
+                    true
+                } else {
+                    false // Let parent handle it
+                }
+            }
+            _ =&gt; false,
+        }
+    }
+}</code></pre>
+<h2 id="next-steps-2"><a class="header" href="#next-steps-2">Next Steps</a></h2>
+<p>Now that you understand the basics, explore the detailed guides:</p>
+<ul>
+<li><a href="#widgets-guide">Widgets Guide</a> - Deep dive into the widget system</li>
+<li><a href="#layouts-guide">Layouts Guide</a> - Master layout management</li>
+<li><a href="#signals-and-slots-guide">Signals Guide</a> - Advanced signal patterns</li>
+<li><a href="#styling-guide">Styling Guide</a> - CSS-like styling in depth</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h1>
+<p>This guide explains the high-level architecture of Horizon Lattice.</p>
+<h2 id="system-overview"><a class="header" href="#system-overview">System Overview</a></h2>
+<p>Horizon Lattice is organized into several crates:</p>
+<pre><code>horizon-lattice          # Main crate (re-exports everything)
+├── horizon-lattice-core     # Event loop, signals, properties, objects
+├── horizon-lattice-render   # GPU rendering with wgpu
+├── horizon-lattice-style    # CSS-like styling system
+├── horizon-lattice-macros   # Procedural macros
+├── horizon-lattice-multimedia  # Audio/video (optional)
+└── horizon-lattice-net      # Networking (optional)
+</code></pre>
+<h2 id="core-components"><a class="header" href="#core-components">Core Components</a></h2>
+<h3 id="application-and-event-loop"><a class="header" href="#application-and-event-loop">Application and Event Loop</a></h3>
+<p>The <code>Application</code> singleton manages the main event loop. It:</p>
+<ul>
+<li>Processes platform events (window, input)</li>
+<li>Dispatches signals</li>
+<li>Schedules timers and async tasks</li>
+<li>Coordinates repainting</li>
+</ul>
+<h3 id="object-system"><a class="header" href="#object-system">Object System</a></h3>
+<p>All widgets inherit from <code>Object</code>, providing:</p>
+<ul>
+<li>Unique object IDs</li>
+<li>Parent-child relationships</li>
+<li>Dynamic properties</li>
+<li>Thread affinity tracking</li>
+</ul>
+<h3 id="widget-system"><a class="header" href="#widget-system">Widget System</a></h3>
+<p>The widget system provides:</p>
+<ul>
+<li>Base <code>Widget</code> trait with lifecycle methods</li>
+<li><code>WidgetBase</code> for common functionality</li>
+<li>Event dispatch and propagation</li>
+<li>Focus management</li>
+<li>Coordinate mapping</li>
+</ul>
+<h3 id="rendering"><a class="header" href="#rendering">Rendering</a></h3>
+<p>The rendering system uses wgpu for GPU-accelerated 2D graphics:</p>
+<ul>
+<li>Immediate-mode <code>Renderer</code> trait</li>
+<li>Damage tracking for efficient updates</li>
+<li>Layer compositing with blend modes</li>
+<li>Text shaping and rendering</li>
+</ul>
+<h3 id="styling-1"><a class="header" href="#styling-1">Styling</a></h3>
+<p>The style system provides CSS-like styling:</p>
+<ul>
+<li>Selector matching (type, class, id, pseudo-class)</li>
+<li>Property inheritance</li>
+<li>Computed style caching</li>
+</ul>
+<h2 id="threading-model"><a class="header" href="#threading-model">Threading Model</a></h2>
+<p>Horizon Lattice follows Qt’s threading model:</p>
+<ul>
+<li><strong>Main thread</strong>: All UI operations must happen here</li>
+<li><strong>Worker threads</strong>: Background computation via <code>ThreadPool</code></li>
+<li><strong>Signal delivery</strong>: Cross-thread signals are queued to the main thread</li>
+</ul>
+<h2 id="design-decisions"><a class="header" href="#design-decisions">Design Decisions</a></h2>
+<h3 id="why-not-trait-objects-for-widgets"><a class="header" href="#why-not-trait-objects-for-widgets">Why Not Trait Objects for Widgets?</a></h3>
+<p>We use <code>dyn Widget</code> trait objects for flexibility, but store widgets in a registry with <code>Arc&lt;Mutex&lt;dyn Widget&gt;&gt;</code>. This allows:</p>
+<ul>
+<li>Parent-child relationships via IDs</li>
+<li>Safe cross-thread signal delivery</li>
+<li>Dynamic widget creation</li>
+</ul>
+<h3 id="why-wgpu"><a class="header" href="#why-wgpu">Why wgpu?</a></h3>
+<p>wgpu provides:</p>
+<ul>
+<li>Cross-platform GPU access (Vulkan, Metal, DX12, WebGPU)</li>
+<li>Safe Rust API</li>
+<li>Excellent performance for 2D rendering</li>
+</ul>
+<h3 id="why-signals-instead-of-callbacks"><a class="header" href="#why-signals-instead-of-callbacks">Why Signals Instead of Callbacks?</a></h3>
+<p>Signals provide:</p>
+<ul>
+<li>Type-safe connections at compile time</li>
+<li>Automatic cross-thread marshalling</li>
+<li>Multiple connections to a single signal</li>
+<li>Clean disconnection via <code>ConnectionId</code></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="rendering-and-graphics"><a class="header" href="#rendering-and-graphics">Rendering and Graphics</a></h1>
+<p>This guide covers the rendering primitives and graphics operations in Horizon Lattice.</p>
+<h2 id="geometry-types"><a class="header" href="#geometry-types">Geometry Types</a></h2>
+<h3 id="points-and-sizes"><a class="header" href="#points-and-sizes">Points and Sizes</a></h3>
+<p>The fundamental types for positioning and dimensions:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{Point, Size};
+
+// Creating points
+let origin = Point::ZERO;
+let p1 = Point::new(100.0, 50.0);
+let p2: Point = (200.0, 100.0).into();
+
+// Point arithmetic
+let offset = Point::new(10.0, 5.0);
+let moved = Point::new(p1.x + offset.x, p1.y + offset.y);
+
+// Creating sizes
+let size = Size::new(800.0, 600.0);
+let empty = Size::ZERO;
+
+// Check if empty
+assert!(empty.is_empty());
+assert!(!size.is_empty());
+
+// From integer dimensions
+let from_u32: Size = Size::from((1920u32, 1080u32));
+<span class="boring">}</span></code></pre>
+<h3 id="rectangles"><a class="header" href="#rectangles">Rectangles</a></h3>
+<p>Rectangles define regions for layout and drawing:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{Rect, Point, Size};
+
+// Create from origin and size
+let rect = Rect::new(10.0, 20.0, 200.0, 100.0);
+
+// Create from points
+let from_points = Rect::from_points(
+    Point::new(10.0, 20.0),
+    Point::new(210.0, 120.0),
+);
+
+// Access properties
+assert_eq!(rect.x, 10.0);
+assert_eq!(rect.y, 20.0);
+assert_eq!(rect.width, 200.0);
+assert_eq!(rect.height, 100.0);
+
+// Corner accessors
+let top_left = rect.origin();
+let bottom_right = rect.bottom_right();
+let center = rect.center();
+
+// Point containment
+let point = Point::new(50.0, 50.0);
+assert!(rect.contains(point));
+
+// Rectangle operations
+let other = Rect::new(100.0, 50.0, 200.0, 100.0);
+if let Some(intersection) = rect.intersection(&amp;other) {
+    println!("Overlapping area: {:?}", intersection);
+}
+
+let bounding = rect.union(&amp;other);
+
+// Inflate/deflate (grow or shrink)
+let padded = rect.inflate(10.0, 10.0);
+let inset = rect.deflate(5.0, 5.0);
+
+// Offset (move)
+let moved = rect.offset(50.0, 25.0);
+<span class="boring">}</span></code></pre>
+<h3 id="rounded-rectangles"><a class="header" href="#rounded-rectangles">Rounded Rectangles</a></h3>
+<p>For drawing rectangles with rounded corners:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{Rect, RoundedRect, CornerRadii};
+
+let rect = Rect::new(0.0, 0.0, 200.0, 100.0);
+
+// Uniform corner radius
+let uniform = RoundedRect::new(rect, CornerRadii::uniform(8.0));
+
+// Per-corner radii (top-left, top-right, bottom-right, bottom-left)
+let varied = RoundedRect::with_radii(
+    rect,
+    10.0,  // top-left
+    10.0,  // top-right
+    0.0,   // bottom-right (square)
+    0.0,   // bottom-left (square)
+);
+
+// Check if it's actually rounded
+assert!(!uniform.is_rect());
+
+// Access the underlying rect
+let bounds = uniform.rect();
+<span class="boring">}</span></code></pre>
+<h2 id="colors"><a class="header" href="#colors">Colors</a></h2>
+<h3 id="creating-colors"><a class="header" href="#creating-colors">Creating Colors</a></h3>
+<p>Multiple ways to create colors:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::Color;
+
+// From RGB (0.0-1.0 range)
+let red = Color::from_rgb(1.0, 0.0, 0.0);
+
+// From RGBA with alpha
+let semi_transparent = Color::from_rgba(1.0, 0.0, 0.0, 0.5);
+
+// From 8-bit RGB values (0-255)
+let blue = Color::from_rgb8(0, 0, 255);
+let green_alpha = Color::from_rgba8(0, 255, 0, 128);
+
+// From hex string
+let purple = Color::from_hex("#8B5CF6").unwrap();
+let with_alpha = Color::from_hex("#8B5CF680").unwrap(); // 50% alpha
+
+// From HSV (hue 0-360, saturation/value 0-1)
+let orange = Color::from_hsv(30.0, 1.0, 1.0);
+
+// Predefined constants
+let white = Color::WHITE;
+let black = Color::BLACK;
+let transparent = Color::TRANSPARENT;
+<span class="boring">}</span></code></pre>
+<h3 id="color-operations"><a class="header" href="#color-operations">Color Operations</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::Color;
+
+let color = Color::from_rgb(0.2, 0.4, 0.8);
+
+// Modify alpha
+let faded = color.with_alpha(0.5);
+
+// Interpolate between colors
+let start = Color::RED;
+let end = Color::BLUE;
+let midpoint = start.lerp(&amp;end, 0.5); // Purple-ish
+
+// Convert to different formats
+let [r, g, b, a] = color.to_array();
+let (r8, g8, b8, a8) = color.to_rgba8();
+let hex = color.to_hex(); // "#3366CC"
+
+// Convert to HSV
+let (h, s, v) = color.to_hsv();
+<span class="boring">}</span></code></pre>
+<h2 id="paths"><a class="header" href="#paths">Paths</a></h2>
+<p>Paths define shapes for filling and stroking.</p>
+<h3 id="building-paths-manually"><a class="header" href="#building-paths-manually">Building Paths Manually</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{Path, Point};
+
+let mut path = Path::new();
+
+// Move to starting point
+path.move_to(Point::new(0.0, 0.0));
+
+// Draw lines
+path.line_to(Point::new(100.0, 0.0));
+path.line_to(Point::new(100.0, 100.0));
+path.line_to(Point::new(0.0, 100.0));
+
+// Close the path (connects back to start)
+path.close();
+
+// Get bounding box
+let bounds = path.bounds();
+<span class="boring">}</span></code></pre>
+<h3 id="path-factory-methods"><a class="header" href="#path-factory-methods">Path Factory Methods</a></h3>
+<p>Convenient methods for common shapes:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{Path, Rect, Point};
+
+// Rectangle
+let rect_path = Path::rect(Rect::new(0.0, 0.0, 100.0, 50.0));
+
+// Rounded rectangle
+let rounded = Path::rounded_rect(
+    Rect::new(0.0, 0.0, 100.0, 50.0),
+    8.0, // corner radius
+);
+
+// Circle (center point and radius)
+let circle = Path::circle(Point::new(50.0, 50.0), 25.0);
+
+// Ellipse
+let ellipse = Path::ellipse(
+    Point::new(50.0, 50.0), // center
+    40.0,                    // x radius
+    25.0,                    // y radius
+);
+
+// Line segment
+let line = Path::line(
+    Point::new(0.0, 0.0),
+    Point::new(100.0, 100.0),
+);
+
+// Polygon from points
+let triangle = Path::polygon(&amp;[
+    Point::new(50.0, 0.0),
+    Point::new(100.0, 100.0),
+    Point::new(0.0, 100.0),
+]);
+
+// Star shape
+let star = Path::star(
+    Point::new(50.0, 50.0), // center
+    5,                       // points
+    40.0,                    // outer radius
+    20.0,                    // inner radius
+);
+<span class="boring">}</span></code></pre>
+<h3 id="bezier-curves"><a class="header" href="#bezier-curves">Bezier Curves</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{Path, Point};
+
+let mut path = Path::new();
+path.move_to(Point::new(0.0, 100.0));
+
+// Quadratic bezier (one control point)
+path.quad_to(
+    Point::new(50.0, 0.0),   // control point
+    Point::new(100.0, 100.0), // end point
+);
+
+// Cubic bezier (two control points)
+path.move_to(Point::new(0.0, 50.0));
+path.cubic_to(
+    Point::new(25.0, 0.0),   // control point 1
+    Point::new(75.0, 100.0), // control point 2
+    Point::new(100.0, 50.0), // end point
+);
+<span class="boring">}</span></code></pre>
+<h2 id="transforms"><a class="header" href="#transforms">Transforms</a></h2>
+<h3 id="2d-transforms"><a class="header" href="#2d-transforms">2D Transforms</a></h3>
+<p>Transform matrices for rotating, scaling, and translating:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{Transform2D, Point};
+
+// Identity (no transformation)
+let identity = Transform2D::identity();
+
+// Translation
+let translate = Transform2D::translation(100.0, 50.0);
+
+// Scaling
+let scale = Transform2D::scale(2.0, 2.0); // 2x size
+
+// Rotation (in radians)
+use std::f32::consts::PI;
+let rotate = Transform2D::rotation(PI / 4.0); // 45 degrees
+
+// Composing transforms (order matters!)
+// This scales first, then rotates, then translates
+let combined = Transform2D::identity()
+    .then_scale(2.0, 2.0)
+    .then_rotate(PI / 4.0)
+    .then_translate(100.0, 50.0);
+
+// Transform a point
+let point = Point::new(10.0, 20.0);
+let transformed = combined.transform_point(point);
+
+// Inverse transform
+if let Some(inverse) = combined.inverse() {
+    let back = inverse.transform_point(transformed);
+    // back ≈ point
+}
+
+// Rotation around a specific point
+let pivot = Point::new(50.0, 50.0);
+let rotate_around = Transform2D::identity()
+    .then_translate(-pivot.x, -pivot.y)
+    .then_rotate(PI / 2.0)
+    .then_translate(pivot.x, pivot.y);
+<span class="boring">}</span></code></pre>
+<h3 id="transform-stack"><a class="header" href="#transform-stack">Transform Stack</a></h3>
+<p>For hierarchical transforms (like nested widgets):</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{TransformStack, Point};
+
+let mut stack = TransformStack::new();
+
+// Save current state
+stack.save();
+
+// Apply transforms
+stack.translate(100.0, 50.0);
+stack.scale(2.0, 2.0);
+
+// Transform points
+let local = Point::new(10.0, 10.0);
+let world = stack.transform_point(local);
+
+// Restore previous state
+stack.restore();
+
+// Point transforms back to original coordinate space
+let restored = stack.transform_point(local);
+assert_eq!(restored, local);
+<span class="boring">}</span></code></pre>
+<h2 id="painting"><a class="header" href="#painting">Painting</a></h2>
+<h3 id="solid-colors-and-gradients"><a class="header" href="#solid-colors-and-gradients">Solid Colors and Gradients</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{Paint, Color, GradientStop, Point};
+
+// Solid color fill
+let solid = Paint::solid(Color::from_rgb(0.2, 0.4, 0.8));
+
+// Linear gradient
+let linear = Paint::linear_gradient(
+    Point::new(0.0, 0.0),   // start point
+    Point::new(100.0, 0.0), // end point
+    vec![
+        GradientStop::new(0.0, Color::RED),
+        GradientStop::new(0.5, Color::WHITE),
+        GradientStop::new(1.0, Color::BLUE),
+    ],
+);
+
+// Radial gradient
+let radial = Paint::radial_gradient(
+    Point::new(50.0, 50.0), // center
+    50.0,                    // radius
+    vec![
+        GradientStop::new(0.0, Color::WHITE),
+        GradientStop::new(1.0, Color::from_rgba(0.0, 0.0, 0.0, 0.0)),
+    ],
+);
+
+// Radial gradient with offset focus
+let spotlight = Paint::radial_gradient_with_focus(
+    Point::new(50.0, 50.0), // center
+    50.0,                    // radius
+    Point::new(30.0, 30.0), // focus point (off-center)
+    vec![
+        GradientStop::new(0.0, Color::WHITE),
+        GradientStop::new(1.0, Color::BLACK),
+    ],
+);
+<span class="boring">}</span></code></pre>
+<h3 id="strokes"><a class="header" href="#strokes">Strokes</a></h3>
+<p>Configure how paths are outlined:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{Stroke, Color, LineCap, LineJoin, DashPattern};
+
+// Basic stroke
+let basic = Stroke::new(Color::BLACK, 2.0);
+
+// With line cap style
+let rounded_caps = Stroke::new(Color::BLACK, 10.0)
+    .with_cap(LineCap::Round);
+
+// Line cap options:
+// - LineCap::Butt   - flat, ends at exact endpoint
+// - LineCap::Round  - semicircle extending past endpoint
+// - LineCap::Square - square extending past endpoint
+
+// With line join style
+let rounded_corners = Stroke::new(Color::BLACK, 4.0)
+    .with_join(LineJoin::Round);
+
+// Line join options:
+// - LineJoin::Miter - sharp corners (default)
+// - LineJoin::Round - rounded corners
+// - LineJoin::Bevel - flat corners
+
+// Miter limit (prevents very sharp corners from extending too far)
+let limited = Stroke::new(Color::BLACK, 4.0)
+    .with_join(LineJoin::Miter)
+    .with_miter_limit(2.0);
+
+// Dashed lines
+let dashed = Stroke::new(Color::BLACK, 2.0)
+    .with_dash(DashPattern::simple(5.0, 5.0));
+
+// Complex dash pattern: long, gap, short, gap
+let complex_dash = Stroke::new(Color::BLACK, 2.0)
+    .with_dash(DashPattern::new(vec![10.0, 3.0, 3.0, 3.0], 0.0));
+
+// Animated dash (offset shifts the pattern)
+let animated = Stroke::new(Color::BLACK, 2.0)
+    .with_dash(DashPattern::new(vec![5.0, 5.0], 2.5));
+<span class="boring">}</span></code></pre>
+<h2 id="blend-modes"><a class="header" href="#blend-modes">Blend Modes</a></h2>
+<p>Control how colors combine when drawing overlapping content:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::BlendMode;
+
+// Standard alpha blending (default)
+let normal = BlendMode::Normal;
+
+// Darkening modes
+let multiply = BlendMode::Multiply; // Darken by multiplying
+let darken = BlendMode::Darken;     // Take minimum
+
+// Lightening modes
+let screen = BlendMode::Screen;   // Lighten (opposite of multiply)
+let lighten = BlendMode::Lighten; // Take maximum
+let add = BlendMode::Add;         // Additive (glow effects)
+
+// Porter-Duff compositing
+let source = BlendMode::Source;           // Replace destination
+let dest_out = BlendMode::DestinationOut; // Cut out shape
+let xor = BlendMode::Xor;                 // Either but not both
+<span class="boring">}</span></code></pre>
+<h2 id="fill-rules"><a class="header" href="#fill-rules">Fill Rules</a></h2>
+<p>Determine what’s “inside” a path with overlapping regions:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::FillRule;
+
+// NonZero (default) - considers winding direction
+// A point is inside if the winding number is non-zero
+let non_zero = FillRule::NonZero;
+
+// EvenOdd - creates checkerboard pattern for overlaps
+// A point is inside if it crosses an odd number of edges
+let even_odd = FillRule::EvenOdd;
+<span class="boring">}</span></code></pre>
+<p>The difference matters for paths with overlapping regions:</p>
+<ul>
+<li><strong>NonZero</strong>: Inner shapes are filled if they wind the same direction as outer</li>
+<li><strong>EvenOdd</strong>: Overlapping regions alternate between filled and unfilled</li>
+</ul>
+<h2 id="images"><a class="header" href="#images">Images</a></h2>
+<h3 id="loading-and-using-images"><a class="header" href="#loading-and-using-images">Loading and Using Images</a></h3>
+<pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{ImageLoader, ImageScaleMode};
+
+// Create an image loader
+let loader = ImageLoader::new();
+
+// Load an image (async in real usage)
+// let image = loader.load("path/to/image.png").await?;
+
+// Scale modes for drawing
+let mode = ImageScaleMode::Fit;        // Fit within bounds, preserve aspect
+let mode = ImageScaleMode::Fill;       // Fill bounds, may crop
+let mode = ImageScaleMode::Stretch;    // Stretch to fill, ignores aspect
+let mode = ImageScaleMode::Tile;       // Repeat to fill
+let mode = ImageScaleMode::Center;     // Center at original size
+let mode = ImageScaleMode::None;       // Draw at original size from top-left
+<span class="boring">}</span></code></pre>
+<h3 id="nine-patch-images"><a class="header" href="#nine-patch-images">Nine-Patch Images</a></h3>
+<p>For scalable UI elements like buttons and panels:</p>
+<pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{NinePatch, Rect};
+
+// Nine-patch divides an image into 9 regions:
+// - 4 corners (don't scale)
+// - 4 edges (scale in one direction)
+// - 1 center (scales in both directions)
+
+// Create with uniform borders
+// let nine_patch = NinePatch::uniform(image, 10.0);
+
+// Create with different border sizes
+// let nine_patch = NinePatch::new(
+//     image,
+//     10.0,  // left border
+//     10.0,  // right border
+//     8.0,   // top border
+//     12.0,  // bottom border
+// );
+
+// Get minimum size (sum of borders)
+// let min_size = nine_patch.min_size();
+
+// Calculate patch regions for rendering
+// let dest = Rect::new(0.0, 0.0, 200.0, 60.0);
+// let patches = nine_patch.calculate_patches(dest);
+<span class="boring">}</span></code></pre>
+<h2 id="box-shadows"><a class="header" href="#box-shadows">Box Shadows</a></h2>
+<p>For drop shadows and glow effects:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{BoxShadow, Color, Rect};
+
+// Basic drop shadow
+let shadow = BoxShadow {
+    offset_x: 2.0,
+    offset_y: 4.0,
+    blur_radius: 8.0,
+    spread_radius: 0.0,
+    color: Color::from_rgba(0.0, 0.0, 0.0, 0.3),
+    inset: false,
+};
+
+// Glow effect (no offset, larger blur)
+let glow = BoxShadow {
+    offset_x: 0.0,
+    offset_y: 0.0,
+    blur_radius: 20.0,
+    spread_radius: 5.0,
+    color: Color::from_rgba(0.3, 0.5, 1.0, 0.6),
+    inset: false,
+};
+
+// Inset shadow (inner shadow)
+let inset = BoxShadow {
+    offset_x: 0.0,
+    offset_y: 2.0,
+    blur_radius: 4.0,
+    spread_radius: 0.0,
+    color: Color::from_rgba(0.0, 0.0, 0.0, 0.2),
+    inset: true,
+};
+
+// Calculate the bounding rect needed to render the shadow
+let widget_rect = Rect::new(10.0, 10.0, 100.0, 50.0);
+let shadow_bounds = shadow.bounds(widget_rect);
+<span class="boring">}</span></code></pre>
+<h2 id="text-rendering"><a class="header" href="#text-rendering">Text Rendering</a></h2>
+<h3 id="font-configuration"><a class="header" href="#font-configuration">Font Configuration</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::text::{Font, FontBuilder, FontWeight, FontStyle};
+
+// Simple font
+let font = Font::new("Helvetica", 14.0);
+
+// Using the builder for more options
+let custom = FontBuilder::new()
+    .family("Inter")
+    .fallback("Helvetica")
+    .fallback("Arial")
+    .fallback("sans-serif")
+    .size(16.0)
+    .weight(FontWeight::MEDIUM)
+    .style(FontStyle::Normal)
+    .letter_spacing(0.5)
+    .build();
+
+// Enable OpenType features
+let with_features = FontBuilder::new()
+    .family("Fira Code")
+    .size(14.0)
+    .feature("liga", 1) // Enable ligatures
+    .feature("calt", 1) // Enable contextual alternates
+    .build();
+<span class="boring">}</span></code></pre>
+<h3 id="text-layout"><a class="header" href="#text-layout">Text Layout</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::text::{
+    TextLayoutOptions, HorizontalAlign, VerticalAlign, WrapMode
+};
+
+// Basic layout options
+let options = TextLayoutOptions::default()
+    .with_max_width(Some(300.0))
+    .with_wrap_mode(WrapMode::Word);
+
+// Alignment options
+let centered = TextLayoutOptions::default()
+    .with_horizontal_align(HorizontalAlign::Center)
+    .with_vertical_align(VerticalAlign::Middle);
+
+// Wrap modes:
+// - WrapMode::None      - No wrapping, single line
+// - WrapMode::Char      - Wrap at any character
+// - WrapMode::Word      - Wrap at word boundaries
+// - WrapMode::WordChar  - Try word, fall back to char
+
+// Line spacing
+let spaced = TextLayoutOptions::default()
+    .with_line_height(1.5); // 150% line height
+<span class="boring">}</span></code></pre>
+<h3 id="rich-text"><a class="header" href="#rich-text">Rich Text</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::text::{TextSpan, TextDecoration};
+use horizon_lattice::render::Color;
+
+// Create styled text spans
+let spans = vec![
+    TextSpan::new("Hello ")
+        .with_size(16.0)
+        .with_color(Color::BLACK),
+    TextSpan::new("World")
+        .with_size(16.0)
+        .with_color(Color::BLUE)
+        .with_weight(700)
+        .with_decoration(TextDecoration::Underline),
+    TextSpan::new("!")
+        .with_size(20.0)
+        .with_color(Color::RED),
+];
+<span class="boring">}</span></code></pre>
+<h2 id="next-steps-3"><a class="header" href="#next-steps-3">Next Steps</a></h2>
+<ul>
+<li>See the <a href="#widgets-guide">Widget Guide</a> for how rendering integrates with widgets</li>
+<li>See the <a href="#styling-guide">Styling Guide</a> for CSS-like styling of widgets</li>
+<li>Check the <a href="https://docs.rs/horizon-lattice">API Documentation</a> for complete details</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="widgets-guide"><a class="header" href="#widgets-guide">Widgets Guide</a></h1>
+<p>This guide covers the widget system in depth.</p>
+<h2 id="widget-trait"><a class="header" href="#widget-trait">Widget Trait</a></h2>
+<p>Every widget implements the <code>Widget</code> trait:</p>
+<pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::{Widget, WidgetBase, PaintContext};
+use horizon_lattice::widget::SizeHint;
+use horizon_lattice::widget::events::WidgetEvent;
+use horizon_lattice_core::{Object, ObjectId};
+
+pub trait WidgetDefinition {
+    fn widget_base(&amp;self) -&gt; &amp;WidgetBase;
+    fn widget_base_mut(&amp;mut self) -&gt; &amp;mut WidgetBase;
+
+    fn size_hint(&amp;self) -&gt; SizeHint { SizeHint::default() }
+    fn paint(&amp;self, ctx: &amp;mut PaintContext&lt;'_&gt;) {}
+    fn event(&amp;mut self, event: &amp;mut WidgetEvent) -&gt; bool { false }
+}
+<span class="boring">}</span></code></pre>
+<h2 id="size-hints"><a class="header" href="#size-hints">Size Hints</a></h2>
+<p>Size hints tell layouts what size a widget prefers:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::SizeHint;
+use horizon_lattice::render::Size;
+
+// Create a simple size hint with preferred dimensions
+let hint = SizeHint::from_dimensions(100.0, 30.0);
+assert_eq!(hint.preferred, Size::new(100.0, 30.0));
+
+// Add minimum and maximum constraints
+let constrained = SizeHint::from_dimensions(100.0, 30.0)
+    .with_minimum_dimensions(50.0, 20.0)
+    .with_maximum_dimensions(200.0, 50.0);
+
+assert_eq!(constrained.minimum, Some(Size::new(50.0, 20.0)));
+assert_eq!(constrained.maximum, Some(Size::new(200.0, 50.0)));
+
+// Create a fixed size (cannot grow or shrink)
+let fixed = SizeHint::fixed(Size::new(100.0, 100.0));
+assert!(fixed.is_fixed());
+<span class="boring">}</span></code></pre>
+<h2 id="size-policies-1"><a class="header" href="#size-policies-1">Size Policies</a></h2>
+<p>Size policies control how widgets grow and shrink:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::{SizePolicy, SizePolicyPair};
+
+// Fixed - cannot resize
+let fixed = SizePolicyPair::fixed();
+assert!(!fixed.horizontal.can_grow());
+assert!(!fixed.horizontal.can_shrink());
+
+// Preferred - can grow or shrink, prefers hint size
+let preferred = SizePolicyPair::preferred();
+assert!(preferred.horizontal.can_grow());
+assert!(preferred.horizontal.can_shrink());
+
+// Expanding - actively wants more space
+let expanding = SizePolicyPair::expanding();
+assert!(expanding.horizontal.wants_to_grow());
+
+// Custom policy with stretch factor
+let stretched = SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Fixed)
+    .with_horizontal_stretch(2);  // Gets 2x extra space compared to stretch=1
+
+assert_eq!(stretched.horizontal_stretch, 2);
+<span class="boring">}</span></code></pre>
+<h2 id="widget-lifecycle-1"><a class="header" href="#widget-lifecycle-1">Widget Lifecycle</a></h2>
+<ol>
+<li><code>new()</code> - Create widget with WidgetBase</li>
+<li>Configure properties and connect signals</li>
+<li>Add to parent/layout</li>
+<li><code>show()</code> is called (inherited from parent)</li>
+<li><code>paint()</code> called when visible</li>
+<li><code>event()</code> called for input</li>
+<li>Widget dropped when parent is destroyed</li>
+</ol>
+<h2 id="creating-custom-widgets"><a class="header" href="#creating-custom-widgets">Creating Custom Widgets</a></h2>
+<p>Here’s a conceptual example of creating a custom progress bar widget:</p>
+<pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::{Widget, WidgetBase, PaintContext};
+use horizon_lattice::widget::SizeHint;
+use horizon_lattice::widget::events::WidgetEvent;
+use horizon_lattice::render::{Color, Rect};
+use horizon_lattice_core::{Object, ObjectId};
+
+struct ProgressBar {
+    base: WidgetBase,
+    value: f32,      // 0.0 to 1.0
+    color: Color,
+}
+
+impl ProgressBar {
+    pub fn new() -&gt; Self {
+        Self {
+            base: WidgetBase::new::&lt;Self&gt;(),
+            value: 0.0,
+            color: Color::from_rgb8(52, 152, 219),
+        }
+    }
+
+    pub fn set_value(&amp;mut self, value: f32) {
+        self.value = value.clamp(0.0, 1.0);
+        self.base.update(); // Request repaint
+    }
+
+    pub fn value(&amp;self) -&gt; f32 {
+        self.value
+    }
+}
+
+impl Object for ProgressBar {
+    fn object_id(&amp;self) -&gt; ObjectId {
+        self.base.object_id()
+    }
+}
+
+impl Widget for ProgressBar {
+    fn widget_base(&amp;self) -&gt; &amp;WidgetBase { &amp;self.base }
+    fn widget_base_mut(&amp;mut self) -&gt; &amp;mut WidgetBase { &amp;mut self.base }
+
+    fn size_hint(&amp;self) -&gt; SizeHint {
+        SizeHint::from_dimensions(200.0, 20.0)
+            .with_minimum_dimensions(50.0, 10.0)
+    }
+
+    fn paint(&amp;self, ctx: &amp;mut PaintContext&lt;'_&gt;) {
+        let rect = ctx.rect();
+
+        // Background
+        ctx.renderer().fill_rect(rect, Color::from_rgb8(200, 200, 200));
+
+        // Progress fill
+        let fill_width = rect.width() * self.value;
+        let fill_rect = Rect::new(0.0, 0.0, fill_width, rect.height());
+        ctx.renderer().fill_rect(fill_rect, self.color);
+    }
+}
+<span class="boring">}</span></code></pre>
+<h2 id="size-hint-examples"><a class="header" href="#size-hint-examples">Size Hint Examples</a></h2>
+<p>Different widgets have different size hint patterns:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::SizeHint;
+use horizon_lattice::render::Size;
+
+// Label - prefers text size, can't shrink below it
+fn label_size_hint(text_width: f32, text_height: f32) -&gt; SizeHint {
+    SizeHint::from_dimensions(text_width, text_height)
+        .with_minimum_dimensions(text_width, text_height)
+}
+
+// Button - has padding around content
+fn button_size_hint(content_width: f32, content_height: f32) -&gt; SizeHint {
+    let padding = 16.0;
+    SizeHint::from_dimensions(content_width + padding, content_height + padding)
+        .with_minimum_dimensions(60.0, 30.0)
+}
+
+// Text input - can expand horizontally
+fn text_input_size_hint() -&gt; SizeHint {
+    SizeHint::from_dimensions(150.0, 30.0)
+        .with_minimum_dimensions(50.0, 30.0)
+}
+<span class="boring">}</span></code></pre>
+<h2 id="geometry-methods"><a class="header" href="#geometry-methods">Geometry Methods</a></h2>
+<p>Widgets provide methods to query and set their geometry:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::{Point, Rect, Size};
+
+// Simulating widget geometry operations
+let geometry = Rect::new(10.0, 20.0, 100.0, 50.0);
+
+// Position (relative to parent)
+let pos = geometry.origin;
+assert_eq!(pos, Point::new(10.0, 20.0));
+
+// Size
+let size = geometry.size;
+assert_eq!(size, Size::new(100.0, 50.0));
+
+// Local rect (always at origin 0,0)
+let local_rect = Rect::new(0.0, 0.0, size.width, size.height);
+assert_eq!(local_rect.origin, Point::new(0.0, 0.0));
+
+// Check if a point is inside the local rect
+let point = Point::new(50.0, 25.0);
+assert!(local_rect.contains(point));
+
+let outside = Point::new(150.0, 25.0);
+assert!(!local_rect.contains(outside));
+<span class="boring">}</span></code></pre>
+<h2 id="coordinate-mapping"><a class="header" href="#coordinate-mapping">Coordinate Mapping</a></h2>
+<p>Map points between widget-local and parent coordinate systems:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::Point;
+
+// Widget at position (10, 20)
+let widget_pos = Point::new(10.0, 20.0);
+
+// Point in widget-local coordinates
+let local_point = Point::new(5.0, 5.0);
+
+// Map to parent coordinates
+let parent_point = Point::new(
+    local_point.x + widget_pos.x,
+    local_point.y + widget_pos.y,
+);
+assert_eq!(parent_point, Point::new(15.0, 25.0));
+
+// Map from parent back to local
+let back_to_local = Point::new(
+    parent_point.x - widget_pos.x,
+    parent_point.y - widget_pos.y,
+);
+assert_eq!(back_to_local, local_point);
+<span class="boring">}</span></code></pre>
+<h2 id="visibility-and-enabled-state"><a class="header" href="#visibility-and-enabled-state">Visibility and Enabled State</a></h2>
+<p>Control widget visibility and interaction:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Visibility concepts
+let mut visible = true;
+let mut enabled = true;
+
+// Hide a widget
+visible = false;
+
+// Disable a widget (grayed out, can't interact)
+enabled = false;
+
+// Check effective state (considering parent hierarchy)
+// If parent is hidden, child is effectively hidden too
+fn is_effectively_visible(self_visible: bool, parent_visible: bool) -&gt; bool {
+    self_visible &amp;&amp; parent_visible
+}
+
+assert!(!is_effectively_visible(true, false));  // Parent hidden
+assert!(!is_effectively_visible(false, true));  // Self hidden
+assert!(is_effectively_visible(true, true));    // Both visible
+<span class="boring">}</span></code></pre>
+<h2 id="focus-policy"><a class="header" href="#focus-policy">Focus Policy</a></h2>
+<p>Control how widgets receive keyboard focus:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::FocusPolicy;
+
+// NoFocus - widget cannot receive focus (e.g., labels)
+let no_focus = FocusPolicy::NoFocus;
+
+// TabFocus - focus via Tab key only (e.g., read-only controls)
+let tab_focus = FocusPolicy::TabFocus;
+
+// ClickFocus - focus via mouse click only
+let click_focus = FocusPolicy::ClickFocus;
+
+// StrongFocus - focus via both Tab and click (e.g., buttons, text fields)
+let strong_focus = FocusPolicy::StrongFocus;
+<span class="boring">}</span></code></pre>
+<h2 id="repaint-requests"><a class="header" href="#repaint-requests">Repaint Requests</a></h2>
+<p>Request widget repainting when content changes:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::render::Rect;
+
+// Full repaint - entire widget needs redrawing
+fn request_full_repaint(needs_repaint: &amp;mut bool) {
+    *needs_repaint = true;
+}
+
+// Partial repaint - only a region needs redrawing
+fn request_partial_repaint(dirty_region: &amp;mut Option&lt;Rect&gt;, new_dirty: Rect) {
+    *dirty_region = Some(match dirty_region {
+        Some(existing) =&gt; existing.union(&amp;new_dirty),
+        None =&gt; new_dirty,
+    });
+}
+
+let mut dirty = None;
+request_partial_repaint(&amp;mut dirty, Rect::new(0.0, 0.0, 50.0, 50.0));
+request_partial_repaint(&amp;mut dirty, Rect::new(40.0, 40.0, 50.0, 50.0));
+
+// Dirty region is now the union of both rects
+let combined = dirty.unwrap();
+assert_eq!(combined.origin.x, 0.0);
+assert_eq!(combined.origin.y, 0.0);
+<span class="boring">}</span></code></pre>
+<h2 id="signals-and-properties"><a class="header" href="#signals-and-properties">Signals and Properties</a></h2>
+<p>Widgets use signals to notify of changes:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::{Signal, Property};
+
+// Create signals for widget state changes
+let visible_changed: Signal&lt;bool&gt; = Signal::new();
+let geometry_changed: Signal&lt;(f32, f32, f32, f32)&gt; = Signal::new();
+
+// Connect to signals
+visible_changed.connect(|&amp;visible| {
+    println!("Visibility changed to: {}", visible);
+});
+
+// Emit when state changes
+visible_changed.emit(false);
+
+// Properties with automatic change notification
+let value: Property&lt;f32&gt; = Property::new(0.0);
+
+// Get the current value
+assert_eq!(value.get(), 0.0);
+
+// Set returns true if value changed
+assert!(value.set(0.5));
+assert!(!value.set(0.5)); // Same value, returns false
+<span class="boring">}</span></code></pre>
+<h2 id="built-in-widgets"><a class="header" href="#built-in-widgets">Built-in Widgets</a></h2>
+<p>See the <a href="#widget-catalog">Widget Catalog</a> for all available widgets including:</p>
+<ul>
+<li><strong>Basic</strong>: Label, PushButton, CheckBox, RadioButton</li>
+<li><strong>Input</strong>: LineEdit, TextEdit, SpinBox, Slider</li>
+<li><strong>Containers</strong>: Frame, GroupBox, ScrollArea, TabWidget</li>
+<li><strong>Display</strong>: ProgressBar, StatusBar</li>
+<li><strong>Dialogs</strong>: MessageBox, FileDialog, ColorDialog</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="layouts-guide"><a class="header" href="#layouts-guide">Layouts Guide</a></h1>
+<p>Layouts automatically arrange child widgets within a container.</p>
+<h2 id="layout-algorithm"><a class="header" href="#layout-algorithm">Layout Algorithm</a></h2>
+<p>Layouts use a two-pass algorithm:</p>
+<ol>
+<li><strong>Measure pass</strong>: Query each child’s <code>size_hint()</code> and size policy</li>
+<li><strong>Arrange pass</strong>: Assign positions and sizes to children</li>
+</ol>
+<h2 id="content-margins"><a class="header" href="#content-margins">Content Margins</a></h2>
+<p>All layouts support content margins - spacing between the layout’s content and its edges:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::ContentMargins;
+
+// Create uniform margins (same on all sides)
+let uniform = ContentMargins::uniform(10.0);
+assert_eq!(uniform.left, 10.0);
+assert_eq!(uniform.top, 10.0);
+assert_eq!(uniform.right, 10.0);
+assert_eq!(uniform.bottom, 10.0);
+
+// Create symmetric margins (horizontal/vertical)
+let symmetric = ContentMargins::symmetric(20.0, 10.0);
+assert_eq!(symmetric.left, 20.0);
+assert_eq!(symmetric.right, 20.0);
+assert_eq!(symmetric.top, 10.0);
+assert_eq!(symmetric.bottom, 10.0);
+
+// Create custom margins
+let custom = ContentMargins::new(5.0, 10.0, 15.0, 20.0);
+assert_eq!(custom.horizontal(), 20.0); // left + right
+assert_eq!(custom.vertical(), 30.0);   // top + bottom
+<span class="boring">}</span></code></pre>
+<h2 id="layoutkind-enum"><a class="header" href="#layoutkind-enum">LayoutKind Enum</a></h2>
+<p>The <code>LayoutKind</code> enum provides a unified interface for all layout types:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::LayoutKind;
+
+// Create different layout types
+let hbox = LayoutKind::horizontal();
+let vbox = LayoutKind::vertical();
+let grid = LayoutKind::grid();
+let form = LayoutKind::form();
+let stack = LayoutKind::stack();
+let flow = LayoutKind::flow();
+let anchor = LayoutKind::anchor();
+
+// All layouts share a common interface
+let mut layout = LayoutKind::vertical();
+assert_eq!(layout.item_count(), 0);
+assert!(layout.is_empty());
+<span class="boring">}</span></code></pre>
+<h2 id="boxlayout-hbox-and-vbox"><a class="header" href="#boxlayout-hbox-and-vbox">BoxLayout (HBox and VBox)</a></h2>
+<p>Arrange widgets horizontally or vertically:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::{BoxLayout, ContentMargins, Orientation};
+
+// Create a horizontal layout
+let mut hbox = BoxLayout::horizontal();
+hbox.set_spacing(10.0);  // Space between widgets
+hbox.set_content_margins(ContentMargins::uniform(8.0));  // Outer margins
+
+assert_eq!(hbox.spacing(), 10.0);
+assert_eq!(hbox.orientation(), Orientation::Horizontal);
+
+// Create a vertical layout
+let mut vbox = BoxLayout::vertical();
+vbox.set_spacing(5.0);
+
+assert_eq!(vbox.orientation(), Orientation::Vertical);
+<span class="boring">}</span></code></pre>
+<h2 id="adding-items-to-layouts"><a class="header" href="#adding-items-to-layouts">Adding Items to Layouts</a></h2>
+<p>Layouts can contain widgets, spacers, and nested layouts:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::{LayoutKind, LayoutItem, SpacerItem, SpacerType};
+use horizon_lattice::render::Size;
+
+let mut layout = LayoutKind::vertical();
+
+// Add a fixed spacer (takes a specific amount of space)
+let fixed_spacer = LayoutItem::Spacer(SpacerItem::fixed(Size::new(0.0, 20.0)));
+layout.add_item(fixed_spacer);
+
+// Add an expanding spacer (fills available space)
+let expanding_spacer = LayoutItem::Spacer(SpacerItem::new(
+    Size::ZERO,
+    SpacerType::Expanding,
+));
+layout.add_item(expanding_spacer);
+
+assert_eq!(layout.item_count(), 2);
+<span class="boring">}</span></code></pre>
+<h2 id="gridlayout-1"><a class="header" href="#gridlayout-1">GridLayout</a></h2>
+<p>Arrange widgets in rows and columns:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::GridLayout;
+
+let mut grid = GridLayout::new();
+
+// Set spacing between cells
+grid.set_spacing(10.0);
+grid.set_horizontal_spacing(15.0);  // Override horizontal only
+grid.set_vertical_spacing(5.0);     // Override vertical only
+
+// Set column stretch factors (column 1 expands more)
+grid.set_column_stretch(0, 0);  // Column 0: no stretch
+grid.set_column_stretch(1, 1);  // Column 1: stretch factor 1
+
+// Set row stretch
+grid.set_row_stretch(0, 0);  // Row 0: no stretch
+grid.set_row_stretch(1, 2);  // Row 1: stretch factor 2
+
+// Set minimum column width
+grid.set_column_minimum_width(0, 100.0);
+<span class="boring">}</span></code></pre>
+<h2 id="formlayout"><a class="header" href="#formlayout">FormLayout</a></h2>
+<p>Convenient layout for label-field pairs:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::{FormLayout, RowWrapPolicy, FieldGrowthPolicy};
+
+let mut form = FormLayout::new();
+
+// Configure form behavior
+form.set_row_wrap_policy(RowWrapPolicy::WrapLongRows);
+form.set_field_growth_policy(FieldGrowthPolicy::ExpandingFieldsGrow);
+
+// Set spacing
+form.set_horizontal_spacing(10.0);
+form.set_vertical_spacing(8.0);
+
+// The form automatically aligns labels and fields
+// Labels go in the left column, fields in the right
+<span class="boring">}</span></code></pre>
+<h2 id="stacklayout"><a class="header" href="#stacklayout">StackLayout</a></h2>
+<p>Stack widgets on top of each other (only one visible at a time):</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::{StackLayout, StackSizeMode};
+
+let mut stack = StackLayout::new();
+
+// Configure how the stack calculates its size
+stack.set_size_mode(StackSizeMode::CurrentWidgetSize);  // Size based on current widget
+// or
+stack.set_size_mode(StackSizeMode::MaximumSize);  // Size based on largest widget
+
+// Set the current index (which widget is visible)
+stack.set_current_index(0);
+assert_eq!(stack.current_index(), 0);
+<span class="boring">}</span></code></pre>
+<h2 id="flowlayout"><a class="header" href="#flowlayout">FlowLayout</a></h2>
+<p>Arrange widgets in a flowing pattern (like text wrapping):</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::FlowLayout;
+
+let mut flow = FlowLayout::new();
+
+// Set spacing between items
+flow.set_spacing(10.0);
+flow.set_horizontal_spacing(15.0);  // Between items in a row
+flow.set_vertical_spacing(8.0);     // Between rows
+<span class="boring">}</span></code></pre>
+<h2 id="anchorlayout"><a class="header" href="#anchorlayout">AnchorLayout</a></h2>
+<p>Position widgets relative to each other or the container:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::{AnchorLayout, Anchor, AnchorLine, AnchorTarget};
+use horizon_lattice_core::ObjectId;
+
+let mut anchor = AnchorLayout::new();
+
+// Anchors connect widget edges to targets
+// For example: widget's left edge to parent's left edge plus margin
+let left_anchor = Anchor {
+    line: AnchorLine::Left,
+    target: AnchorTarget::Parent,
+    target_line: AnchorLine::Left,
+    margin: 10.0,
+};
+
+// Center horizontally in parent
+let center_anchor = Anchor {
+    line: AnchorLine::HorizontalCenter,
+    target: AnchorTarget::Parent,
+    target_line: AnchorLine::HorizontalCenter,
+    margin: 0.0,
+};
+<span class="boring">}</span></code></pre>
+<h2 id="nested-layouts"><a class="header" href="#nested-layouts">Nested Layouts</a></h2>
+<p>Layouts can be nested for complex UIs:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::{LayoutKind, BoxLayout, ContentMargins};
+
+// Main vertical layout
+let mut main = LayoutKind::vertical();
+
+// Header as a horizontal layout
+let mut header = BoxLayout::horizontal();
+header.set_spacing(10.0);
+header.set_content_margins(ContentMargins::uniform(5.0));
+
+// Convert to LayoutKind for nesting
+let header_kind = LayoutKind::from(header);
+
+// In a real app, you would add the header layout as an item
+// to the main layout
+<span class="boring">}</span></code></pre>
+<h2 id="layout-invalidation"><a class="header" href="#layout-invalidation">Layout Invalidation</a></h2>
+<p>Layouts track when they need recalculation:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::LayoutKind;
+
+let mut layout = LayoutKind::vertical();
+
+// Check if layout needs recalculation
+if layout.needs_recalculation() {
+    println!("Layout needs to be recalculated");
+}
+
+// Invalidate to force recalculation
+layout.invalidate();
+assert!(layout.needs_recalculation());
+<span class="boring">}</span></code></pre>
+<h2 id="layout-geometry"><a class="header" href="#layout-geometry">Layout Geometry</a></h2>
+<p>Set and query layout geometry:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::LayoutKind;
+use horizon_lattice::render::Rect;
+
+let mut layout = LayoutKind::vertical();
+
+// Set the layout's bounding rectangle
+let rect = Rect::new(10.0, 20.0, 300.0, 400.0);
+layout.set_geometry(rect);
+
+// Query the geometry
+let geom = layout.geometry();
+assert_eq!(geom.origin.x, 10.0);
+assert_eq!(geom.origin.y, 20.0);
+assert_eq!(geom.size.width, 300.0);
+assert_eq!(geom.size.height, 400.0);
+<span class="boring">}</span></code></pre>
+<h2 id="custom-layout-implementation"><a class="header" href="#custom-layout-implementation">Custom Layout Implementation</a></h2>
+<p>The <code>Layout</code> trait can be implemented for custom behavior:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::{Layout, ContentMargins};
+use horizon_lattice::widget::SizeHint;
+use horizon_lattice::render::{Rect, Size};
+
+// Conceptual example of a custom layout
+struct CenteredLayout {
+    geometry: Rect,
+    margins: ContentMargins,
+    spacing: f32,
+}
+
+impl CenteredLayout {
+    fn new() -&gt; Self {
+        Self {
+            geometry: Rect::ZERO,
+            margins: ContentMargins::uniform(0.0),
+            spacing: 6.0,
+        }
+    }
+
+    fn set_spacing(&amp;mut self, spacing: f32) {
+        self.spacing = spacing;
+    }
+
+    fn set_content_margins(&amp;mut self, margins: ContentMargins) {
+        self.margins = margins;
+    }
+
+    // Calculate where to position a child to center it
+    fn center_rect(&amp;self, child_size: Size) -&gt; Rect {
+        let available_width = self.geometry.width() - self.margins.horizontal();
+        let available_height = self.geometry.height() - self.margins.vertical();
+
+        let x = self.margins.left + (available_width - child_size.width) / 2.0;
+        let y = self.margins.top + (available_height - child_size.height) / 2.0;
+
+        Rect::new(x.max(self.margins.left), y.max(self.margins.top),
+                  child_size.width.min(available_width),
+                  child_size.height.min(available_height))
+    }
+}
+
+// Example usage
+let mut layout = CenteredLayout::new();
+layout.set_content_margins(ContentMargins::uniform(10.0));
+
+// Simulate setting geometry and centering a 100x50 widget
+layout.geometry = Rect::new(0.0, 0.0, 400.0, 300.0);
+let centered = layout.center_rect(Size::new(100.0, 50.0));
+
+// The widget should be centered
+assert!((centered.origin.x - 160.0).abs() &lt; 0.01);  // (400-20-100)/2 + 10
+assert!((centered.origin.y - 135.0).abs() &lt; 0.01); // (300-20-50)/2 + 10
+<span class="boring">}</span></code></pre>
+<h2 id="default-layout-constants"><a class="header" href="#default-layout-constants">Default Layout Constants</a></h2>
+<p>The layout system provides sensible defaults:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::widget::layout::{DEFAULT_SPACING, DEFAULT_MARGINS};
+
+// Default spacing between items
+assert_eq!(DEFAULT_SPACING, 6.0);
+
+// Default content margins
+assert_eq!(DEFAULT_MARGINS.left, 9.0);
+assert_eq!(DEFAULT_MARGINS.top, 9.0);
+assert_eq!(DEFAULT_MARGINS.right, 9.0);
+assert_eq!(DEFAULT_MARGINS.bottom, 9.0);
+<span class="boring">}</span></code></pre>
+<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<ol>
+<li><strong>Use appropriate layouts</strong> - VBox/HBox for linear arrangements, Grid for tables, Form for input forms</li>
+<li><strong>Set size policies</strong> - Help layouts make better decisions about space distribution</li>
+<li><strong>Use stretch factors</strong> - Control how extra space is distributed between widgets</li>
+<li><strong>Nest layouts</strong> - Combine simple layouts for complex UIs rather than using one complex layout</li>
+<li><strong>Set minimum sizes</strong> - Prevent layouts from shrinking widgets too small</li>
+<li><strong>Use spacers</strong> - Add flexible space to push widgets apart or fill gaps</li>
+</ol>
+<p>See the <a href="#layout-reference">Layout Reference</a> for all layout types.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="styling-guide"><a class="header" href="#styling-guide">Styling Guide</a></h1>
+<p>Horizon Lattice uses a CSS-like styling system for widget appearance.</p>
+<h2 id="selectors"><a class="header" href="#selectors">Selectors</a></h2>
+<h3 id="type-selectors"><a class="header" href="#type-selectors">Type Selectors</a></h3>
+<p>Match widgets by type name:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// Simple type selector
+let button = Selector::type_selector("Button");
+assert_eq!(button.to_string(), "Button");
+
+let label = Selector::type_selector("Label");
+assert_eq!(label.to_string(), "Label");
+
+// Universal selector (matches any widget)
+let any = Selector::universal();
+assert_eq!(any.to_string(), "*");
+<span class="boring">}</span></code></pre>
+<h3 id="class-selectors"><a class="header" href="#class-selectors">Class Selectors</a></h3>
+<p>Match widgets with a specific class:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// Class selector
+let primary = Selector::class("primary");
+assert_eq!(primary.to_string(), ".primary");
+
+let danger = Selector::class("danger");
+assert_eq!(danger.to_string(), ".danger");
+
+// Combine type and class
+let primary_button = Selector::type_selector("Button")
+    .descendant(SelectorPart::class_only("primary"));
+assert_eq!(primary_button.to_string(), "Button .primary");
+<span class="boring">}</span></code></pre>
+<h3 id="id-selectors"><a class="header" href="#id-selectors">ID Selectors</a></h3>
+<p>Match a specific widget by ID:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// ID selector
+let submit = Selector::id("submit-button");
+assert_eq!(submit.to_string(), "#submit-button");
+
+let header = Selector::id("main-header");
+assert_eq!(header.to_string(), "#main-header");
+<span class="boring">}</span></code></pre>
+<h3 id="pseudo-classes"><a class="header" href="#pseudo-classes">Pseudo-Classes</a></h3>
+<p>Match widget states:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// Create a selector with hover pseudo-class
+let hover = Selector::type_selector("Button")
+    .descendant(SelectorPart::new().with_pseudo(PseudoClass::Hover));
+assert_eq!(hover.to_string(), "Button :hover");
+
+// Button with pressed state
+let pressed = SelectorPart::type_only("Button")
+    .with_pseudo(PseudoClass::Pressed);
+assert_eq!(pressed.to_string(), "Button:pressed");
+
+// Available pseudo-classes
+let _ = PseudoClass::Hover;     // Mouse over widget
+let _ = PseudoClass::Pressed;   // Mouse button down
+let _ = PseudoClass::Focused;   // Has keyboard focus
+let _ = PseudoClass::Disabled;  // Widget is disabled
+let _ = PseudoClass::Enabled;   // Widget is enabled
+let _ = PseudoClass::Checked;   // For checkable widgets
+let _ = PseudoClass::Unchecked; // For checkable widgets
+let _ = PseudoClass::FirstChild;  // First among siblings
+let _ = PseudoClass::LastChild;   // Last among siblings
+let _ = PseudoClass::OnlyChild;   // Only child of parent
+let _ = PseudoClass::Empty;       // Has no children
+<span class="boring">}</span></code></pre>
+<h3 id="combinators"><a class="header" href="#combinators">Combinators</a></h3>
+<p>Combine selectors for hierarchical matching:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// Descendant combinator (any depth)
+let nested = Selector::type_selector("Container")
+    .descendant(SelectorPart::type_only("Button"));
+assert_eq!(nested.to_string(), "Container Button");
+
+// Child combinator (direct child only)
+let child = Selector::type_selector("Form")
+    .child(SelectorPart::type_only("Label"));
+assert_eq!(child.to_string(), "Form &gt; Label");
+
+// Multiple levels
+let deep = Selector::type_selector("Window")
+    .descendant(SelectorPart::type_only("Container"))
+    .child(SelectorPart::class_only("button-row"))
+    .descendant(SelectorPart::type_only("Button"));
+assert_eq!(deep.to_string(), "Window Container &gt; .button-row Button");
+<span class="boring">}</span></code></pre>
+<h2 id="specificity"><a class="header" href="#specificity">Specificity</a></h2>
+<p>CSS specificity determines which styles take precedence:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// Specificity is (IDs, Classes+PseudoClasses, Types)
+
+// * -&gt; (0,0,0)
+let universal = Selector::universal();
+assert_eq!(Specificity::of_selector(&amp;universal), Specificity(0, 0, 0));
+
+// Button -&gt; (0,0,1)
+let button = Selector::type_selector("Button");
+assert_eq!(Specificity::of_selector(&amp;button), Specificity(0, 0, 1));
+
+// .primary -&gt; (0,1,0)
+let class = Selector::class("primary");
+assert_eq!(Specificity::of_selector(&amp;class), Specificity(0, 1, 0));
+
+// #submit -&gt; (1,0,0)
+let id = Selector::id("submit");
+assert_eq!(Specificity::of_selector(&amp;id), Specificity(1, 0, 0));
+
+// Button.primary:hover -&gt; (0,2,1) = 1 type + 1 class + 1 pseudo-class
+let complex = Selector {
+    parts: vec![
+        SelectorPart::type_only("Button")
+            .with_class("primary")
+            .with_pseudo(PseudoClass::Hover)
+    ],
+    combinators: vec![],
+};
+assert_eq!(Specificity::of_selector(&amp;complex), Specificity(0, 2, 1));
+
+// Higher specificity wins
+assert!(Specificity(1, 0, 0) &gt; Specificity(0, 99, 99)); // ID beats many classes
+assert!(Specificity(0, 1, 0) &gt; Specificity(0, 0, 99));  // Class beats many types
+<span class="boring">}</span></code></pre>
+<h2 id="building-selectors"><a class="header" href="#building-selectors">Building Selectors</a></h2>
+<p>Use the builder pattern for complex selectors:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// Build a selector programmatically
+let selector = Selector::type_selector("Button")
+    .child(SelectorPart::class_only("icon"))
+    .descendant(SelectorPart::type_only("Image"));
+
+assert_eq!(selector.to_string(), "Button &gt; .icon Image");
+
+// Get the subject (rightmost part)
+let subject = selector.subject().unwrap();
+assert!(matches!(subject.type_selector, Some(TypeSelector::Type(ref t)) if t == "Image"));
+
+// Build a complex selector part
+let part = SelectorPart::type_only("Button")
+    .with_class("primary")
+    .with_class("large")
+    .with_pseudo(PseudoClass::Hover);
+assert_eq!(part.to_string(), "Button.primary.large:hover");
+<span class="boring">}</span></code></pre>
+<h2 id="themes"><a class="header" href="#themes">Themes</a></h2>
+<p>Create and use themes for consistent styling:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// Use built-in themes
+let light = Theme::light();
+let dark = Theme::dark();
+let high_contrast = Theme::high_contrast();
+
+// Check theme mode
+assert_eq!(light.mode, ThemeMode::Light);
+assert_eq!(dark.mode, ThemeMode::Dark);
+assert_eq!(high_contrast.mode, ThemeMode::HighContrast);
+
+// Access theme colors
+let primary_color = light.primary();
+let background = light.background();
+let text_color = light.text_color();
+<span class="boring">}</span></code></pre>
+<h2 id="nth-child-expressions"><a class="header" href="#nth-child-expressions">Nth-Child Expressions</a></h2>
+<p>Use nth-child for pattern-based selection:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// :nth-child(odd) matches 1st, 3rd, 5th... (2n+1)
+let odd = NthExpr::odd();
+assert!(odd.matches(0));   // 1st child (0-indexed)
+assert!(!odd.matches(1));  // 2nd child
+assert!(odd.matches(2));   // 3rd child
+
+// :nth-child(even) matches 2nd, 4th, 6th... (2n)
+let even = NthExpr::even();
+assert!(!even.matches(0)); // 1st child
+assert!(even.matches(1));  // 2nd child
+assert!(!even.matches(2)); // 3rd child
+
+// :nth-child(3) matches only the 3rd child
+let third = NthExpr::new(0, 3);
+assert!(!third.matches(0));
+assert!(!third.matches(1));
+assert!(third.matches(2));  // 3rd child (0-indexed = 2)
+
+// Custom expression: every 3rd starting from 2nd (3n+2)
+let custom = NthExpr::new(3, 2);
+println!("Formula: {}", custom); // "3n+2"
+<span class="boring">}</span></code></pre>
+<h2 id="css-pseudo-class-parsing"><a class="header" href="#css-pseudo-class-parsing">CSS Pseudo-Class Parsing</a></h2>
+<p>Parse pseudo-classes from CSS strings:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// Parse standard pseudo-classes
+assert_eq!(PseudoClass::from_css("hover"), Some(PseudoClass::Hover));
+assert_eq!(PseudoClass::from_css("pressed"), Some(PseudoClass::Pressed));
+assert_eq!(PseudoClass::from_css("active"), Some(PseudoClass::Pressed)); // CSS alias
+assert_eq!(PseudoClass::from_css("focused"), Some(PseudoClass::Focused));
+assert_eq!(PseudoClass::from_css("focus"), Some(PseudoClass::Focused)); // CSS alias
+assert_eq!(PseudoClass::from_css("disabled"), Some(PseudoClass::Disabled));
+assert_eq!(PseudoClass::from_css("first-child"), Some(PseudoClass::FirstChild));
+
+// Unknown pseudo-class returns None
+assert_eq!(PseudoClass::from_css("unknown"), None);
+<span class="boring">}</span></code></pre>
+<h2 id="specificity-with-source-order"><a class="header" href="#specificity-with-source-order">Specificity With Source Order</a></h2>
+<p>When specificity is equal, later rules win:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+// Same specificity, different source order
+let s1 = Specificity(0, 1, 0).with_order(1);
+let s2 = Specificity(0, 1, 0).with_order(2);
+
+// Higher order (later in stylesheet) wins
+assert!(s2 &gt; s1);
+
+// But higher specificity always beats lower
+let s3 = Specificity(0, 2, 0).with_order(0);
+assert!(s3 &gt; s1); // More specific, even though earlier
+assert!(s3 &gt; s2);
+<span class="boring">}</span></code></pre>
+<h2 id="theme-modes"><a class="header" href="#theme-modes">Theme Modes</a></h2>
+<p>Support different visual modes:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_style::prelude::*;
+
+fn select_theme(user_preference: &amp;str) -&gt; Theme {
+    match user_preference {
+        "dark" =&gt; Theme::dark(),
+        "high-contrast" =&gt; Theme::high_contrast(),
+        _ =&gt; Theme::light(),
+    }
+}
+
+// Check and respond to theme mode
+let theme = Theme::dark();
+match theme.mode {
+    ThemeMode::Light =&gt; println!("Using light theme"),
+    ThemeMode::Dark =&gt; println!("Using dark theme"),
+    ThemeMode::HighContrast =&gt; println!("Using high contrast theme"),
+}
+<span class="boring">}</span></code></pre>
+<h2 id="best-practices-1"><a class="header" href="#best-practices-1">Best Practices</a></h2>
+<ol>
+<li><strong>Use class selectors</strong> for reusable styles across widget types</li>
+<li><strong>Use type selectors</strong> for widget-specific default styles</li>
+<li><strong>Use ID selectors sparingly</strong> - they have high specificity and are harder to override</li>
+<li><strong>Keep specificity low</strong> - makes styles easier to maintain and override</li>
+<li><strong>Use combinators</strong> to scope styles without increasing specificity too much</li>
+<li><strong>Leverage themes</strong> for consistent colors and spacing across your application</li>
+<li><strong>Use pseudo-classes</strong> for interactive states instead of JavaScript-style state changes</li>
+</ol>
+<h2 id="supported-properties"><a class="header" href="#supported-properties">Supported Properties</a></h2>
+<h3 id="box-model"><a class="header" href="#box-model">Box Model</a></h3>
+<ul>
+<li><code>margin</code>, <code>padding</code> - Edge spacing</li>
+<li><code>border-width</code>, <code>border-color</code>, <code>border-style</code> - Borders</li>
+<li><code>border-radius</code> - Rounded corners</li>
+</ul>
+<h3 id="colors-1"><a class="header" href="#colors-1">Colors</a></h3>
+<ul>
+<li><code>color</code> - Text color</li>
+<li><code>background-color</code> - Background fill</li>
+</ul>
+<h3 id="typography"><a class="header" href="#typography">Typography</a></h3>
+<ul>
+<li><code>font-size</code>, <code>font-weight</code>, <code>font-style</code></li>
+<li><code>font-family</code> - Font name or generic</li>
+<li><code>text-align</code> - left, center, right</li>
+<li><code>line-height</code> - Line spacing</li>
+</ul>
+<h3 id="effects"><a class="header" href="#effects">Effects</a></h3>
+<ul>
+<li><code>opacity</code> - 0.0 to 1.0</li>
+</ul>
+<h3 id="cursor"><a class="header" href="#cursor">Cursor</a></h3>
+<ul>
+<li><code>cursor</code> - pointer, text, etc.</li>
+</ul>
+<p>See <a href="#style-properties-reference">Style Properties Reference</a> for the complete list.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="signals-and-slots-guide"><a class="header" href="#signals-and-slots-guide">Signals and Slots Guide</a></h1>
+<p>Signals are Horizon Lattice’s mechanism for event-driven programming. They provide type-safe, thread-safe communication between objects.</p>
+<h2 id="basic-usage"><a class="header" href="#basic-usage">Basic Usage</a></h2>
+<p>Signals emit values that connected slots (callbacks) receive:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::Signal;
+
+// Create a signal
+let clicked = Signal::&lt;()&gt;::new();
+
+// Connect a slot
+let conn_id = clicked.connect(|_| {
+    println!("Button clicked!");
+});
+
+// Emit the signal
+clicked.emit(());
+
+// Disconnect later if needed
+clicked.disconnect(conn_id);
+<span class="boring">}</span></code></pre>
+<h2 id="signal-types"><a class="header" href="#signal-types">Signal Types</a></h2>
+<h3 id="parameterless-signals"><a class="header" href="#parameterless-signals">Parameterless Signals</a></h3>
+<p>For events that don’t carry data:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::Signal;
+
+let clicked = Signal::&lt;()&gt;::new();
+clicked.connect(|_| println!("Clicked!"));
+clicked.emit(());
+<span class="boring">}</span></code></pre>
+<h3 id="signals-with-parameters"><a class="header" href="#signals-with-parameters">Signals with Parameters</a></h3>
+<p>For events that carry data:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::Signal;
+
+// Single parameter
+let text_changed = Signal::&lt;String&gt;::new();
+text_changed.connect(|new_text| {
+    println!("Text is: {}", new_text);
+});
+text_changed.emit("Hello".to_string());
+
+// Primitive parameter (note the reference pattern)
+let value_changed = Signal::&lt;i32&gt;::new();
+value_changed.connect(|&amp;value| {
+    println!("Value: {}", value);
+});
+value_changed.emit(42);
+<span class="boring">}</span></code></pre>
+<h3 id="signals-with-multiple-parameters"><a class="header" href="#signals-with-multiple-parameters">Signals with Multiple Parameters</a></h3>
+<p>Use tuples for multiple values:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::Signal;
+
+let position_changed = Signal::&lt;(f32, f32)&gt;::new();
+position_changed.connect(|(x, y)| {
+    println!("Position: ({}, {})", x, y);
+});
+position_changed.emit((100.0, 200.0));
+<span class="boring">}</span></code></pre>
+<h2 id="connection-types-1"><a class="header" href="#connection-types-1">Connection Types</a></h2>
+<p>Control how slots are invoked:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::{Signal, ConnectionType};
+
+let signal = Signal::&lt;i32&gt;::new();
+
+// Auto (default) - Direct if same thread, Queued if different
+signal.connect(|&amp;n| println!("Auto: {}", n));
+
+// Direct - Called immediately, same thread
+signal.connect_with_type(|&amp;n| println!("Direct: {}", n), ConnectionType::Direct);
+
+// Queued - Always posted to event loop (cross-thread safe)
+signal.connect_with_type(|&amp;n| println!("Queued: {}", n), ConnectionType::Queued);
+
+signal.emit(42);
+<span class="boring">}</span></code></pre>
+<h3 id="connection-type-details"><a class="header" href="#connection-type-details">Connection Type Details</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Type</th><th>Behavior</th><th>Use Case</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Auto</code></td><td>Direct if same thread, Queued otherwise</td><td>Most situations (default)</td></tr>
+<tr><td><code>Direct</code></td><td>Immediate, synchronous call</td><td>Same-thread, performance critical</td></tr>
+<tr><td><code>Queued</code></td><td>Posted to event loop</td><td>Cross-thread communication</td></tr>
+<tr><td><code>BlockingQueued</code></td><td>Queued but blocks until complete</td><td>Synchronization across threads</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="creating-custom-signals"><a class="header" href="#creating-custom-signals">Creating Custom Signals</a></h2>
+<p>Embed signals in your types:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::{Signal, Property};
+
+struct Counter {
+    value: Property&lt;i32&gt;,
+    value_changed: Signal&lt;i32&gt;,
+}
+
+impl Counter {
+    pub fn new() -&gt; Self {
+        Self {
+            value: Property::new(0),
+            value_changed: Signal::new(),
+        }
+    }
+
+    pub fn value_changed(&amp;self) -&gt; &amp;Signal&lt;i32&gt; {
+        &amp;self.value_changed
+    }
+
+    pub fn value(&amp;self) -&gt; i32 {
+        self.value.get()
+    }
+
+    pub fn set_value(&amp;self, new_value: i32) {
+        if self.value.set(new_value) {
+            self.value_changed.emit(new_value);
+        }
+    }
+
+    pub fn increment(&amp;self) {
+        self.set_value(self.value() + 1);
+    }
+}
+
+// Usage
+let counter = Counter::new();
+counter.value_changed().connect(|&amp;v| println!("Counter: {}", v));
+counter.increment();  // Prints: Counter: 1
+counter.increment();  // Prints: Counter: 2
+<span class="boring">}</span></code></pre>
+<h2 id="scoped-connections"><a class="header" href="#scoped-connections">Scoped Connections</a></h2>
+<p>Automatically disconnect when the guard is dropped (RAII pattern):</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::Signal;
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Arc;
+
+let signal = Signal::&lt;i32&gt;::new();
+let counter = Arc::new(AtomicI32::new(0));
+
+{
+    let counter_clone = counter.clone();
+    let _guard = signal.connect_scoped(move |&amp;n| {
+        counter_clone.fetch_add(n, Ordering::SeqCst);
+    });
+    signal.emit(10);  // counter = 10
+    // _guard is dropped here
+}
+
+signal.emit(20);  // Nothing happens, connection was dropped
+assert_eq!(counter.load(Ordering::SeqCst), 10);
+<span class="boring">}</span></code></pre>
+<h2 id="blocking-signal-emission"><a class="header" href="#blocking-signal-emission">Blocking Signal Emission</a></h2>
+<p>Temporarily disable a signal:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::Signal;
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Arc;
+
+let signal = Signal::&lt;i32&gt;::new();
+let counter = Arc::new(AtomicI32::new(0));
+
+let counter_clone = counter.clone();
+signal.connect(move |&amp;n| {
+    counter_clone.fetch_add(n, Ordering::SeqCst);
+});
+
+signal.emit(1);  // counter = 1
+signal.set_blocked(true);
+signal.emit(2);  // Blocked - nothing happens
+signal.set_blocked(false);
+signal.emit(3);  // counter = 4
+
+assert_eq!(counter.load(Ordering::SeqCst), 4);
+<span class="boring">}</span></code></pre>
+<h2 id="thread-safety"><a class="header" href="#thread-safety">Thread Safety</a></h2>
+<p>Signals are thread-safe (<code>Send + Sync</code>). Cross-thread emissions are automatically handled:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::{Signal, ConnectionType};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, Ordering};
+
+let signal = Arc::new(Signal::&lt;i32&gt;::new());
+let counter = Arc::new(AtomicI32::new(0));
+
+// Connect from main thread
+let counter_clone = counter.clone();
+signal.connect_with_type(move |&amp;n| {
+    counter_clone.fetch_add(n, Ordering::SeqCst);
+}, ConnectionType::Direct);
+
+// Emit from worker thread
+let signal_clone = signal.clone();
+let handle = std::thread::spawn(move || {
+    signal_clone.emit(42);
+});
+
+handle.join().unwrap();
+assert_eq!(counter.load(Ordering::SeqCst), 42);
+<span class="boring">}</span></code></pre>
+<h2 id="best-practices-2"><a class="header" href="#best-practices-2">Best Practices</a></h2>
+<ol>
+<li><strong>Keep slots short</strong> - Long operations should spawn background tasks</li>
+<li><strong>Avoid blocking</strong> - Never block the main thread in a slot</li>
+<li><strong>Use scoped connections</strong> - When the receiver has a shorter lifetime than the signal</li>
+<li><strong>Don’t recurse</strong> - Emitting the same signal from its handler can cause infinite loops</li>
+<li><strong>Use Direct for performance</strong> - When you know both sides are on the same thread</li>
+<li><strong>Use Queued for safety</strong> - When crossing thread boundaries or uncertain</li>
+</ol>
+<h2 id="common-patterns"><a class="header" href="#common-patterns">Common Patterns</a></h2>
+<h3 id="one-shot-connection"><a class="header" href="#one-shot-connection">One-shot Connection</a></h3>
+<p>Connect, emit once, then auto-disconnect:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::Signal;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+let signal = Signal::&lt;()&gt;::new();
+let done = Arc::new(AtomicBool::new(false));
+
+let done_clone = done.clone();
+let id = signal.connect(move |_| {
+    done_clone.store(true, Ordering::SeqCst);
+});
+
+signal.emit(());
+signal.disconnect(id);  // Manually disconnect after first use
+<span class="boring">}</span></code></pre>
+<h3 id="forwarding-signals"><a class="header" href="#forwarding-signals">Forwarding Signals</a></h3>
+<p>Chain signals together:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::Signal;
+use std::sync::Arc;
+
+let source = Arc::new(Signal::&lt;String&gt;::new());
+let destination = Arc::new(Signal::&lt;String&gt;::new());
+
+// Forward from source to destination
+let dest_clone = destination.clone();
+source.connect(move |s| {
+    dest_clone.emit(s.clone());
+});
+<span class="boring">}</span></code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="threading-guide"><a class="header" href="#threading-guide">Threading Guide</a></h1>
+<p>Horizon Lattice follows a single-threaded UI model with support for background tasks.</p>
+<h2 id="threading-model-1"><a class="header" href="#threading-model-1">Threading Model</a></h2>
+<ul>
+<li><strong>Main thread</strong>: All UI operations must happen here</li>
+<li><strong>Worker threads</strong>: For CPU-intensive or blocking operations</li>
+<li><strong>Signal marshalling</strong>: Cross-thread signals are automatically queued</li>
+</ul>
+<h2 id="main-thread-rule"><a class="header" href="#main-thread-rule">Main Thread Rule</a></h2>
+<p>UI widgets are not thread-safe. Always access them from the main thread:</p>
+<pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice::Application;
+
+// BAD - Don't do this!
+// std::thread::spawn(|| {
+//     label.set_text("Updated");  // Undefined behavior!
+// });
+
+// GOOD - Post to main thread
+fn update_label_safely(app: &amp;Application) {
+    app.post_task(|| {
+        // UI operations are safe here - runs on main thread
+        println!("This runs on the main thread!");
+    });
+}
+<span class="boring">}</span></code></pre>
+<h2 id="thread-pool"><a class="header" href="#thread-pool">Thread Pool</a></h2>
+<p>Use <code>ThreadPool</code> for CPU-intensive work:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::threadpool::{ThreadPool, ThreadPoolConfig};
+
+// Create a custom thread pool
+let pool = ThreadPool::new(ThreadPoolConfig::with_threads(4))
+    .expect("Failed to create thread pool");
+
+// Spawn a background task
+let handle = pool.spawn(|| {
+    // Heavy computation here
+    let mut sum = 0u64;
+    for i in 0..1_000_000 {
+        sum += i;
+    }
+    sum
+});
+
+// Wait for the result
+let result = handle.wait();
+assert_eq!(result, Some(499999500000));
+<span class="boring">}</span></code></pre>
+<h2 id="thread-pool-with-ui-callbacks"><a class="header" href="#thread-pool-with-ui-callbacks">Thread Pool with UI Callbacks</a></h2>
+<p>Spawn tasks that deliver results to the main thread:</p>
+<pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::threadpool::ThreadPool;
+
+let pool = ThreadPool::global();
+
+// Spawn a task that delivers its result to the UI thread
+pool.spawn_with_callback(
+    || {
+        // Background work - runs on worker thread
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        "computed result".to_string()
+    },
+    |result| {
+        // This callback runs on the UI thread
+        println!("Got result: {}", result);
+    },
+);
+<span class="boring">}</span></code></pre>
+<h2 id="cancellable-tasks"><a class="header" href="#cancellable-tasks">Cancellable Tasks</a></h2>
+<p>Use <code>CancellationToken</code> for cooperative task cancellation:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::threadpool::{ThreadPool, ThreadPoolConfig, CancellationToken};
+use std::time::Duration;
+
+let pool = ThreadPool::new(ThreadPoolConfig::with_threads(2)).unwrap();
+
+let (handle, token) = pool.spawn_cancellable(|cancel_token| {
+    for i in 0..100 {
+        if cancel_token.is_cancelled() {
+            return format!("Cancelled at step {}", i);
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    "Completed".to_string()
+});
+
+// Cancel after a short delay
+std::thread::sleep(Duration::from_millis(50));
+token.cancel();
+
+// The task will return early due to cancellation
+let result = handle.wait();
+assert!(result.is_some());
+println!("Task result: {:?}", result);
+<span class="boring">}</span></code></pre>
+<h2 id="worker-objects"><a class="header" href="#worker-objects">Worker Objects</a></h2>
+<p>For persistent background workers that process tasks sequentially:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::worker::Worker;
+use std::sync::{Arc, atomic::{AtomicI32, Ordering}};
+
+// Create a worker that produces String results
+let worker = Worker::&lt;String&gt;::new();
+let counter = Arc::new(AtomicI32::new(0));
+
+// Connect to the result signal
+let counter_clone = counter.clone();
+worker.on_result().connect(move |result| {
+    println!("Worker produced: {}", result);
+    counter_clone.fetch_add(1, Ordering::SeqCst);
+});
+
+// Send tasks to the worker (processed sequentially)
+worker.send(|| "Task 1 complete".to_string());
+worker.send(|| "Task 2 complete".to_string());
+
+// Wait for processing
+std::thread::sleep(std::time::Duration::from_millis(100));
+
+// Graceful shutdown
+worker.stop();
+worker.join();
+
+assert!(counter.load(Ordering::SeqCst) &gt;= 1);
+<span class="boring">}</span></code></pre>
+<h2 id="worker-with-callbacks"><a class="header" href="#worker-with-callbacks">Worker with Callbacks</a></h2>
+<p>Send tasks with direct callbacks that bypass the signal:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::worker::Worker;
+use std::sync::{Arc, Mutex};
+
+let worker = Worker::&lt;i32&gt;::new();
+let result_holder = Arc::new(Mutex::new(None));
+
+let result_clone = result_holder.clone();
+worker.send_with_callback(
+    || {
+        // Compute something
+        42 * 2
+    },
+    move |result| {
+        // Callback receives the result
+        *result_clone.lock().unwrap() = Some(result);
+    },
+);
+
+// Wait for processing
+std::thread::sleep(std::time::Duration::from_millis(100));
+
+assert_eq!(*result_holder.lock().unwrap(), Some(84));
+
+worker.stop_and_join();
+<span class="boring">}</span></code></pre>
+<h2 id="progress-reporting"><a class="header" href="#progress-reporting">Progress Reporting</a></h2>
+<p>Report progress from background tasks:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::progress::ProgressReporter;
+use std::sync::{Arc, Mutex};
+
+let reporter = ProgressReporter::new();
+let progress_values = Arc::new(Mutex::new(Vec::new()));
+
+// Connect to progress updates
+let values_clone = progress_values.clone();
+reporter.on_progress_changed().connect(move |&amp;progress| {
+    values_clone.lock().unwrap().push(progress);
+});
+
+// Simulate progress updates
+reporter.set_progress(0.25);
+reporter.set_progress(0.50);
+reporter.set_progress(0.75);
+reporter.set_progress(1.0);
+
+// Verify progress was tracked
+let values = progress_values.lock().unwrap();
+assert!(values.len() &gt;= 4);
+assert!((reporter.progress() - 1.0).abs() &lt; f32::EPSILON);
+<span class="boring">}</span></code></pre>
+<h2 id="progress-with-status-messages"><a class="header" href="#progress-with-status-messages">Progress with Status Messages</a></h2>
+<p>Combine progress values with status messages:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::progress::ProgressReporter;
+
+let reporter = ProgressReporter::new();
+
+// Connect to combined updates
+reporter.on_updated().connect(|update| {
+    if let Some(ref msg) = update.message {
+        println!("Progress: {:.0}% - {}", update.progress * 100.0, msg);
+    }
+});
+
+// Update both progress and message atomically
+reporter.update(0.25, "Loading resources...");
+reporter.update(0.50, "Processing data...");
+reporter.update(0.75, "Generating output...");
+reporter.update(1.0, "Complete!");
+
+assert_eq!(reporter.message(), Some("Complete!".to_string()));
+<span class="boring">}</span></code></pre>
+<h2 id="aggregate-progress"><a class="header" href="#aggregate-progress">Aggregate Progress</a></h2>
+<p>For multi-step operations, combine weighted sub-tasks:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::progress::AggregateProgress;
+
+let mut aggregate = AggregateProgress::new();
+
+// Add weighted sub-tasks (weight determines contribution to total)
+let download = aggregate.add_task("download", 3.0);  // 75% of total weight
+let process = aggregate.add_task("process", 1.0);    // 25% of total weight
+
+// Initial state
+assert_eq!(aggregate.progress(), 0.0);
+
+// Complete download only (75% of total due to weight)
+download.set_progress(1.0);
+assert!((aggregate.progress() - 0.75).abs() &lt; 0.01);
+
+// Complete processing (now at 100%)
+process.set_progress(1.0);
+assert!((aggregate.progress() - 1.0).abs() &lt; 0.01);
+<span class="boring">}</span></code></pre>
+<h2 id="tasks-with-progress-reporting"><a class="header" href="#tasks-with-progress-reporting">Tasks with Progress Reporting</a></h2>
+<p>Combine thread pool tasks with progress reporting:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::threadpool::{ThreadPool, ThreadPoolConfig};
+use std::time::Duration;
+
+let pool = ThreadPool::new(ThreadPoolConfig::with_threads(2)).unwrap();
+
+let (handle, token, reporter) = pool.spawn_with_progress(|cancel, progress| {
+    for i in 0..=10 {
+        if cancel.is_cancelled() {
+            return "Cancelled".to_string();
+        }
+        progress.update(i as f32 / 10.0, format!("Step {} of 10", i));
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    "Complete".to_string()
+});
+
+// Connect to progress updates
+reporter.on_progress_changed().connect(|&amp;p| {
+    println!("Progress: {:.0}%", p * 100.0);
+});
+
+// Wait for completion
+let result = handle.wait();
+assert_eq!(result, Some("Complete".to_string()));
+assert!((reporter.progress() - 1.0).abs() &lt; f32::EPSILON);
+<span class="boring">}</span></code></pre>
+<h2 id="thread-safety-checks"><a class="header" href="#thread-safety-checks">Thread Safety Checks</a></h2>
+<p>The framework includes thread affinity checking:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use horizon_lattice_core::thread_check::{is_main_thread, main_thread_id};
+
+// Check if we're on the main thread
+if is_main_thread() {
+    println!("Running on main thread");
+} else {
+    println!("Running on a background thread");
+}
+
+// Get the main thread ID (set when Application is created)
+if let Some(id) = main_thread_id() {
+    println!("Main thread ID: {:?}", id);
+}
+<span class="boring">}</span></code></pre>
+<h2 id="best-practices-3"><a class="header" href="#best-practices-3">Best Practices</a></h2>
+<ol>
+<li><strong>Never block the main thread</strong> - Keep UI responsive</li>
+<li><strong>Minimize cross-thread communication</strong> - Batch updates when possible</li>
+<li><strong>Use signals for thread communication</strong> - They handle marshalling automatically</li>
+<li><strong>Prefer async for I/O</strong> - Don’t waste threads waiting on network/disk</li>
+<li><strong>Check cancellation tokens</strong> - Enable graceful shutdown of long-running tasks</li>
+<li><strong>Use progress reporters</strong> - Keep users informed about long operations</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tutorial-hello-world"><a class="header" href="#tutorial-hello-world">Tutorial: Hello World</a></h1>
+<p>Build your first Horizon Lattice application.</p>
+<blockquote>
+<p><strong>Status</strong>: This tutorial is under construction.</p>
+</blockquote>
+<h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You’ll Learn</a></h2>
+<ul>
+<li>Creating an Application</li>
+<li>Showing a Window</li>
+<li>Adding a Label widget</li>
+</ul>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<ul>
+<li>Rust installed</li>
+<li>Horizon Lattice added to your project</li>
+</ul>
+<h2 id="steps"><a class="header" href="#steps">Steps</a></h2>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tutorial-button-clicks"><a class="header" href="#tutorial-button-clicks">Tutorial: button clicks</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This tutorial is under construction.</p>
+</blockquote>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tutorial-forms"><a class="header" href="#tutorial-forms">Tutorial: forms</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This tutorial is under construction.</p>
+</blockquote>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tutorial-lists"><a class="header" href="#tutorial-lists">Tutorial: lists</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This tutorial is under construction.</p>
+</blockquote>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tutorial-custom-widget"><a class="header" href="#tutorial-custom-widget">Tutorial: custom widget</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This tutorial is under construction.</p>
+</blockquote>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tutorial-theming"><a class="header" href="#tutorial-theming">Tutorial: theming</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This tutorial is under construction.</p>
+</blockquote>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tutorial-file-operations"><a class="header" href="#tutorial-file-operations">Tutorial: file operations</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This tutorial is under construction.</p>
+</blockquote>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="example-calculator"><a class="header" href="#example-calculator">Example: calculator</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This example is under construction.</p>
+</blockquote>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>A calculator application demonstrating Horizon Lattice features.</p>
+<h2 id="key-concepts"><a class="header" href="#key-concepts">Key Concepts</a></h2>
+<p>Coming soon…</p>
+<h2 id="full-source"><a class="header" href="#full-source">Full Source</a></h2>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="example-text-editor"><a class="header" href="#example-text-editor">Example: text editor</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This example is under construction.</p>
+</blockquote>
+<h2 id="overview-1"><a class="header" href="#overview-1">Overview</a></h2>
+<p>A text editor application demonstrating Horizon Lattice features.</p>
+<h2 id="key-concepts-1"><a class="header" href="#key-concepts-1">Key Concepts</a></h2>
+<p>Coming soon…</p>
+<h2 id="full-source-1"><a class="header" href="#full-source-1">Full Source</a></h2>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="example-file-browser"><a class="header" href="#example-file-browser">Example: file browser</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This example is under construction.</p>
+</blockquote>
+<h2 id="overview-2"><a class="header" href="#overview-2">Overview</a></h2>
+<p>A file browser application demonstrating Horizon Lattice features.</p>
+<h2 id="key-concepts-2"><a class="header" href="#key-concepts-2">Key Concepts</a></h2>
+<p>Coming soon…</p>
+<h2 id="full-source-2"><a class="header" href="#full-source-2">Full Source</a></h2>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="example-image-viewer"><a class="header" href="#example-image-viewer">Example: image viewer</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This example is under construction.</p>
+</blockquote>
+<h2 id="overview-3"><a class="header" href="#overview-3">Overview</a></h2>
+<p>A image viewer application demonstrating Horizon Lattice features.</p>
+<h2 id="key-concepts-3"><a class="header" href="#key-concepts-3">Key Concepts</a></h2>
+<p>Coming soon…</p>
+<h2 id="full-source-3"><a class="header" href="#full-source-3">Full Source</a></h2>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="example-settings-dialog"><a class="header" href="#example-settings-dialog">Example: settings dialog</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This example is under construction.</p>
+</blockquote>
+<h2 id="overview-4"><a class="header" href="#overview-4">Overview</a></h2>
+<p>A settings dialog application demonstrating Horizon Lattice features.</p>
+<h2 id="key-concepts-4"><a class="header" href="#key-concepts-4">Key Concepts</a></h2>
+<p>Coming soon…</p>
+<h2 id="full-source-4"><a class="header" href="#full-source-4">Full Source</a></h2>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="example-network-client"><a class="header" href="#example-network-client">Example: network client</a></h1>
+<blockquote>
+<p><strong>Status</strong>: This example is under construction.</p>
+</blockquote>
+<h2 id="overview-5"><a class="header" href="#overview-5">Overview</a></h2>
+<p>A network client application demonstrating Horizon Lattice features.</p>
+<h2 id="key-concepts-5"><a class="header" href="#key-concepts-5">Key Concepts</a></h2>
+<p>Coming soon…</p>
+<h2 id="full-source-5"><a class="header" href="#full-source-5">Full Source</a></h2>
+<p>Coming soon…</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="widget-catalog"><a class="header" href="#widget-catalog">Widget Catalog</a></h1>
+<p>A reference of all built-in widgets in Horizon Lattice.</p>
+<h2 id="basic-widgets"><a class="header" href="#basic-widgets">Basic Widgets</a></h2>
+<h3 id="label"><a class="header" href="#label">Label</a></h3>
+<p>Displays read-only text.</p>
+<pre><code class="language-rust ignore">let label = Label::new("Hello, World!");
+label.set_alignment(TextAlign::Center);</code></pre>
+<h3 id="button"><a class="header" href="#button">Button</a></h3>
+<p>A clickable push button.</p>
+<pre><code class="language-rust ignore">let button = Button::new("Click Me");
+button.clicked().connect(|_| println!("Clicked!"));</code></pre>
+<h3 id="checkbox"><a class="header" href="#checkbox">CheckBox</a></h3>
+<p>A toggleable checkbox with optional label.</p>
+<pre><code class="language-rust ignore">let checkbox = CheckBox::new("Enable feature");
+checkbox.toggled().connect(|&amp;checked| {
+    println!("Checked: {}", checked);
+});</code></pre>
+<h3 id="radiobutton"><a class="header" href="#radiobutton">RadioButton</a></h3>
+<p>Mutually exclusive option buttons.</p>
+<pre><code class="language-rust ignore">let mut group = ButtonGroup::new();
+group.add_button(RadioButton::new("Option A"));
+group.add_button(RadioButton::new("Option B"));</code></pre>
+<h2 id="input-widgets"><a class="header" href="#input-widgets">Input Widgets</a></h2>
+<h3 id="textedit"><a class="header" href="#textedit">TextEdit</a></h3>
+<p>Single or multi-line text input.</p>
+<h3 id="spinbox"><a class="header" href="#spinbox">SpinBox</a></h3>
+<p>Numeric input with increment/decrement.</p>
+<h3 id="slider"><a class="header" href="#slider">Slider</a></h3>
+<p>Continuous value selection.</p>
+<h3 id="combobox"><a class="header" href="#combobox">ComboBox</a></h3>
+<p>Dropdown selection.</p>
+<h2 id="container-widgets"><a class="header" href="#container-widgets">Container Widgets</a></h2>
+<h3 id="container"><a class="header" href="#container">Container</a></h3>
+<p>Generic container for child widgets.</p>
+<h3 id="scrollarea"><a class="header" href="#scrollarea">ScrollArea</a></h3>
+<p>Scrollable content area.</p>
+<h3 id="tabwidget"><a class="header" href="#tabwidget">TabWidget</a></h3>
+<p>Tabbed container.</p>
+<h3 id="splitter"><a class="header" href="#splitter">Splitter</a></h3>
+<p>Resizable split view.</p>
+<h2 id="display-widgets"><a class="header" href="#display-widgets">Display Widgets</a></h2>
+<h3 id="progressbar"><a class="header" href="#progressbar">ProgressBar</a></h3>
+<p>Progress indication.</p>
+<h3 id="imageview"><a class="header" href="#imageview">ImageView</a></h3>
+<p>Image display with scaling.</p>
+<h3 id="treeview"><a class="header" href="#treeview">TreeView</a></h3>
+<p>Hierarchical data display.</p>
+<h3 id="listview"><a class="header" href="#listview">ListView</a></h3>
+<p>List data display.</p>
+<h3 id="tableview"><a class="header" href="#tableview">TableView</a></h3>
+<p>Tabular data display.</p>
+<hr>
+<blockquote>
+<p><strong>Note</strong>: This catalog is under construction. See the <a href="https://docs.rs/horizon-lattice">API documentation</a> for complete details.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="layout-reference"><a class="header" href="#layout-reference">Layout Reference</a></h1>
+<p>All layout types available in Horizon Lattice.</p>
+<h2 id="hboxlayout"><a class="header" href="#hboxlayout">HBoxLayout</a></h2>
+<p>Arranges widgets horizontally (left to right).</p>
+<pre><code class="language-rust ignore">let mut layout = HBoxLayout::new();
+layout.set_spacing(8);
+layout.add_widget(widget1);
+layout.add_widget(widget2);</code></pre>
+<h2 id="vboxlayout"><a class="header" href="#vboxlayout">VBoxLayout</a></h2>
+<p>Arranges widgets vertically (top to bottom).</p>
+<pre><code class="language-rust ignore">let mut layout = VBoxLayout::new();
+layout.set_spacing(8);
+layout.add_widget(widget1);
+layout.add_widget(widget2);</code></pre>
+<h2 id="gridlayout-2"><a class="header" href="#gridlayout-2">GridLayout</a></h2>
+<p>Arranges widgets in a grid.</p>
+<pre><code class="language-rust ignore">let mut layout = GridLayout::new();
+layout.add_widget(widget, row, col);
+layout.add_widget_with_span(widget, row, col, row_span, col_span);</code></pre>
+<h2 id="formlayout-1"><a class="header" href="#formlayout-1">FormLayout</a></h2>
+<p>Two-column layout for forms.</p>
+<pre><code class="language-rust ignore">let mut layout = FormLayout::new();
+layout.add_row("Label:", widget);</code></pre>
+<h2 id="stacklayout-1"><a class="header" href="#stacklayout-1">StackLayout</a></h2>
+<p>Shows one widget at a time.</p>
+<pre><code class="language-rust ignore">let mut layout = StackLayout::new();
+layout.add_widget(page1);
+layout.add_widget(page2);
+layout.set_current_index(0);</code></pre>
+<hr>
+<blockquote>
+<p><strong>Note</strong>: This reference is under construction. See the <a href="https://docs.rs/horizon-lattice">API documentation</a> for complete details.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="style-properties-reference"><a class="header" href="#style-properties-reference">Style Properties Reference</a></h1>
+<p>All CSS properties supported by Horizon Lattice.</p>
+<h2 id="box-model-1"><a class="header" href="#box-model-1">Box Model</a></h2>
+<h3 id="margin"><a class="header" href="#margin">margin</a></h3>
+<p>Outer spacing around the widget.</p>
+<pre><code class="language-css">margin: 10px;           /* All sides */
+margin: 10px 20px;      /* Vertical, horizontal */
+margin: 10px 20px 15px 25px;  /* Top, right, bottom, left */
+</code></pre>
+<h3 id="padding"><a class="header" href="#padding">padding</a></h3>
+<p>Inner spacing within the widget.</p>
+<pre><code class="language-css">padding: 8px;
+padding: 8px 16px;
+</code></pre>
+<h3 id="border-width"><a class="header" href="#border-width">border-width</a></h3>
+<p>Border thickness.</p>
+<pre><code class="language-css">border-width: 1px;
+</code></pre>
+<h3 id="border-color"><a class="header" href="#border-color">border-color</a></h3>
+<p>Border color.</p>
+<pre><code class="language-css">border-color: #333;
+border-color: rgb(51, 51, 51);
+</code></pre>
+<h3 id="border-style"><a class="header" href="#border-style">border-style</a></h3>
+<p>Border line style.</p>
+<pre><code class="language-css">border-style: solid;
+border-style: none;
+</code></pre>
+<h3 id="border-radius"><a class="header" href="#border-radius">border-radius</a></h3>
+<p>Corner rounding.</p>
+<pre><code class="language-css">border-radius: 4px;
+border-radius: 4px 8px;  /* TL/BR, TR/BL */
+</code></pre>
+<h2 id="colors-2"><a class="header" href="#colors-2">Colors</a></h2>
+<h3 id="color"><a class="header" href="#color">color</a></h3>
+<p>Text color.</p>
+<pre><code class="language-css">color: white;
+color: #ffffff;
+color: rgb(255, 255, 255);
+color: rgba(255, 255, 255, 0.8);
+</code></pre>
+<h3 id="background-color"><a class="header" href="#background-color">background-color</a></h3>
+<p>Background fill color.</p>
+<pre><code class="language-css">background-color: #3498db;
+background-color: transparent;
+</code></pre>
+<h2 id="typography-1"><a class="header" href="#typography-1">Typography</a></h2>
+<h3 id="font-size"><a class="header" href="#font-size">font-size</a></h3>
+<p>Text size.</p>
+<pre><code class="language-css">font-size: 14px;
+font-size: 1.2em;
+</code></pre>
+<h3 id="font-weight"><a class="header" href="#font-weight">font-weight</a></h3>
+<p>Text weight.</p>
+<pre><code class="language-css">font-weight: normal;
+font-weight: bold;
+font-weight: 500;
+</code></pre>
+<h3 id="font-style"><a class="header" href="#font-style">font-style</a></h3>
+<p>Text style.</p>
+<pre><code class="language-css">font-style: normal;
+font-style: italic;
+</code></pre>
+<h3 id="font-family"><a class="header" href="#font-family">font-family</a></h3>
+<p>Font selection.</p>
+<pre><code class="language-css">font-family: "Helvetica Neue", sans-serif;
+</code></pre>
+<h3 id="text-align"><a class="header" href="#text-align">text-align</a></h3>
+<p>Horizontal text alignment.</p>
+<pre><code class="language-css">text-align: left;
+text-align: center;
+text-align: right;
+</code></pre>
+<h3 id="line-height"><a class="header" href="#line-height">line-height</a></h3>
+<p>Line spacing multiplier.</p>
+<pre><code class="language-css">line-height: 1.5;
+</code></pre>
+<h2 id="effects-1"><a class="header" href="#effects-1">Effects</a></h2>
+<h3 id="opacity"><a class="header" href="#opacity">opacity</a></h3>
+<p>Transparency (0.0 to 1.0).</p>
+<pre><code class="language-css">opacity: 0.8;
+</code></pre>
+<h3 id="box-shadow"><a class="header" href="#box-shadow">box-shadow</a></h3>
+<p>Drop shadow.</p>
+<pre><code class="language-css">box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+box-shadow: 0 4px 8px #00000033;
+</code></pre>
+<h2 id="sizing"><a class="header" href="#sizing">Sizing</a></h2>
+<h3 id="width-height"><a class="header" href="#width-height">width, height</a></h3>
+<p>Explicit dimensions.</p>
+<pre><code class="language-css">width: 200px;
+height: 100px;
+</code></pre>
+<h3 id="min-width-min-height"><a class="header" href="#min-width-min-height">min-width, min-height</a></h3>
+<p>Minimum dimensions.</p>
+<pre><code class="language-css">min-width: 50px;
+min-height: 24px;
+</code></pre>
+<h3 id="max-width-max-height"><a class="header" href="#max-width-max-height">max-width, max-height</a></h3>
+<p>Maximum dimensions.</p>
+<pre><code class="language-css">max-width: 400px;
+max-height: 300px;
+</code></pre>
+<h2 id="interaction"><a class="header" href="#interaction">Interaction</a></h2>
+<h3 id="cursor-1"><a class="header" href="#cursor-1">cursor</a></h3>
+<p>Mouse cursor style.</p>
+<pre><code class="language-css">cursor: pointer;
+cursor: default;
+cursor: text;
+</code></pre>
+<h3 id="pointer-events"><a class="header" href="#pointer-events">pointer-events</a></h3>
+<p>Enable/disable mouse interaction.</p>
+<pre><code class="language-css">pointer-events: auto;
+pointer-events: none;
+</code></pre>
+<h2 id="special-values"><a class="header" href="#special-values">Special Values</a></h2>
+<h3 id="inherit"><a class="header" href="#inherit">inherit</a></h3>
+<p>Inherit value from parent.</p>
+<pre><code class="language-css">color: inherit;
+font-size: inherit;
+</code></pre>
+<h3 id="initial"><a class="header" href="#initial">initial</a></h3>
+<p>Reset to default value.</p>
+<pre><code class="language-css">margin: initial;
+</code></pre>
+<hr>
+<blockquote>
+<p><strong>Note</strong>: This reference is under construction. See the <a href="https://docs.rs/horizon-lattice">API documentation</a> for complete details.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="platform-differences"><a class="header" href="#platform-differences">Platform Differences</a></h1>
+<p>Behavior differences across Windows, macOS, and Linux.</p>
+<h2 id="window-management"><a class="header" href="#window-management">Window Management</a></h2>
+<h3 id="title-bar"><a class="header" href="#title-bar">Title Bar</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>Windows</th><th>macOS</th><th>Linux</th></tr>
+</thead>
+<tbody>
+<tr><td>Custom title bar</td><td>Supported</td><td>Limited</td><td>Varies by WM</td></tr>
+<tr><td>Traffic lights position</td><td>N/A</td><td>Left</td><td>N/A</td></tr>
+<tr><td>Menu in title bar</td><td>Supported</td><td>System menu bar</td><td>Supported</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="window-decorations"><a class="header" href="#window-decorations">Window Decorations</a></h3>
+<ul>
+<li><strong>Windows</strong>: Standard Win32 decorations</li>
+<li><strong>macOS</strong>: Native NSWindow decorations</li>
+<li><strong>Linux</strong>: Depends on window manager (X11/Wayland)</li>
+</ul>
+<h2 id="styling-2"><a class="header" href="#styling-2">Styling</a></h2>
+<h3 id="system-colors"><a class="header" href="#system-colors">System Colors</a></h3>
+<p>Use <code>SystemTheme::accent_color()</code> for the platform accent color.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Platform</th><th>Accent Color Source</th></tr>
+</thead>
+<tbody>
+<tr><td>Windows</td><td>WinRT UISettings</td></tr>
+<tr><td>macOS</td><td>NSColor.controlAccentColor</td></tr>
+<tr><td>Linux</td><td>XDG Portal (if available)</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="dark-mode"><a class="header" href="#dark-mode">Dark Mode</a></h3>
+<p>Use <code>SystemTheme::color_scheme()</code> to detect light/dark mode.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Platform</th><th>Detection Method</th></tr>
+</thead>
+<tbody>
+<tr><td>Windows</td><td>AppsUseLightTheme registry</td></tr>
+<tr><td>macOS</td><td>NSApp.effectiveAppearance</td></tr>
+<tr><td>Linux</td><td>XDG Portal color-scheme</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="text-rendering-1"><a class="header" href="#text-rendering-1">Text Rendering</a></h2>
+<h3 id="font-selection"><a class="header" href="#font-selection">Font Selection</a></h3>
+<p>System fonts vary by platform:</p>
+<ul>
+<li><strong>Windows</strong>: Segoe UI</li>
+<li><strong>macOS</strong>: SF Pro / San Francisco</li>
+<li><strong>Linux</strong>: System dependent (often DejaVu)</li>
+</ul>
+<h3 id="font-rendering"><a class="header" href="#font-rendering">Font Rendering</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>Windows</th><th>macOS</th><th>Linux</th></tr>
+</thead>
+<tbody>
+<tr><td>Subpixel AA</td><td>ClearType</td><td>Native</td><td>FreeType</td></tr>
+<tr><td>Font hinting</td><td>Strong</td><td>None</td><td>Configurable</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="input"><a class="header" href="#input">Input</a></h2>
+<h3 id="keyboard"><a class="header" href="#keyboard">Keyboard</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>Windows</th><th>macOS</th><th>Linux</th></tr>
+</thead>
+<tbody>
+<tr><td>Command key</td><td>Ctrl</td><td>Cmd</td><td>Ctrl</td></tr>
+<tr><td>Context menu</td><td>Application key</td><td>Ctrl+Click</td><td>Application key</td></tr>
+<tr><td>IME</td><td>TSF</td><td>Input Sources</td><td>IBus/Fcitx</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="touch"><a class="header" href="#touch">Touch</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>Windows</th><th>macOS</th><th>Linux</th></tr>
+</thead>
+<tbody>
+<tr><td>Touch events</td><td>Native</td><td>Native</td><td>Via libinput</td></tr>
+<tr><td>Gestures</td><td>WM_GESTURE</td><td>NSEvent</td><td>Limited</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="file-system"><a class="header" href="#file-system">File System</a></h2>
+<h3 id="path-conventions"><a class="header" href="#path-conventions">Path Conventions</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Platform</th><th>Config Dir</th><th>Data Dir</th></tr>
+</thead>
+<tbody>
+<tr><td>Windows</td><td><code>%APPDATA%</code></td><td><code>%LOCALAPPDATA%</code></td></tr>
+<tr><td>macOS</td><td><code>~/Library/Application Support</code></td><td>Same</td></tr>
+<tr><td>Linux</td><td><code>~/.config</code></td><td><code>~/.local/share</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Use <code>platform::directories()</code> for cross-platform paths.</p>
+<h2 id="known-limitations"><a class="header" href="#known-limitations">Known Limitations</a></h2>
+<h3 id="linux-1"><a class="header" href="#linux-1">Linux</a></h3>
+<ul>
+<li>High contrast detection not fully implemented</li>
+<li>Some advanced clipboard formats not supported on Wayland</li>
+<li>Native file dialogs depend on portal availability</li>
+</ul>
+<h3 id="macos-1"><a class="header" href="#macos-1">macOS</a></h3>
+<ul>
+<li>Custom title bar colors limited</li>
+<li>Some animations may differ from system style</li>
+</ul>
+<h3 id="windows-1"><a class="header" href="#windows-1">Windows</a></h3>
+<ul>
+<li>DPI scaling may require manifest for older apps</li>
+</ul>
+<hr>
+<blockquote>
+<p><strong>Note</strong>: This reference is under construction.</p>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>

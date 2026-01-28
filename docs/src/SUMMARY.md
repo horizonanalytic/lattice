@@ -11,6 +11,7 @@
 # Guides
 
 - [Architecture Overview](./guides/architecture.md)
+- [Rendering and Graphics](./guides/rendering.md)
 - [Widgets](./guides/widgets.md)
 - [Layouts](./guides/layouts.md)
 - [Styling](./guides/styling.md)
@@ -43,6 +44,3 @@
 - [Style Properties](./reference/style-properties.md)
 - [Platform Differences](./reference/platform-differences.md)
 
----
-
-[API Documentation](https://docs.rs/horizon-lattice)

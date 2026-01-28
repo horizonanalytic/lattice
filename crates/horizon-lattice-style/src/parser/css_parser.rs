@@ -1,4 +1,8 @@
-//! CSS syntax parser using cssparser crate.
+//! CSS syntax parser using the `cssparser` crate.
+//!
+//! This module contains the core parsing logic for CSS stylesheets. The parser
+//! tokenizes CSS input and constructs [`StyleRule`] objects containing selectors
+//! and their associated style properties.
 
 use cssparser::{Parser, ParserInput, Token, ParseError as CssParseError};
 use horizon_lattice_render::{
@@ -11,7 +15,39 @@ use crate::style::StyleProperties;
 use crate::types::{StyleValue, LengthValue, EdgeValues, BorderStyle, TextAlign, Cursor};
 use crate::{Error, Result};
 
-/// Parse a CSS stylesheet into style rules.
+/// Parse a CSS stylesheet string into a list of style rules.
+///
+/// This function tokenizes and parses the provided CSS string, extracting all
+/// valid style rules. Rules that fail to parse are skipped with a warning logged.
+///
+/// # Arguments
+///
+/// * `css` - A string slice containing CSS stylesheet content.
+///
+/// # Returns
+///
+/// Returns `Ok(Vec<StyleRule>)` containing all successfully parsed rules.
+/// The rules are ordered by their appearance in the source, with each rule
+/// assigned an incrementing order value for specificity calculations.
+///
+/// Returns `Err` only for catastrophic errors (currently always returns Ok
+/// due to error recovery).
+///
+/// # Error Recovery
+///
+/// Parse errors in individual rules do not cause the entire parse to fail.
+/// Instead, the parser:
+/// 1. Logs the error via `tracing::warn!`
+/// 2. Skips to the next rule (after the closing `}`)
+/// 3. Continues parsing subsequent rules
+///
+/// # Example
+///
+/// ```ignore
+/// let css = "Button { color: red; } Label { color: blue; }";
+/// let rules = parse_css(css)?;
+/// assert_eq!(rules.len(), 2);
+/// ```
 pub fn parse_css(css: &str) -> Result<Vec<StyleRule>> {
     let mut input = ParserInput::new(css);
     let mut parser = Parser::new(&mut input);

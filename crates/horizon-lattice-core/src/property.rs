@@ -243,6 +243,11 @@ impl<T: Clone + Send + Sync + 'static> Binding<T> {
     ///
     /// If the binding is dirty or has never been computed, the computation
     /// function is called and the result is cached.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal `RwLock` is poisoned (i.e., a thread panicked
+    /// while holding the lock).
     pub fn get(&self) -> T {
         if self.dirty.load(Ordering::Acquire) || self.cached.read().is_none() {
             let value = (self.compute)();

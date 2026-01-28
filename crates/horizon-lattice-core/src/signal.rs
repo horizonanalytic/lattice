@@ -506,7 +506,13 @@ impl<Args: Clone + Send + 'static> Drop for ConnectionGuard<Args> {
     }
 }
 
-// ConnectionGuard is Send + Sync if Signal is
+// SAFETY: ConnectionGuard is Send + Sync because:
+// - The raw pointer `signal` is only dereferenced in `drop()`, which is called
+//   on the owning thread or when the guard is moved to another thread.
+// - Signal<Args> itself is Send + Sync (uses Mutex internally for connections).
+// - The ConnectionId is a simple Copy type (slotmap key).
+// - The guard's safety contract (documented in `connect_scoped`) requires the
+//   Signal to outlive the guard, which the caller must ensure.
 unsafe impl<Args: Clone + Send + 'static> Send for ConnectionGuard<Args> {}
 unsafe impl<Args: Clone + Send + 'static> Sync for ConnectionGuard<Args> {}
 

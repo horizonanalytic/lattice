@@ -333,6 +333,11 @@ impl ThreadPool {
     ///
     /// The global pool is lazily initialized with default settings
     /// (number of threads = number of CPU cores).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the global thread pool fails to initialize. This is rare
+    /// and typically indicates a system resource issue.
     pub fn global() -> &'static ThreadPool {
         GLOBAL_POOL.get_or_init(|| {
             ThreadPool::new(ThreadPoolConfig::default())

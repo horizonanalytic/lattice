@@ -37,6 +37,12 @@ impl HighContrast {
             SystemParametersInfoW, HIGHCONTRASTW, SPI_GETHIGHCONTRAST,
         };
 
+        // SAFETY: SystemParametersInfoW is a Windows API call that requires:
+        // - A valid HIGHCONTRASTW struct with cbSize correctly set
+        // - A pointer to that struct cast to c_void
+        // All of these requirements are met: hc is a stack-allocated struct
+        // with its size field initialized, and we pass a valid pointer to it.
+        // The API only reads/writes within the struct's bounds.
         unsafe {
             let mut hc = HIGHCONTRASTW {
                 cbSize: std::mem::size_of::<HIGHCONTRASTW>() as u32,

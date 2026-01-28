@@ -514,6 +514,13 @@ impl ClipboardWatcher {
             DefWindowProcW(hwnd, msg, wparam, lparam)
         }
 
+        // SAFETY: All Windows API calls in this block are safe because:
+        // - class_name is a valid null-terminated UTF-16 string that outlives all uses
+        // - class_name_ptr points to valid data for the duration of the block
+        // - wc is a properly initialized WNDCLASSW with valid function pointer
+        // - hwnd is checked for validity before use
+        // - Window and clipboard listener are properly cleaned up before returning
+        // - The message loop only accesses the window we created
         unsafe {
             // Register window class
             let class_name: Vec<u16> = "HorizonLatticeClipboardWatcher\0"
@@ -917,6 +924,12 @@ fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
     use windows::Win32::System::Ole::CF_HDROP;
     use windows::Win32::UI::Shell::{DragQueryFileW, HDROP};
 
+    // SAFETY: All Windows clipboard API calls are safe because:
+    // - OpenClipboard is called with default HWND (current thread)
+    // - CloseClipboard is always called via closure pattern (RAII-like)
+    // - GetClipboardData returns a handle owned by the system
+    // - DragQueryFileW only reads from the valid HDROP handle
+    // - Buffer allocation is properly sized before DragQueryFileW writes to it
     unsafe {
         // Open clipboard
         OpenClipboard(HWND::default())
@@ -984,6 +997,14 @@ fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError
         return Ok(());
     }
 
+    // SAFETY: All Windows clipboard and memory API calls are safe because:
+    // - GlobalAlloc allocates memory of exactly the size we calculated
+    // - GlobalLock returns a valid pointer or null (which we check)
+    // - We write exactly within the allocated bounds (DROPFILES + paths)
+    // - GlobalUnlock is called before SetClipboardData
+    // - CloseClipboard is always called via closure pattern
+    // - On error, GlobalFree cleans up the allocated memory
+    // - SetClipboardData takes ownership of the memory on success
     unsafe {
         // Calculate total size needed for DROPFILES + file paths (double-null terminated)
         let mut total_chars = 0usize;

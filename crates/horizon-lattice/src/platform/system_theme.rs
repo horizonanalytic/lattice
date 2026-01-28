@@ -541,7 +541,13 @@ fn windows_theme_watch_loop(inner: &ThemeWatcherInner) -> Result<(), SystemTheme
     let mut prev_accent = SystemTheme::accent_color();
     let mut prev_high_contrast = SystemTheme::is_high_contrast();
 
-    // Create a message-only window to receive WM_SETTINGCHANGE
+    // SAFETY: All Windows API calls in this block are safe because:
+    // - class_name is a compile-time wide string literal (w! macro) with static lifetime
+    // - wc is a properly initialized WNDCLASSW with valid function pointer
+    // - hwnd is checked via map_err before use
+    // - ThemeWatchState is Box::into_raw'd and later Box::from_raw'd in DestroyWindow cleanup
+    // - Message loop only accesses the window we created (hwnd parameter)
+    // - Window is properly destroyed before function returns
     unsafe {
         let instance = GetModuleHandleW(None)
             .map_err(|e| SystemThemeError::watcher(format!("GetModuleHandle failed: {}", e)))?;

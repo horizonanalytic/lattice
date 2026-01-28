@@ -152,6 +152,11 @@ impl GradientAtlas {
     /// Get or create a gradient ID for the given stops.
     ///
     /// Returns `None` if the atlas is full and the gradient is not already cached.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any `GradientStop` has a NaN offset value, as NaN values
+    /// cannot be compared for sorting.
     pub fn get_or_create(&mut self, stops: &[GradientStop]) -> Option<GradientId> {
         let key = GradientKey::from_stops(stops);
 

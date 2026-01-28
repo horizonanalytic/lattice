@@ -6,36 +6,57 @@ use horizon_lattice_render::Color;
 #[derive(Debug, Clone)]
 pub struct ColorPalette {
     // Primary colors
+    /// Main brand color.
     pub primary: Color,
+    /// Lighter variant of the primary color.
     pub primary_light: Color,
+    /// Darker variant of the primary color.
     pub primary_dark: Color,
+    /// Text/icon color for content on primary color.
     pub on_primary: Color,
 
     // Secondary colors
+    /// Secondary brand/accent color.
     pub secondary: Color,
+    /// Lighter variant of the secondary color.
     pub secondary_light: Color,
+    /// Darker variant of the secondary color.
     pub secondary_dark: Color,
+    /// Text/icon color for content on secondary color.
     pub on_secondary: Color,
 
     // Background colors
+    /// Main background color.
     pub background: Color,
+    /// Surface/card background color.
     pub surface: Color,
+    /// Variant surface color for differentiation.
     pub surface_variant: Color,
 
     // Text colors
+    /// Primary text color.
     pub text_primary: Color,
+    /// Secondary/muted text color.
     pub text_secondary: Color,
+    /// Disabled text color.
     pub text_disabled: Color,
 
     // Semantic colors
+    /// Error/danger color.
     pub error: Color,
+    /// Warning color.
     pub warning: Color,
+    /// Success color.
     pub success: Color,
+    /// Informational color.
     pub info: Color,
 
     // Border colors
+    /// Standard border color.
     pub border: Color,
+    /// Light border color.
     pub border_light: Color,
+    /// Divider/separator color.
     pub divider: Color,
 }
 

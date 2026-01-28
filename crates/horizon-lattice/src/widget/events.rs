@@ -573,57 +573,238 @@ pub enum FocusReason {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u16)]
 pub enum Key {
-    // Letters
-    A, B, C, D, E, F, G, H, I, J, K, L, M,
-    N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+    /// Letter A key.
+    A,
+    /// Letter B key.
+    B,
+    /// Letter C key.
+    C,
+    /// Letter D key.
+    D,
+    /// Letter E key.
+    E,
+    /// Letter F key.
+    F,
+    /// Letter G key.
+    G,
+    /// Letter H key.
+    H,
+    /// Letter I key.
+    I,
+    /// Letter J key.
+    J,
+    /// Letter K key.
+    K,
+    /// Letter L key.
+    L,
+    /// Letter M key.
+    M,
+    /// Letter N key.
+    N,
+    /// Letter O key.
+    O,
+    /// Letter P key.
+    P,
+    /// Letter Q key.
+    Q,
+    /// Letter R key.
+    R,
+    /// Letter S key.
+    S,
+    /// Letter T key.
+    T,
+    /// Letter U key.
+    U,
+    /// Letter V key.
+    V,
+    /// Letter W key.
+    W,
+    /// Letter X key.
+    X,
+    /// Letter Y key.
+    Y,
+    /// Letter Z key.
+    Z,
 
-    // Numbers (main keyboard)
-    Digit0, Digit1, Digit2, Digit3, Digit4,
-    Digit5, Digit6, Digit7, Digit8, Digit9,
+    /// Digit 0 key (main keyboard).
+    Digit0,
+    /// Digit 1 key (main keyboard).
+    Digit1,
+    /// Digit 2 key (main keyboard).
+    Digit2,
+    /// Digit 3 key (main keyboard).
+    Digit3,
+    /// Digit 4 key (main keyboard).
+    Digit4,
+    /// Digit 5 key (main keyboard).
+    Digit5,
+    /// Digit 6 key (main keyboard).
+    Digit6,
+    /// Digit 7 key (main keyboard).
+    Digit7,
+    /// Digit 8 key (main keyboard).
+    Digit8,
+    /// Digit 9 key (main keyboard).
+    Digit9,
 
-    // Function keys
-    F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+    /// Function key F1.
+    F1,
+    /// Function key F2.
+    F2,
+    /// Function key F3.
+    F3,
+    /// Function key F4.
+    F4,
+    /// Function key F5.
+    F5,
+    /// Function key F6.
+    F6,
+    /// Function key F7.
+    F7,
+    /// Function key F8.
+    F8,
+    /// Function key F9.
+    F9,
+    /// Function key F10.
+    F10,
+    /// Function key F11.
+    F11,
+    /// Function key F12.
+    F12,
 
-    // Navigation
-    ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-    Home, End, PageUp, PageDown,
+    /// Arrow up navigation key.
+    ArrowUp,
+    /// Arrow down navigation key.
+    ArrowDown,
+    /// Arrow left navigation key.
+    ArrowLeft,
+    /// Arrow right navigation key.
+    ArrowRight,
+    /// Home navigation key.
+    Home,
+    /// End navigation key.
+    End,
+    /// Page up navigation key.
+    PageUp,
+    /// Page down navigation key.
+    PageDown,
 
-    // Editing
-    Backspace, Delete, Insert,
-    Enter, Tab,
+    /// Backspace editing key.
+    Backspace,
+    /// Delete editing key.
+    Delete,
+    /// Insert editing key.
+    Insert,
+    /// Enter/Return key.
+    Enter,
+    /// Tab key.
+    Tab,
 
-    // Whitespace
+    /// Space bar key.
     Space,
 
-    // Modifiers (also tracked via KeyboardModifiers, but useful as key events)
-    ShiftLeft, ShiftRight,
-    ControlLeft, ControlRight,
-    AltLeft, AltRight,
-    MetaLeft, MetaRight,
+    /// Left Shift modifier key.
+    ShiftLeft,
+    /// Right Shift modifier key.
+    ShiftRight,
+    /// Left Control modifier key.
+    ControlLeft,
+    /// Right Control modifier key.
+    ControlRight,
+    /// Left Alt/Option modifier key.
+    AltLeft,
+    /// Right Alt/Option modifier key.
+    AltRight,
+    /// Left Meta/Command/Windows modifier key.
+    MetaLeft,
+    /// Right Meta/Command/Windows modifier key.
+    MetaRight,
 
-    // Punctuation and symbols
-    Minus, Equal,
-    BracketLeft, BracketRight, Backslash,
-    Semicolon, Quote,
-    Comma, Period, Slash,
+    /// Minus/hyphen key.
+    Minus,
+    /// Equal/plus key.
+    Equal,
+    /// Left bracket key.
+    BracketLeft,
+    /// Right bracket key.
+    BracketRight,
+    /// Backslash key.
+    Backslash,
+    /// Semicolon key.
+    Semicolon,
+    /// Quote/apostrophe key.
+    Quote,
+    /// Comma key.
+    Comma,
+    /// Period/dot key.
+    Period,
+    /// Forward slash key.
+    Slash,
+    /// Grave accent/backtick key.
     Grave,
 
-    // Control
+    /// Escape key.
     Escape,
-    CapsLock, NumLock, ScrollLock,
-    PrintScreen, Pause,
+    /// Caps Lock toggle key.
+    CapsLock,
+    /// Num Lock toggle key.
+    NumLock,
+    /// Scroll Lock toggle key.
+    ScrollLock,
+    /// Print Screen key.
+    PrintScreen,
+    /// Pause/Break key.
+    Pause,
 
-    // Numpad
-    Numpad0, Numpad1, Numpad2, Numpad3, Numpad4,
-    Numpad5, Numpad6, Numpad7, Numpad8, Numpad9,
-    NumpadAdd, NumpadSubtract, NumpadMultiply, NumpadDivide,
-    NumpadDecimal, NumpadEnter,
+    /// Numpad 0 key.
+    Numpad0,
+    /// Numpad 1 key.
+    Numpad1,
+    /// Numpad 2 key.
+    Numpad2,
+    /// Numpad 3 key.
+    Numpad3,
+    /// Numpad 4 key.
+    Numpad4,
+    /// Numpad 5 key.
+    Numpad5,
+    /// Numpad 6 key.
+    Numpad6,
+    /// Numpad 7 key.
+    Numpad7,
+    /// Numpad 8 key.
+    Numpad8,
+    /// Numpad 9 key.
+    Numpad9,
+    /// Numpad add/plus key.
+    NumpadAdd,
+    /// Numpad subtract/minus key.
+    NumpadSubtract,
+    /// Numpad multiply key.
+    NumpadMultiply,
+    /// Numpad divide key.
+    NumpadDivide,
+    /// Numpad decimal/period key.
+    NumpadDecimal,
+    /// Numpad enter key.
+    NumpadEnter,
 
-    // Media keys
-    MediaPlayPause, MediaStop, MediaNext, MediaPrevious,
-    AudioVolumeUp, AudioVolumeDown, AudioVolumeMute,
+    /// Media play/pause key.
+    MediaPlayPause,
+    /// Media stop key.
+    MediaStop,
+    /// Media next track key.
+    MediaNext,
+    /// Media previous track key.
+    MediaPrevious,
+    /// Volume up key.
+    AudioVolumeUp,
+    /// Volume down key.
+    AudioVolumeDown,
+    /// Volume mute toggle key.
+    AudioVolumeMute,
 
-    // Unknown/unmapped key
+    /// Unknown or unmapped key with raw code.
     Unknown(u16),
 }
 

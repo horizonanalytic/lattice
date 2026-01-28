@@ -27,7 +27,12 @@ pub enum RenderError {
 
     /// Invalid surface dimensions (zero width or height).
     #[error("invalid surface dimensions: {width}x{height}")]
-    InvalidDimensions { width: u32, height: u32 },
+    InvalidDimensions {
+        /// The invalid width value.
+        width: u32,
+        /// The invalid height value.
+        height: u32,
+    },
 
     /// The graphics context has not been initialized.
     #[error("graphics context not initialized")]

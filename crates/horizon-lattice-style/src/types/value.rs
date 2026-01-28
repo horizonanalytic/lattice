@@ -136,9 +136,13 @@ impl LengthValue {
 /// Edge values for margin, padding, and border-width.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct EdgeValues {
+    /// Top edge value.
     pub top: LengthValue,
+    /// Right edge value.
     pub right: LengthValue,
+    /// Bottom edge value.
     pub bottom: LengthValue,
+    /// Left edge value.
     pub left: LengthValue,
 }
 
@@ -187,9 +191,13 @@ impl EdgeValues {
 /// Resolved edge values in pixels.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct ResolvedEdges {
+    /// Top edge in pixels.
     pub top: f32,
+    /// Right edge in pixels.
     pub right: f32,
+    /// Bottom edge in pixels.
     pub bottom: f32,
+    /// Left edge in pixels.
     pub left: f32,
 }
 
@@ -208,11 +216,16 @@ impl ResolvedEdges {
 /// Border style.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BorderStyle {
+    /// No border.
     #[default]
     None,
+    /// Solid line border.
     Solid,
+    /// Dashed line border.
     Dashed,
+    /// Dotted line border.
     Dotted,
+    /// Double line border.
     Double,
 }
 
@@ -233,12 +246,18 @@ impl BorderStyle {
 /// Text alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TextAlign {
+    /// Align to the start of the text direction (left for LTR, right for RTL).
     #[default]
     Start,
+    /// Align to the end of the text direction (right for LTR, left for RTL).
     End,
+    /// Align to the left edge.
     Left,
+    /// Align to the right edge.
     Right,
+    /// Center the text.
     Center,
+    /// Justify text to fill the available width.
     Justify,
 }
 
@@ -260,21 +279,36 @@ impl TextAlign {
 /// Cursor style.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Cursor {
+    /// Default arrow cursor.
     #[default]
     Default,
+    /// Pointing hand cursor (for clickable elements).
     Pointer,
+    /// Text selection cursor (I-beam).
     Text,
+    /// Move/drag cursor.
     Move,
+    /// Not-allowed cursor (prohibition sign).
     NotAllowed,
+    /// Crosshair cursor.
     Crosshair,
+    /// Wait/busy cursor.
     Wait,
+    /// Progress cursor (busy with arrow).
     Progress,
+    /// Help cursor (arrow with question mark).
     Help,
+    /// Grab cursor (open hand).
     Grab,
+    /// Grabbing cursor (closed hand).
     Grabbing,
+    /// North-south resize cursor.
     ResizeNs,
+    /// East-west resize cursor.
     ResizeEw,
+    /// Northeast-southwest resize cursor.
     ResizeNesw,
+    /// Northwest-southeast resize cursor.
     ResizeNwse,
 }
 

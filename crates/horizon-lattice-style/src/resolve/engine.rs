@@ -55,13 +55,19 @@ impl<'a> StyleContext<'a> {
 /// Widget state for pseudo-class matching and cache keying.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct WidgetStyleState {
+    /// Whether the mouse is hovering over the widget.
     pub hovered: bool,
+    /// Whether the widget is being pressed/clicked.
     pub pressed: bool,
+    /// Whether the widget has keyboard focus.
     pub focused: bool,
+    /// Whether the widget is enabled for interaction.
     pub enabled: bool,
+    /// Checked state for checkable widgets (None = not checkable).
     pub checked: Option<bool>,
     /// Sibling info as (index, total_count).
     pub sibling_info: Option<(usize, usize)>,
+    /// Number of children this widget has.
     pub child_count: usize,
 }
 

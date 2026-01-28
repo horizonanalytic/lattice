@@ -10,9 +10,12 @@ use super::{ColorPalette, ThemeVariables};
 /// Theme mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ThemeMode {
+    /// Light theme mode.
     #[default]
     Light,
+    /// Dark theme mode.
     Dark,
+    /// High contrast accessibility mode.
     HighContrast,
 }
 

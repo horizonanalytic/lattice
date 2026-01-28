@@ -11,19 +11,29 @@ pub enum Error {
     /// CSS parsing error.
     #[error("CSS parse error at line {line}, column {column}: {message}")]
     Parse {
+        /// The error message.
         message: String,
+        /// Line number where the error occurred.
         line: u32,
+        /// Column number where the error occurred.
         column: u32,
     },
 
     /// Selector parsing error.
     #[error("Invalid selector '{selector}': {message}")]
-    InvalidSelector { selector: String, message: String },
+    InvalidSelector {
+        /// The invalid selector string.
+        selector: String,
+        /// Description of what's wrong with the selector.
+        message: String,
+    },
 
     /// File I/O error.
     #[error("Failed to read stylesheet '{path}': {source}")]
     Io {
+        /// Path to the file that failed to read.
         path: PathBuf,
+        /// The underlying I/O error.
         #[source]
         source: std::io::Error,
     },
@@ -35,7 +45,12 @@ pub enum Error {
 
     /// Invalid property value.
     #[error("Invalid value for property '{property}': {message}")]
-    InvalidValue { property: String, message: String },
+    InvalidValue {
+        /// The property name that has an invalid value.
+        property: String,
+        /// Description of what's wrong with the value.
+        message: String,
+    },
 }
 
 impl Error {

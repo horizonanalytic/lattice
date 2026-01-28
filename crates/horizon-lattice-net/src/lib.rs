@@ -1,6 +1,8 @@
 //! Networking module for Horizon Lattice.
 //!
 //! This crate provides networking capabilities for Horizon Lattice applications:
+
+#![warn(missing_docs)]
 //!
 //! - **HTTP Client**: Full-featured HTTP client with async support
 //! - **WebSocket**: Real-time bidirectional communication

@@ -22,10 +22,15 @@ pub struct WidgetMatchContext<'a> {
 /// Widget interaction state.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct WidgetState {
+    /// Whether the mouse is hovering over the widget.
     pub hovered: bool,
+    /// Whether the widget is being pressed/clicked.
     pub pressed: bool,
+    /// Whether the widget has keyboard focus.
     pub focused: bool,
+    /// Whether the widget is enabled for interaction.
     pub enabled: bool,
+    /// Checked state for checkable widgets (None = not checkable).
     pub checked: Option<bool>,
 }
 
@@ -39,14 +44,17 @@ pub struct SiblingInfo {
 }
 
 impl SiblingInfo {
+    /// Returns true if this is the first sibling.
     pub fn is_first(&self) -> bool {
         self.index == 0
     }
 
+    /// Returns true if this is the last sibling.
     pub fn is_last(&self) -> bool {
         self.index + 1 == self.count
     }
 
+    /// Returns true if this is the only child.
     pub fn is_only(&self) -> bool {
         self.count == 1
     }

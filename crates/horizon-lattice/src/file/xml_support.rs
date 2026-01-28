@@ -665,7 +665,12 @@ pub enum XmlNode {
     /// A CDATA section
     CData(String),
     /// A processing instruction
-    ProcessingInstruction { target: String, data: Option<String> },
+    ProcessingInstruction {
+        /// The processing instruction target (e.g., "xml-stylesheet").
+        target: String,
+        /// Optional data associated with the processing instruction.
+        data: Option<String>,
+    },
 }
 
 impl XmlNode {
@@ -761,22 +766,30 @@ impl From<&str> for XmlNode {
 pub enum XmlEvent {
     /// XML declaration
     Declaration {
+        /// XML version (e.g., "1.0").
         version: String,
+        /// Character encoding (e.g., "UTF-8").
         encoding: Option<String>,
+        /// Standalone document declaration.
         standalone: Option<bool>,
     },
     /// Start of an element
     StartElement {
+        /// Element tag name.
         name: String,
+        /// Element attributes as key-value pairs.
         attributes: HashMap<String, String>,
     },
     /// End of an element
     EndElement {
+        /// Element tag name being closed.
         name: String,
     },
     /// Empty element (self-closing)
     EmptyElement {
+        /// Element tag name.
         name: String,
+        /// Element attributes as key-value pairs.
         attributes: HashMap<String, String>,
     },
     /// Text content
@@ -787,7 +800,9 @@ pub enum XmlEvent {
     Comment(String),
     /// Processing instruction
     ProcessingInstruction {
+        /// The processing instruction target.
         target: String,
+        /// Optional data associated with the instruction.
         data: Option<String>,
     },
 }

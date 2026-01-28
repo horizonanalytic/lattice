@@ -2,6 +2,8 @@
 //!
 //! This crate provides the GPU-accelerated rendering layer built on wgpu.
 //! It handles surface management, rendering primitives, and GPU resource management.
+
+#![warn(missing_docs)]
 //!
 //! # Getting Started
 //!

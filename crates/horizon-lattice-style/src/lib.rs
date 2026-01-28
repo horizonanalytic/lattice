@@ -1,6 +1,8 @@
 //! CSS-like styling system for Horizon Lattice.
 //!
 //! This crate provides a comprehensive styling system inspired by CSS, featuring:
+
+#![warn(missing_docs)]
 //!
 //! - **Selectors**: Type, class, ID, pseudo-class, and combinator selectors
 //! - **Cascading**: Style priority and specificity-based resolution

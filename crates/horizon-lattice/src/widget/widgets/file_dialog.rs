@@ -296,18 +296,30 @@ pub struct BookmarkEntry {
 /// Icon types for bookmarks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BookmarkIcon {
+    /// Generic folder icon.
     #[default]
     Folder,
+    /// Home directory icon.
     Home,
+    /// Desktop directory icon.
     Desktop,
+    /// Documents directory icon.
     Documents,
+    /// Downloads directory icon.
     Downloads,
+    /// Pictures directory icon.
     Pictures,
+    /// Music directory icon.
     Music,
+    /// Videos directory icon.
     Videos,
+    /// Disk/drive icon.
     Drive,
+    /// Network location icon.
     Network,
+    /// Trash/recycle bin icon.
     Trash,
+    /// Custom user-defined icon.
     Custom,
 }
 

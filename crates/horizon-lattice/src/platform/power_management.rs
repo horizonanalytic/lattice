@@ -678,6 +678,7 @@ impl PowerEventWatcher {
         Ok(())
     }
 
+    /// Start listening for power events (macOS - limited support).
     #[cfg(target_os = "macos")]
     pub fn start(&self) -> Result<(), PowerManagementError> {
         // macOS power events require IOKit's IORegisterForSystemPower which

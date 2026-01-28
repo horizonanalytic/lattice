@@ -193,14 +193,17 @@ pub enum MenuRole {
     /// Bring all windows to front (macOS Window menu).
     BringAllToFrontRole,
 
-    /// Text-specific roles for Edit menu.
-    ///
-    /// These roles help the platform provide standard behavior for text editing.
+    /// Cut text/selection to clipboard.
     CutRole,
+    /// Copy text/selection to clipboard.
     CopyRole,
+    /// Paste from clipboard.
     PasteRole,
+    /// Select all text/content.
     SelectAllRole,
+    /// Undo last action.
     UndoRole,
+    /// Redo previously undone action.
     RedoRole,
 }
 

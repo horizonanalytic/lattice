@@ -13,51 +13,87 @@ use crate::types::{BorderStyle, TextAlign, Cursor};
 #[derive(Debug, Clone)]
 pub struct ComputedStyle {
     // === Box Model (resolved to pixels) ===
+    /// Top margin in pixels.
     pub margin_top: f32,
+    /// Right margin in pixels.
     pub margin_right: f32,
+    /// Bottom margin in pixels.
     pub margin_bottom: f32,
+    /// Left margin in pixels.
     pub margin_left: f32,
+    /// Top padding in pixels.
     pub padding_top: f32,
+    /// Right padding in pixels.
     pub padding_right: f32,
+    /// Bottom padding in pixels.
     pub padding_bottom: f32,
+    /// Left padding in pixels.
     pub padding_left: f32,
+    /// Top border width in pixels.
     pub border_top_width: f32,
+    /// Right border width in pixels.
     pub border_right_width: f32,
+    /// Bottom border width in pixels.
     pub border_bottom_width: f32,
+    /// Left border width in pixels.
     pub border_left_width: f32,
+    /// Border color.
     pub border_color: Color,
+    /// Border line style.
     pub border_style: BorderStyle,
+    /// Border corner radii.
     pub border_radius: CornerRadii,
 
     // === Background ===
+    /// Background paint (solid color or gradient).
     pub background: Paint,
 
     // === Size Constraints ===
+    /// Minimum width constraint in pixels, if set.
     pub min_width: Option<f32>,
+    /// Minimum height constraint in pixels, if set.
     pub min_height: Option<f32>,
+    /// Maximum width constraint in pixels, if set.
     pub max_width: Option<f32>,
+    /// Maximum height constraint in pixels, if set.
     pub max_height: Option<f32>,
+    /// Explicit width in pixels, if set.
     pub width: Option<f32>,
+    /// Explicit height in pixels, if set.
     pub height: Option<f32>,
 
     // === Typography ===
+    /// Font family stack.
     pub font_family: Vec<FontFamily>,
+    /// Font size in pixels.
     pub font_size: f32,
+    /// Font weight (boldness).
     pub font_weight: FontWeight,
+    /// Font style (normal, italic, oblique).
     pub font_style: FontStyle,
+    /// Font stretch (condensed, expanded, etc.).
     pub font_stretch: FontStretch,
+    /// Text foreground color.
     pub color: Color,
+    /// Text alignment.
     pub text_align: TextAlign,
+    /// Line height in pixels.
     pub line_height: f32,
+    /// Letter spacing in pixels.
     pub letter_spacing: f32,
+    /// Text decoration (underline, strikethrough, etc.).
     pub text_decoration: Option<TextDecoration>,
 
     // === Effects ===
+    /// Opacity (0.0 = transparent, 1.0 = opaque).
     pub opacity: f32,
+    /// Box shadows to render.
     pub box_shadow: Vec<BoxShadow>,
 
     // === Interaction ===
+    /// Mouse cursor style.
     pub cursor: Cursor,
+    /// Whether pointer events are enabled.
     pub pointer_events: bool,
 }
 

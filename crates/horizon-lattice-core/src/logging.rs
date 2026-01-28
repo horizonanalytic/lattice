@@ -361,6 +361,9 @@ macro_rules! lattice_trace {
     };
 }
 
+/// Log a debug-level message to the Horizon Lattice target.
+///
+/// This macro wraps `tracing::debug!` with the `horizon_lattice_core` target.
 #[macro_export]
 macro_rules! lattice_debug {
     ($($arg:tt)*) => {
@@ -368,6 +371,9 @@ macro_rules! lattice_debug {
     };
 }
 
+/// Log an info-level message to the Horizon Lattice target.
+///
+/// This macro wraps `tracing::info!` with the `horizon_lattice_core` target.
 #[macro_export]
 macro_rules! lattice_info {
     ($($arg:tt)*) => {
@@ -375,6 +381,9 @@ macro_rules! lattice_info {
     };
 }
 
+/// Log a warning-level message to the Horizon Lattice target.
+///
+/// This macro wraps `tracing::warn!` with the `horizon_lattice_core` target.
 #[macro_export]
 macro_rules! lattice_warn {
     ($($arg:tt)*) => {
@@ -382,6 +391,9 @@ macro_rules! lattice_warn {
     };
 }
 
+/// Log an error-level message to the Horizon Lattice target.
+///
+/// This macro wraps `tracing::error!` with the `horizon_lattice_core` target.
 #[macro_export]
 macro_rules! lattice_error {
     ($($arg:tt)*) => {

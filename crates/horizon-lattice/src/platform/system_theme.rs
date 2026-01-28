@@ -456,6 +456,7 @@ impl ThemeWatcher {
         Ok(())
     }
 
+    /// Start monitoring for system theme changes (macOS).
     #[cfg(target_os = "macos")]
     pub fn start(&self) -> Result<(), SystemThemeError> {
         if self.inner.running.swap(true, Ordering::SeqCst) {

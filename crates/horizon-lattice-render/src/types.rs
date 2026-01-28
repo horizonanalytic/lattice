@@ -8,7 +8,9 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct Point {
+    /// The x coordinate.
     pub x: f32,
+    /// The y coordinate.
     pub y: f32,
 }
 
@@ -57,7 +59,9 @@ impl From<glam::Vec2> for Point {
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct Size {
+    /// The width dimension.
     pub width: f32,
+    /// The height dimension.
     pub height: f32,
 }
 
@@ -99,7 +103,9 @@ impl From<(u32, u32)> for Size {
 /// A rectangle defined by origin and size.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Rect {
+    /// The top-left corner of the rectangle.
     pub origin: Point,
+    /// The width and height of the rectangle.
     pub size: Size,
 }
 
@@ -325,9 +331,13 @@ impl RoundedRect {
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct CornerRadii {
+    /// Radius for the top-left corner.
     pub top_left: f32,
+    /// Radius for the top-right corner.
     pub top_right: f32,
+    /// Radius for the bottom-right corner.
     pub bottom_right: f32,
+    /// Radius for the bottom-left corner.
     pub bottom_left: f32,
 }
 
@@ -369,9 +379,13 @@ impl CornerRadii {
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct Color {
+    /// Red component (0.0-1.0, premultiplied).
     pub r: f32,
+    /// Green component (0.0-1.0, premultiplied).
     pub g: f32,
+    /// Blue component (0.0-1.0, premultiplied).
     pub b: f32,
+    /// Alpha component (0.0-1.0).
     pub a: f32,
 }
 
@@ -513,18 +527,29 @@ impl Color {
         }
     }
 
-    // Common colors
+    /// Fully transparent (invisible) color.
     pub const TRANSPARENT: Self = Self::new(0.0, 0.0, 0.0, 0.0);
+    /// Pure black.
     pub const BLACK: Self = Self::from_rgb(0.0, 0.0, 0.0);
+    /// Pure white.
     pub const WHITE: Self = Self::from_rgb(1.0, 1.0, 1.0);
+    /// Pure red.
     pub const RED: Self = Self::from_rgb(1.0, 0.0, 0.0);
+    /// Pure green.
     pub const GREEN: Self = Self::from_rgb(0.0, 1.0, 0.0);
+    /// Pure blue.
     pub const BLUE: Self = Self::from_rgb(0.0, 0.0, 1.0);
+    /// Yellow (red + green).
     pub const YELLOW: Self = Self::from_rgb(1.0, 1.0, 0.0);
+    /// Cyan (green + blue).
     pub const CYAN: Self = Self::from_rgb(0.0, 1.0, 1.0);
+    /// Magenta (red + blue).
     pub const MAGENTA: Self = Self::from_rgb(1.0, 0.0, 1.0);
+    /// Medium gray (50% brightness).
     pub const GRAY: Self = Self::from_rgb(0.5, 0.5, 0.5);
+    /// Dark gray (25% brightness).
     pub const DARK_GRAY: Self = Self::from_rgb(0.25, 0.25, 0.25);
+    /// Light gray (75% brightness).
     pub const LIGHT_GRAY: Self = Self::from_rgb(0.75, 0.75, 0.75);
 
     /// Create an opaque color from HSV components.
@@ -673,9 +698,21 @@ pub enum PathCommand {
     /// Draw a line to a point.
     LineTo(Point),
     /// Draw a quadratic bezier curve.
-    QuadTo { control: Point, end: Point },
+    QuadTo {
+        /// The control point for the curve.
+        control: Point,
+        /// The end point of the curve.
+        end: Point,
+    },
     /// Draw a cubic bezier curve.
-    CubicTo { control1: Point, control2: Point, end: Point },
+    CubicTo {
+        /// The first control point.
+        control1: Point,
+        /// The second control point.
+        control2: Point,
+        /// The end point of the curve.
+        end: Point,
+    },
     /// Draw an arc.
     ArcTo {
         /// Radii of the ellipse.

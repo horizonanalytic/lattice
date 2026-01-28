@@ -50,27 +50,51 @@ use crate::Object;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MetaError {
     /// Property was not found.
-    PropertyNotFound { name: String },
+    PropertyNotFound {
+        /// The name of the property that was not found.
+        name: String,
+    },
     /// Property type mismatch during get/set.
     PropertyTypeMismatch {
+        /// The expected type name.
         expected: &'static str,
+        /// The actual type name that was provided.
         got: &'static str,
     },
     /// Property is read-only.
-    PropertyReadOnly { name: String },
+    PropertyReadOnly {
+        /// The name of the read-only property.
+        name: String,
+    },
     /// Method was not found.
-    MethodNotFound { name: String },
+    MethodNotFound {
+        /// The name of the method that was not found.
+        name: String,
+    },
     /// Wrong number of arguments for method invocation.
-    ArgumentCount { expected: usize, got: usize },
+    ArgumentCount {
+        /// The expected number of arguments.
+        expected: usize,
+        /// The actual number of arguments provided.
+        got: usize,
+    },
     /// Argument type mismatch.
     ArgumentTypeMismatch {
+        /// The zero-based index of the mismatched argument.
         index: usize,
+        /// The expected type name for this argument.
         expected: &'static str,
     },
     /// Signal was not found.
-    SignalNotFound { name: String },
+    SignalNotFound {
+        /// The name of the signal that was not found.
+        name: String,
+    },
     /// Type not registered in the type registry.
-    TypeNotRegistered { name: String },
+    TypeNotRegistered {
+        /// The name of the unregistered type.
+        name: String,
+    },
     /// Failed to downcast object to concrete type.
     DowncastFailed,
 }

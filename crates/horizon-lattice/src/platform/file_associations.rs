@@ -304,6 +304,7 @@ impl Opener {
         Ok(())
     }
 
+    /// Reveal a file in Finder (macOS).
     #[cfg(target_os = "macos")]
     pub fn reveal<P: AsRef<Path>>(path: P) -> Result<(), FileAssociationError> {
         use std::process::Command;
@@ -319,6 +320,7 @@ impl Opener {
         Ok(())
     }
 
+    /// Reveal a file in file manager (Linux).
     #[cfg(target_os = "linux")]
     pub fn reveal<P: AsRef<Path>>(path: P) -> Result<(), FileAssociationError> {
         use std::process::Command;
@@ -727,6 +729,7 @@ impl FileTypeRegistration {
         linux_register_file_type(&info, &executable, &app_name, &app_id)
     }
 
+    /// Register file type association (macOS - not supported at runtime).
     #[cfg(target_os = "macos")]
     pub fn register(self) -> Result<(), FileAssociationError> {
         let _ = self;
@@ -736,6 +739,7 @@ impl FileTypeRegistration {
         ))
     }
 
+    /// Register file type association (unsupported platforms).
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     pub fn register(self) -> Result<(), FileAssociationError> {
         let _ = self;
@@ -750,11 +754,13 @@ impl FileTypeRegistration {
         windows_unregister_file_type(extension)
     }
 
+    /// Unregister a file type association (Linux).
     #[cfg(target_os = "linux")]
     pub fn unregister(extension: &str) -> Result<(), FileAssociationError> {
         linux_unregister_file_type(extension)
     }
 
+    /// Unregister a file type association (macOS - not supported).
     #[cfg(target_os = "macos")]
     pub fn unregister(_extension: &str) -> Result<(), FileAssociationError> {
         Err(FileAssociationError::unsupported_platform(
@@ -762,6 +768,7 @@ impl FileTypeRegistration {
         ))
     }
 
+    /// Unregister a file type association (unsupported platforms).
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     pub fn unregister(_extension: &str) -> Result<(), FileAssociationError> {
         Err(FileAssociationError::unsupported_platform(
@@ -949,6 +956,7 @@ impl UrlSchemeRegistration {
         linux_register_url_scheme(&info, &executable, &app_name, &app_id)
     }
 
+    /// Register URL scheme handler (macOS - not supported at runtime).
     #[cfg(target_os = "macos")]
     pub fn register(self) -> Result<(), FileAssociationError> {
         let _ = self;
@@ -958,6 +966,7 @@ impl UrlSchemeRegistration {
         ))
     }
 
+    /// Register URL scheme handler (unsupported platforms).
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     pub fn register(self) -> Result<(), FileAssociationError> {
         let _ = self;
@@ -972,11 +981,13 @@ impl UrlSchemeRegistration {
         windows_unregister_url_scheme(scheme)
     }
 
+    /// Unregister a URL scheme handler (Linux).
     #[cfg(target_os = "linux")]
     pub fn unregister(scheme: &str) -> Result<(), FileAssociationError> {
         linux_unregister_url_scheme(scheme)
     }
 
+    /// Unregister a URL scheme handler (macOS - not supported).
     #[cfg(target_os = "macos")]
     pub fn unregister(_scheme: &str) -> Result<(), FileAssociationError> {
         Err(FileAssociationError::unsupported_platform(
@@ -984,6 +995,7 @@ impl UrlSchemeRegistration {
         ))
     }
 
+    /// Unregister a URL scheme handler (unsupported platforms).
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     pub fn unregister(_scheme: &str) -> Result<(), FileAssociationError> {
         Err(FileAssociationError::unsupported_platform(

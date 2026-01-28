@@ -1,6 +1,8 @@
 //! Horizon Lattice - A Rust-native GUI framework inspired by Qt6.
 //!
 //! This is the main umbrella crate that re-exports all public APIs.
+
+#![warn(missing_docs)]
 //!
 //! # Example
 //!

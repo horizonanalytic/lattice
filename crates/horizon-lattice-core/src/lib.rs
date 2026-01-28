@@ -1,6 +1,8 @@
 //! Core systems for Horizon Lattice.
 //!
 //! This crate provides the foundational components of the Horizon Lattice GUI framework:
+
+#![warn(missing_docs)]
 //!
 //! - **Event Loop**: The main application event loop built on winit
 //! - **Application**: Global application state and lifecycle management

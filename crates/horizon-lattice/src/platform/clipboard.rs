@@ -72,7 +72,12 @@ pub enum ClipboardData {
     /// Plain text content.
     Text(String),
     /// HTML formatted content with optional plain text fallback.
-    Html { html: String, alt_text: Option<String> },
+    Html {
+        /// The HTML markup content.
+        html: String,
+        /// Optional plain text fallback for applications that don't support HTML.
+        alt_text: Option<String>,
+    },
     /// Image data in RGBA format.
     Image(ImageData),
     /// Clipboard is empty or contains unsupported format.

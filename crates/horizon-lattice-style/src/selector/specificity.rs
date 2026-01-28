@@ -105,7 +105,9 @@ impl std::fmt::Display for Specificity {
 /// Specificity combined with source order for tie-breaking.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SpecificityWithOrder {
+    /// The CSS specificity value.
     pub specificity: Specificity,
+    /// Source order for tie-breaking (higher = later in stylesheet).
     pub order: u32,
 }
 

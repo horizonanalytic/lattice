@@ -323,6 +323,7 @@ impl SystemLocale {
         sys_locale::get_locale().unwrap_or_else(|| "en-US".to_string())
     }
 
+    /// Get the current system locale (stub when localization feature disabled).
     #[cfg(not(feature = "localization"))]
     pub fn current() -> String {
         "en-US".to_string()
@@ -350,6 +351,7 @@ impl SystemLocale {
         vec![Self::current()]
     }
 
+    /// Get available system locales (stub when localization feature disabled).
     #[cfg(not(feature = "localization"))]
     pub fn available_locales() -> Vec<String> {
         vec!["en-US".to_string()]
@@ -469,7 +471,9 @@ impl Default for NumberFormatter {
     }
 }
 
-// Non-feature stub with locale-aware fallback formatting
+/// Number formatter stub when localization feature is disabled.
+///
+/// Provides basic number formatting with locale-aware separators.
 #[cfg(not(feature = "localization"))]
 pub struct NumberFormatter {
     locale: String,
@@ -757,7 +761,9 @@ impl Default for DateTimeFormatter {
     }
 }
 
-// Non-feature stub with locale-aware fallback formatting
+/// Date/time formatter stub when localization feature is disabled.
+///
+/// Provides basic date/time formatting with locale-aware conventions.
 #[cfg(not(feature = "localization"))]
 pub struct DateTimeFormatter {
     locale: String,

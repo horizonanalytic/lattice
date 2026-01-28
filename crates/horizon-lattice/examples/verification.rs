@@ -115,8 +115,12 @@ impl App {
         let Some(surface) = &mut self.surface else { return };
         let Some(renderer) = &mut self.renderer else { return };
 
-        let (width, height) = surface.size();
-        let viewport = Size::new(width as f32, height as f32);
+        // Use fixed content size matching window logical size
+        let content_size = Size::new(480.0, 520.0);
+
+        // Physical size of the surface
+        let (phys_width, phys_height) = surface.size();
+        let viewport = Size::new(phys_width as f32, phys_height as f32);
 
         // Begin frame with background
         renderer.begin_frame(Color::from_rgb8(245, 245, 250), viewport);
@@ -129,14 +133,14 @@ impl App {
         ];
         let current_mode_color = mode_colors[active_mode % 3];
 
-        // Mode indicator bar
+        // Mode indicator bar (use content width)
         renderer.fill_rect(
-            Rect::new(0.0, 0.0, viewport.width, 10.0),
+            Rect::new(0.0, 0.0, content_size.width, 10.0),
             current_mode_color,
         );
 
         // Mode label area with icon representing each mode
-        let mode_icon_x = viewport.width - 80.0;
+        let mode_icon_x = content_size.width - 80.0;
         renderer.fill_rounded_rect(
             RoundedRect::new(Rect::new(mode_icon_x - 10.0, 15.0, 80.0, 35.0), 8.0),
             Color::from_rgba8(0, 0, 0, 40),
@@ -214,8 +218,8 @@ impl App {
         Self::draw_buttons(renderer, hovered_button, click_count);
         Self::draw_mouse_indicator(renderer, mouse_pos);
 
-        // Draw status area
-        Self::draw_status(renderer, viewport, active_mode, click_count, slider_value, &current_locale);
+        // Draw status area at the bottom of the content area
+        Self::draw_status(renderer, content_size, active_mode, click_count, slider_value, &current_locale);
 
         renderer.end_frame();
         if let Err(e) = renderer.render_to_surface(surface) {
@@ -682,10 +686,11 @@ impl ApplicationHandler for App {
             GraphicsContext::init(GraphicsConfig::default()).expect("Failed to init graphics");
         }
 
-        // Create window
+        // Create window with fixed physical size (no DPI scaling confusion)
         let attrs = Window::default_attributes()
             .with_title("Horizon Lattice - Verification")
-            .with_inner_size(winit::dpi::LogicalSize::new(480, 500));
+            .with_inner_size(winit::dpi::PhysicalSize::new(480, 520))
+            .with_resizable(false);
 
         let window = Arc::new(event_loop.create_window(attrs).expect("Failed to create window"));
 
@@ -720,6 +725,7 @@ impl ApplicationHandler for App {
                 self.render();
             }
             WindowEvent::CursorMoved { position, .. } => {
+                // Position is in physical pixels, use directly
                 self.update_hover(Point::new(position.x as f32, position.y as f32));
                 if let Some(window) = &self.window {
                     window.request_redraw();

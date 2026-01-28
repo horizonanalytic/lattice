@@ -279,6 +279,7 @@ impl SessionEventWatcher {
         Ok(())
     }
 
+    /// Start listening for session events (macOS - limited support).
     #[cfg(target_os = "macos")]
     pub fn start(&self) -> Result<(), SessionManagementError> {
         // macOS session events require NSWorkspace notification observers which

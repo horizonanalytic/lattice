@@ -1,6 +1,8 @@
 //! Multimedia module for Horizon Lattice.
 //!
 //! This crate provides multimedia capabilities for Horizon Lattice applications:
+
+#![warn(missing_docs)]
 //!
 //! - **Audio Playback**: Load and play audio files with signal-based state notifications
 //! - **Sound Effects**: Low-latency, pre-loaded sounds with concurrent playback

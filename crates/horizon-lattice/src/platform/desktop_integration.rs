@@ -291,16 +291,19 @@ impl RecentDocuments {
         windows_add_recent_document(&doc)
     }
 
+    /// Add a document to the recent documents list with metadata (macOS).
     #[cfg(target_os = "macos")]
     pub fn add_with_info(doc: RecentDocument) -> Result<(), DesktopIntegrationError> {
         macos_add_recent_document(&doc)
     }
 
+    /// Add a document to the recent documents list with metadata (Linux).
     #[cfg(target_os = "linux")]
     pub fn add_with_info(doc: RecentDocument) -> Result<(), DesktopIntegrationError> {
         linux_add_recent_document(&doc)
     }
 
+    /// Add a document to the recent documents list with metadata (unsupported platforms).
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     pub fn add_with_info(_doc: RecentDocument) -> Result<(), DesktopIntegrationError> {
         Err(DesktopIntegrationError::unsupported_platform(
@@ -317,11 +320,13 @@ impl RecentDocuments {
         windows_clear_recent_documents()
     }
 
+    /// Clear the recent documents list (macOS).
     #[cfg(target_os = "macos")]
     pub fn clear() -> Result<(), DesktopIntegrationError> {
         macos_clear_recent_documents()
     }
 
+    /// Clear the recent documents list (Linux - not supported).
     #[cfg(target_os = "linux")]
     pub fn clear() -> Result<(), DesktopIntegrationError> {
         // Linux doesn't have a standard way to clear only app-specific recent docs
@@ -331,6 +336,7 @@ impl RecentDocuments {
         ))
     }
 
+    /// Clear the recent documents list (unsupported platforms).
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     pub fn clear() -> Result<(), DesktopIntegrationError> {
         Err(DesktopIntegrationError::unsupported_platform(
@@ -382,6 +388,7 @@ impl TaskbarProgress {
         windows_set_progress_state(state)
     }
 
+    /// Set the progress state (macOS - limited support).
     #[cfg(target_os = "macos")]
     pub fn set_state(state: ProgressState) -> Result<(), DesktopIntegrationError> {
         // macOS doesn't have a progress bar in the dock, but we can clear the badge
@@ -393,6 +400,7 @@ impl TaskbarProgress {
         }
     }
 
+    /// Set the progress state (Linux - not supported).
     #[cfg(target_os = "linux")]
     pub fn set_state(_state: ProgressState) -> Result<(), DesktopIntegrationError> {
         // Linux support varies by desktop environment
@@ -402,6 +410,7 @@ impl TaskbarProgress {
         ))
     }
 
+    /// Set the progress state (unsupported platforms).
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     pub fn set_state(_state: ProgressState) -> Result<(), DesktopIntegrationError> {
         Err(DesktopIntegrationError::unsupported_platform(
@@ -422,6 +431,7 @@ impl TaskbarProgress {
         windows_set_progress_value(percent)
     }
 
+    /// Set the progress value (macOS - shown as badge).
     #[cfg(target_os = "macos")]
     pub fn set_progress(percent: u32) -> Result<(), DesktopIntegrationError> {
         // macOS doesn't have a progress bar, show percentage as badge
@@ -433,6 +443,7 @@ impl TaskbarProgress {
         }
     }
 
+    /// Set the progress value (Linux - not supported).
     #[cfg(target_os = "linux")]
     pub fn set_progress(_percent: u32) -> Result<(), DesktopIntegrationError> {
         Err(DesktopIntegrationError::unsupported_platform(
@@ -522,6 +533,7 @@ impl TaskbarBadge {
         windows_set_overlay_icon(icon_path.as_ref(), description)
     }
 
+    /// Set an overlay icon (non-Windows - not supported).
     #[cfg(not(target_os = "windows"))]
     pub fn set_overlay_icon<P: AsRef<Path>>(
         _icon_path: P,
@@ -538,16 +550,19 @@ impl TaskbarBadge {
         macos_clear_dock_badge()
     }
 
+    /// Clear any overlay icon (Windows).
     #[cfg(target_os = "windows")]
     pub fn clear() -> Result<(), DesktopIntegrationError> {
         windows_clear_overlay_icon()
     }
 
+    /// Clear any badge (Linux - no-op).
     #[cfg(target_os = "linux")]
     pub fn clear() -> Result<(), DesktopIntegrationError> {
         Ok(()) // No-op on Linux
     }
 
+    /// Clear any badge (unsupported platforms - no-op).
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     pub fn clear() -> Result<(), DesktopIntegrationError> {
         Ok(()) // No-op on unsupported platforms
@@ -657,11 +672,13 @@ impl JumpList {
         windows_set_jump_list(categories)
     }
 
+    /// Set the jump list categories (macOS - dock menu).
     #[cfg(target_os = "macos")]
     pub fn set_categories(categories: &[JumpListCategory]) -> Result<(), DesktopIntegrationError> {
         macos_set_dock_menu(categories)
     }
 
+    /// Set the jump list categories (Linux - not supported).
     #[cfg(target_os = "linux")]
     pub fn set_categories(_categories: &[JumpListCategory]) -> Result<(), DesktopIntegrationError> {
         Err(DesktopIntegrationError::unsupported_platform(
@@ -669,6 +686,7 @@ impl JumpList {
         ))
     }
 
+    /// Set the jump list categories (unsupported platforms).
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     pub fn set_categories(_categories: &[JumpListCategory]) -> Result<(), DesktopIntegrationError> {
         Err(DesktopIntegrationError::unsupported_platform(
@@ -682,16 +700,19 @@ impl JumpList {
         windows_clear_jump_list()
     }
 
+    /// Clear the jump list (macOS - dock menu).
     #[cfg(target_os = "macos")]
     pub fn clear() -> Result<(), DesktopIntegrationError> {
         macos_clear_dock_menu()
     }
 
+    /// Clear the jump list (Linux - no-op).
     #[cfg(target_os = "linux")]
     pub fn clear() -> Result<(), DesktopIntegrationError> {
         Ok(()) // No-op
     }
 
+    /// Clear the jump list (unsupported platforms - no-op).
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     pub fn clear() -> Result<(), DesktopIntegrationError> {
         Ok(())
@@ -806,6 +827,7 @@ impl DesktopEntry {
         linux_install_desktop_entry(self, app_id)
     }
 
+    /// Install the desktop entry (non-Linux - not supported).
     #[cfg(not(target_os = "linux"))]
     pub fn install(&self, _app_id: &str) -> Result<(), DesktopIntegrationError> {
         Err(DesktopIntegrationError::unsupported_platform(
@@ -819,6 +841,7 @@ impl DesktopEntry {
         linux_uninstall_desktop_entry(app_id)
     }
 
+    /// Uninstall a desktop entry (non-Linux - not supported).
     #[cfg(not(target_os = "linux"))]
     pub fn uninstall(_app_id: &str) -> Result<(), DesktopIntegrationError> {
         Err(DesktopIntegrationError::unsupported_platform(

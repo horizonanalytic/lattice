@@ -56,7 +56,9 @@ pub enum ObjectError {
     PropertyNotFound,
     /// The property type did not match.
     PropertyTypeMismatch {
+        /// The expected type name.
         expected: &'static str,
+        /// The actual type name that was provided.
         got: &'static str,
     },
     /// The property is read-only.

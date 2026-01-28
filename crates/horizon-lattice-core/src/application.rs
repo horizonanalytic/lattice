@@ -43,6 +43,21 @@ static APPLICATION: OnceLock<Application> = OnceLock::new();
 /// the event was handled.
 pub type WindowEventHandler = Box<dyn Fn(WindowId, &WindowEvent) -> bool + Send + Sync>;
 
+/// The main application event loop and coordinator.
+///
+/// `Application` manages the event loop, timers, background tasks, and coordinates
+/// between all UI components. There should typically be one Application per process.
+///
+/// # Example
+///
+/// ```ignore
+/// use horizon_lattice_core::Application;
+///
+/// let app = Application::new();
+/// app.run(|event| {
+///     // Handle events
+/// });
+/// ```
 pub struct Application {
     /// The event loop proxy for sending events from other threads.
     proxy: EventLoopProxy<LatticeEvent>,

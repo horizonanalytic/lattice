@@ -1,7 +1,21 @@
 //! Core widget trait definitions.
 //!
-//! This module defines the `Widget` trait which is the foundation for all
+//! This module defines the [`Widget`] trait which is the foundation for all
 //! UI elements in Horizon Lattice.
+//!
+//! # Key Types
+//!
+//! - [`Widget`] - Base trait for all UI elements
+//! - [`PaintContext`] - Rendering context passed to [`Widget::paint`]
+//! - [`AsWidget`] - Helper trait for widget references
+//!
+//! # Related Types
+//!
+//! - [`super::WidgetBase`] - Common implementation for widgets
+//! - [`super::SizeHint`] - Layout size hints
+//! - [`super::SizePolicy`] - Layout sizing behavior
+//! - [`super::WidgetEvent`] - Events handled by widgets
+//! - [`super::Layout`] - Layout management for child widgets
 
 use horizon_lattice_core::{Object, ObjectId};
 use horizon_lattice_render::{GpuRenderer, Point, Rect, Renderer, Size};
@@ -13,7 +27,12 @@ use super::geometry::{SizeHint, SizePolicyPair};
 /// Context provided during widget painting.
 ///
 /// This wraps a renderer and provides the widget's geometry information
-/// for convenient access during the paint operation.
+/// for convenient access during the paint operation. Passed to [`Widget::paint`].
+///
+/// # Related
+///
+/// - [`Widget::paint`] - Receives this context
+/// - [`GpuRenderer`](horizon_lattice_render::GpuRenderer) - The underlying renderer
 pub struct PaintContext<'a> {
     /// The renderer to draw with.
     renderer: &'a mut GpuRenderer,
@@ -175,27 +194,36 @@ impl<'a> PaintContext<'a> {
 
 /// The core trait for all widgets.
 ///
-/// `Widget` extends `Object` to provide the fundamental interface for all
+/// `Widget` extends [`Object`] to provide the fundamental interface for all
 /// UI elements in Horizon Lattice. This is similar to Qt's `QWidget`.
 ///
 /// # Required Methods
 ///
 /// Implementors must provide:
-/// - `widget_base()` / `widget_base_mut()`: Access to the underlying WidgetBase
-/// - `size_hint()`: The widget's preferred size for layout
-/// - `paint()`: How to render the widget
+/// - [`widget_base()`](Self::widget_base) / [`widget_base_mut()`](Self::widget_base_mut): Access to the underlying [`WidgetBase`]
+/// - [`size_hint()`](Self::size_hint): The widget's preferred size for layout (see [`SizeHint`])
+/// - [`paint()`](Self::paint): How to render the widget (see [`PaintContext`])
 ///
 /// # Default Implementations
 ///
-/// Many methods have default implementations that delegate to `WidgetBase`:
+/// Many methods have default implementations that delegate to [`WidgetBase`]:
 /// - Geometry accessors and mutators
 /// - Visibility and enabled state
 /// - Event handling (returns `false` by default)
 ///
+/// # Related Types
+///
+/// - [`WidgetBase`] - Common widget implementation
+/// - [`SizeHint`] - Layout size preferences
+/// - [`SizePolicyPair`] - How the widget grows/shrinks
+/// - [`PaintContext`] - Rendering context
+/// - [`WidgetEvent`] - Input and lifecycle events
+/// - [`super::Layout`] - Managing child widget positions
+///
 /// # Implementing Object
 ///
-/// Widgets must also implement the `Object` trait. The simplest way is to
-/// delegate to the `WidgetBase`:
+/// Widgets must also implement the [`Object`] trait. The simplest way is to
+/// delegate to the [`WidgetBase`]:
 ///
 /// ```ignore
 /// impl Object for MyWidget {

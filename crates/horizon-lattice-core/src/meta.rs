@@ -2,10 +2,11 @@
 //!
 //! This module provides Qt-inspired runtime type information (RTTI) and introspection:
 //!
-//! - **MetaObject**: Static metadata for each Object type (like QMetaObject)
-//! - **MetaProperty**: Property metadata with type-erased getters/setters
-//! - **SignalMeta**: Signal metadata for introspection
-//! - **MethodMeta**: Callable method metadata for dynamic invocation
+//! - [`MetaObject`] - Static metadata for each Object type (like QMetaObject)
+//! - [`MetaProperty`] - Property metadata with type-erased getters/setters
+//! - [`SignalMeta`] - Signal metadata for introspection
+//! - [`MethodMeta`] - Callable method metadata for dynamic invocation
+//! - [`TypeRegistry`] - Global registry for type lookup by name
 //!
 //! The meta-object system enables:
 //! - Runtime type identification and safe downcasting
@@ -16,12 +17,18 @@
 //!
 //! # Architecture
 //!
-//! Each type that derives `Object` gets a static `MetaObject` generated at compile time.
+//! Each type that derives [`Object`] gets a static [`MetaObject`] generated at compile time.
 //! This metadata includes:
 //! - Type information (TypeId, name, parent type)
 //! - Property descriptors with type-erased accessors
 //! - Signal descriptors
 //! - Method descriptors for dynamic invocation
+//!
+//! # Related Modules
+//!
+//! - [`crate::Object`] - Base trait that provides [`meta_object()`](crate::Object::meta_object)
+//! - [`crate::Property`] - Basic property type (see also [`MetaProperty`])
+//! - [`crate::Signal`] - Signal type (see also [`SignalMeta`])
 //!
 //! # Example
 //!
@@ -40,6 +47,8 @@
 //!     }
 //! }
 //! ```
+//!
+//! [`Object`]: crate::Object
 
 use std::any::{Any, TypeId};
 use std::fmt;
@@ -126,16 +135,24 @@ impl std::error::Error for MetaError {}
 /// Result type for meta-object operations.
 pub type MetaResult<T> = Result<T, MetaError>;
 
-/// Static metadata for an Object type.
+/// Static metadata for an [`Object`] type.
 ///
 /// `MetaObject` is the Rust equivalent of Qt's `QMetaObject`. It provides
 /// compile-time generated metadata about a type, including:
 /// - Type identification (TypeId, name)
-/// - Inheritance chain (parent MetaObject)
-/// - Property descriptors with type-erased accessors
-/// - Signal descriptors
-/// - Method descriptors for dynamic invocation
+/// - Inheritance chain (parent `MetaObject`)
+/// - Property descriptors with type-erased accessors (see [`MetaProperty`])
+/// - Signal descriptors (see [`SignalMeta`])
+/// - Method descriptors for dynamic invocation (see [`MethodMeta`])
 /// - Optional factory function for dynamic instantiation
+///
+/// # Related Types
+///
+/// - [`MetaProperty`] - Property descriptors within this meta-object
+/// - [`SignalMeta`] - Signal descriptors within this meta-object
+/// - [`MethodMeta`] - Method descriptors within this meta-object
+/// - [`TypeRegistry`] - Global lookup by type name
+/// - [`crate::Object::meta_object`] - Obtain a `MetaObject` from an instance
 ///
 /// # Lifetime
 ///
@@ -333,14 +350,20 @@ unsafe impl Sync for MetaObject {}
 
 /// Metadata for a property with type-erased accessors.
 ///
-/// `MetaProperty` extends the basic `PropertyMeta` with function pointers
-/// for runtime property access. This enables Qt-like dynamic property
+/// `MetaProperty` extends the basic [`PropertyMeta`](crate::PropertyMeta) with function
+/// pointers for runtime property access. This enables Qt-like dynamic property
 /// manipulation by name.
 ///
 /// # Type Erasure
 ///
 /// The getter and setter use `Box<dyn Any>` for type-erased value passing.
 /// The actual type is validated at runtime using the `type_id` field.
+///
+/// # Related Types
+///
+/// - [`crate::Property`] - The reactive property type
+/// - [`crate::PropertyMeta`] - Basic property metadata without accessors
+/// - [`MetaObject`] - Contains a list of `MetaProperty` descriptors
 ///
 /// # Generated Code
 ///
@@ -436,6 +459,11 @@ unsafe impl Sync for MetaProperty {}
 ///
 /// Provides introspection information about signals, including their
 /// parameter types. This enables runtime signal discovery and documentation.
+///
+/// # Related Types
+///
+/// - [`crate::Signal`] - The actual signal implementation
+/// - [`MetaObject`] - Contains a list of `SignalMeta` descriptors
 #[derive(Debug, Clone)]
 pub struct SignalMeta {
     /// Signal name (e.g., "clicked", "textChanged").
@@ -475,6 +503,11 @@ impl SignalMeta {
 /// Enables dynamic method invocation by name, similar to Qt's
 /// `QMetaObject::invokeMethod()`. Methods are registered with
 /// the `#[method]` attribute.
+///
+/// # Related Types
+///
+/// - [`MetaObject`] - Contains a list of `MethodMeta` descriptors
+/// - [`MetaObject::invoke`] - Invokes a method by name
 pub struct MethodMeta {
     /// Method name (e.g., "increment", "setText").
     pub name: &'static str,
@@ -546,13 +579,19 @@ unsafe impl Sync for MethodMeta {}
 use std::collections::HashMap;
 use parking_lot::RwLock;
 
-/// Global registry of all Object types.
+/// Global registry of all [`Object`] types.
 ///
-/// The `TypeRegistry` provides a central location for looking up `MetaObject`s
+/// The `TypeRegistry` provides a central location for looking up [`MetaObject`]s
 /// by type name or `TypeId`. This enables:
 /// - Dynamic object creation by type name
 /// - Type introspection without having an instance
 /// - Factory pattern for plugin/extension systems
+///
+/// # Related Types
+///
+/// - [`MetaObject`] - The metadata stored in this registry
+/// - [`crate::Object`] - Types registered here implement this trait
+/// - [`init_type_registry`] - Initialize the registry
 ///
 /// # Thread Safety
 ///
@@ -563,7 +602,7 @@ use parking_lot::RwLock;
 /// # Auto-Registration
 ///
 /// Types derived with `#[derive(Object)]` can be automatically registered
-/// using the `register_type!` macro or by calling `TypeRegistry::register()`
+/// using the `register_type!` macro or by calling [`TypeRegistry::register`]
 /// during initialization.
 ///
 /// # Example

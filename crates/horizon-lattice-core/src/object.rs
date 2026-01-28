@@ -7,6 +7,26 @@
 //! - Dynamic property storage
 //!
 //! This is the Rust equivalent of Qt's QObject system.
+//!
+//! # Key Types
+//!
+//! - [`Object`] - Base trait that all objects implement
+//! - [`ObjectBase`] - Helper struct for implementing [`Object`]
+//! - [`ObjectId`] - Unique stable identifier for each object
+//! - [`ObjectRegistry`] - Central registry managing all objects
+//! - [`SharedObjectRegistry`] - Thread-safe wrapper around [`ObjectRegistry`]
+//!
+//! # Related Modules
+//!
+//! - [`crate::Signal`] - Objects typically contain signals
+//! - [`crate::Property`] - Objects typically contain properties
+//! - [`crate::meta::MetaObject`] - Runtime type information for objects
+//! - [`crate::Application`] - Initializes the global object registry
+//!
+//! # Guide
+//!
+//! For a comprehensive guide on the object system, see the
+//! [Architecture Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/architecture.html).
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
@@ -18,8 +38,14 @@ use slotmap::{new_key_type, SlotMap};
 new_key_type! {
     /// A unique identifier for an object in the registry.
     ///
-    /// ObjectIds are stable handles that remain valid even as the object tree changes.
+    /// `ObjectId`s are stable handles that remain valid even as the object tree changes.
     /// They become invalid when the object is destroyed.
+    ///
+    /// # Related Types
+    ///
+    /// - [`Object`] - Trait that provides [`object_id()`](Object::object_id)
+    /// - [`ObjectBase`] - Generates an `ObjectId` on construction
+    /// - [`ObjectRegistry`] - Manages the mapping from `ObjectId` to object data
     pub struct ObjectId;
 }
 
@@ -137,6 +163,13 @@ impl ObjectData {
 ///
 /// Uses arena-based storage via SlotMap for stable object IDs and efficient
 /// parent-child relationship management.
+///
+/// # Related Types
+///
+/// - [`SharedObjectRegistry`] - Thread-safe wrapper for concurrent access
+/// - [`ObjectId`] - Keys into this registry
+/// - [`ObjectBase`] - Automatically registers objects here
+/// - [`global_registry`] - Access the singleton instance
 pub struct ObjectRegistry {
     objects: SlotMap<ObjectId, ObjectData>,
 }
@@ -874,7 +907,14 @@ impl Default for ObjectRegistry {
     }
 }
 
-/// A thread-safe wrapper around `ObjectRegistry`.
+/// A thread-safe wrapper around [`ObjectRegistry`].
+///
+/// Provides concurrent read access with exclusive write access via `RwLock`.
+///
+/// # Related
+///
+/// - [`ObjectRegistry`] - The underlying registry
+/// - [`global_registry`] - Returns a `SharedObjectRegistry`
 pub struct SharedObjectRegistry {
     inner: RwLock<ObjectRegistry>,
 }
@@ -1142,8 +1182,15 @@ pub fn global_registry() -> ObjectResult<&'static SharedObjectRegistry> {
 /// The base trait that all objects must implement.
 ///
 /// This is the Rust equivalent of Qt's QObject. Types implementing this trait
-/// can participate in the object tree, have dynamic properties, and will support
-/// signals/slots when that system is implemented.
+/// can participate in the object tree, have dynamic properties, and support
+/// signals/slots through the [`Signal`](crate::Signal) system.
+///
+/// # Related Types
+///
+/// - [`ObjectBase`] - Helper for implementing this trait
+/// - [`ObjectId`] - Returned by [`object_id()`](Self::object_id)
+/// - [`crate::meta::MetaObject`] - Runtime type information via [`meta_object()`](Self::meta_object)
+/// - [`object_cast`] - Safe downcasting function
 ///
 /// # Example
 ///
@@ -1211,10 +1258,17 @@ pub trait Object: Any + Send + Sync {
     }
 }
 
-/// Helper for implementing the Object trait.
+/// Helper for implementing the [`Object`] trait.
 ///
 /// Include this as a field in your object types to handle registration
-/// and provide the object ID.
+/// and provide the object ID. On construction, it automatically registers
+/// the object with the [`global_registry`].
+///
+/// # Related Types
+///
+/// - [`Object`] - The trait this helps implement
+/// - [`ObjectId`] - Obtained via [`id()`](Self::id)
+/// - [`ObjectRegistry`] - Where objects are registered
 ///
 /// # Example
 ///
@@ -1417,14 +1471,24 @@ impl Drop for ObjectBase {
     }
 }
 
-/// Safe downcast function for Object trait objects.
+/// Safe downcast function for [`Object`] trait objects.
 ///
-/// This is the equivalent of Qt's `qobject_cast`.
+/// This is the equivalent of Qt's `qobject_cast`. Returns `Some(&T)` if the
+/// object is of type `T`, otherwise `None`.
+///
+/// # Related
+///
+/// - [`object_cast_mut`] - Mutable version
+/// - [`Object`] - The trait being downcast
 pub fn object_cast<T: Object + 'static>(obj: &dyn Object) -> Option<&T> {
     (obj as &dyn Any).downcast_ref::<T>()
 }
 
-/// Safe mutable downcast function for Object trait objects.
+/// Safe mutable downcast function for [`Object`] trait objects.
+///
+/// # Related
+///
+/// - [`object_cast`] - Immutable version
 pub fn object_cast_mut<T: Object + 'static>(obj: &mut dyn Object) -> Option<&mut T> {
     (obj as &mut dyn Any).downcast_mut::<T>()
 }

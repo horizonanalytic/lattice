@@ -2,14 +2,21 @@
 //!
 //! This module provides reactive properties with change notification and
 //! computed property bindings. Properties are the data backbone of the
-//! signal/slot system - when a property changes, it can emit a signal
+//! signal/slot system - when a property changes, it can emit a [`Signal`]
 //! to notify interested parties.
 //!
-//! # Property Types
+//! # Key Types
 //!
-//! - **Property<T>**: A reactive property with optional change notification
-//! - **Binding<T>**: A computed property that derives its value from others
-//! - **PropertyMeta**: Runtime metadata for property introspection
+//! - [`Property<T>`] - A reactive property with optional change notification
+//! - [`Binding<T>`] - A computed property that derives its value from others
+//! - [`PropertyMeta`] - Runtime metadata for property introspection
+//! - [`ReadOnlyProperty`] - A read-only view of a property
+//!
+//! # Related Modules
+//!
+//! - [`crate::Signal`] - Used to emit change notifications
+//! - [`crate::meta::MetaProperty`] - Extended metadata with type-erased accessors
+//! - [`crate::Object`] - Base trait for types that contain properties
 //!
 //! # Example
 //!
@@ -40,6 +47,8 @@
 //! counter.set_value(42);
 //! assert_eq!(counter.value.get(), 42);
 //! ```
+//!
+//! [`Signal`]: crate::Signal
 
 use std::any::TypeId;
 use std::fmt;
@@ -49,13 +58,33 @@ use parking_lot::RwLock;
 
 /// A reactive property that tracks changes.
 ///
-/// `Property<T>` wraps a value and provides change detection. When `set()` is
-/// called, it compares the new value with the current one and returns whether
+/// `Property<T>` wraps a value and provides change detection. When [`set`](Self::set)
+/// is called, it compares the new value with the current one and returns whether
 /// the value actually changed. This enables efficient change notification.
+///
+/// Typically used together with a [`Signal`] to emit change notifications:
+///
+/// ```
+/// # use horizon_lattice_core::{Property, Signal};
+/// let value = Property::new(0);
+/// let value_changed = Signal::<i32>::new();
+///
+/// // Only emit if value actually changed
+/// if value.set(42) {
+///     value_changed.emit(42);
+/// }
+/// ```
 ///
 /// # Thread Safety
 ///
 /// `Property<T>` uses interior mutability with `RwLock` and is `Send + Sync`.
+///
+/// # Related Types
+///
+/// - [`Signal`] - For emitting change notifications
+/// - [`Binding`] - For computed/derived properties
+/// - [`ReadOnlyProperty`] - Read-only view of a property
+/// - [`crate::meta::MetaProperty`] - Runtime metadata with type-erased access
 ///
 /// # Example
 ///
@@ -72,6 +101,8 @@ use parking_lot::RwLock;
 /// assert!(prop.set(100));
 /// assert_eq!(prop.get(), 100);
 /// ```
+///
+/// [`Signal`]: crate::Signal
 pub struct Property<T> {
     value: RwLock<T>,
 }
@@ -171,6 +202,10 @@ unsafe impl<T: Send + Sync> Sync for Property<T> {}
 ///
 /// This provides read access without the ability to modify the underlying value.
 /// Useful for exposing properties publicly while keeping the setter private.
+///
+/// # Related
+///
+/// - [`Property`] - The underlying writable property
 pub struct ReadOnlyProperty<'a, T> {
     inner: &'a Property<T>,
 }
@@ -198,8 +233,13 @@ impl<'a, T: Clone> ReadOnlyProperty<'a, T> {
 /// A computed property that derives its value from a computation.
 ///
 /// `Binding<T>` caches its computed value and only recalculates when
-/// explicitly invalidated. This is useful for derived properties that
-/// depend on multiple source values.
+/// explicitly invalidated via [`invalidate`](Self::invalidate). This is useful
+/// for derived properties that depend on multiple source [`Property`] values.
+///
+/// # Related Types
+///
+/// - [`Property`] - Source properties that bindings typically depend on
+/// - [`crate::Signal`] - Can be used to trigger [`invalidate`](Self::invalidate)
 ///
 /// # Example
 ///
@@ -300,6 +340,12 @@ impl<T: Clone + fmt::Debug + Send + Sync + 'static> fmt::Debug for Binding<T> {
 ///
 /// This is primarily used by the meta-object system and procedural macros
 /// to provide information about properties at runtime.
+///
+/// # Related Types
+///
+/// - [`Property`] - The reactive property this describes
+/// - [`crate::meta::MetaProperty`] - Extended metadata with type-erased getters/setters
+/// - [`crate::meta::MetaObject`] - Contains a list of `MetaProperty` descriptors
 #[derive(Clone)]
 pub struct PropertyMeta {
     /// The property name.

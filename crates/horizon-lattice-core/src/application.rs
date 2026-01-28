@@ -1,4 +1,27 @@
 //! The main Application struct and event loop.
+//!
+//! This module provides the central [`Application`] type that manages the event loop,
+//! timers, task scheduling, and coordinates all UI components.
+//!
+//! # Key Types
+//!
+//! - [`Application`] - Singleton that manages the event loop and global state
+//! - [`LatticeEvent`](crate::event::LatticeEvent) - Custom events posted to the event loop
+//! - [`TimerId`](crate::timer::TimerId) - Handle for timer management
+//! - [`TaskId`](crate::task::TaskId) - Handle for idle task management
+//! - [`ScheduledTaskId`](crate::scheduler::ScheduledTaskId) - Handle for scheduled tasks
+//!
+//! # Related Modules
+//!
+//! - [`crate::Signal`] - Queued connections use the Application's event loop
+//! - [`crate::object`] - Application initializes the global object registry
+//! - [`crate::timer`] - Timer management integrated with the event loop
+//! - [`crate::task`] - Idle task queue processing
+//!
+//! # Guide
+//!
+//! For a comprehensive guide on threading and the event loop, see the
+//! [Threading Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/threading.html).
 
 use std::collections::BinaryHeap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -47,6 +70,15 @@ pub type WindowEventHandler = Box<dyn Fn(WindowId, &WindowEvent) -> bool + Send 
 ///
 /// `Application` manages the event loop, timers, background tasks, and coordinates
 /// between all UI components. There should typically be one Application per process.
+///
+/// # Related Types
+///
+/// - [`LatticeEvent`](crate::event::LatticeEvent) - Events processed by the event loop
+/// - [`TimerId`](crate::timer::TimerId) - Returned by timer methods
+/// - [`TaskId`](crate::task::TaskId) - Returned by [`post_task`](Self::post_task)
+/// - [`ScheduledTaskId`](crate::scheduler::ScheduledTaskId) - Returned by scheduling methods
+/// - [`crate::Signal`] - Queued connections use this event loop
+/// - [`crate::init_global_registry`] - Called automatically by [`Application::new`]
 ///
 /// # Example
 ///

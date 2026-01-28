@@ -7,6 +7,22 @@
 //! - [`LayoutBase`]: Common implementation for layout functionality
 //! - [`ContentMargins`]: Spacing around layout content
 //!
+//! # Built-in Layouts
+//!
+//! - [`HBoxLayout`] / [`VBoxLayout`] - Horizontal and vertical box layouts
+//! - [`GridLayout`] - Row/column grid layout
+//! - [`FormLayout`] - Two-column form with labels and fields
+//! - [`StackLayout`] - Stacked widgets (only one visible at a time)
+//! - [`FlowLayout`] - Flow-based wrapping layout
+//! - [`AnchorLayout`] - Constraint-based anchoring
+//!
+//! # Related Types
+//!
+//! - [`super::Widget`] - Widgets are positioned by layouts
+//! - [`super::SizeHint`] - Size preferences for layout calculation
+//! - [`super::SizePolicy`] - How widgets grow/shrink during layout
+//! - [`SpacerItem`] - Flexible spacing between widgets
+//!
 //! # Overview
 //!
 //! The layout system follows Qt's design philosophy while being idiomatic Rust.
@@ -46,6 +62,11 @@
 //! layout.add_stretch(1); // Flexible spacer
 //! layout.add_widget(button3.id());
 //! ```
+//!
+//! # Guide
+//!
+//! For a comprehensive guide on the layout system, see the
+//! [Layout Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/layouts.html).
 
 mod item;
 mod traits;
@@ -78,6 +99,11 @@ use horizon_lattice_render::{Rect, Size};
 ///
 /// Margins define the spacing between the layout's content and its edges.
 /// This is used to add padding around all items in a layout.
+///
+/// # Related
+///
+/// - [`Layout::set_content_margins`] - Set margins on a layout
+/// - [`LayoutBase`] - Stores content margins
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct ContentMargins {
     /// Left margin.

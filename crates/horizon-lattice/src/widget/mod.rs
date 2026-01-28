@@ -127,6 +127,13 @@
 //!     SizePolicy::Fixed,      // vertical
 //! ));
 //! ```
+//!
+//! # Guides
+//!
+//! For comprehensive guides on the widget system, see:
+//! - [Widget Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/widgets.html)
+//! - [Layout Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/layouts.html)
+//! - [Styling Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/styling.html)
 
 #[cfg(feature = "accessibility")]
 pub mod accessibility;

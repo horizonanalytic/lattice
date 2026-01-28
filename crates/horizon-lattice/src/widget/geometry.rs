@@ -2,13 +2,30 @@
 //!
 //! This module provides the types used for layout negotiation between widgets
 //! and their parent layouts, inspired by Qt's QSizePolicy system.
+//!
+//! # Key Types
+//!
+//! - [`SizePolicy`] - How a widget should grow or shrink
+//! - [`SizePolicyPair`] - Combined horizontal and vertical policies
+//! - [`SizeHint`] - A widget's preferred, minimum, and maximum sizes
+//!
+//! # Related Types
+//!
+//! - [`super::Widget`] - Returns [`SizeHint`] via [`Widget::size_hint`](super::Widget::size_hint)
+//! - [`super::Layout`] - Uses these types for layout calculations
 
 use horizon_lattice_render::Size;
 
 /// Size policy determines how a widget should behave when space is allocated.
 ///
 /// This is similar to Qt's `QSizePolicy::Policy`. The policy tells layout managers
-/// how the widget wants to be sized relative to its size hint.
+/// how the widget wants to be sized relative to its [`SizeHint`].
+///
+/// # Related Types
+///
+/// - [`SizePolicyPair`] - Combines horizontal and vertical policies
+/// - [`SizeHint`] - The size preferences this policy modifies
+/// - [`super::Widget::set_size_policy`] - Apply a policy to a widget
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[repr(u8)]
 pub enum SizePolicy {
@@ -65,6 +82,12 @@ impl SizePolicy {
 ///
 /// This is similar to Qt's `QSizePolicy` class which combines policies for
 /// both dimensions along with stretch factors for proportional sizing.
+///
+/// # Related Types
+///
+/// - [`SizePolicy`] - Individual policy for one dimension
+/// - [`super::Widget::size_policy`] - Get a widget's policy
+/// - [`super::Widget::set_size_policy`] - Set a widget's policy
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SizePolicyPair {
     /// Horizontal size policy.
@@ -188,6 +211,12 @@ impl SizePolicyPair {
 ///
 /// This is used by layout managers to determine how to size and position widgets.
 /// Each widget provides a size hint based on its content and styling.
+///
+/// # Related Types
+///
+/// - [`super::Widget::size_hint`] - Returns a `SizeHint` for layout
+/// - [`SizePolicy`] - Modifies how the hint is interpreted
+/// - [`super::Layout`] - Uses size hints for layout calculation
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SizeHint {
     /// The preferred size for the widget to display optimally.

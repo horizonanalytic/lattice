@@ -4,6 +4,13 @@
 //! inter-object communication. Signals are emitted by objects when their state
 //! changes, and connected slots (callbacks) are invoked in response.
 //!
+//! # Key Types
+//!
+//! - [`Signal<Args>`] - The main signal type for emitting notifications
+//! - [`ConnectionId`] - Unique identifier returned when connecting a slot
+//! - [`ConnectionType`] - How a slot should be invoked (Direct, Queued, etc.)
+//! - [`ConnectionGuard`] - RAII guard that disconnects when dropped
+//!
 //! # Connection Types
 //!
 //! - **Direct**: Slot is called immediately in the emitting thread
@@ -16,12 +23,18 @@
 //! Signals support cross-thread communication through queued connections. When
 //! a slot is connected from thread A and the signal is emitted from thread B:
 //!
-//! - With `ConnectionType::Auto` (default), the slot is automatically queued
+//! - With [`ConnectionType::Auto`] (default), the slot is automatically queued
 //!   to execute on thread A's event loop.
-//! - With `ConnectionType::Queued`, the slot is always queued regardless of
+//! - With [`ConnectionType::Queued`], the slot is always queued regardless of
 //!   which thread emits.
-//! - With `ConnectionType::BlockingQueued`, the emitting thread blocks until
+//! - With [`ConnectionType::BlockingQueued`], the emitting thread blocks until
 //!   the slot finishes executing on the target thread.
+//!
+//! # Related Modules
+//!
+//! - [`crate::Property`] - Reactive properties that typically emit signals on change
+//! - [`crate::Application`] - Provides the event loop for queued connections
+//! - [`crate::Object`] - Base trait for types that use signals
 //!
 //! # Example
 //!
@@ -42,6 +55,11 @@
 //! // Disconnect when done
 //! text_changed.disconnect(conn_id);
 //! ```
+//!
+//! # Guide
+//!
+//! For a comprehensive guide on the signal/slot pattern, see the
+//! [Signals Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/signals.html).
 
 use std::any::Any;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -56,12 +74,26 @@ use crate::invocation::{completion_pair, invocation_registry, QueuedInvocation};
 new_key_type! {
     /// A unique identifier for a signal-slot connection.
     ///
-    /// Use this ID to disconnect a specific connection. The ID remains valid
-    /// until the connection is explicitly disconnected or the signal is dropped.
+    /// Use this ID to disconnect a specific connection via [`Signal::disconnect`].
+    /// The ID remains valid until the connection is explicitly disconnected or
+    /// the signal is dropped.
+    ///
+    /// # Related
+    ///
+    /// - [`Signal::connect`] - Returns a `ConnectionId`
+    /// - [`Signal::disconnect`] - Removes a connection by ID
+    /// - [`ConnectionGuard`] - RAII alternative that auto-disconnects
     pub struct ConnectionId;
 }
 
 /// Specifies how a connected slot should be invoked when the signal is emitted.
+///
+/// Use with [`Signal::connect_with_type`] to control invocation behavior.
+///
+/// # Related
+///
+/// - [`Signal::connect`] - Uses [`ConnectionType::Auto`] by default
+/// - [`Signal::connect_with_type`] - Allows specifying connection type
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ConnectionType {
     /// Invoke the slot immediately in the current thread.
@@ -126,7 +158,14 @@ struct Connection<Args> {
 /// # Thread Safety
 ///
 /// `Signal<Args>` is `Send + Sync` and can be safely shared between threads.
-/// The connection type determines how slots are invoked across thread boundaries.
+/// The [`ConnectionType`] determines how slots are invoked across thread boundaries.
+///
+/// # Related Types
+///
+/// - [`ConnectionId`] - Returned by [`connect`](Self::connect), used to disconnect
+/// - [`ConnectionType`] - Controls how slots are invoked
+/// - [`ConnectionGuard`] - RAII-style connection that auto-disconnects on drop
+/// - [`crate::Property`] - Often paired with signals for change notification
 pub struct Signal<Args> {
     /// All active connections.
     connections: Mutex<SlotMap<ConnectionId, Connection<Args>>>,
@@ -465,7 +504,13 @@ impl<Args: Clone + Send + 'static> SignalEmitter for Signal<Args> {
 /// A connection guard that automatically disconnects when dropped.
 ///
 /// This is useful for RAII-style connection management, ensuring connections
-/// are cleaned up when the receiver goes out of scope.
+/// are cleaned up when the receiver goes out of scope. Created via
+/// [`Signal::connect_scoped`].
+///
+/// # Related
+///
+/// - [`Signal::connect_scoped`] - Creates a `ConnectionGuard`
+/// - [`ConnectionId`] - Manual connection management alternative
 ///
 /// # Example
 ///

@@ -5,6 +5,33 @@
 use bytemuck::{Pod, Zeroable};
 
 /// A point in 2D space.
+///
+/// Points represent locations in 2D space and are used extensively
+/// throughout the rendering API for positioning elements.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::Point;
+///
+/// // Create a point at coordinates (10, 20)
+/// let point = Point::new(10.0, 20.0);
+/// assert_eq!(point.x, 10.0);
+/// assert_eq!(point.y, 20.0);
+///
+/// // Use the ZERO constant for the origin
+/// let origin = Point::ZERO;
+/// assert_eq!(origin.x, 0.0);
+/// assert_eq!(origin.y, 0.0);
+///
+/// // Create from a tuple
+/// let from_tuple: Point = (5.0, 15.0).into();
+/// assert_eq!(from_tuple.x, 5.0);
+///
+/// // Create from an array
+/// let from_array: Point = [3.0, 7.0].into();
+/// assert_eq!(from_array.y, 7.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct Point {
@@ -56,6 +83,35 @@ impl From<glam::Vec2> for Point {
 }
 
 /// A size in 2D space (width and height).
+///
+/// `Size` represents dimensions (width and height) and is commonly used
+/// for specifying the size of rectangles, surfaces, and other geometric shapes.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::Size;
+///
+/// // Create a size of 800x600 pixels
+/// let size = Size::new(800.0, 600.0);
+/// assert_eq!(size.width, 800.0);
+/// assert_eq!(size.height, 600.0);
+///
+/// // Check if a size is empty (zero or negative)
+/// let empty = Size::ZERO;
+/// assert!(empty.is_empty());
+///
+/// let valid = Size::new(100.0, 50.0);
+/// assert!(!valid.is_empty());
+///
+/// // Create from a tuple of f32
+/// let from_tuple: Size = (320.0, 240.0).into();
+/// assert_eq!(from_tuple.width, 320.0);
+///
+/// // Create from a tuple of u32 (common for pixel dimensions)
+/// let from_u32: Size = (1920u32, 1080u32).into();
+/// assert_eq!(from_u32.height, 1080.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct Size {
@@ -101,6 +157,82 @@ impl From<(u32, u32)> for Size {
 }
 
 /// A rectangle defined by origin and size.
+///
+/// `Rect` is a fundamental type for defining rectangular regions used
+/// throughout the rendering API for drawing, clipping, and hit testing.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::{Point, Rect, Size};
+///
+/// // Create a rectangle at position (10, 20) with size 100x50
+/// let rect = Rect::new(10.0, 20.0, 100.0, 50.0);
+/// assert_eq!(rect.left(), 10.0);
+/// assert_eq!(rect.top(), 20.0);
+/// assert_eq!(rect.right(), 110.0);
+/// assert_eq!(rect.bottom(), 70.0);
+/// assert_eq!(rect.width(), 100.0);
+/// assert_eq!(rect.height(), 50.0);
+///
+/// // Get corner points
+/// assert_eq!(rect.top_left(), Point::new(10.0, 20.0));
+/// assert_eq!(rect.bottom_right(), Point::new(110.0, 70.0));
+/// assert_eq!(rect.center(), Point::new(60.0, 45.0));
+///
+/// // Create from two corner points
+/// let from_corners = Rect::from_corners(
+///     Point::new(0.0, 0.0),
+///     Point::new(100.0, 100.0),
+/// );
+/// assert_eq!(from_corners.width(), 100.0);
+///
+/// // Create centered at a point
+/// let centered = Rect::from_center(
+///     Point::new(50.0, 50.0),
+///     Size::new(40.0, 30.0),
+/// );
+/// assert_eq!(centered.left(), 30.0);
+/// assert_eq!(centered.top(), 35.0);
+///
+/// // Check if a point is inside the rectangle
+/// let point_inside = Point::new(50.0, 50.0);
+/// assert!(rect.contains(point_inside));
+///
+/// let point_outside = Point::new(200.0, 200.0);
+/// assert!(!rect.contains(point_outside));
+/// ```
+///
+/// # Rectangle Operations
+///
+/// ```
+/// use horizon_lattice_render::Rect;
+///
+/// let r1 = Rect::new(0.0, 0.0, 100.0, 100.0);
+/// let r2 = Rect::new(50.0, 50.0, 100.0, 100.0);
+///
+/// // Intersection of two rectangles
+/// let intersection = r1.intersect(&r2).unwrap();
+/// assert_eq!(intersection, Rect::new(50.0, 50.0, 50.0, 50.0));
+///
+/// // Union (bounding box) of two rectangles
+/// let union = r1.union(&r2);
+/// assert_eq!(union, Rect::new(0.0, 0.0, 150.0, 150.0));
+///
+/// // Inflate/deflate (expand/shrink) a rectangle
+/// let inflated = r1.inflate(10.0);
+/// assert_eq!(inflated.left(), -10.0);
+/// assert_eq!(inflated.width(), 120.0);
+///
+/// let deflated = r1.deflate(10.0);
+/// assert_eq!(deflated.left(), 10.0);
+/// assert_eq!(deflated.width(), 80.0);
+///
+/// // Offset (move) a rectangle
+/// let moved = r1.offset(25.0, 25.0);
+/// assert_eq!(moved.left(), 25.0);
+/// assert_eq!(moved.top(), 25.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Rect {
     /// The top-left corner of the rectangle.
@@ -296,6 +428,35 @@ impl Rect {
 }
 
 /// A rectangle with rounded corners.
+///
+/// `RoundedRect` combines a base rectangle with corner radii to define
+/// rectangles with rounded corners for drawing buttons, cards, panels, etc.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::{Rect, RoundedRect, CornerRadii};
+///
+/// let base = Rect::new(10.0, 10.0, 100.0, 50.0);
+///
+/// // Create with uniform corner radius
+/// let uniform = RoundedRect::new(base, 8.0);
+/// assert_eq!(uniform.radii.top_left, 8.0);
+/// assert_eq!(uniform.radii.bottom_right, 8.0);
+/// assert!(!uniform.is_rect()); // Has rounded corners
+///
+/// // Create with per-corner radii
+/// let varied = RoundedRect::with_radii(base, CornerRadii {
+///     top_left: 10.0,
+///     top_right: 5.0,
+///     bottom_right: 10.0,
+///     bottom_left: 5.0,
+/// });
+///
+/// // A RoundedRect with zero radii is effectively a regular rectangle
+/// let sharp = RoundedRect::new(base, 0.0);
+/// assert!(sharp.is_rect());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct RoundedRect {
     /// The base rectangle.
@@ -328,6 +489,35 @@ impl RoundedRect {
 }
 
 /// Corner radii for rounded rectangles.
+///
+/// Specifies individual radii for each corner of a rounded rectangle.
+/// Commonly used with [`RoundedRect`] and path drawing functions.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::CornerRadii;
+///
+/// // Create uniform corner radii (all corners the same)
+/// let uniform = CornerRadii::uniform(8.0);
+/// assert_eq!(uniform.top_left, 8.0);
+/// assert_eq!(uniform.bottom_right, 8.0);
+///
+/// // Create with individual values
+/// let custom = CornerRadii {
+///     top_left: 10.0,
+///     top_right: 5.0,
+///     bottom_right: 10.0,
+///     bottom_left: 5.0,
+/// };
+///
+/// // Check if all radii are zero
+/// assert!(CornerRadii::ZERO.is_zero());
+/// assert!(!uniform.is_zero());
+///
+/// // Get the maximum radius
+/// assert_eq!(custom.max(), 10.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct CornerRadii {
@@ -376,6 +566,75 @@ impl CornerRadii {
 }
 
 /// An RGBA color with premultiplied alpha.
+///
+/// Colors are stored with premultiplied alpha for efficient GPU blending.
+/// When using non-premultiplied input, use [`from_rgba`](Self::from_rgba) or
+/// [`from_rgba8`](Self::from_rgba8) which will automatically premultiply.
+///
+/// # Examples
+///
+/// ## Creating Colors
+///
+/// ```
+/// use horizon_lattice_render::Color;
+///
+/// // Use predefined color constants
+/// let red = Color::RED;
+/// let white = Color::WHITE;
+/// let transparent = Color::TRANSPARENT;
+///
+/// // Create from floating-point RGB values (0.0-1.0)
+/// let orange = Color::from_rgb(1.0, 0.5, 0.0);
+///
+/// // Create from 8-bit RGB values (0-255)
+/// let purple = Color::from_rgb8(128, 0, 255);
+///
+/// // Create with alpha transparency
+/// let semi_transparent = Color::from_rgba(1.0, 0.0, 0.0, 0.5);
+/// let semi_transparent8 = Color::from_rgba8(255, 0, 0, 128);
+///
+/// // Parse from hex string
+/// let hex_color = Color::from_hex("#FF5733").unwrap();
+/// let hex_with_alpha = Color::from_hex("#FF573380").unwrap();
+/// ```
+///
+/// ## Color Operations
+///
+/// ```
+/// use horizon_lattice_render::Color;
+///
+/// // Modify alpha while preserving color
+/// let red = Color::RED;
+/// let faded_red = red.with_alpha(0.5);
+/// assert!((faded_red.a - 0.5).abs() < 0.001);
+///
+/// // Linear interpolation between colors
+/// let start = Color::RED;
+/// let end = Color::BLUE;
+/// let middle = start.lerp(end, 0.5);
+///
+/// // Convert to different formats
+/// let color = Color::from_rgb8(255, 128, 64);
+/// let rgba8 = color.to_rgba8();    // [u8; 4]
+/// let array = color.to_array();    // [f32; 4]
+/// let hex = color.to_hex();        // String like "#FF8040"
+/// ```
+///
+/// ## HSV Color Space
+///
+/// ```
+/// use horizon_lattice_render::Color;
+///
+/// // Create colors using HSV (hue, saturation, value)
+/// let red = Color::from_hsv(0.0, 1.0, 1.0);     // Hue 0 = red
+/// let green = Color::from_hsv(120.0, 1.0, 1.0); // Hue 120 = green
+/// let blue = Color::from_hsv(240.0, 1.0, 1.0);  // Hue 240 = blue
+///
+/// // Convert to HSV
+/// let (h, s, v) = Color::RED.to_hsv();
+/// assert!((s - 1.0).abs() < 0.01);
+/// assert!((v - 1.0).abs() < 0.01);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct Color {
@@ -671,16 +930,96 @@ impl Color {
 /// Paths are constructed using a series of commands that describe how to
 /// draw lines and curves. They can be filled, stroked, or used as clip regions.
 ///
-/// # Example
+/// # Examples
 ///
-/// ```ignore
+/// ## Building Paths Manually
+///
+/// ```
+/// use horizon_lattice_render::{Path, Point};
+///
+/// // Create a triangle path
 /// let mut path = Path::new();
 /// path.move_to(Point::new(0.0, 0.0))
 ///     .line_to(Point::new(100.0, 0.0))
 ///     .line_to(Point::new(50.0, 100.0))
 ///     .close();
 ///
-/// renderer.fill_path(&path, Color::RED, FillRule::NonZero);
+/// assert_eq!(path.commands().len(), 4);
+/// ```
+///
+/// ## Using Factory Methods
+///
+/// ```
+/// use horizon_lattice_render::{Path, Point, Rect, CornerRadii};
+///
+/// // Create basic shapes using factory methods
+/// let rect = Path::rect(Rect::new(0.0, 0.0, 100.0, 50.0));
+/// let circle = Path::circle(Point::new(50.0, 50.0), 25.0);
+/// let ellipse = Path::ellipse(Point::new(50.0, 50.0), 40.0, 25.0);
+///
+/// // Create a rounded rectangle
+/// let rounded = Path::rounded_rect(
+///     Rect::new(0.0, 0.0, 100.0, 50.0),
+///     CornerRadii::uniform(8.0),
+/// );
+///
+/// // Create a star
+/// let star = Path::star(Point::new(50.0, 50.0), 40.0, 20.0, 5);
+///
+/// // Create a line
+/// let line = Path::line(Point::new(0.0, 0.0), Point::new(100.0, 100.0));
+///
+/// // Create a polygon from points
+/// let hexagon_points = (0..6)
+///     .map(|i| {
+///         let angle = std::f32::consts::TAU * i as f32 / 6.0;
+///         Point::new(50.0 + 30.0 * angle.cos(), 50.0 + 30.0 * angle.sin())
+///     })
+///     .collect::<Vec<_>>();
+/// let hexagon = Path::polygon(&hexagon_points);
+/// ```
+///
+/// ## Bezier Curves
+///
+/// ```
+/// use horizon_lattice_render::{Path, Point};
+///
+/// let mut path = Path::new();
+///
+/// // Quadratic bezier curve
+/// path.move_to(Point::new(0.0, 50.0))
+///     .quad_to(
+///         Point::new(50.0, 0.0),   // control point
+///         Point::new(100.0, 50.0), // end point
+///     );
+///
+/// // Cubic bezier curve
+/// let mut cubic = Path::new();
+/// cubic.move_to(Point::new(0.0, 50.0))
+///      .cubic_to(
+///          Point::new(25.0, 0.0),   // first control point
+///          Point::new(75.0, 100.0), // second control point
+///          Point::new(100.0, 50.0), // end point
+///      );
+/// ```
+///
+/// ## Path Bounds
+///
+/// ```
+/// use horizon_lattice_render::{Path, Point, Rect};
+///
+/// let mut path = Path::new();
+/// path.move_to(Point::new(10.0, 20.0))
+///     .line_to(Point::new(110.0, 20.0))
+///     .line_to(Point::new(110.0, 70.0))
+///     .line_to(Point::new(10.0, 70.0))
+///     .close();
+///
+/// let bounds = path.bounds().unwrap();
+/// assert_eq!(bounds.left(), 10.0);
+/// assert_eq!(bounds.top(), 20.0);
+/// assert_eq!(bounds.width(), 100.0);
+/// assert_eq!(bounds.height(), 50.0);
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct Path {

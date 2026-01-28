@@ -50,13 +50,29 @@ pub type WindowEventHandler = Box<dyn Fn(WindowId, &WindowEvent) -> bool + Send 
 ///
 /// # Example
 ///
-/// ```ignore
-/// use horizon_lattice_core::Application;
+/// ```no_run
+/// use horizon_lattice_core::{Application, LatticeEvent};
+/// use std::time::Duration;
 ///
-/// let app = Application::new();
-/// app.run(|event| {
-///     // Handle events
-/// });
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let app = Application::new()?;
+///
+///     // Set up an event handler for custom events
+///     app.set_event_handler(|event| {
+///         match event {
+///             LatticeEvent::Timer { id } => {
+///                 println!("Timer {:?} fired!", id);
+///             }
+///             _ => {}
+///         }
+///     });
+///
+///     // Start a repeating timer
+///     let _timer_id = app.start_repeating_timer(Duration::from_secs(1));
+///
+///     // Run the event loop (blocks until quit)
+///     Ok(app.run()?)
+/// }
 /// ```
 pub struct Application {
     /// The event loop proxy for sending events from other threads.
@@ -234,7 +250,12 @@ impl Application {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
+    /// use horizon_lattice_core::Application;
+    /// use winit::event::WindowEvent;
+    ///
+    /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let app = Application::new()?;
     /// app.set_window_event_handler(|window_id, event| {
     ///     match event {
     ///         WindowEvent::KeyboardInput { event, .. } => {
@@ -244,6 +265,8 @@ impl Application {
     ///         _ => false,
     ///     }
     /// });
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn set_window_event_handler<F>(&self, handler: F)
     where
@@ -334,10 +357,17 @@ impl Application {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
+    /// use horizon_lattice_core::Application;
+    /// use std::time::Duration;
+    ///
+    /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let app = Application::new()?;
     /// app.schedule_task(Duration::from_secs(5), || {
     ///     println!("Executed after 5 seconds!");
     /// });
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn schedule_task<F>(&self, delay: Duration, task: F) -> ScheduledTaskId
     where
@@ -373,13 +403,20 @@ impl Application {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
+    /// use horizon_lattice_core::Application;
+    /// use std::time::Duration;
+    ///
+    /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let app = Application::new()?;
     /// let task_id = app.schedule_repeating_task(Duration::from_secs(1), || {
     ///     println!("Executed every second!");
     /// });
     ///
     /// // Later, cancel the task
-    /// app.cancel_scheduled_task(task_id);
+    /// app.cancel_scheduled_task(task_id)?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn schedule_repeating_task<F>(&self, interval: Duration, task: F) -> ScheduledTaskId
     where

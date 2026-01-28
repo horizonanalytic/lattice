@@ -10,20 +10,59 @@
 //! - **Hot Reload**: Automatically reload stylesheets during development
 //! - **Type-safe DSL**: Build styles programmatically with Rust
 //!
-//! # Example
+//! # Example: Programmatic Styling
 //!
-//! ```ignore
+//! ```
+//! use horizon_lattice_style::prelude::*;
+//!
+//! // Create a selector for buttons with primary class
+//! let selector = Selector::type_selector("Button")
+//!     .descendant(SelectorPart::class_only("primary"));
+//!
+//! // Style values
+//! let padding = EdgeValues::uniform(LengthValue::px(16.0));
+//! let border = EdgeValues::uniform(LengthValue::px(1.0));
+//!
+//! // Check selector properties
+//! assert!(!selector.parts.is_empty());
+//! ```
+//!
+//! # Example: Selectors
+//!
+//! ```
+//! use horizon_lattice_style::prelude::*;
+//!
+//! // Type selector
+//! let button = Selector::type_selector("Button");
+//!
+//! // Class selector
+//! let primary = Selector::class("primary");
+//!
+//! // ID selector
+//! let submit = Selector::id("submit");
+//!
+//! // Complex selector with pseudo-class
+//! let hover_button = Selector::type_selector("Button")
+//!     .descendant(
+//!         SelectorPart::class_only("primary")
+//!             .with_pseudo(PseudoClass::Hover)
+//!     );
+//!
+//! assert_eq!(hover_button.to_string(), "Button .primary:hover");
+//! ```
+//!
+//! # Example: Loading Stylesheets (requires filesystem)
+//!
+//! ```no_run
 //! use horizon_lattice_style::prelude::*;
 //!
 //! // Load a stylesheet from a file
-//! let stylesheet = StyleSheet::from_file("styles/app.css", StylePriority::Application)?;
+//! let stylesheet = StyleSheet::from_file("styles/app.css", StylePriority::Application)
+//!     .expect("Failed to load stylesheet");
 //!
-//! // Create a style engine
+//! // Create a style engine with the light theme
 //! let mut engine = StyleEngine::new(Theme::light());
 //! engine.add_stylesheet(stylesheet);
-//!
-//! // Compute styles for a widget
-//! let computed = engine.compute_style(widget_id, &context, None);
 //! ```
 
 pub mod types;

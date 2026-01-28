@@ -2,6 +2,50 @@
 //!
 //! This module provides functionality to tessellate paths into triangles
 //! suitable for GPU rendering. It uses the lyon tessellation library.
+//!
+//! # Examples
+//!
+//! ## Fill Tessellation
+//!
+//! ```
+//! use horizon_lattice_render::{Path, Point, tessellate_fill, FillRule, DEFAULT_TOLERANCE};
+//!
+//! // Create a triangle path
+//! let mut path = Path::new();
+//! path.move_to(Point::new(0.0, 0.0))
+//!     .line_to(Point::new(100.0, 0.0))
+//!     .line_to(Point::new(50.0, 100.0))
+//!     .close();
+//!
+//! // Tessellate for filling
+//! let result = tessellate_fill(&path, FillRule::NonZero, DEFAULT_TOLERANCE);
+//!
+//! // Result contains vertices and triangle indices
+//! assert!(!result.is_empty());
+//! assert_eq!(result.vertices.len(), 3);  // Triangle has 3 vertices
+//! assert_eq!(result.indices.len(), 3);   // One triangle = 3 indices
+//! ```
+//!
+//! ## Stroke Tessellation
+//!
+//! ```
+//! use horizon_lattice_render::{Path, Point, Stroke, Color, tessellate_stroke, DEFAULT_TOLERANCE};
+//!
+//! // Create a line path
+//! let mut path = Path::new();
+//! path.move_to(Point::new(0.0, 0.0))
+//!     .line_to(Point::new(100.0, 0.0));
+//!
+//! // Create a stroke style
+//! let stroke = Stroke::new(Color::BLACK, 4.0);
+//!
+//! // Tessellate for stroking
+//! let result = tessellate_stroke(&path, &stroke, DEFAULT_TOLERANCE);
+//!
+//! // Stroked line becomes a rectangle (4 vertices minimum)
+//! assert!(!result.is_empty());
+//! assert!(result.vertices.len() >= 4);
+//! ```
 
 use lyon::math::point as lyon_point;
 use lyon::path::builder::SvgPathBuilder;
@@ -16,6 +60,29 @@ use crate::paint::{FillRule, LineCap, LineJoin, Stroke};
 use crate::types::{Path, PathCommand};
 
 /// Tessellated path output suitable for GPU rendering.
+///
+/// Contains vertex positions and triangle indices that can be uploaded
+/// to a GPU vertex/index buffer for rendering.
+///
+/// # Example
+///
+/// ```
+/// use horizon_lattice_render::{Path, Rect, tessellate_fill, FillRule, DEFAULT_TOLERANCE, TessellatedPath};
+///
+/// // Tessellate a rectangle
+/// let path = Path::rect(Rect::new(0.0, 0.0, 100.0, 50.0));
+/// let tessellated = tessellate_fill(&path, FillRule::NonZero, DEFAULT_TOLERANCE);
+///
+/// // Access vertices and indices
+/// for vertex in &tessellated.vertices {
+///     println!("Vertex: ({}, {})", vertex[0], vertex[1]);
+/// }
+///
+/// // Indices describe triangles (every 3 indices = 1 triangle)
+/// for tri in tessellated.indices.chunks(3) {
+///     println!("Triangle: {}, {}, {}", tri[0], tri[1], tri[2]);
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct TessellatedPath {
     /// Vertex positions (x, y).

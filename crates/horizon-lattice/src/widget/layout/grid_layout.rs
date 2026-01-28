@@ -7,15 +7,15 @@
 //! # Example
 //!
 //! ```ignore
-//! use horizon_lattice::widget::layout::*;
+//! use horizon_lattice::widget::layout::{GridLayout, Layout};
 //!
 //! // Create a grid layout
 //! let mut layout = GridLayout::new();
 //!
-//! // Add widgets at specific positions
-//! layout.add_widget_at(label_id, 0, 0);           // Row 0, Col 0
-//! layout.add_widget_at(input_id, 0, 1);           // Row 0, Col 1
-//! layout.add_widget_spanning(button_id, 1, 0, 1, 2); // Row 1, spans 2 columns
+//! // Add widgets at specific positions (widget IDs come from the widget system)
+//! layout.add_widget_at(label.id(), 0, 0);              // Row 0, Col 0
+//! layout.add_widget_at(input.id(), 0, 1);              // Row 0, Col 1
+//! layout.add_widget_spanning(button.id(), 1, 0, 1, 2); // Row 1, spans 2 columns
 //!
 //! // Configure stretch factors
 //! layout.set_column_stretch(1, 1); // Column 1 gets extra space

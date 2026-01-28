@@ -25,8 +25,8 @@
 //!
 //! # Example
 //!
-//! ```ignore
-//! use horizon_lattice_core::signal::{Signal, ConnectionType};
+//! ```
+//! use horizon_lattice_core::Signal;
 //!
 //! // Create a signal that passes a string argument
 //! let text_changed = Signal::<String>::new();
@@ -161,9 +161,12 @@ impl<Args: Clone + Send + 'static> Signal<Args> {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```
+    /// use horizon_lattice_core::Signal;
+    ///
     /// let signal = Signal::<String>::new();
     /// let id = signal.connect(|s| println!("Got: {}", s));
+    /// signal.emit("Hello".to_string());
     /// ```
     pub fn connect<F>(&self, slot: F) -> ConnectionId
     where
@@ -176,7 +179,9 @@ impl<Args: Clone + Send + 'static> Signal<Args> {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```
+    /// use horizon_lattice_core::{Signal, ConnectionType};
+    ///
     /// let signal = Signal::<i32>::new();
     ///
     /// // Always invoke directly (fast, but not cross-thread safe)
@@ -184,6 +189,8 @@ impl<Args: Clone + Send + 'static> Signal<Args> {
     ///
     /// // Always queue (safe for cross-thread)
     /// signal.connect_with_type(|n| println!("{}", n), ConnectionType::Queued);
+    ///
+    /// signal.emit(42);
     /// ```
     pub fn connect_with_type<F>(&self, slot: F, connection_type: ConnectionType) -> ConnectionId
     where
@@ -462,13 +469,22 @@ impl<Args: Clone + Send + 'static> SignalEmitter for Signal<Args> {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// use horizon_lattice_core::Signal;
+/// use std::sync::atomic::{AtomicI32, Ordering};
+/// use std::sync::Arc;
+///
 /// let signal = Signal::<i32>::new();
+/// let counter = Arc::new(AtomicI32::new(0));
 /// {
-///     let _guard = signal.connect_scoped(|n| println!("{}", n));
-///     signal.emit(42);  // Prints "42"
+///     let counter_clone = counter.clone();
+///     let _guard = signal.connect_scoped(move |&n| {
+///         counter_clone.fetch_add(n, Ordering::SeqCst);
+///     });
+///     signal.emit(42);  // counter = 42
 /// }
 /// signal.emit(43);  // Nothing happens - connection was dropped
+/// assert_eq!(counter.load(Ordering::SeqCst), 42);
 /// ```
 pub struct ConnectionGuard<Args: Clone + Send + 'static> {
     signal: *const Signal<Args>,

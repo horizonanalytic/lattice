@@ -6,20 +6,22 @@
 //! # Example
 //!
 //! ```ignore
-//! use horizon_lattice::widget::layout::*;
+//! use horizon_lattice::widget::layout::{BoxLayout, VBoxLayout, Layout};
 //!
 //! // Create a horizontal box layout
 //! let mut layout = BoxLayout::horizontal();
 //! layout.set_spacing(10.0);
-//! layout.add_widget(button1_id);
-//! layout.add_widget(button2_id);
-//! layout.add_stretch(1); // Expanding spacer
-//! layout.add_widget(button3_id);
 //!
-//! // Or use the type alias
+//! // Add widgets (widget IDs come from the widget system)
+//! layout.add_widget(button1.id());
+//! layout.add_widget(button2.id());
+//! layout.add_stretch(1); // Expanding spacer
+//! layout.add_widget(button3.id());
+//!
+//! // Or use the type alias for vertical layout
 //! let mut vbox = VBoxLayout::new();
-//! vbox.add_widget(label_id);
-//! vbox.add_widget(input_id);
+//! vbox.add_widget(label.id());
+//! vbox.add_widget(input.id());
 //! ```
 
 use horizon_lattice_core::ObjectId;

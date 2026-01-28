@@ -4,22 +4,22 @@
 //!
 //! # Example
 //!
-//! ```ignore
+//! ```no_run
 //! use horizon_lattice::widget::widgets::PushButton;
 //!
 //! // Create a simple button
-//! let mut button = PushButton::new("Click me!");
+//! let button = PushButton::new("Click me!");
 //!
 //! // Connect to the clicked signal
-//! button.clicked.connect(|checked| {
+//! button.clicked().connect(|&checked| {
 //!     println!("Button clicked! Checked: {}", checked);
 //! });
 //!
 //! // Create a toggle button
-//! let mut toggle = PushButton::new("Toggle")
+//! let toggle = PushButton::new("Toggle")
 //!     .with_checkable(true);
 //!
-//! toggle.toggled.connect(|checked| {
+//! toggle.toggled().connect(|&checked| {
 //!     println!("Toggled: {}", checked);
 //! });
 //! ```
@@ -340,7 +340,9 @@ impl PushButton {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
+    /// use horizon_lattice::widget::widgets::PushButton;
+    ///
     /// let ok_button = PushButton::new("OK")
     ///     .with_default(true);
     /// ```
@@ -381,7 +383,9 @@ impl PushButton {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
+    /// use horizon_lattice::widget::widgets::PushButton;
+    ///
     /// let button = PushButton::new("OK")
     ///     .with_auto_default(true);
     /// ```
@@ -424,7 +428,9 @@ impl PushButton {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
+    /// use horizon_lattice::widget::widgets::PushButton;
+    ///
     /// let button = PushButton::new("&Save")
     ///     .with_shortcut_str("Ctrl+S");
     /// ```

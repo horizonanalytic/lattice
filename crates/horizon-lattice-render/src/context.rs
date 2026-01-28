@@ -14,6 +14,25 @@ use crate::error::{RenderError, RenderResult};
 static GRAPHICS_CONTEXT: OnceLock<GraphicsContext> = OnceLock::new();
 
 /// Configuration options for graphics context initialization.
+///
+/// Use this to customize GPU backend selection, power preferences, and
+/// feature requirements when initializing the graphics system.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::GraphicsConfig;
+///
+/// // Use default configuration (recommended for most cases)
+/// let default_config = GraphicsConfig::default();
+///
+/// // Customize configuration
+/// let config = GraphicsConfig {
+///     power_preference: wgpu::PowerPreference::LowPower,
+///     debug_validation: false,
+///     ..Default::default()
+/// };
+/// ```
 #[derive(Debug, Clone)]
 pub struct GraphicsConfig {
     /// Preferred GPU backends to use.
@@ -49,6 +68,30 @@ impl Default for GraphicsConfig {
 ///
 /// This struct holds the wgpu instance, adapter, device, and queue.
 /// These resources are created once and shared across all windows/surfaces.
+///
+/// You typically access these through [`GraphicsContext`] rather than
+/// creating them directly.
+///
+/// # Example
+///
+/// ```no_run
+/// use horizon_lattice_render::{GraphicsContext, GraphicsConfig};
+///
+/// // Initialize the graphics context
+/// GraphicsContext::init(GraphicsConfig::default()).unwrap();
+///
+/// // Access shared GPU resources
+/// let ctx = GraphicsContext::get();
+/// let resources = ctx.resources();
+///
+/// // Use the device to create GPU resources
+/// let buffer = resources.device.create_buffer(&wgpu::BufferDescriptor {
+///     label: Some("my-buffer"),
+///     size: 1024,
+///     usage: wgpu::BufferUsages::VERTEX,
+///     mapped_at_creation: false,
+/// });
+/// ```
 #[derive(Debug)]
 pub struct GpuResources {
     /// The wgpu instance for creating surfaces and requesting adapters.

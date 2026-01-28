@@ -1147,12 +1147,24 @@ pub fn global_registry() -> ObjectResult<&'static SharedObjectRegistry> {
 ///
 /// # Example
 ///
-/// ```ignore
-/// use horizon_lattice_core::object::{Object, ObjectId, ObjectBase, global_registry};
+/// ```
+/// use horizon_lattice_core::{Object, ObjectId, ObjectBase, init_global_registry};
+///
+/// // Initialize the registry before creating objects
+/// init_global_registry();
 ///
 /// struct MyWidget {
 ///     base: ObjectBase,
-///     // ... widget-specific fields
+///     title: String,
+/// }
+///
+/// impl MyWidget {
+///     fn new(title: &str) -> Self {
+///         Self {
+///             base: ObjectBase::new::<Self>(),
+///             title: title.to_string(),
+///         }
+///     }
 /// }
 ///
 /// impl Object for MyWidget {
@@ -1160,6 +1172,9 @@ pub fn global_registry() -> ObjectResult<&'static SharedObjectRegistry> {
 ///         self.base.id()
 ///     }
 /// }
+///
+/// let widget = MyWidget::new("Hello");
+/// assert_eq!(widget.title, "Hello");
 /// ```
 pub trait Object: Any + Send + Sync {
     /// Get this object's unique identifier.
@@ -1179,12 +1194,15 @@ pub trait Object: Any + Send + Sync {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// let obj: &dyn Object = &my_widget;
-    /// if let Some(meta) = obj.meta_object() {
-    ///     println!("Type: {}", meta.type_name);
-    ///     for prop_name in meta.property_names() {
-    ///         println!("  Property: {}", prop_name);
+    /// ```no_run
+    /// use horizon_lattice_core::Object;
+    ///
+    /// fn print_meta(obj: &dyn Object) {
+    ///     if let Some(meta) = obj.meta_object() {
+    ///         println!("Type: {}", meta.type_name);
+    ///         for prop_name in meta.property_names() {
+    ///             println!("  Property: {}", prop_name);
+    ///         }
     ///     }
     /// }
     /// ```
@@ -1200,7 +1218,11 @@ pub trait Object: Any + Send + Sync {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// use horizon_lattice_core::{Object, ObjectId, ObjectBase, init_global_registry};
+///
+/// init_global_registry();
+///
 /// struct MyWidget {
 ///     base: ObjectBase,
 ///     title: String,
@@ -1220,6 +1242,10 @@ pub trait Object: Any + Send + Sync {
 ///         self.base.id()
 ///     }
 /// }
+///
+/// let widget = MyWidget::new();
+/// widget.base.set_name("my_widget");
+/// assert_eq!(widget.base.name(), "my_widget");
 /// ```
 pub struct ObjectBase {
     id: ObjectId,

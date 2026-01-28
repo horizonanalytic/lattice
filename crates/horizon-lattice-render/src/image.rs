@@ -12,6 +12,29 @@ use crate::types::{Rect, Size};
 ///
 /// Images are stored in texture atlases for efficient batching. Each `Image`
 /// holds a reference to its allocation within an atlas.
+///
+/// Images are typically loaded through [`ImageManager`](crate::ImageManager),
+/// which handles atlas management automatically.
+///
+/// # Example
+///
+/// ```no_run
+/// use horizon_lattice_render::{GraphicsContext, GraphicsConfig, ImageManager, Rect};
+///
+/// // Initialize graphics first
+/// GraphicsContext::init(GraphicsConfig::default()).unwrap();
+///
+/// // Create an image manager
+/// let mut manager = ImageManager::new().unwrap();
+///
+/// // Load an image
+/// let image = manager.load_file("icon.png").expect("Failed to load image");
+///
+/// // Get image properties
+/// println!("Image size: {}x{}", image.width(), image.height());
+/// let size = image.size();
+/// println!("Size as f32: {}x{}", size.width, size.height);
+/// ```
 #[derive(Clone)]
 pub struct Image {
     /// The allocation in the texture atlas.
@@ -78,6 +101,21 @@ impl std::fmt::Debug for Image {
 }
 
 /// How to scale an image when rendering to a different size.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::ImageScaleMode;
+///
+/// // Default is Stretch
+/// assert_eq!(ImageScaleMode::default(), ImageScaleMode::Stretch);
+///
+/// // Choose based on your needs:
+/// let stretch = ImageScaleMode::Stretch; // Fill area, may distort
+/// let fit = ImageScaleMode::Fit;         // Contain, may letterbox
+/// let fill = ImageScaleMode::Fill;       // Cover, may crop
+/// let tile = ImageScaleMode::Tile;       // Repeat at original size
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ImageScaleMode {
     /// Stretch the image to fill the destination rectangle.
@@ -108,6 +146,9 @@ pub enum ImageScaleMode {
 /// - Edges: Scaled in one dimension
 /// - Center: Scaled in both dimensions
 ///
+/// This is commonly used for buttons, panels, and other UI elements that
+/// need to scale without distorting borders or corners.
+///
 /// ```text
 /// +-------+---------------+-------+
 /// |   1   |       2       |   3   |
@@ -119,6 +160,38 @@ pub enum ImageScaleMode {
 /// |   7   |       8       |   9   |
 /// | (BL)  |   (Bottom)    |  (BR) |
 /// +-------+---------------+-------+
+/// ```
+///
+/// # Example
+///
+/// ```no_run
+/// use horizon_lattice_render::{NinePatch, ImageManager, GraphicsContext, GraphicsConfig, Rect};
+///
+/// // Initialize graphics and load an image
+/// GraphicsContext::init(GraphicsConfig::default()).unwrap();
+/// let mut manager = ImageManager::new().unwrap();
+/// let image = manager.load_file("button.png").unwrap();
+///
+/// // Create a nine-patch with 16px borders on all sides
+/// let nine_patch = NinePatch::new(image.clone(), 16.0);
+///
+/// // Or with different border sizes
+/// let asymmetric = NinePatch::with_borders(
+///     image,
+///     10.0, // left
+///     10.0, // right
+///     8.0,  // top
+///     12.0, // bottom
+/// );
+///
+/// // Get minimum size (sum of borders)
+/// let min = nine_patch.min_size();
+/// println!("Minimum size: {}x{}", min.width, min.height);
+///
+/// // Calculate patch rectangles for a destination size
+/// let dest = Rect::new(0.0, 0.0, 200.0, 60.0);
+/// let patches = nine_patch.calculate_patches(dest);
+/// // patches contains 9 (source_rect, dest_rect) pairs
 /// ```
 #[derive(Debug, Clone)]
 pub struct NinePatch {
@@ -262,6 +335,15 @@ impl NinePatch {
 ///
 /// Note: For most use cases, prefer using [`ImageManager`](crate::ImageManager)
 /// which automatically manages texture atlases.
+///
+/// # Example
+///
+/// ```
+/// use horizon_lattice_render::ImageLoader;
+///
+/// // Create a new image loader
+/// let loader = ImageLoader::new();
+/// ```
 #[derive(Default)]
 pub struct ImageLoader {
     _private: (),

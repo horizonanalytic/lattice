@@ -102,6 +102,37 @@ impl ShapedGlyph {
 ///
 /// `ShapedText` contains all the shaped glyphs for a single line of text,
 /// along with metrics for the entire line.
+///
+/// # Example
+///
+/// ```no_run
+/// use horizon_lattice_render::text::{FontSystem, Font, FontFamily, TextShaper, ShapingOptions};
+///
+/// let mut font_system = FontSystem::new();
+/// let font = Font::new(FontFamily::SansSerif, 16.0);
+/// let mut shaper = TextShaper::new();
+///
+/// let shaped = shaper.shape_text(&mut font_system, "Hello!", &font, ShapingOptions::default());
+///
+/// // Get metrics
+/// println!("Width: {}", shaped.width());
+/// println!("Line height: {}", shaped.line_height());
+/// println!("Ascent: {}", shaped.ascent());
+/// println!("Descent: {}", shaped.descent());
+///
+/// // Iterate glyphs
+/// for glyph in shaped.glyphs() {
+///     println!("Glyph {} at ({}, {})", glyph.glyph_id.value(), glyph.x, glyph.y);
+/// }
+///
+/// // Find glyph at position (for hit testing)
+/// if let Some(idx) = shaped.glyph_at_x(25.0) {
+///     println!("Glyph index at x=25: {}", idx);
+/// }
+///
+/// // Get cursor position for character offset
+/// let cursor_x = shaped.x_for_offset(3); // Position after 3rd byte
+/// ```
 #[derive(Debug, Clone)]
 pub struct ShapedText {
     /// The original text that was shaped.
@@ -237,6 +268,30 @@ impl Default for ShapedText {
 }
 
 /// Options for text shaping.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::text::{ShapingOptions, FontFeature};
+///
+/// // Default options (advanced shaping enabled)
+/// let default = ShapingOptions::default();
+/// assert!(default.advanced);
+///
+/// // Simple shaping for ASCII text (faster)
+/// let simple = ShapingOptions::new().simple();
+/// assert!(!simple.advanced);
+///
+/// // Enable specific OpenType features
+/// let with_features = ShapingOptions::new()
+///     .with_ligatures()
+///     .with_kerning();
+///
+/// // Add custom features
+/// let custom = ShapingOptions::new()
+///     .feature(FontFeature::SMALL_CAPS)
+///     .feature(FontFeature::TABULAR_FIGURES);
+/// ```
 #[derive(Debug, Clone)]
 pub struct ShapingOptions {
     /// OpenType features to apply during shaping.

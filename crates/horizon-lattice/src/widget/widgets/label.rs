@@ -8,23 +8,23 @@
 //!
 //! # Example
 //!
-//! ```ignore
-//! use horizon_lattice::widget::widgets::Label;
-//! use horizon_lattice::render::{Color, HorizontalAlign};
+//! ```no_run
+//! use horizon_lattice::widget::widgets::{Label, ElideMode};
+//! use horizon_lattice_render::{Color, HorizontalAlign};
 //!
 //! // Create a simple label
-//! let mut label = Label::new("Hello, World!");
+//! let label = Label::new("Hello, World!");
 //!
 //! // Create a label with word wrapping
-//! let mut wrapped = Label::new("Long text that will wrap...")
+//! let wrapped = Label::new("Long text that will wrap...")
 //!     .with_word_wrap(true);
 //!
 //! // Create a label with elision
-//! let mut elided = Label::new("Very long filename.txt")
+//! let elided = Label::new("Very long filename.txt")
 //!     .with_elide_mode(ElideMode::Right);
 //!
 //! // Customize alignment and color
-//! let mut styled = Label::new("Centered text")
+//! let styled = Label::new("Centered text")
 //!     .with_horizontal_align(HorizontalAlign::Center)
 //!     .with_text_color(Color::from_rgb8(100, 100, 100));
 //! ```
@@ -70,7 +70,9 @@ pub enum ElideMode {
 ///
 /// Labels can display either plain text or rich text:
 ///
-/// ```ignore
+/// ```no_run
+/// use horizon_lattice::widget::widgets::Label;
+///
 /// // Plain text
 /// let plain = Label::new("Hello, World!");
 ///

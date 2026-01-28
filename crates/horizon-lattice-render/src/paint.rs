@@ -5,6 +5,82 @@
 use crate::types::{Color, CornerRadii, Point, Rect};
 
 /// A paint style for filling shapes.
+///
+/// `Paint` defines how shapes are filled. It can be a solid color,
+/// a linear gradient, or a radial gradient.
+///
+/// # Examples
+///
+/// ## Solid Colors
+///
+/// ```
+/// use horizon_lattice_render::{Paint, Color};
+///
+/// // Create a solid color paint
+/// let solid = Paint::solid(Color::RED);
+/// assert!(solid.is_solid());
+/// assert_eq!(solid.as_solid(), Some(Color::RED));
+///
+/// // Convert a Color directly to Paint
+/// let from_color: Paint = Color::BLUE.into();
+/// ```
+///
+/// ## Linear Gradients
+///
+/// ```
+/// use horizon_lattice_render::{Paint, Point, Color, GradientStop};
+///
+/// // Create a horizontal gradient from red to blue
+/// let gradient = Paint::linear_gradient(
+///     Point::new(0.0, 0.0),   // start
+///     Point::new(100.0, 0.0), // end
+///     vec![
+///         GradientStop::new(0.0, Color::RED),
+///         GradientStop::new(1.0, Color::BLUE),
+///     ],
+/// );
+///
+/// // Multi-stop gradient (rainbow)
+/// let rainbow = Paint::linear_gradient(
+///     Point::new(0.0, 0.0),
+///     Point::new(100.0, 0.0),
+///     vec![
+///         GradientStop::new(0.0, Color::RED),
+///         GradientStop::new(0.25, Color::YELLOW),
+///         GradientStop::new(0.5, Color::GREEN),
+///         GradientStop::new(0.75, Color::CYAN),
+///         GradientStop::new(1.0, Color::BLUE),
+///     ],
+/// );
+/// ```
+///
+/// ## Radial Gradients
+///
+/// ```
+/// use horizon_lattice_render::{Paint, Point, Color, GradientStop};
+///
+/// // Create a radial gradient from center outward
+/// let radial = Paint::radial_gradient(
+///     Point::new(50.0, 50.0), // center
+///     50.0,                   // radius
+///     None,                   // focus (same as center)
+///     vec![
+///         GradientStop::new(0.0, Color::WHITE),
+///         GradientStop::new(1.0, Color::BLACK),
+///     ],
+/// );
+///
+/// // Radial gradient with offset focus (spotlight effect)
+/// let spotlight = Paint::radial_gradient(
+///     Point::new(50.0, 50.0), // center
+///     50.0,                   // radius
+///     Some(Point::new(30.0, 30.0)), // offset focus
+///     vec![
+///         GradientStop::new(0.0, Color::WHITE),
+///         GradientStop::new(1.0, Color::TRANSPARENT),
+///     ],
+/// );
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum Paint {
     /// Solid color fill.
@@ -97,6 +173,22 @@ pub struct RadialGradient {
 }
 
 /// A gradient color stop.
+///
+/// Defines a color at a specific position along a gradient.
+///
+/// # Example
+///
+/// ```
+/// use horizon_lattice_render::{GradientStop, Color};
+///
+/// // Create individual stops
+/// let start = GradientStop::new(0.0, Color::RED);
+/// let middle = GradientStop::new(0.5, Color::WHITE);
+/// let end = GradientStop::new(1.0, Color::BLUE);
+///
+/// // Use in a gradient
+/// let stops = vec![start, middle, end];
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GradientStop {
     /// Position along the gradient (0.0 to 1.0).
@@ -114,6 +206,66 @@ impl GradientStop {
 }
 
 /// Stroke style options.
+///
+/// `Stroke` defines how paths are stroked (outlined), including the color/paint,
+/// line width, end caps, corner joins, and optional dashing.
+///
+/// # Examples
+///
+/// ## Basic Strokes
+///
+/// ```
+/// use horizon_lattice_render::{Stroke, Color};
+///
+/// // Simple stroke with color and width
+/// let simple = Stroke::new(Color::BLACK, 2.0);
+/// assert_eq!(simple.width, 2.0);
+///
+/// // Default stroke (black, 1px)
+/// let default = Stroke::default();
+/// assert_eq!(default.width, 1.0);
+/// ```
+///
+/// ## Line Caps and Joins
+///
+/// ```
+/// use horizon_lattice_render::{Stroke, Color, LineCap, LineJoin};
+///
+/// // Configure caps and joins using builder pattern
+/// let styled = Stroke::new(Color::BLUE, 4.0)
+///     .with_cap(LineCap::Round)
+///     .with_join(LineJoin::Round);
+///
+/// // Square caps extend past the endpoint
+/// let square_caps = Stroke::new(Color::RED, 3.0)
+///     .with_cap(LineCap::Square);
+///
+/// // Miter joins with custom limit
+/// let mitered = Stroke::new(Color::GREEN, 2.0)
+///     .with_join(LineJoin::Miter)
+///     .with_miter_limit(8.0);
+/// ```
+///
+/// ## Dashed Lines
+///
+/// ```
+/// use horizon_lattice_render::{Stroke, Color, DashPattern};
+///
+/// // Simple dashed line (5px dash, 3px gap)
+/// let dashed = Stroke::new(Color::BLACK, 2.0)
+///     .with_dash(DashPattern::simple(5.0, 3.0));
+///
+/// // Complex dash pattern
+/// let complex = Stroke::new(Color::BLACK, 2.0)
+///     .with_dash(DashPattern::new(
+///         vec![10.0, 5.0, 2.0, 5.0], // dash, gap, dot, gap
+///         0.0, // no offset
+///     ));
+///
+/// // Dash with offset (animated effect)
+/// let animated = Stroke::new(Color::BLACK, 2.0)
+///     .with_dash(DashPattern::new(vec![5.0, 5.0], 2.5));
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stroke {
     /// Stroke paint (color or gradient).
@@ -184,6 +336,18 @@ impl Stroke {
 }
 
 /// Line cap style.
+///
+/// Determines how the ends of stroked lines are drawn.
+///
+/// # Example
+///
+/// ```
+/// use horizon_lattice_render::{LineCap, Stroke, Color};
+///
+/// let butt = Stroke::new(Color::BLACK, 10.0).with_cap(LineCap::Butt);
+/// let round = Stroke::new(Color::BLACK, 10.0).with_cap(LineCap::Round);
+/// let square = Stroke::new(Color::BLACK, 10.0).with_cap(LineCap::Square);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LineCap {
     /// Flat cap at the exact endpoint.
@@ -199,6 +363,35 @@ pub enum LineCap {
 ///
 /// When a path has multiple subpaths or self-intersecting curves,
 /// the fill rule determines which points are considered "inside" the path.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::{FillRule, Path, Point, tessellate_fill, DEFAULT_TOLERANCE};
+///
+/// // Create a path with overlapping squares
+/// let mut path = Path::new();
+///
+/// // Outer square (clockwise)
+/// path.move_to(Point::new(0.0, 0.0))
+///     .line_to(Point::new(100.0, 0.0))
+///     .line_to(Point::new(100.0, 100.0))
+///     .line_to(Point::new(0.0, 100.0))
+///     .close();
+///
+/// // Inner square (also clockwise - creates hole with NonZero)
+/// path.move_to(Point::new(25.0, 25.0))
+///     .line_to(Point::new(75.0, 25.0))
+///     .line_to(Point::new(75.0, 75.0))
+///     .line_to(Point::new(25.0, 75.0))
+///     .close();
+///
+/// // NonZero: inner square is filled (both squares wind same direction)
+/// let non_zero = tessellate_fill(&path, FillRule::NonZero, DEFAULT_TOLERANCE);
+///
+/// // EvenOdd: inner square is a hole (odd number of crossings)
+/// let even_odd = tessellate_fill(&path, FillRule::EvenOdd, DEFAULT_TOLERANCE);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FillRule {
     /// Non-zero winding rule.
@@ -217,6 +410,23 @@ pub enum FillRule {
 }
 
 /// Line join style.
+///
+/// Determines how corners are drawn where line segments meet.
+///
+/// # Example
+///
+/// ```
+/// use horizon_lattice_render::{LineJoin, Stroke, Color};
+///
+/// let miter = Stroke::new(Color::BLACK, 4.0).with_join(LineJoin::Miter);
+/// let round = Stroke::new(Color::BLACK, 4.0).with_join(LineJoin::Round);
+/// let bevel = Stroke::new(Color::BLACK, 4.0).with_join(LineJoin::Bevel);
+///
+/// // Miter with custom limit (prevents very sharp corners from extending too far)
+/// let limited_miter = Stroke::new(Color::BLACK, 4.0)
+///     .with_join(LineJoin::Miter)
+///     .with_miter_limit(2.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LineJoin {
     /// Sharp corner (may be limited by miter limit).
@@ -229,6 +439,25 @@ pub enum LineJoin {
 }
 
 /// Dash pattern for stroked lines.
+///
+/// Defines a repeating pattern of dashes and gaps for stroked paths.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::DashPattern;
+///
+/// // Simple equal dash and gap
+/// let simple = DashPattern::simple(5.0, 5.0);
+/// assert_eq!(simple.pattern, vec![5.0, 5.0]);
+///
+/// // Custom pattern: long dash, short gap, short dash, short gap
+/// let custom = DashPattern::new(vec![10.0, 3.0, 3.0, 3.0], 0.0);
+///
+/// // Pattern with offset (useful for animation)
+/// let animated = DashPattern::new(vec![5.0, 5.0], 2.5);
+/// assert_eq!(animated.offset, 2.5);
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct DashPattern {
     /// Alternating lengths of dashes and gaps.
@@ -255,6 +484,29 @@ impl DashPattern {
 }
 
 /// Blend mode for compositing.
+///
+/// Blend modes control how colors are combined when drawing overlapping content.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::BlendMode;
+///
+/// // Default blend mode (normal alpha blending)
+/// let default = BlendMode::default();
+/// assert_eq!(default, BlendMode::Normal);
+///
+/// // Common blend modes
+/// let normal = BlendMode::Normal;     // Standard alpha blending
+/// let multiply = BlendMode::Multiply; // Darken by multiplying colors
+/// let screen = BlendMode::Screen;     // Lighten (opposite of multiply)
+/// let add = BlendMode::Add;           // Glow effects (additive)
+///
+/// // Porter-Duff compositing modes
+/// let source = BlendMode::Source;           // Replace destination
+/// let dest_out = BlendMode::DestinationOut; // Cut out shape from destination
+/// let xor = BlendMode::Xor;                 // Either source or dest, not both
+/// ```
 ///
 /// # Hardware-Supported Modes
 ///
@@ -347,24 +599,72 @@ pub enum BlendMode {
 /// Box shadows are rendered using an analytical approximation of Gaussian blur,
 /// providing efficient single-pass shadow rendering on the GPU.
 ///
-/// # Example
+/// # Examples
 ///
-/// ```ignore
+/// ## Basic Shadows
+///
+/// ```
+/// use horizon_lattice_render::{BoxShadow, Color};
+///
 /// // Simple drop shadow
 /// let shadow = BoxShadow::new(Color::from_rgba(0.0, 0.0, 0.0, 0.3))
 ///     .with_offset(4.0, 4.0)
 ///     .with_blur(8.0);
+///
+/// assert_eq!(shadow.offset_x, 4.0);
+/// assert_eq!(shadow.offset_y, 4.0);
+/// assert_eq!(shadow.blur_radius, 8.0);
+///
+/// // Quick drop shadow helper
+/// let quick = BoxShadow::drop_shadow(Color::BLACK, 10.0);
+/// assert_eq!(quick.blur_radius, 10.0);
+/// assert_eq!(quick.offset_y, 5.0); // Automatic vertical offset
+/// ```
+///
+/// ## Glow Effects
+///
+/// ```
+/// use horizon_lattice_render::{BoxShadow, Color};
 ///
 /// // Glow effect (no offset, large blur, spread)
 /// let glow = BoxShadow::new(Color::from_rgba(0.0, 0.5, 1.0, 0.5))
 ///     .with_blur(20.0)
 ///     .with_spread(4.0);
 ///
-/// // Inset shadow
+/// assert_eq!(glow.offset_x, 0.0);
+/// assert_eq!(glow.offset_y, 0.0);
+/// assert_eq!(glow.spread_radius, 4.0);
+/// ```
+///
+/// ## Inset Shadows
+///
+/// ```
+/// use horizon_lattice_render::{BoxShadow, Color};
+///
+/// // Inset shadow for pressed button effect
 /// let inset = BoxShadow::new(Color::from_rgba(0.0, 0.0, 0.0, 0.2))
 ///     .with_offset(2.0, 2.0)
 ///     .with_blur(4.0)
 ///     .inset();
+///
+/// assert!(inset.inset);
+/// ```
+///
+/// ## Computing Shadow Bounds
+///
+/// ```
+/// use horizon_lattice_render::{BoxShadow, Color, Rect};
+///
+/// let rect = Rect::new(100.0, 100.0, 200.0, 100.0);
+/// let shadow = BoxShadow::new(Color::BLACK)
+///     .with_offset(10.0, 10.0)
+///     .with_blur(20.0)
+///     .with_spread(5.0);
+///
+/// // Get the bounds needed to render the shadow
+/// let shadow_bounds = shadow.expanded_bounds(rect);
+/// assert!(shadow_bounds.left() < rect.left());
+/// assert!(shadow_bounds.right() > rect.right());
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoxShadow {

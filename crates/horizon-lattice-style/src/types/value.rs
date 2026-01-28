@@ -1,10 +1,52 @@
 //! Style property value types.
+//!
+//! This module provides CSS-like value types for styling properties.
+//!
+//! # Example
+//!
+//! ```
+//! use horizon_lattice_style::prelude::*;
+//!
+//! // Create length values with different units
+//! let px = LengthValue::px(16.0);
+//! let em = LengthValue::em(1.5);
+//! let percent = LengthValue::percent(50.0);
+//!
+//! // Resolve to pixels given context
+//! let font_size = 14.0;
+//! let parent_size = 200.0;
+//! let root_font_size = 16.0;
+//!
+//! assert_eq!(px.to_px(font_size, parent_size, root_font_size), 16.0);
+//! assert_eq!(em.to_px(font_size, parent_size, root_font_size), 21.0); // 1.5 * 14
+//! assert_eq!(percent.to_px(font_size, parent_size, root_font_size), 100.0); // 50% of 200
+//! ```
 
 use horizon_lattice_render::CornerRadii;
 
 /// A style property value that can represent various CSS value types.
 ///
 /// This enum wraps actual values with CSS-like special values for inheritance.
+///
+/// # Example
+///
+/// ```
+/// use horizon_lattice_style::prelude::StyleValue;
+///
+/// // Explicit value
+/// let color: StyleValue<String> = StyleValue::Set("red".to_string());
+/// assert!(color.is_set());
+///
+/// // Inherit from parent
+/// let inherited: StyleValue<i32> = StyleValue::Inherit;
+/// let resolved = inherited.resolve(Some(&42), &0);
+/// assert_eq!(resolved, 42);
+///
+/// // Use initial/default value
+/// let initial: StyleValue<i32> = StyleValue::Initial;
+/// let resolved = initial.resolve(Some(&42), &0);
+/// assert_eq!(resolved, 0); // Uses initial, not inherited
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum StyleValue<T> {
     /// An explicit value.
@@ -134,6 +176,34 @@ impl LengthValue {
 }
 
 /// Edge values for margin, padding, and border-width.
+///
+/// # Example
+///
+/// ```
+/// use horizon_lattice_style::prelude::{EdgeValues, LengthValue};
+///
+/// // Uniform edges (same value on all sides)
+/// let padding = EdgeValues::uniform(LengthValue::px(10.0));
+///
+/// // Symmetric edges (vertical, horizontal)
+/// let margin = EdgeValues::symmetric(
+///     LengthValue::px(20.0),  // top/bottom
+///     LengthValue::px(10.0),  // left/right
+/// );
+///
+/// // Specific edges
+/// let border = EdgeValues::new(
+///     LengthValue::px(1.0),   // top
+///     LengthValue::px(2.0),   // right
+///     LengthValue::px(3.0),   // bottom
+///     LengthValue::px(4.0),   // left
+/// );
+///
+/// // Resolve to pixels
+/// let resolved = padding.to_px(14.0, 100.0, 16.0);
+/// assert_eq!(resolved.horizontal(), 20.0); // left + right
+/// assert_eq!(resolved.vertical(), 20.0);   // top + bottom
+/// ```
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct EdgeValues {
     /// Top edge value.

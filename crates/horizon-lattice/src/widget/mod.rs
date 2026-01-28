@@ -24,7 +24,7 @@
 //!
 //! ```ignore
 //! use horizon_lattice::widget::*;
-//! use horizon_lattice::render::{Color, Rect};
+//! use horizon_lattice_render::{Color, Renderer};
 //!
 //! struct MyButton {
 //!     base: WidgetBase,
@@ -79,11 +79,15 @@
 //! This is managed by the object system from `horizon-lattice-core`.
 //!
 //! ```ignore
-//! let mut parent = Container::new();
-//! let child = Button::new("Click me");
+//! use horizon_lattice::widget::widgets::PushButton;
+//! use horizon_lattice::widget::Widget;
+//! use horizon_lattice_core::Object;
+//!
+//! let parent = PushButton::new("Parent");
+//! let child = PushButton::new("Click me");
 //!
 //! // Set up parent-child relationship
-//! child.widget_base().set_parent(Some(parent.object_id()))?;
+//! child.widget_base().set_parent(Some(parent.object_id())).unwrap();
 //! ```
 //!
 //! # Coordinate Systems
@@ -97,7 +101,11 @@
 //!
 //! Use the coordinate mapping methods to convert between systems:
 //!
-//! ```ignore
+//! ```no_run
+//! use horizon_lattice::widget::{Widget, PushButton};
+//! use horizon_lattice_render::Point;
+//!
+//! let widget = PushButton::new("Test");
 //! let local_point = Point::new(10.0, 20.0);
 //! let parent_point = widget.map_to_parent(local_point);
 //! ```
@@ -110,10 +118,13 @@
 //! - [`SizePolicy::Preferred`]: Can grow/shrink but has a preferred size
 //! - [`SizePolicy::Expanding`]: Actively wants more space
 //!
-//! ```ignore
+//! ```no_run
+//! use horizon_lattice::widget::{Widget, PushButton, SizePolicy, SizePolicyPair};
+//!
+//! let mut widget = PushButton::new("Test");
 //! widget.set_size_policy(SizePolicyPair::new(
-//!     SizePolicy::Expanding,
-//!     SizePolicy::Fixed,
+//!     SizePolicy::Expanding,  // horizontal
+//!     SizePolicy::Fixed,      // vertical
 //! ));
 //! ```
 

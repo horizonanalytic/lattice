@@ -286,6 +286,41 @@ impl Default for Font {
 }
 
 /// Builder for creating `Font` instances with complex configurations.
+///
+/// Provides a fluent API for creating fonts with multiple families,
+/// custom weights, styles, OpenType features, and spacing adjustments.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::text::{Font, FontBuilder, FontFamily, FontWeight, FontStyle, FontFeature};
+///
+/// // Basic font with builder
+/// let simple = Font::builder()
+///     .family(FontFamily::SansSerif)
+///     .size(16.0)
+///     .build();
+///
+/// // Complex font with fallbacks and features
+/// let complex = Font::builder()
+///     .family(FontFamily::Name("Inter".into()))
+///     .fallback(FontFamily::Name("Helvetica".into()))
+///     .fallback(FontFamily::SansSerif)
+///     .size(14.0)
+///     .weight(FontWeight::MEDIUM)
+///     .style(FontStyle::Italic)
+///     .feature(FontFeature::LIGATURES)
+///     .feature(FontFeature::KERNING)
+///     .letter_spacing(0.5)
+///     .build();
+///
+/// // Code font
+/// let code = Font::builder()
+///     .family(FontFamily::Monospace)
+///     .size(13.0)
+///     .feature(FontFeature::NO_LIGATURES) // Often wanted for code
+///     .build();
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct FontBuilder {
     families: Vec<FontFamily>,

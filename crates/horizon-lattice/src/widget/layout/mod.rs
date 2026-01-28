@@ -33,22 +33,18 @@
 //! # Example
 //!
 //! ```ignore
-//! use horizon_lattice::widget::layout::*;
+//! use horizon_lattice::widget::layout::{HBoxLayout, ContentMargins, Layout};
 //!
 //! // Create a horizontal box layout
 //! let mut layout = HBoxLayout::new();
 //! layout.set_spacing(10.0);
 //! layout.set_content_margins(ContentMargins::uniform(8.0));
 //!
-//! // Add widgets
-//! layout.add_widget(button1_id);
-//! layout.add_widget(button2_id);
+//! // Add widgets (widget IDs come from the widget system)
+//! layout.add_widget(button1.id());
+//! layout.add_widget(button2.id());
 //! layout.add_stretch(1); // Flexible spacer
-//! layout.add_widget(button3_id);
-//!
-//! // Calculate and apply layout
-//! let size = layout.calculate(available_size);
-//! layout.apply(&mut widget_storage);
+//! layout.add_widget(button3.id());
 //! ```
 
 mod item;

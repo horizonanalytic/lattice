@@ -44,6 +44,25 @@ use super::{Font, FontStyle, FontSystem, FontWeight, TextDecoration, TextDirecti
 use super::FontFamily;
 
 /// Horizontal text alignment.
+///
+/// # Example
+///
+/// ```
+/// use horizon_lattice_render::text::{HorizontalAlign, TextLayoutOptions};
+///
+/// let left = TextLayoutOptions::default()
+///     .horizontal_align(HorizontalAlign::Left);
+///
+/// let centered = TextLayoutOptions::default()
+///     .horizontal_align(HorizontalAlign::Center);
+///
+/// let right = TextLayoutOptions::default()
+///     .horizontal_align(HorizontalAlign::Right);
+///
+/// let justified = TextLayoutOptions::default()
+///     .max_width(300.0)
+///     .horizontal_align(HorizontalAlign::Justified);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum HorizontalAlign {
     /// Left-aligned text (default for LTR languages).
@@ -82,6 +101,30 @@ pub enum VerticalAlign {
 }
 
 /// Text wrapping mode.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::text::{WrapMode, TextLayoutOptions};
+///
+/// // No wrapping (default) - single line extends indefinitely
+/// let no_wrap = TextLayoutOptions::default();
+///
+/// // Word wrapping - breaks at spaces and punctuation
+/// let word_wrap = TextLayoutOptions::default()
+///     .max_width(200.0)
+///     .wrap(WrapMode::Word);
+///
+/// // Character wrapping - breaks anywhere
+/// let char_wrap = TextLayoutOptions::default()
+///     .max_width(200.0)
+///     .wrap(WrapMode::Character);
+///
+/// // Word wrapping with character fallback for very long words
+/// let smart_wrap = TextLayoutOptions::default()
+///     .max_width(200.0)
+///     .wrap(WrapMode::WordOrCharacter);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum WrapMode {
     /// No wrapping - text extends beyond bounds.
@@ -108,6 +151,70 @@ impl WrapMode {
 }
 
 /// Options for text layout.
+///
+/// Configure text wrapping, alignment, line spacing, and truncation behavior.
+///
+/// # Examples
+///
+/// ## Basic Usage
+///
+/// ```
+/// use horizon_lattice_render::text::{TextLayoutOptions, WrapMode, HorizontalAlign};
+///
+/// // Simple wrapped text
+/// let options = TextLayoutOptions::default()
+///     .max_width(300.0)
+///     .wrap(WrapMode::Word);
+///
+/// // Centered text
+/// let centered = TextLayoutOptions::default()
+///     .max_width(200.0)
+///     .horizontal_align(HorizontalAlign::Center);
+/// ```
+///
+/// ## Advanced Layout
+///
+/// ```
+/// use horizon_lattice_render::text::{TextLayoutOptions, WrapMode, HorizontalAlign, VerticalAlign};
+///
+/// // Full configuration
+/// let options = TextLayoutOptions::default()
+///     .max_width(400.0)
+///     .max_height(300.0)
+///     .wrap(WrapMode::Word)
+///     .horizontal_align(HorizontalAlign::Left)
+///     .vertical_align(VerticalAlign::Top)
+///     .line_height(1.5) // 150% line height
+///     .paragraph_spacing(8.0);
+///
+/// // Truncate with ellipsis
+/// let truncated = TextLayoutOptions::default()
+///     .max_width(200.0)
+///     .max_height(50.0)
+///     .with_ellipsis();
+///
+/// // Custom ellipsis string
+/// let custom_ellipsis = TextLayoutOptions::default()
+///     .max_width(200.0)
+///     .ellipsis_string("...");
+/// ```
+///
+/// ## Indentation
+///
+/// ```
+/// use horizon_lattice_render::text::TextLayoutOptions;
+///
+/// // Paragraph with first line indent
+/// let indented = TextLayoutOptions::default()
+///     .max_width(400.0)
+///     .first_line_indent(20.0);
+///
+/// // Hanging indent (first line outdented)
+/// let hanging = TextLayoutOptions::default()
+///     .max_width(400.0)
+///     .left_indent(20.0)
+///     .first_line_indent(-20.0);
+/// ```
 #[derive(Debug, Clone)]
 pub struct TextLayoutOptions {
     /// Maximum width for text layout (None = unconstrained).
@@ -503,6 +610,47 @@ impl InlineElement {
 }
 
 /// A text span with styling for rich text.
+///
+/// Used with [`TextLayout::with_spans`] for rich text with mixed styles.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::text::{TextSpan, Font, FontFamily, FontWeight};
+///
+/// let base_font = Font::new(FontFamily::SansSerif, 14.0);
+///
+/// // Plain text span
+/// let plain = TextSpan::new("Hello, ");
+///
+/// // Bold text
+/// let bold = TextSpan::new("World").bold(&base_font);
+///
+/// // Italic text
+/// let italic = TextSpan::new("!").italic(&base_font);
+///
+/// // Colored text
+/// let red = TextSpan::new("Important")
+///     .with_color([255, 0, 0, 255]);
+///
+/// // Text with background highlight
+/// let highlighted = TextSpan::new("selected")
+///     .with_background_color([255, 255, 0, 128]);
+///
+/// // Text with underline
+/// let underlined = TextSpan::new("link")
+///     .with_underline()
+///     .with_color([0, 0, 255, 255]);
+///
+/// // Strikethrough (for deleted text)
+/// let deleted = TextSpan::new("old text").with_strikethrough();
+///
+/// // Multiple decorations
+/// let fancy = TextSpan::new("fancy")
+///     .with_underline()
+///     .with_overline()
+///     .with_color([128, 0, 128, 255]);
+/// ```
 #[derive(Debug, Clone)]
 pub struct TextSpan<'a> {
     /// The text content of this span.

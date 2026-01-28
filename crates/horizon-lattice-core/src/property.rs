@@ -13,9 +13,8 @@
 //!
 //! # Example
 //!
-//! ```ignore
-//! use horizon_lattice_core::property::Property;
-//! use horizon_lattice_core::signal::Signal;
+//! ```
+//! use horizon_lattice_core::{Property, Signal};
 //!
 //! struct Counter {
 //!     value: Property<i32>,
@@ -36,6 +35,10 @@
 //!         }
 //!     }
 //! }
+//!
+//! let counter = Counter::new();
+//! counter.set_value(42);
+//! assert_eq!(counter.value.get(), 42);
 //! ```
 
 use std::any::TypeId;
@@ -56,7 +59,9 @@ use parking_lot::RwLock;
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// use horizon_lattice_core::Property;
+///
 /// let prop = Property::new(42);
 /// assert_eq!(prop.get(), 42);
 ///
@@ -198,13 +203,17 @@ impl<'a, T: Clone> ReadOnlyProperty<'a, T> {
 ///
 /// # Example
 ///
-/// ```ignore
-/// let first_name = Property::new("John".to_string());
-/// let last_name = Property::new("Doe".to_string());
+/// ```
+/// use horizon_lattice_core::{Property, Binding};
+/// use std::sync::Arc;
 ///
-/// // Note: In real usage, the closure would capture shared references
-/// let full_name = Binding::new(|| {
-///     format!("{} {}", first_name.get(), last_name.get())
+/// let first_name = Arc::new(Property::new("John".to_string()));
+/// let last_name = Arc::new(Property::new("Doe".to_string()));
+///
+/// let first = first_name.clone();
+/// let last = last_name.clone();
+/// let full_name = Binding::new(move || {
+///     format!("{} {}", first.get(), last.get())
 /// });
 ///
 /// assert_eq!(full_name.get(), "John Doe");

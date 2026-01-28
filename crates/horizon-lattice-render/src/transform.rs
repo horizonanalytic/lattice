@@ -6,10 +6,100 @@ use crate::types::{Point, Rect};
 
 /// A 2D affine transformation matrix.
 ///
+/// Supports translation, rotation, scaling, and skewing operations.
+/// Transforms can be composed together and applied to points and rectangles.
+///
 /// Stored as a 3x2 matrix in column-major order:
 /// ```text
 /// | m00 m10 m20 |   | scale_x  skew_x   translate_x |
 /// | m01 m11 m21 | = | skew_y   scale_y  translate_y |
+/// ```
+///
+/// # Examples
+///
+/// ## Basic Transforms
+///
+/// ```
+/// use horizon_lattice_render::{Transform2D, Point};
+///
+/// // Translation
+/// let translate = Transform2D::translate(100.0, 50.0);
+/// let p = translate.transform_point(Point::new(0.0, 0.0));
+/// assert_eq!(p, Point::new(100.0, 50.0));
+///
+/// // Uniform scaling
+/// let scale = Transform2D::scale(2.0);
+/// let p = scale.transform_point(Point::new(10.0, 10.0));
+/// assert_eq!(p, Point::new(20.0, 20.0));
+///
+/// // Non-uniform scaling
+/// let scale_xy = Transform2D::scale_xy(2.0, 3.0);
+/// let p = scale_xy.transform_point(Point::new(10.0, 10.0));
+/// assert_eq!(p, Point::new(20.0, 30.0));
+///
+/// // Rotation (90 degrees)
+/// let rotate = Transform2D::rotate(std::f32::consts::FRAC_PI_2);
+/// let p = rotate.transform_point(Point::new(1.0, 0.0));
+/// assert!((p.x - 0.0).abs() < 0.0001);
+/// assert!((p.y - 1.0).abs() < 0.0001);
+/// ```
+///
+/// ## Composing Transforms
+///
+/// ```
+/// use horizon_lattice_render::{Transform2D, Point};
+///
+/// // Transforms are composed right-to-left with `then`
+/// // (first translate, then scale)
+/// let transform = Transform2D::scale(2.0)
+///     .then(&Transform2D::translate(10.0, 0.0));
+///
+/// let p = transform.transform_point(Point::new(5.0, 0.0));
+/// // 5 + 10 = 15, then * 2 = 30
+/// assert_eq!(p, Point::new(30.0, 0.0));
+///
+/// // Builder-style methods
+/// let transform = Transform2D::IDENTITY
+///     .translated(100.0, 50.0)
+///     .scaled(2.0)
+///     .rotated(std::f32::consts::FRAC_PI_4);
+/// ```
+///
+/// ## Rotation Around a Point
+///
+/// ```
+/// use horizon_lattice_render::{Transform2D, Point};
+///
+/// // Rotate 90 degrees around point (50, 50)
+/// let center = Point::new(50.0, 50.0);
+/// let rotate = Transform2D::rotate_around(
+///     std::f32::consts::FRAC_PI_2,
+///     center,
+/// );
+///
+/// // A point at (100, 50) should move to (50, 100)
+/// let p = rotate.transform_point(Point::new(100.0, 50.0));
+/// assert!((p.x - 50.0).abs() < 0.001);
+/// assert!((p.y - 100.0).abs() < 0.001);
+/// ```
+///
+/// ## Inverse Transform
+///
+/// ```
+/// use horizon_lattice_render::{Transform2D, Point};
+///
+/// let transform = Transform2D::translate(100.0, 50.0)
+///     .scaled(2.0);
+///
+/// // Get the inverse
+/// let inverse = transform.inverse().unwrap();
+///
+/// // Applying transform then inverse returns to original
+/// let original = Point::new(25.0, 30.0);
+/// let transformed = transform.transform_point(original);
+/// let back = inverse.transform_point(transformed);
+/// assert!((back.x - original.x).abs() < 0.001);
+/// assert!((back.y - original.y).abs() < 0.001);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Transform2D {
@@ -239,6 +329,35 @@ impl Transform2D {
 ///
 /// This allows pushing and popping transforms to manage nested
 /// coordinate systems, similar to canvas save/restore.
+///
+/// # Examples
+///
+/// ```
+/// use horizon_lattice_render::{TransformStack, Point};
+///
+/// let mut stack = TransformStack::new();
+///
+/// // Apply some transforms
+/// stack.translate(100.0, 50.0);
+///
+/// // Save current state
+/// stack.save();
+///
+/// // Apply more transforms
+/// stack.scale(2.0);
+/// stack.rotate(std::f32::consts::FRAC_PI_4);
+///
+/// // Transform a point with current state
+/// let p1 = stack.transform_point(Point::new(10.0, 0.0));
+///
+/// // Restore to saved state (translation only)
+/// stack.restore();
+/// let p2 = stack.transform_point(Point::new(10.0, 0.0));
+/// assert_eq!(p2, Point::new(110.0, 50.0));
+///
+/// // Check stack depth
+/// assert_eq!(stack.depth(), 0);
+/// ```
 #[derive(Debug, Clone)]
 pub struct TransformStack {
     /// The stack of saved transforms.

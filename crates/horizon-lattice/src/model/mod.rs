@@ -25,10 +25,10 @@
 //!
 //! # Example
 //!
-//! ```ignore
-//! use horizon_lattice::model::*;
+//! ```no_run
+//! use horizon_lattice::model::{ListModel, ModelIndex, ItemModel};
 //!
-//! // Create a list model with trait-based items
+//! // Create a list model with string items
 //! let model = ListModel::new(vec!["Apple".to_string(), "Banana".to_string()]);
 //!
 //! // Query the model
@@ -42,7 +42,7 @@
 //! }
 //!
 //! // Connect to change notifications
-//! model.signals().data_changed.connect(|(top_left, bottom_right, roles)| {
+//! model.signals().data_changed.connect(|(top_left, bottom_right, _roles)| {
 //!     println!("Data changed from {:?} to {:?}", top_left, bottom_right);
 //! });
 //! ```

@@ -1,10 +1,61 @@
 //! Selector type definitions.
+//!
+//! This module provides CSS-like selector types for matching widgets by type,
+//! class, ID, and state.
+//!
+//! # Example
+//!
+//! ```
+//! use horizon_lattice_style::prelude::*;
+//!
+//! // Simple type selector
+//! let button = Selector::type_selector("Button");
+//! assert_eq!(button.to_string(), "Button");
+//!
+//! // Class selector
+//! let primary = Selector::class("primary");
+//! assert_eq!(primary.to_string(), ".primary");
+//!
+//! // ID selector
+//! let submit = Selector::id("submit-btn");
+//! assert_eq!(submit.to_string(), "#submit-btn");
+//!
+//! // Complex selector with descendant combinator
+//! let nested = Selector::type_selector("Container")
+//!     .descendant(SelectorPart::type_only("Button").with_class("primary"));
+//! assert_eq!(nested.to_string(), "Container Button.primary");
+//!
+//! // Child combinator (direct child only)
+//! let child = Selector::type_selector("Form")
+//!     .child(SelectorPart::type_only("Label"));
+//! assert_eq!(child.to_string(), "Form > Label");
+//!
+//! // Pseudo-class for hover state
+//! let hover = Selector::type_selector("Button")
+//!     .descendant(SelectorPart::new().with_pseudo(PseudoClass::Hover));
+//! assert_eq!(hover.to_string(), "Button :hover");
+//! ```
 
 use std::fmt;
 
 /// A complete CSS selector (e.g., "Button.primary:hover > Label").
 ///
 /// A selector consists of one or more selector parts connected by combinators.
+///
+/// # Example
+///
+/// ```
+/// use horizon_lattice_style::prelude::*;
+///
+/// // Build a complex selector programmatically
+/// let selector = Selector::type_selector("Button")
+///     .child(SelectorPart::class_only("icon"))
+///     .descendant(SelectorPart::type_only("Image"));
+///
+/// // Get the subject (rightmost part that the style applies to)
+/// let subject = selector.subject().unwrap();
+/// assert_eq!(selector.to_string(), "Button > .icon Image");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Selector {
     /// Chain of selector parts with their connecting combinators.

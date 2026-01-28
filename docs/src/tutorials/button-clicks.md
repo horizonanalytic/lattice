@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Button clicked! Checked: {}", checked);
     });
 
-    window.set_central_widget(button);
+    window.set_content_widget(button.object_id());
     window.show();
 
     app.run()
@@ -105,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    window.set_central_widget(toggle);
+    window.set_content_widget(toggle.object_id());
     window.show();
 
     app.run()
@@ -121,7 +121,7 @@ To update UI elements from a signal handler, you need to share state. Use `Arc` 
 ```rust,ignore
 use horizon_lattice::Application;
 use horizon_lattice::widget::widgets::{Label, PushButton, Container, Window};
-use horizon_lattice::widget::layout::VBoxLayout;
+use horizon_lattice::widget::layout::{VBoxLayout, LayoutKind};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -152,9 +152,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     layout.add_widget(button.object_id());
 
     let mut container = Container::new();
-    container.set_layout(layout);
+    container.set_layout(LayoutKind::from(layout));
 
-    window.set_central_widget(container);
+    window.set_content_widget(container.object_id());
     window.show();
 
     app.run()
@@ -174,7 +174,7 @@ Handle multiple buttons with different actions:
 ```rust,ignore
 use horizon_lattice::Application;
 use horizon_lattice::widget::widgets::{Label, PushButton, Container, Window};
-use horizon_lattice::widget::layout::HBoxLayout;
+use horizon_lattice::widget::layout::{HBoxLayout, LayoutKind};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
@@ -213,9 +213,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     layout.add_widget(increment.object_id());
 
     let mut container = Container::new();
-    container.set_layout(layout);
+    container.set_layout(LayoutKind::from(layout));
 
-    window.set_central_widget(container);
+    window.set_content_widget(container.object_id());
     window.show();
 
     app.run()
@@ -275,7 +275,7 @@ use horizon_lattice::Application;
 use horizon_lattice::widget::widgets::{
     Label, PushButton, Container, Window, ButtonVariant
 };
-use horizon_lattice::widget::layout::{HBoxLayout, VBoxLayout, ContentMargins};
+use horizon_lattice::widget::layout::{HBoxLayout, VBoxLayout, ContentMargins, LayoutKind};
 use horizon_lattice::render::{HorizontalAlign, VerticalAlign};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -336,7 +336,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     button_row.add_widget(increment.object_id());
 
     let mut button_container = Container::new();
-    button_container.set_layout(button_row);
+    button_container.set_layout(LayoutKind::from(button_row));
 
     // Main vertical layout
     let mut main_layout = VBoxLayout::new();
@@ -348,9 +348,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     main_layout.add_widget(reset.object_id());
 
     let mut container = Container::new();
-    container.set_layout(main_layout);
+    container.set_layout(LayoutKind::from(main_layout));
 
-    window.set_central_widget(container);
+    window.set_content_widget(container.object_id());
     window.show();
 
     app.run()

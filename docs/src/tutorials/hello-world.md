@@ -104,8 +104,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a label
     let label = Label::new("Hello, World!");
 
-    // Set the label as the window's central widget
-    window.set_central_widget(label);
+    // Set the label as the window's content widget
+    window.set_content_widget(label.object_id());
     window.show();
 
     app.run()
@@ -135,7 +135,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_vertical_align(VerticalAlign::Center)
         .with_text_color(Color::from_rgb8(50, 100, 200));
 
-    window.set_central_widget(label);
+    window.set_content_widget(label.object_id());
     window.show();
 
     app.run()
@@ -187,7 +187,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_text_color(Color::from_rgb8(50, 100, 200));
 
     // Set up the window
-    window.set_central_widget(label);
+    window.set_content_widget(label.object_id());
     window.show();
 
     // Run until window is closed
@@ -219,13 +219,13 @@ window.show();
 
 Windows are created hidden by default. Call `show()` to make them visible. The builder pattern (`with_*` methods) allows fluent configuration.
 
-### Central Widget
+### Content Widget
 
 ```rust,ignore
-window.set_central_widget(label);
+window.set_content_widget(label.object_id());
 ```
 
-Each window has a central widget that fills its content area. For more complex UIs, you'll set a Container with a layout as the central widget.
+Each window has a content widget that fills its content area. You pass the widget's `ObjectId` (obtained via `object_id()`). For more complex UIs, you'll set a Container with a layout as the content widget.
 
 ### Event Loop
 

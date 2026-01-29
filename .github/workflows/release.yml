@@ -1,0 +1,132 @@
+# Horizon Lattice Release Workflow
+#
+# Triggered when a version tag is pushed (e.g., v1.0.0).
+# Validates the release and publishes to crates.io.
+#
+# Prerequisites:
+#   - CRATES_IO_TOKEN secret must be set in repository settings
+#   - Tag must match version in Cargo.toml
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Validate the release before publishing
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-features -- -D warnings
+
+      - name: Run tests
+        run: cargo test --workspace --all-features
+
+      - name: Verify required files exist
+        run: |
+          test -f LICENSE-MIT || { echo "LICENSE-MIT missing"; exit 1; }
+          test -f LICENSE-APACHE || { echo "LICENSE-APACHE missing"; exit 1; }
+          test -f NOTICE || { echo "NOTICE missing"; exit 1; }
+          test -f CHANGELOG.md || { echo "CHANGELOG.md missing"; exit 1; }
+
+      - name: Verify tag matches Cargo.toml version
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match Cargo.toml version ($CARGO_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $TAG_VERSION"
+
+  # Publish to crates.io
+  publish:
+    name: Publish to crates.io
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # Publish in dependency order with delays for index updates
+      - name: Publish horizon-lattice-macros
+        run: cargo publish -p horizon-lattice-macros --token ${{ secrets.CRATES_IO_TOKEN }}
+
+      - name: Wait for index update
+        run: sleep 30
+
+      - name: Publish horizon-lattice-core
+        run: cargo publish -p horizon-lattice-core --token ${{ secrets.CRATES_IO_TOKEN }}
+
+      - name: Wait for index update
+        run: sleep 30
+
+      - name: Publish horizon-lattice-render
+        run: cargo publish -p horizon-lattice-render --token ${{ secrets.CRATES_IO_TOKEN }}
+
+      - name: Wait for index update
+        run: sleep 30
+
+      - name: Publish horizon-lattice-style
+        run: cargo publish -p horizon-lattice-style --token ${{ secrets.CRATES_IO_TOKEN }}
+
+      - name: Wait for index update
+        run: sleep 30
+
+      - name: Publish horizon-lattice-net
+        run: cargo publish -p horizon-lattice-net --token ${{ secrets.CRATES_IO_TOKEN }}
+
+      - name: Wait for index update
+        run: sleep 30
+
+      - name: Publish horizon-lattice-multimedia
+        run: cargo publish -p horizon-lattice-multimedia --token ${{ secrets.CRATES_IO_TOKEN }}
+
+      - name: Wait for index update
+        run: sleep 30
+
+      - name: Publish horizon-lattice
+        run: cargo publish -p horizon-lattice --token ${{ secrets.CRATES_IO_TOKEN }}
+
+  # Create GitHub Release
+  github-release:
+    name: Create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          # Extract section for this version from CHANGELOG.md
+          awk "/^## \[?${VERSION}\]?/{flag=1; next} /^## /{flag=0} flag" CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "No changelog entry found for version $VERSION" > release_notes.md
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release_notes.md
+          generate_release_notes: true

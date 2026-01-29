@@ -1,0 +1,943 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Layouts - Horizon Lattice Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="A comprehensive guide to the Horizon Lattice GUI framework">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-2459343d.css">
+        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "coal";
+            window.path_to_searchindex_js = "../searchindex-2ddae7e5.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-b89355f2.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Horizon Lattice Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/horizon-analytic-studios/horizon-lattice" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/horizon-analytic-studios/horizon-lattice/edit/main/docs/src/guides/layouts.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <span class=fa-svg id="git-edit-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M421.7 220.3l-11.3 11.3-22.6 22.6-205 205c-6.6 6.6-14.8 11.5-23.8 14.1L30.8 511c-8.4 2.5-17.5 .2-23.7-6.1S-1.5 489.7 1 481.2L38.7 353.1c2.6-9 7.5-17.2 14.1-23.8l205-205 22.6-22.6 11.3-11.3 33.9 33.9 62.1 62.1 33.9 33.9zM96 353.9l-9.3 9.3c-.9 .9-1.6 2.1-2 3.4l-25.3 86 86-25.3c1.3-.4 2.5-1.1 3.4-2l9.3-9.3H112c-8.8 0-16-7.2-16-16V353.9zM453.3 19.3l39.4 39.4c25 25 25 65.5 0 90.5l-14.5 14.5-22.6 22.6-11.3 11.3-33.9-33.9-62.1-62.1L314.3 67.7l11.3-11.3 22.6-22.6 14.5-14.5c25-25 65.5-25 90.5 0z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="layouts-guide"><a class="header" href="#layouts-guide">Layouts Guide</a></h1>
+<p>Layouts automatically arrange child widgets within a container.</p>
+<h2 id="layout-algorithm"><a class="header" href="#layout-algorithm">Layout Algorithm</a></h2>
+<p>Layouts use a two-pass algorithm:</p>
+<ol>
+<li><strong>Measure pass</strong>: Query each child’s <code>size_hint()</code> and size policy</li>
+<li><strong>Arrange pass</strong>: Assign positions and sizes to children</li>
+</ol>
+<h2 id="content-margins"><a class="header" href="#content-margins">Content Margins</a></h2>
+<p>All layouts support content margins - spacing between the layout’s content and its edges:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::ContentMargins;
+
+// Create uniform margins (same on all sides)
+let uniform = ContentMargins::uniform(10.0);
+assert_eq!(uniform.left, 10.0);
+assert_eq!(uniform.top, 10.0);
+assert_eq!(uniform.right, 10.0);
+assert_eq!(uniform.bottom, 10.0);
+
+// Create symmetric margins (horizontal/vertical)
+let symmetric = ContentMargins::symmetric(20.0, 10.0);
+assert_eq!(symmetric.left, 20.0);
+assert_eq!(symmetric.right, 20.0);
+assert_eq!(symmetric.top, 10.0);
+assert_eq!(symmetric.bottom, 10.0);
+
+// Create custom margins
+let custom = ContentMargins::new(5.0, 10.0, 15.0, 20.0);
+assert_eq!(custom.horizontal(), 20.0); // left + right
+assert_eq!(custom.vertical(), 30.0);   // top + bottom</code></pre>
+<h2 id="layoutkind-enum"><a class="header" href="#layoutkind-enum">LayoutKind Enum</a></h2>
+<p>The <code>LayoutKind</code> enum provides a unified interface for all layout types:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::LayoutKind;
+
+// Create different layout types
+let hbox = LayoutKind::horizontal();
+let vbox = LayoutKind::vertical();
+let grid = LayoutKind::grid();
+let form = LayoutKind::form();
+let stack = LayoutKind::stack();
+let flow = LayoutKind::flow();
+let anchor = LayoutKind::anchor();
+
+// All layouts share a common interface
+let mut layout = LayoutKind::vertical();
+assert_eq!(layout.item_count(), 0);
+assert!(layout.is_empty());</code></pre>
+<h2 id="boxlayout-hbox-and-vbox"><a class="header" href="#boxlayout-hbox-and-vbox">BoxLayout (HBox and VBox)</a></h2>
+<p>Arrange widgets horizontally or vertically:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::{BoxLayout, ContentMargins, Orientation};
+
+// Create a horizontal layout
+let mut hbox = BoxLayout::horizontal();
+hbox.set_spacing(10.0);  // Space between widgets
+hbox.set_content_margins(ContentMargins::uniform(8.0));  // Outer margins
+
+assert_eq!(hbox.spacing(), 10.0);
+assert_eq!(hbox.orientation(), Orientation::Horizontal);
+
+// Create a vertical layout
+let mut vbox = BoxLayout::vertical();
+vbox.set_spacing(5.0);
+
+assert_eq!(vbox.orientation(), Orientation::Vertical);</code></pre>
+<h2 id="adding-items-to-layouts"><a class="header" href="#adding-items-to-layouts">Adding Items to Layouts</a></h2>
+<p>Layouts can contain widgets, spacers, and nested layouts:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::{LayoutKind, LayoutItem, SpacerItem, SpacerType};
+use horizon_lattice::render::Size;
+
+let mut layout = LayoutKind::vertical();
+
+// Add a fixed spacer (takes a specific amount of space)
+let fixed_spacer = LayoutItem::Spacer(SpacerItem::fixed(Size::new(0.0, 20.0)));
+layout.add_item(fixed_spacer);
+
+// Add an expanding spacer (fills available space)
+let expanding_spacer = LayoutItem::Spacer(SpacerItem::new(
+    Size::ZERO,
+    SpacerType::Expanding,
+));
+layout.add_item(expanding_spacer);
+
+assert_eq!(layout.item_count(), 2);</code></pre>
+<h2 id="gridlayout"><a class="header" href="#gridlayout">GridLayout</a></h2>
+<p>Arrange widgets in rows and columns:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::GridLayout;
+
+let mut grid = GridLayout::new();
+
+// Set spacing between cells
+grid.set_spacing(10.0);
+grid.set_horizontal_spacing(15.0);  // Override horizontal only
+grid.set_vertical_spacing(5.0);     // Override vertical only
+
+// Set column stretch factors (column 1 expands more)
+grid.set_column_stretch(0, 0);  // Column 0: no stretch
+grid.set_column_stretch(1, 1);  // Column 1: stretch factor 1
+
+// Set row stretch
+grid.set_row_stretch(0, 0);  // Row 0: no stretch
+grid.set_row_stretch(1, 2);  // Row 1: stretch factor 2
+
+// Set minimum column width
+grid.set_column_minimum_width(0, 100.0);</code></pre>
+<h2 id="formlayout"><a class="header" href="#formlayout">FormLayout</a></h2>
+<p>Convenient layout for label-field pairs:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::{FormLayout, RowWrapPolicy, FieldGrowthPolicy};
+
+let mut form = FormLayout::new();
+
+// Configure form behavior
+form.set_row_wrap_policy(RowWrapPolicy::WrapLongRows);
+form.set_field_growth_policy(FieldGrowthPolicy::ExpandingFieldsGrow);
+
+// Set spacing
+form.set_horizontal_spacing(10.0);
+form.set_vertical_spacing(8.0);
+
+// The form automatically aligns labels and fields
+// Labels go in the left column, fields in the right</code></pre>
+<h2 id="stacklayout"><a class="header" href="#stacklayout">StackLayout</a></h2>
+<p>Stack widgets on top of each other (only one visible at a time):</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::{StackLayout, StackSizeMode};
+
+let mut stack = StackLayout::new();
+
+// Configure how the stack calculates its size
+stack.set_size_mode(StackSizeMode::CurrentWidgetSize);  // Size based on current widget
+// or
+stack.set_size_mode(StackSizeMode::MaximumSize);  // Size based on largest widget
+
+// Set the current index (which widget is visible)
+stack.set_current_index(0);
+assert_eq!(stack.current_index(), 0);</code></pre>
+<h2 id="flowlayout"><a class="header" href="#flowlayout">FlowLayout</a></h2>
+<p>Arrange widgets in a flowing pattern (like text wrapping):</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::FlowLayout;
+
+let mut flow = FlowLayout::new();
+
+// Set spacing between items
+flow.set_spacing(10.0);
+flow.set_horizontal_spacing(15.0);  // Between items in a row
+flow.set_vertical_spacing(8.0);     // Between rows</code></pre>
+<h2 id="anchorlayout"><a class="header" href="#anchorlayout">AnchorLayout</a></h2>
+<p>Position widgets relative to each other or the container:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::{AnchorLayout, Anchor, AnchorLine, AnchorTarget};
+use horizon_lattice_core::ObjectId;
+
+let mut anchor = AnchorLayout::new();
+
+// Anchors connect widget edges to targets
+// For example: widget's left edge to parent's left edge plus margin
+let left_anchor = Anchor {
+    line: AnchorLine::Left,
+    target: AnchorTarget::Parent,
+    target_line: AnchorLine::Left,
+    margin: 10.0,
+};
+
+// Center horizontally in parent
+let center_anchor = Anchor {
+    line: AnchorLine::HorizontalCenter,
+    target: AnchorTarget::Parent,
+    target_line: AnchorLine::HorizontalCenter,
+    margin: 0.0,
+};</code></pre>
+<h2 id="nested-layouts"><a class="header" href="#nested-layouts">Nested Layouts</a></h2>
+<p>Layouts can be nested for complex UIs:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::{LayoutKind, BoxLayout, ContentMargins};
+
+// Main vertical layout
+let mut main = LayoutKind::vertical();
+
+// Header as a horizontal layout
+let mut header = BoxLayout::horizontal();
+header.set_spacing(10.0);
+header.set_content_margins(ContentMargins::uniform(5.0));
+
+// Convert to LayoutKind for nesting
+let header_kind = LayoutKind::from(header);
+
+// In a real app, you would add the header layout as an item
+// to the main layout</code></pre>
+<h2 id="layout-invalidation"><a class="header" href="#layout-invalidation">Layout Invalidation</a></h2>
+<p>Layouts track when they need recalculation:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::LayoutKind;
+
+let mut layout = LayoutKind::vertical();
+
+// Check if layout needs recalculation
+if layout.needs_recalculation() {
+    println!("Layout needs to be recalculated");
+}
+
+// Invalidate to force recalculation
+layout.invalidate();
+assert!(layout.needs_recalculation());</code></pre>
+<h2 id="layout-geometry"><a class="header" href="#layout-geometry">Layout Geometry</a></h2>
+<p>Set and query layout geometry:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::LayoutKind;
+use horizon_lattice::render::Rect;
+
+let mut layout = LayoutKind::vertical();
+
+// Set the layout's bounding rectangle
+let rect = Rect::new(10.0, 20.0, 300.0, 400.0);
+layout.set_geometry(rect);
+
+// Query the geometry
+let geom = layout.geometry();
+assert_eq!(geom.origin.x, 10.0);
+assert_eq!(geom.origin.y, 20.0);
+assert_eq!(geom.size.width, 300.0);
+assert_eq!(geom.size.height, 400.0);</code></pre>
+<h2 id="custom-layout-implementation"><a class="header" href="#custom-layout-implementation">Custom Layout Implementation</a></h2>
+<p>Creating a custom layout involves implementing the <code>Layout</code> trait and optionally using <code>LayoutBase</code> to handle common functionality.</p>
+<h3 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h3>
+<p>Custom layouts in Horizon Lattice follow this architecture:</p>
+<ol>
+<li><strong>Layout trait</strong>: Defines 21 methods for item management, size calculation, geometry, and invalidation</li>
+<li><strong>LayoutBase</strong>: A helper struct that provides common functionality (item storage, margins, spacing, caching)</li>
+<li><strong>LayoutItem</strong>: Enum wrapping widgets, spacers, or nested layouts</li>
+<li><strong>Two-pass algorithm</strong>: Collection (size hints) followed by distribution (positioning)</li>
+</ol>
+<h3 id="step-by-step-creating-a-centered-layout"><a class="header" href="#step-by-step-creating-a-centered-layout">Step-by-Step: Creating a Centered Layout</a></h3>
+<p>Let’s build a <code>CenteredLayout</code> that centers a single widget within its bounds.</p>
+<h4 id="step-1-define-the-struct"><a class="header" href="#step-1-define-the-struct">Step 1: Define the Struct</a></h4>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::{Layout, LayoutBase, LayoutItem, ContentMargins};
+use horizon_lattice::widget::geometry::{SizeHint, SizePolicyPair};
+use horizon_lattice::widget::dispatcher::WidgetAccess;
+use horizon_lattice_core::ObjectId;
+use horizon_lattice_render::{Rect, Size};
+
+/// A layout that centers its single child widget.
+#[derive(Debug, Clone)]
+pub struct CenteredLayout {
+    /// Delegate common functionality to LayoutBase.
+    base: LayoutBase,
+}
+
+impl CenteredLayout {
+    /// Create a new centered layout.
+    pub fn new() -&gt; Self {
+        Self {
+            base: LayoutBase::new(),
+        }
+    }
+}
+
+impl Default for CenteredLayout {
+    fn default() -&gt; Self {
+        Self::new()
+    }
+}</code></pre>
+<h4 id="step-2-implement-the-layout-trait"><a class="header" href="#step-2-implement-the-layout-trait">Step 2: Implement the Layout Trait</a></h4>
+<p>The <code>Layout</code> trait requires implementing methods across several categories:</p>
+<p><strong>Item Management</strong> - Delegate to LayoutBase:</p>
+<pre><code class="language-rust">impl Layout for CenteredLayout {
+    fn add_item(&amp;mut self, item: LayoutItem) {
+        // Only allow one item for centering
+        if self.base.is_empty() {
+            self.base.add_item(item);
+        }
+    }
+
+    fn insert_item(&amp;mut self, index: usize, item: LayoutItem) {
+        if self.base.is_empty() &amp;&amp; index == 0 {
+            self.base.insert_item(index, item);
+        }
+    }
+
+    fn remove_item(&amp;mut self, index: usize) -&gt; Option&lt;LayoutItem&gt; {
+        self.base.remove_item(index)
+    }
+
+    fn remove_widget(&amp;mut self, widget: ObjectId) -&gt; bool {
+        self.base.remove_widget(widget)
+    }
+
+    fn item_count(&amp;self) -&gt; usize {
+        self.base.item_count()
+    }
+
+    fn item_at(&amp;self, index: usize) -&gt; Option&lt;&amp;LayoutItem&gt; {
+        self.base.item_at(index)
+    }
+
+    fn item_at_mut(&amp;mut self, index: usize) -&gt; Option&lt;&amp;mut LayoutItem&gt; {
+        self.base.item_at_mut(index)
+    }
+
+    fn clear(&amp;mut self) {
+        self.base.clear();
+    }
+    // ... continued below
+}</code></pre>
+<p><strong>Size Hints</strong> - Calculate based on the child:</p>
+<pre><code class="language-rust">impl Layout for CenteredLayout {
+    // ... item management above
+
+    fn size_hint&lt;S: WidgetAccess&gt;(&amp;self, storage: &amp;S) -&gt; SizeHint {
+        // Return cached hint if available
+        if let Some(cached) = self.base.cached_size_hint() {
+            return cached;
+        }
+
+        // Get child's size hint (if we have a child)
+        let child_hint = if let Some(item) = self.base.item_at(0) {
+            self.base.get_item_size_hint(storage, item)
+        } else {
+            SizeHint::default()
+        };
+
+        // Add margins
+        let margins = self.base.content_margins();
+        SizeHint {
+            preferred: Size::new(
+                child_hint.preferred.width + margins.horizontal(),
+                child_hint.preferred.height + margins.vertical(),
+            ),
+            minimum: child_hint.minimum.map(|s| Size::new(
+                s.width + margins.horizontal(),
+                s.height + margins.vertical(),
+            )),
+            maximum: child_hint.maximum.map(|s| Size::new(
+                s.width + margins.horizontal(),
+                s.height + margins.vertical(),
+            )),
+        }
+    }
+
+    fn minimum_size&lt;S: WidgetAccess&gt;(&amp;self, storage: &amp;S) -&gt; Size {
+        self.size_hint(storage).effective_minimum()
+    }
+
+    fn size_policy(&amp;self) -&gt; SizePolicyPair {
+        SizePolicyPair::default()
+    }
+    // ... continued below
+}</code></pre>
+<p><strong>Geometry</strong> - Delegate to LayoutBase:</p>
+<pre><code class="language-rust">impl Layout for CenteredLayout {
+    // ... size hints above
+
+    fn geometry(&amp;self) -&gt; Rect {
+        self.base.geometry()
+    }
+
+    fn set_geometry(&amp;mut self, rect: Rect) {
+        self.base.set_geometry(rect);
+    }
+
+    fn content_margins(&amp;self) -&gt; ContentMargins {
+        self.base.content_margins()
+    }
+
+    fn set_content_margins(&amp;mut self, margins: ContentMargins) {
+        self.base.set_content_margins(margins);
+    }
+
+    fn spacing(&amp;self) -&gt; f32 {
+        self.base.spacing()
+    }
+
+    fn set_spacing(&amp;mut self, spacing: f32) {
+        self.base.set_spacing(spacing);
+    }
+    // ... continued below
+}</code></pre>
+<p><strong>Layout Calculation</strong> - The core algorithm:</p>
+<pre><code class="language-rust">impl Layout for CenteredLayout {
+    // ... geometry above
+
+    fn calculate&lt;S: WidgetAccess&gt;(&amp;mut self, storage: &amp;S, _available: Size) -&gt; Size {
+        let content_rect = self.base.content_rect();
+
+        if let Some(item) = self.base.item_at(0) {
+            // Get the child's preferred size
+            let hint = self.base.get_item_size_hint(storage, item);
+
+            // Constrain to available space
+            let child_width = hint.preferred.width.min(content_rect.width());
+            let child_height = hint.preferred.height.min(content_rect.height());
+
+            // Calculate centered position
+            let x = content_rect.origin.x + (content_rect.width() - child_width) / 2.0;
+            let y = content_rect.origin.y + (content_rect.height() - child_height) / 2.0;
+
+            // Store the calculated geometry
+            self.base.set_item_geometry(0, Rect::new(x, y, child_width, child_height));
+        }
+
+        // Cache size hint for performance
+        let hint = self.size_hint(storage);
+        self.base.set_cached_size_hint(hint);
+        self.base.mark_valid();
+
+        self.base.geometry().size
+    }
+
+    fn apply&lt;S: WidgetAccess&gt;(&amp;self, storage: &amp;mut S) {
+        // Apply calculated geometry to the widget
+        if let Some(item) = self.base.item_at(0) {
+            if let Some(geometry) = self.base.item_geometry(0) {
+                LayoutBase::apply_item_geometry(storage, item, geometry);
+            }
+        }
+    }
+    // ... continued below
+}</code></pre>
+<p><strong>Invalidation and Ownership</strong> - Delegate to LayoutBase:</p>
+<pre><code class="language-rust">impl Layout for CenteredLayout {
+    // ... calculate and apply above
+
+    fn invalidate(&amp;mut self) {
+        self.base.invalidate();
+    }
+
+    fn needs_recalculation(&amp;self) -&gt; bool {
+        self.base.needs_recalculation()
+    }
+
+    fn parent_widget(&amp;self) -&gt; Option&lt;ObjectId&gt; {
+        self.base.parent_widget()
+    }
+
+    fn set_parent_widget(&amp;mut self, parent: Option&lt;ObjectId&gt;) {
+        self.base.set_parent_widget(parent);
+    }
+}</code></pre>
+<h3 id="using-layoutbase-helpers"><a class="header" href="#using-layoutbase-helpers">Using LayoutBase Helpers</a></h3>
+<p><code>LayoutBase</code> provides several helper methods for implementing layouts:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::LayoutBase;
+
+// In your calculate() implementation:
+fn calculate&lt;S: WidgetAccess&gt;(&amp;mut self, storage: &amp;S, available: Size) -&gt; Size {
+    // Get the content area (geometry minus margins)
+    let content = self.base.content_rect();
+
+    // Iterate over items and check visibility
+    for (i, item) in self.base.items().iter().enumerate() {
+        // Skip hidden widgets
+        if !self.base.is_item_visible(storage, item) {
+            continue;
+        }
+
+        // Get size hint for this item
+        let hint = self.base.get_item_size_hint(storage, item);
+
+        // Get size policy for this item
+        let policy = self.base.get_item_size_policy(storage, item);
+
+        // Calculate position and store it
+        let rect = Rect::new(/* your calculation */);
+        self.base.set_item_geometry(i, rect);
+    }
+
+    // Count visible items (for spacing calculations)
+    let visible_count = self.base.visible_item_count(storage);
+
+    self.base.mark_valid();
+    available
+}</code></pre>
+<h3 id="space-distribution"><a class="header" href="#space-distribution">Space Distribution</a></h3>
+<p>For layouts that distribute space among multiple items, use <code>LayoutBase::distribute_space</code>:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::geometry::{SizeHint, SizePolicy};
+
+// Collect item information: (size_hint, policy, stretch_factor)
+let items: Vec&lt;(SizeHint, SizePolicy, u8)&gt; = /* gather from items */;
+
+// Calculate totals
+let total_hint: f32 = items.iter().map(|(h, _, _)| h.preferred.width).sum();
+let total_min: f32 = items.iter().map(|(h, _, _)| h.effective_minimum().width).sum();
+let total_max: f32 = items.iter().map(|(h, _, _)| h.effective_maximum().width).sum();
+
+// Distribute available space
+let sizes = LayoutBase::distribute_space(
+    &amp;items,
+    available_width,  // Total available space
+    total_hint,       // Sum of preferred sizes
+    total_min,        // Sum of minimum sizes
+    total_max,        // Sum of maximum sizes
+);
+
+// sizes[i] is the width to assign to item i</code></pre>
+<h3 id="rtl-right-to-left-support"><a class="header" href="#rtl-right-to-left-support">RTL (Right-to-Left) Support</a></h3>
+<p>For horizontal layouts, support RTL text direction:</p>
+<pre><code class="language-rust">fn calculate&lt;S: WidgetAccess&gt;(&amp;mut self, storage: &amp;S, available: Size) -&gt; Size {
+    let content = self.base.content_rect();
+    let mut x_pos: f32 = 0.0;
+
+    for (i, item) in self.base.items().iter().enumerate() {
+        let item_width = /* calculated width */;
+
+        // Mirror x position for RTL layouts
+        let x = self.base.mirror_x(x_pos, item_width, content.width());
+
+        let rect = Rect::new(
+            content.origin.x + x,
+            content.origin.y,
+            item_width,
+            content.height(),
+        );
+        self.base.set_item_geometry(i, rect);
+
+        x_pos += item_width + self.base.spacing();
+    }
+
+    self.base.mark_valid();
+    available
+}</code></pre>
+<h3 id="height-for-width-layouts"><a class="header" href="#height-for-width-layouts">Height-for-Width Layouts</a></h3>
+<p>Some layouts (like flow layouts) need to adjust height based on available width:</p>
+<pre><code class="language-rust">impl Layout for FlowingLayout {
+    fn has_height_for_width(&amp;self) -&gt; bool {
+        true
+    }
+
+    fn height_for_width&lt;S: WidgetAccess&gt;(&amp;self, storage: &amp;S, width: f32) -&gt; Option&lt;f32&gt; {
+        // Calculate how many rows needed at this width
+        let mut current_x: f32 = 0.0;
+        let mut current_row_height: f32 = 0.0;
+        let mut total_height: f32 = 0.0;
+        let content_width = width - self.base.content_margins().horizontal();
+
+        for item in self.base.items() {
+            let hint = self.base.get_item_size_hint(storage, item);
+            let item_width = hint.preferred.width;
+            let item_height = hint.preferred.height;
+
+            if current_x + item_width &gt; content_width &amp;&amp; current_x &gt; 0.0 {
+                // Wrap to next row
+                total_height += current_row_height + self.base.spacing();
+                current_x = 0.0;
+                current_row_height = 0.0;
+            }
+
+            current_row_height = current_row_height.max(item_height);
+            current_x += item_width + self.base.spacing();
+        }
+
+        total_height += current_row_height;
+        Some(total_height + self.base.content_margins().vertical())
+    }
+}</code></pre>
+<h3 id="complete-example-diagonal-layout"><a class="header" href="#complete-example-diagonal-layout">Complete Example: Diagonal Layout</a></h3>
+<p>Here’s a complete custom layout that arranges items diagonally:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::{Layout, LayoutBase, LayoutItem, ContentMargins};
+use horizon_lattice::widget::geometry::{SizeHint, SizePolicyPair};
+use horizon_lattice::widget::dispatcher::WidgetAccess;
+use horizon_lattice_core::ObjectId;
+use horizon_lattice_render::{Rect, Size};
+
+/// Arranges items diagonally from top-left to bottom-right.
+#[derive(Debug, Clone)]
+pub struct DiagonalLayout {
+    base: LayoutBase,
+    /// Horizontal offset per item.
+    x_offset: f32,
+    /// Vertical offset per item.
+    y_offset: f32,
+}
+
+impl DiagonalLayout {
+    pub fn new(x_offset: f32, y_offset: f32) -&gt; Self {
+        Self {
+            base: LayoutBase::new(),
+            x_offset,
+            y_offset,
+        }
+    }
+}
+
+impl Layout for DiagonalLayout {
+    // Item management - delegate to base
+    fn add_item(&amp;mut self, item: LayoutItem) { self.base.add_item(item); }
+    fn insert_item(&amp;mut self, index: usize, item: LayoutItem) { self.base.insert_item(index, item); }
+    fn remove_item(&amp;mut self, index: usize) -&gt; Option&lt;LayoutItem&gt; { self.base.remove_item(index) }
+    fn remove_widget(&amp;mut self, widget: ObjectId) -&gt; bool { self.base.remove_widget(widget) }
+    fn item_count(&amp;self) -&gt; usize { self.base.item_count() }
+    fn item_at(&amp;self, index: usize) -&gt; Option&lt;&amp;LayoutItem&gt; { self.base.item_at(index) }
+    fn item_at_mut(&amp;mut self, index: usize) -&gt; Option&lt;&amp;mut LayoutItem&gt; { self.base.item_at_mut(index) }
+    fn clear(&amp;mut self) { self.base.clear(); }
+
+    fn size_hint&lt;S: WidgetAccess&gt;(&amp;self, storage: &amp;S) -&gt; SizeHint {
+        let margins = self.base.content_margins();
+        let visible_count = self.base.visible_item_count(storage);
+        let mut max_width: f32 = 0.0;
+        let mut max_height: f32 = 0.0;
+
+        for (i, item) in self.base.items().iter().enumerate() {
+            if !self.base.is_item_visible(storage, item) { continue; }
+            let hint = self.base.get_item_size_hint(storage, item);
+            let x_end = (i as f32) * self.x_offset + hint.preferred.width;
+            let y_end = (i as f32) * self.y_offset + hint.preferred.height;
+            max_width = max_width.max(x_end);
+            max_height = max_height.max(y_end);
+        }
+
+        SizeHint::new(Size::new(
+            max_width + margins.horizontal(),
+            max_height + margins.vertical(),
+        ))
+    }
+
+    fn minimum_size&lt;S: WidgetAccess&gt;(&amp;self, storage: &amp;S) -&gt; Size {
+        self.size_hint(storage).effective_minimum()
+    }
+
+    fn size_policy(&amp;self) -&gt; SizePolicyPair { SizePolicyPair::default() }
+
+    // Geometry - delegate to base
+    fn geometry(&amp;self) -&gt; Rect { self.base.geometry() }
+    fn set_geometry(&amp;mut self, rect: Rect) { self.base.set_geometry(rect); }
+    fn content_margins(&amp;self) -&gt; ContentMargins { self.base.content_margins() }
+    fn set_content_margins(&amp;mut self, margins: ContentMargins) { self.base.set_content_margins(margins); }
+    fn spacing(&amp;self) -&gt; f32 { self.base.spacing() }
+    fn set_spacing(&amp;mut self, spacing: f32) { self.base.set_spacing(spacing); }
+
+    fn calculate&lt;S: WidgetAccess&gt;(&amp;mut self, storage: &amp;S, available: Size) -&gt; Size {
+        let content = self.base.content_rect();
+        let mut visible_index = 0;
+
+        for (i, item) in self.base.items().iter().enumerate() {
+            if !self.base.is_item_visible(storage, item) {
+                self.base.set_item_geometry(i, Rect::ZERO);
+                continue;
+            }
+
+            let hint = self.base.get_item_size_hint(storage, item);
+            let x = content.origin.x + (visible_index as f32) * self.x_offset;
+            let y = content.origin.y + (visible_index as f32) * self.y_offset;
+
+            self.base.set_item_geometry(i, Rect::new(
+                x,
+                y,
+                hint.preferred.width.min(content.width()),
+                hint.preferred.height.min(content.height()),
+            ));
+
+            visible_index += 1;
+        }
+
+        self.base.mark_valid();
+        available
+    }
+
+    fn apply&lt;S: WidgetAccess&gt;(&amp;self, storage: &amp;mut S) {
+        for (i, item) in self.base.items().iter().enumerate() {
+            if let Some(geometry) = self.base.item_geometry(i) {
+                LayoutBase::apply_item_geometry(storage, item, geometry);
+            }
+        }
+    }
+
+    // Invalidation - delegate to base
+    fn invalidate(&amp;mut self) { self.base.invalidate(); }
+    fn needs_recalculation(&amp;self) -&gt; bool { self.base.needs_recalculation() }
+    fn parent_widget(&amp;self) -&gt; Option&lt;ObjectId&gt; { self.base.parent_widget() }
+    fn set_parent_widget(&amp;mut self, parent: Option&lt;ObjectId&gt;) { self.base.set_parent_widget(parent); }
+}</code></pre>
+<h3 id="best-practices-for-custom-layouts"><a class="header" href="#best-practices-for-custom-layouts">Best Practices for Custom Layouts</a></h3>
+<ol>
+<li><strong>Always use LayoutBase</strong> - It handles caching, invalidation, and common operations</li>
+<li><strong>Mark layout valid after calculation</strong> - Call <code>self.base.mark_valid()</code> at the end of <code>calculate()</code></li>
+<li><strong>Skip hidden items</strong> - Use <code>is_item_visible()</code> to skip hidden widgets</li>
+<li><strong>Cache size hints</strong> - Use <code>set_cached_size_hint()</code> for performance</li>
+<li><strong>Handle empty layouts</strong> - Return early if <code>item_count() == 0</code></li>
+<li><strong>Respect size policies</strong> - Use <code>get_item_size_policy()</code> to determine if items can grow/shrink</li>
+<li><strong>Account for margins</strong> - Use <code>content_rect()</code> to get the area inside margins</li>
+<li><strong>Test with RTL</strong> - If horizontal, test with RTL text direction</li>
+</ol>
+<h2 id="default-layout-constants"><a class="header" href="#default-layout-constants">Default Layout Constants</a></h2>
+<p>The layout system provides sensible defaults:</p>
+<pre><code class="language-rust">use horizon_lattice::widget::layout::{DEFAULT_SPACING, DEFAULT_MARGINS};
+
+// Default spacing between items
+assert_eq!(DEFAULT_SPACING, 6.0);
+
+// Default content margins
+assert_eq!(DEFAULT_MARGINS.left, 9.0);
+assert_eq!(DEFAULT_MARGINS.top, 9.0);
+assert_eq!(DEFAULT_MARGINS.right, 9.0);
+assert_eq!(DEFAULT_MARGINS.bottom, 9.0);</code></pre>
+<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<ol>
+<li><strong>Use appropriate layouts</strong> - VBox/HBox for linear arrangements, Grid for tables, Form for input forms</li>
+<li><strong>Set size policies</strong> - Help layouts make better decisions about space distribution</li>
+<li><strong>Use stretch factors</strong> - Control how extra space is distributed between widgets</li>
+<li><strong>Nest layouts</strong> - Combine simple layouts for complex UIs rather than using one complex layout</li>
+<li><strong>Set minimum sizes</strong> - Prevent layouts from shrinking widgets too small</li>
+<li><strong>Use spacers</strong> - Add flexible space to push widgets apart or fill gaps</li>
+</ol>
+<p>See the <a href="../reference/layouts.html">Layout Reference</a> for all layout types.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../guides/widgets.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../guides/styling.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../guides/widgets.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../guides/styling.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+        <script>
+            window.playground_line_numbers = true;
+        </script>
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+        <script src="../ace-2a3cd908.js"></script>
+        <script src="../mode-rust-2c9d5c9a.js"></script>
+        <script src="../editor-16ca416c.js"></script>
+        <script src="../theme-dawn-4493f9c8.js"></script>
+        <script src="../theme-tomorrow_night-9dbe62a9.js"></script>
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-c2a407aa.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

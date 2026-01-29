@@ -44,6 +44,14 @@
 pub use horizon_lattice_core::*;
 pub use horizon_lattice_macros::*;
 
+/// Prelude module for convenient imports.
+///
+/// Import everything commonly needed with:
+/// ```ignore
+/// use horizon_lattice::prelude::*;
+/// ```
+pub mod prelude;
+
 /// Graphics rendering module.
 pub mod render {
     pub use horizon_lattice_render::*;

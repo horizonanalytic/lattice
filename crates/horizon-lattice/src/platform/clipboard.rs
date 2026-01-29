@@ -815,10 +815,22 @@ impl X11Clipboard {
     ///
     /// Returns an error if the selection cannot be read or doesn't contain text.
     pub fn get_text(&self, selection: X11Selection) -> Result<String, ClipboardError> {
+        use x11rb::protocol::xproto::ConnectionExt;
+
         let atoms = &self.inner.getter.atoms;
         let selection_atom = match selection {
             X11Selection::Primary => atoms.primary,
-            X11Selection::Secondary => atoms.secondary,
+            X11Selection::Secondary => {
+                // SECONDARY atom is not pre-interned in x11-clipboard, so we intern it manually
+                self.inner
+                    .getter
+                    .connection
+                    .intern_atom(false, b"SECONDARY")
+                    .map_err(|e| ClipboardError::new(format!("Failed to intern SECONDARY atom: {:?}", e)))?
+                    .reply()
+                    .map_err(|e| ClipboardError::new(format!("Failed to get atom reply: {:?}", e)))?
+                    .atom
+            }
             X11Selection::Clipboard => atoms.clipboard,
         };
 
@@ -848,10 +860,22 @@ impl X11Clipboard {
         selection: X11Selection,
         text: impl AsRef<str>,
     ) -> Result<(), ClipboardError> {
+        use x11rb::protocol::xproto::ConnectionExt;
+
         let atoms = &self.inner.setter.atoms;
         let selection_atom = match selection {
             X11Selection::Primary => atoms.primary,
-            X11Selection::Secondary => atoms.secondary,
+            X11Selection::Secondary => {
+                // SECONDARY atom is not pre-interned in x11-clipboard, so we intern it manually
+                self.inner
+                    .setter
+                    .connection
+                    .intern_atom(false, b"SECONDARY")
+                    .map_err(|e| ClipboardError::new(format!("Failed to intern SECONDARY atom: {:?}", e)))?
+                    .reply()
+                    .map_err(|e| ClipboardError::new(format!("Failed to get atom reply: {:?}", e)))?
+                    .atom
+            }
             X11Selection::Clipboard => atoms.clipboard,
         };
 
@@ -1185,6 +1209,7 @@ fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
     use crate::platform::file_uri;
     use std::time::Duration;
     use x11_clipboard::Clipboard as X11ClipboardInner;
+    use x11rb::protocol::xproto::ConnectionExt;
 
     let clipboard = X11ClipboardInner::new()
         .map_err(|e| ClipboardError::new(format!("Failed to connect to X11: {:?}", e)))?;
@@ -1224,6 +1249,7 @@ fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
 fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError> {
     use crate::platform::file_uri;
     use x11_clipboard::Clipboard as X11ClipboardInner;
+    use x11rb::protocol::xproto::ConnectionExt;
 
     if paths.is_empty() {
         return Ok(());
@@ -1258,6 +1284,7 @@ fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError
 fn has_file_urls_impl() -> bool {
     use std::time::Duration;
     use x11_clipboard::Clipboard as X11ClipboardInner;
+    use x11rb::protocol::xproto::ConnectionExt;
 
     let Ok(clipboard) = X11ClipboardInner::new() else {
         return false;

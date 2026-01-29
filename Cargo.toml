@@ -141,6 +141,7 @@ windows = { version = "0.58", features = [
 
 # X11 clipboard support (Linux)
 x11-clipboard = "0.8"
+x11rb = "0.12"
 
 # Native dialog dependencies (Linux)
 ashpd = "0.9"

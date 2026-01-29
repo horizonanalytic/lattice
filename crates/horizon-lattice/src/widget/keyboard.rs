@@ -343,7 +343,11 @@ pub fn scan_code_from_physical_key(physical: &PhysicalKey) -> Option<ScanCode> {
             // Try to extract native scan code
             #[cfg(target_os = "windows")]
             {
-                Some(native.scancode as ScanCode)
+                use winit::keyboard::NativeKeyCode;
+                match native {
+                    NativeKeyCode::Windows(scancode) => Some(*scancode as ScanCode),
+                    _ => None,
+                }
             }
             #[cfg(not(target_os = "windows"))]
             {

@@ -132,6 +132,7 @@ zbus = { workspace = true }
 zbus_systemd = { workspace = true }
 pollster = { workspace = true }
 x11-clipboard = { workspace = true }
+x11rb = { workspace = true }
 futures-util = { workspace = true }
 
 [dev-dependencies]

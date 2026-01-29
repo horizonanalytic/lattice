@@ -80,7 +80,7 @@ pub fn open_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
         if let Some(dir) = &options.directory {
             if let Some(dir_str) = dir.to_str() {
                 let wide: Vec<u16> = dir_str.encode_utf16().chain(std::iter::once(0)).collect();
-                if let Ok(folder) = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None) {
+                if let Ok(folder) = SHCreateItemFromParsingName::<_, _, IShellItem>(PCWSTR(wide.as_ptr()), None) {
                     let _ = dialog.SetFolder(&folder);
                 }
             }
@@ -154,7 +154,7 @@ pub fn open_files(options: NativeFileDialogOptions) -> Option<Vec<PathBuf>> {
         if let Some(dir) = &options.directory {
             if let Some(dir_str) = dir.to_str() {
                 let wide: Vec<u16> = dir_str.encode_utf16().chain(std::iter::once(0)).collect();
-                if let Ok(folder) = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None) {
+                if let Ok(folder) = SHCreateItemFromParsingName::<_, _, IShellItem>(PCWSTR(wide.as_ptr()), None) {
                     let _ = dialog.SetFolder(&folder);
                 }
             }
@@ -204,7 +204,7 @@ pub fn save_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
         if let Some(dir) = &options.directory {
             if let Some(dir_str) = dir.to_str() {
                 let wide: Vec<u16> = dir_str.encode_utf16().chain(std::iter::once(0)).collect();
-                if let Ok(folder) = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None) {
+                if let Ok(folder) = SHCreateItemFromParsingName::<_, _, IShellItem>(PCWSTR(wide.as_ptr()), None) {
                     let _ = dialog.SetFolder(&folder);
                 }
             }
@@ -249,7 +249,7 @@ pub fn select_directory(options: NativeFileDialogOptions) -> Option<PathBuf> {
         if let Some(dir) = &options.directory {
             if let Some(dir_str) = dir.to_str() {
                 let wide: Vec<u16> = dir_str.encode_utf16().chain(std::iter::once(0)).collect();
-                if let Ok(folder) = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None) {
+                if let Ok(folder) = SHCreateItemFromParsingName::<_, _, IShellItem>(PCWSTR(wide.as_ptr()), None) {
                     let _ = dialog.SetFolder(&folder);
                 }
             }
@@ -356,7 +356,7 @@ pub fn pick_color(options: NativeColorOptions) -> Option<Color> {
             rgbResult: initial_rgb,
             lpCustColors: custom_colors.as_mut_ptr(),
             Flags: CC_FULLOPEN | CC_RGBINIT,
-            lCustData: 0,
+            lCustData: LPARAM(0),
             lpfnHook: None,
             lpTemplateName: PCWSTR::null(),
         };
@@ -416,12 +416,12 @@ pub fn pick_font(options: NativeFontOptions) -> Option<NativeFontDesc> {
             iPointSize: 0,
             Flags: CF_SCREENFONTS | CF_EFFECTS | CF_INITTOLOGFONTSTRUCT,
             rgbColors: COLORREF(0),
-            lCustData: 0,
+            lCustData: LPARAM(0),
             lpfnHook: None,
             lpTemplateName: PCWSTR::null(),
             hInstance: HINSTANCE::default(),
             lpszStyle: PWSTR::null(),
-            nFontType: 0,
+            nFontType: CHOOSEFONT_FONT_TYPE(0),
             ___MISSING_ALIGNMENT__: 0,
             nSizeMin: 0,
             nSizeMax: 0,

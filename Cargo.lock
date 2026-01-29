@@ -3024,6 +3024,7 @@ dependencies = [
  "windows 0.58.0",
  "winit",
  "x11-clipboard",
+ "x11rb 0.12.0",
  "zbus 4.4.0",
  "zbus_systemd",
  "zip",

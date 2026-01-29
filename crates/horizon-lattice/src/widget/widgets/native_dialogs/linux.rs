@@ -79,11 +79,11 @@ where
 /// Open a native file open dialog for a single file.
 #[cfg(target_os = "linux")]
 pub fn open_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
-    let result = pollster::block_on(async {
+    let result: Result<Option<PathBuf>, ashpd::Error> = pollster::block_on(async {
         let mut request = SelectedFiles::open_file();
 
         if let Some(title) = &options.title {
-            request = request.title(title);
+            request = request.title(title.as_str());
         }
 
         request = request.modal(true);
@@ -111,11 +111,11 @@ pub fn open_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
 /// Open a native file open dialog for multiple files.
 #[cfg(target_os = "linux")]
 pub fn open_files(options: NativeFileDialogOptions) -> Option<Vec<PathBuf>> {
-    let result = pollster::block_on(async {
+    let result: Result<Option<Vec<PathBuf>>, ashpd::Error> = pollster::block_on(async {
         let mut request = SelectedFiles::open_file();
 
         if let Some(title) = &options.title {
-            request = request.title(title);
+            request = request.title(title.as_str());
         }
 
         request = request.modal(true);
@@ -146,15 +146,15 @@ pub fn open_files(options: NativeFileDialogOptions) -> Option<Vec<PathBuf>> {
 /// Open a native file save dialog.
 #[cfg(target_os = "linux")]
 pub fn save_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
-    let result = pollster::block_on(async {
+    let result: Result<Option<PathBuf>, ashpd::Error> = pollster::block_on(async {
         let mut request = SelectedFiles::save_file();
 
         if let Some(title) = &options.title {
-            request = request.title(title);
+            request = request.title(title.as_str());
         }
 
         if let Some(name) = &options.default_name {
-            request = request.current_name(name);
+            request = request.current_name(name.as_str());
         }
 
         request = request.modal(true);
@@ -181,11 +181,11 @@ pub fn save_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
 /// Open a native directory selection dialog.
 #[cfg(target_os = "linux")]
 pub fn select_directory(options: NativeFileDialogOptions) -> Option<PathBuf> {
-    let result = pollster::block_on(async {
+    let result: Result<Option<PathBuf>, ashpd::Error> = pollster::block_on(async {
         let mut request = SelectedFiles::open_file();
 
         if let Some(title) = &options.title {
-            request = request.title(title);
+            request = request.title(title.as_str());
         }
 
         request = request.modal(true);
@@ -234,7 +234,7 @@ pub fn show_message(_options: NativeMessageOptions) -> Option<NativeMessageResul
 pub fn pick_color(_options: NativeColorOptions) -> Option<Color> {
     use ashpd::desktop::Color as PortalColor;
 
-    let result = pollster::block_on(async {
+    let result: Result<Color, ashpd::Error> = pollster::block_on(async {
         let response = PortalColor::pick().send().await?.response()?;
 
         let r = response.red() as f32;

@@ -568,9 +568,9 @@ fn windows_theme_watch_loop(inner: &ThemeWatcherInner) -> Result<(), SystemTheme
             0,
             0,
             0,
-            Some(HWND_MESSAGE),
+            HWND_MESSAGE,
             None,
-            Some(instance.into()),
+            windows::Win32::Foundation::HINSTANCE(instance.0),
             Some(inner as *const _ as *const c_void),
         )
         .map_err(|e| SystemThemeError::watcher(format!("CreateWindowEx failed: {}", e)))?;
@@ -639,8 +639,9 @@ unsafe extern "system" fn theme_wndproc(
     match msg {
         WM_CREATE => {
             // Store the inner pointer from CREATESTRUCT
-            let cs = &*(lparam.0 as *const windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW);
-            let inner = cs.lpCreateParams as *const ThemeWatcherInner;
+            // SAFETY: lparam points to a valid CREATESTRUCTW during WM_CREATE
+            let cs = unsafe { &*(lparam.0 as *const windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW) };
+            let _inner = cs.lpCreateParams as *const ThemeWatcherInner;
             // Store in a second user data slot (we use GWLP_USERDATA + 8)
             // Actually, we need to be more careful. Let's use a different approach.
             // We'll check theme changes when we receive WM_SETTINGCHANGE
@@ -649,9 +650,11 @@ unsafe extern "system" fn theme_wndproc(
         WM_SETTINGCHANGE => {
             // Check if theme-related setting changed
             // "ImmersiveColorSet" indicates theme/color changes
-            let state_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+            // SAFETY: GetWindowLongPtrW is safe to call with a valid hwnd
+            let state_ptr = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) };
             if state_ptr != 0 {
-                let state = &mut *(state_ptr as *mut ThemeWatchState);
+                // SAFETY: state_ptr was set by us to point to a valid ThemeWatchState
+                let state = unsafe { &mut *(state_ptr as *mut ThemeWatchState) };
 
                 // Check color scheme
                 let new_scheme = SystemTheme::color_scheme();
@@ -675,7 +678,8 @@ unsafe extern "system" fn theme_wndproc(
             }
             windows::Win32::Foundation::LRESULT(0)
         }
-        _ => DefWindowProcW(hwnd, msg, wparam, lparam),
+        // SAFETY: DefWindowProcW is safe to call with valid window procedure parameters
+        _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
     }
 }
 
@@ -785,10 +789,12 @@ async fn linux_theme_watch_loop(inner: &ThemeWatcherInner) -> Result<(), SystemT
             break;
         }
 
-        let (namespace, key, _value) = change;
+        // ashpd 0.9 returns a Setting struct with namespace, key, and value fields
+        let namespace = change.namespace();
+        let key = change.key();
 
         if namespace == "org.freedesktop.appearance" {
-            match key.as_str() {
+            match key {
                 "color-scheme" => {
                     let new_scheme = SystemTheme::color_scheme();
                     if new_scheme != prev_scheme {

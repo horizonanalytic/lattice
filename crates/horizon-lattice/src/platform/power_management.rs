@@ -728,7 +728,7 @@ async fn linux_power_event_loop(
         .await
         .map_err(|e| PowerManagementError::power_events(e.to_string()))?;
 
-    use futures_util::StreamExt;
+    use futures_util::Stream;
 
     while inner.running.load(Ordering::SeqCst) {
         // Poll with a timeout so we can check the running flag

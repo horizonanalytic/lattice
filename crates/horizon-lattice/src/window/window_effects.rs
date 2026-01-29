@@ -650,16 +650,19 @@ mod windows_impl {
             let hrgn = create_region_from_mask(mask)?;
             unsafe {
                 // SetWindowRgn takes ownership of the region, so we don't delete it
-                if SetWindowRgn(hwnd, Some(hrgn), true).is_err() {
+                // Returns 0 on failure, non-zero on success
+                if SetWindowRgn(hwnd, hrgn, true) == 0 {
                     DeleteObject(hrgn);
                     return Err(WindowEffectError::platform_error("SetWindowRgn failed"));
                 }
             }
         } else {
             // Remove mask by setting region to NULL
+            // Returns 0 on failure, non-zero on success
             unsafe {
-                SetWindowRgn(hwnd, None, true)
-                    .map_err(|e| WindowEffectError::platform_error(e.to_string()))?;
+                if SetWindowRgn(hwnd, HRGN::default(), true) == 0 {
+                    return Err(WindowEffectError::platform_error("SetWindowRgn failed"));
+                }
             }
         }
 
@@ -763,13 +766,13 @@ use windows_impl::*;
 #[cfg(target_os = "linux")]
 mod linux {
     use super::*;
-    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
     use std::ffi::CString;
     use std::os::raw::{c_int, c_long, c_uchar, c_ulong};
 
     // X11 bindings (we use raw bindings to avoid adding another dependency)
     #[link(name = "X11")]
-    extern "C" {
+    unsafe extern "C" {
         fn XInternAtom(
             display: *mut std::ffi::c_void,
             atom_name: *const c_uchar,
@@ -795,7 +798,7 @@ mod linux {
 
     // XShape extension bindings
     #[link(name = "Xext")]
-    extern "C" {
+    unsafe extern "C" {
         fn XShapeCombineRectangles(
             display: *mut std::ffi::c_void,
             dest: c_ulong,
@@ -838,16 +841,26 @@ mod linux {
     }
 
     fn get_x11_window(window: &Window) -> Result<X11Window, WindowEffectError> {
-        let handle = window
+        let window_handle = window
             .window_handle()
             .map_err(|e| WindowEffectError::handle_access(e.to_string()))?;
 
-        match handle.as_raw() {
+        let display_handle = window
+            .display_handle()
+            .map_err(|e| WindowEffectError::handle_access(e.to_string()))?;
+
+        // Get display pointer from display handle
+        let display = match display_handle.as_raw() {
+            RawDisplayHandle::Xlib(dh) => dh
+                .display
+                .map(|d| d.as_ptr())
+                .unwrap_or(std::ptr::null_mut()),
+            _ => std::ptr::null_mut(),
+        };
+
+        match window_handle.as_raw() {
             RawWindowHandle::Xlib(handle) => Ok(X11Window {
-                display: handle
-                    .display
-                    .map(|d| d.as_ptr())
-                    .unwrap_or(std::ptr::null_mut()),
+                display,
                 window: handle.window,
             }),
             RawWindowHandle::Xcb(handle) => {

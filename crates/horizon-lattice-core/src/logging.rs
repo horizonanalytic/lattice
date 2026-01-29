@@ -203,9 +203,23 @@ impl ObjectTreeDebug {
         }
 
         let registry = global_registry()?;
-        let name = registry.object_name(id)?;
-        let type_name = registry.type_name(id)?;
-        let children = registry.children(id)?;
+
+        // Handle objects that may have been removed (e.g., in concurrent test scenarios)
+        let name = match registry.object_name(id) {
+            Ok(name) => name,
+            Err(crate::object::ObjectError::InvalidObjectId) => return Ok(()),
+            Err(e) => return Err(e),
+        };
+        let type_name = match registry.type_name(id) {
+            Ok(name) => name,
+            Err(crate::object::ObjectError::InvalidObjectId) => return Ok(()),
+            Err(e) => return Err(e),
+        };
+        let children = match registry.children(id) {
+            Ok(children) => children,
+            Err(crate::object::ObjectError::InvalidObjectId) => return Ok(()),
+            Err(e) => return Err(e),
+        };
 
         // Build the prefix based on style and depth
         let prefix = self.build_prefix(depth, is_last);

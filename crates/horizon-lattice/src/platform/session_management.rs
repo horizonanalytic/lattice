@@ -434,7 +434,8 @@ impl SessionInhibitorGuard {
             wparam: WPARAM,
             lparam: LPARAM,
         ) -> LRESULT {
-            DefWindowProcW(hwnd, msg, wparam, lparam)
+            // SAFETY: DefWindowProcW is safe to call with valid window procedure parameters
+            unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
         }
 
         unsafe {
@@ -922,7 +923,7 @@ async fn linux_session_event_loop(
         .await
         .map_err(|e| SessionManagementError::session_events(e.to_string()))?;
 
-    use futures_util::StreamExt;
+    use futures_util::Stream;
 
     while inner.running.load(Ordering::SeqCst) {
         match futures_util::future::poll_fn(|cx| {
@@ -973,9 +974,10 @@ async fn linux_take_inhibit_lock(
     // Use "delay" mode to give the app time to save, not "block" which would
     // prevent shutdown entirely
     let fd: OwnedFd = manager
-        .inhibit(what, who, why, "delay")
+        .inhibit(what.to_string(), who.to_string(), why.to_string(), "delay".to_string())
         .await
-        .map_err(|e| SessionManagementError::inhibit(e.to_string()))?;
+        .map_err(|e| SessionManagementError::inhibit(e.to_string()))?
+        .into();
 
     Ok(fd)
 }

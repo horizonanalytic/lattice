@@ -1229,8 +1229,8 @@ mod linux_impl {
         let exec_path = entry
             .exec
             .as_ref()
-            .or_else(|| env::current_exe().ok().as_ref())
             .map(|p| p.to_string_lossy().into_owned())
+            .or_else(|| env::current_exe().ok().map(|p| p.to_string_lossy().into_owned()))
             .unwrap_or_default();
 
         let mut content = String::new();

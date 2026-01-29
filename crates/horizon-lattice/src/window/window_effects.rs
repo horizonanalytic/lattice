@@ -580,6 +580,7 @@ mod windows_impl {
     use super::*;
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows::Win32::Foundation::HWND;
+    use windows::Win32::Foundation::POINT;
     use windows::Win32::Graphics::Gdi::{
         CombineRgn, CreateEllipticRgn, CreatePolygonRgn, CreateRectRgn, CreateRoundRectRgn,
         DeleteObject, HRGN, RGN_OR, WINDING,
@@ -588,7 +589,6 @@ mod windows_impl {
         GWL_EXSTYLE, GetLayeredWindowAttributes, GetWindowLongW, LWA_ALPHA,
         SetLayeredWindowAttributes, SetWindowLongW, SetWindowRgn, WS_EX_LAYERED,
     };
-    use windows::Win32::Foundation::POINT;
 
     fn get_hwnd(window: &Window) -> Result<HWND, WindowEffectError> {
         let handle = window

@@ -16,8 +16,7 @@ use super::{
 use windows::{
     Win32::Foundation::*, Win32::Graphics::Gdi::*, Win32::System::Com::*,
     Win32::UI::Controls::Dialogs::*, Win32::UI::Shell::Common::*, Win32::UI::Shell::*,
-    Win32::UI::WindowsAndMessaging::*,
-    core::*,
+    Win32::UI::WindowsAndMessaging::*, core::*,
 };
 
 /// Check if native dialogs are available.

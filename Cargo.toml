@@ -13,7 +13,7 @@ members = [
 [workspace.package]
 version = "1.0.0"
 edition = "2024"
-rust-version = "1.85.0"  # MSRV: Edition 2024 requires Rust 1.85+
+rust-version = "1.89.0"  # MSRV: Updated for dependency compatibility
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/horizon-analytic-studios/horizon-lattice"
 authors = ["Horizon Analytic Studios, LLC"]

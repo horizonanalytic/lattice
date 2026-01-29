@@ -203,10 +203,10 @@ prost = "0.13"
 tower = "0.5"
 hyper-util = "0.1"
 
-# Internal crates
-horizon-lattice-core = { path = "crates/horizon-lattice-core" }
-horizon-lattice-macros = { path = "crates/horizon-lattice-macros" }
-horizon-lattice-multimedia = { path = "crates/horizon-lattice-multimedia" }
-horizon-lattice-net = { path = "crates/horizon-lattice-net" }
-horizon-lattice-render = { path = "crates/horizon-lattice-render" }
-horizon-lattice-style = { path = "crates/horizon-lattice-style" }
+# Internal crates (version required for crates.io publishing)
+horizon-lattice-core = { path = "crates/horizon-lattice-core", version = "1.0.0" }
+horizon-lattice-macros = { path = "crates/horizon-lattice-macros", version = "1.0.0" }
+horizon-lattice-multimedia = { path = "crates/horizon-lattice-multimedia", version = "1.0.0" }
+horizon-lattice-net = { path = "crates/horizon-lattice-net", version = "1.0.0" }
+horizon-lattice-render = { path = "crates/horizon-lattice-render", version = "1.0.0" }
+horizon-lattice-style = { path = "crates/horizon-lattice-style", version = "1.0.0" }

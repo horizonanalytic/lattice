@@ -55,7 +55,7 @@ notify = { workspace = true, optional = true }
 notify-debouncer-mini = { workspace = true, optional = true }
 
 # Networking (optional, for URL loading)
-horizon-lattice-net = { path = "../horizon-lattice-net", optional = true }
+horizon-lattice-net = { path = "../horizon-lattice-net", version = "1.0.0", optional = true }
 tokio = { workspace = true, features = ["rt"], optional = true }
 
 [dev-dependencies]

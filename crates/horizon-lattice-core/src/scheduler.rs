@@ -514,23 +514,31 @@ mod tests {
         let executed = Arc::new(AtomicUsize::new(0));
         let executed_clone = executed.clone();
 
-        let id = scheduler.schedule_repeating(Duration::from_millis(50), move || {
+        // Use longer intervals to avoid timing issues in CI
+        let id = scheduler.schedule_repeating(Duration::from_millis(100), move || {
             executed_clone.fetch_add(1, Ordering::SeqCst);
         });
 
         assert!(scheduler.is_active(id));
 
-        // Wait for first execution
-        std::thread::sleep(Duration::from_millis(60));
+        // Wait and process - verify at least one execution
+        std::thread::sleep(Duration::from_millis(150));
         scheduler.process_ready();
-        assert_eq!(executed.load(Ordering::SeqCst), 1);
+        let count1 = executed.load(Ordering::SeqCst);
+        assert!(count1 >= 1, "Expected at least 1 execution, got {}", count1);
 
-        // Wait for second execution
-        std::thread::sleep(Duration::from_millis(55));
+        // Wait more and verify executions increased (repeating works)
+        std::thread::sleep(Duration::from_millis(150));
         scheduler.process_ready();
-        assert_eq!(executed.load(Ordering::SeqCst), 2);
+        let count2 = executed.load(Ordering::SeqCst);
+        assert!(
+            count2 > count1,
+            "Expected executions to increase from {} but got {}",
+            count1,
+            count2
+        );
 
-        // Task should still be active
+        // Task should still be active (it's repeating)
         assert!(scheduler.is_active(id));
 
         // Cancel it

@@ -1193,6 +1193,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        target_os = "windows",
+        ignore = "Unix-style paths behave differently on Windows"
+    )]
     fn test_is_absolute_relative() {
         assert!(is_absolute("/home/user"));
         assert!(!is_absolute("relative/path"));
@@ -1231,6 +1235,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        target_os = "windows",
+        ignore = "Unix-style paths behave differently on Windows"
+    )]
     fn test_absolute_path() {
         // Absolute path stays absolute
         let abs = absolute_path("/home/user").unwrap();

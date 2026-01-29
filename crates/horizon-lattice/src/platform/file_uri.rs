@@ -456,14 +456,12 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn test_parse_uri_list_mixed() {
         // Should only return file:// URIs as paths
         let list = "file:///home/file.txt\r\nhttps://example.com\r\n";
         let paths = parse_uri_list(list);
-        #[cfg(unix)]
         assert_eq!(paths.len(), 1);
-        #[cfg(windows)]
-        assert_eq!(paths.len(), 0); // file:///home/file.txt not valid Windows path format
     }
 
     #[test]

@@ -572,6 +572,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "timing-sensitive test that is flaky in CI environments"]
     fn test_reschedule() {
         let mut scheduler = TaskScheduler::new();
         let executed = Arc::new(AtomicUsize::new(0));

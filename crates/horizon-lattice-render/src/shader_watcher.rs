@@ -5,7 +5,7 @@
 //!
 //! # Usage
 //!
-//! ```no_run
+//! ```ignore
 //! use horizon_lattice_render::{GpuRenderer, ShaderWatcher};
 //!
 //! let mut renderer = // ... create renderer

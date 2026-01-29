@@ -5,7 +5,7 @@
 
 .PHONY: help check build test clippy fmt fmt-check audit doc clean \
         release-check publish-dry-run publish version-check msrv-check \
-        all quality pre-commit
+        all quality pre-commit size-check bloat license-check
 
 # Default target
 all: quality test
@@ -23,6 +23,7 @@ help:
 	@echo "  make fmt         - Format code with rustfmt"
 	@echo "  make fmt-check   - Check code formatting (no changes)"
 	@echo "  make audit       - Audit dependencies for vulnerabilities"
+	@echo "  make license-check - Audit dependency licenses (requires cargo-deny)"
 	@echo "  make quality     - Run all quality checks (check, clippy, fmt-check)"
 	@echo ""
 	@echo "Building & Testing:"
@@ -39,6 +40,10 @@ help:
 	@echo "  make release-check   - Full pre-release validation"
 	@echo "  make publish-dry-run - Test crates.io publish (no upload)"
 	@echo "  make publish         - Publish all crates to crates.io"
+	@echo ""
+	@echo "Size Analysis:"
+	@echo "  make size-check  - Show release binary sizes"
+	@echo "  make bloat       - Analyze binary bloat (requires cargo-bloat)"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean       - Remove build artifacts"
@@ -64,6 +69,11 @@ fmt-check:
 audit:
 	@command -v cargo-audit >/dev/null 2>&1 || { echo "Installing cargo-audit..."; cargo install cargo-audit; }
 	cargo audit
+
+# Audit dependency licenses for compatibility with MIT OR Apache-2.0
+license-check:
+	@command -v cargo-deny >/dev/null 2>&1 || { echo "Installing cargo-deny..."; cargo install cargo-deny; }
+	cargo deny check licenses
 
 quality: check clippy fmt-check
 	@echo "All quality checks passed!"
@@ -173,6 +183,38 @@ publish:
 	cd crates/horizon-lattice && cargo publish
 	@echo ""
 	@echo "All crates published successfully!"
+
+#------------------------------------------------------------------------------
+# Size Analysis
+#------------------------------------------------------------------------------
+
+# Show size of compiled library artifacts
+size-check: build-release
+	@echo "Release build sizes:"
+	@echo ""
+	@for lib in target/release/libhorizon_lattice*.rlib; do \
+		if [ -f "$$lib" ]; then \
+			SIZE=$$(ls -lh "$$lib" | awk '{print $$5}'); \
+			NAME=$$(basename "$$lib"); \
+			echo "  $$NAME: $$SIZE"; \
+		fi; \
+	done
+	@echo ""
+	@echo "Total target/release size:"
+	@du -sh target/release 2>/dev/null || echo "  (build first with 'make build-release')"
+
+# Analyze binary bloat using cargo-bloat
+# This shows which crates and functions contribute most to binary size
+bloat:
+	@command -v cargo-bloat >/dev/null 2>&1 || { echo "Installing cargo-bloat..."; cargo install cargo-bloat; }
+	@echo "Analyzing binary bloat for horizon-lattice..."
+	@echo ""
+	@echo "Top crates by size contribution:"
+	cargo bloat --release --crates -p horizon-lattice --all-features 2>/dev/null || \
+		echo "  Note: cargo-bloat works best with binary crates. For library analysis, build an example."
+	@echo ""
+	@echo "Tip: For detailed function-level analysis, run:"
+	@echo "  cargo bloat --release -p horizon-lattice --all-features -n 20"
 
 #------------------------------------------------------------------------------
 # Utilities

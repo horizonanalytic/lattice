@@ -438,16 +438,13 @@ impl AsyncImageLoader {
                 .map_err(|e| format!("Failed to fetch image: {}", e))?;
 
             if !response.is_success() {
-                return Err(format!(
-                    "HTTP error {}: {}",
-                    response.status_code(),
-                    response.status_text()
-                ));
+                return Err(format!("HTTP error: status {}", response.status()));
             }
 
             response
                 .bytes()
                 .await
+                .map(|b| b.to_vec())
                 .map_err(|e| format!("Failed to read response body: {}", e))
         })
     }

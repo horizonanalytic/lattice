@@ -1,0 +1,125 @@
+# Horizon Lattice - cargo-deny configuration
+#
+# This file configures cargo-deny to audit dependencies for:
+# - License compatibility
+# - Security advisories
+# - Source restrictions
+#
+# Run `cargo deny check` or `make license-check` to validate.
+#
+# See https://embarkstudios.github.io/cargo-deny/ for documentation.
+
+# ---------------------------------------------------------
+# General settings
+# ---------------------------------------------------------
+
+[graph]
+# Include all targets we support
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
+all-features = true
+
+# ---------------------------------------------------------
+# License configuration (v2 format)
+# ---------------------------------------------------------
+
+[licenses]
+version = 2
+
+# The confidence threshold for detecting a license from license text.
+confidence-threshold = 0.8
+
+# List of explicitly allowed licenses (SPDX identifiers)
+# All licenses are denied unless explicitly allowed.
+# These are all permissive licenses compatible with MIT OR Apache-2.0
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",               # Boost Software License
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "Unlicense",
+    "CC0-1.0",
+    "Unicode-3.0",           # Unicode license
+    "MPL-2.0",               # Mozilla Public License (weak copyleft, file-level)
+    "OpenSSL",               # Used by some crypto crates
+    "CDLA-Permissive-2.0",   # Community Data License Agreement (webpki-roots)
+]
+
+# Don't check private workspace crates (they're not published)
+[licenses.private]
+ignore = true
+
+# Exceptions for specific crates with unusual but acceptable licenses
+[[licenses.exceptions]]
+name = "ring"
+allow = ["ISC", "MIT", "OpenSSL"]
+
+# Clarifications for crates where license detection is ambiguous
+[[licenses.clarify]]
+name = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 }
+]
+
+# ---------------------------------------------------------
+# Security advisories (v2 format)
+# ---------------------------------------------------------
+
+[advisories]
+version = 2
+
+# Ignore specific advisories if needed (with justification)
+# ignore = [
+#     "RUSTSEC-2020-0001",  # Reason for ignoring
+# ]
+
+# ---------------------------------------------------------
+# Bans configuration
+# ---------------------------------------------------------
+
+[bans]
+# Deny multiple versions of the same crate (warn only, common in large projects)
+multiple-versions = "warn"
+
+# Deny wildcard dependencies
+wildcards = "deny"
+
+# Highlight certain crates as particularly important to audit
+highlight = "all"
+
+# Crates that should never be used
+# deny = [
+#     { crate = "openssl" },  # Prefer rustls
+# ]
+
+# Skip certain crates from duplicate checking
+skip = [
+    # Common crates that often have multiple versions due to ecosystem churn
+]
+
+[bans.build]
+# Allow build scripts (default behavior)
+allow-build-scripts = ["*"]
+
+# ---------------------------------------------------------
+# Sources configuration
+# ---------------------------------------------------------
+
+[sources]
+# Only allow crates from crates.io
+unknown-registry = "deny"
+unknown-git = "deny"
+
+# Allow git sources from specific GitHub organizations
+[sources.allow-org]
+github = ["horizon-analytic-studios"]

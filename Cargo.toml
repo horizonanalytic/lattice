@@ -211,3 +211,21 @@ horizon-lattice-multimedia = { path = "crates/horizon-lattice-multimedia", versi
 horizon-lattice-net = { path = "crates/horizon-lattice-net", version = "1.0.0" }
 horizon-lattice-render = { path = "crates/horizon-lattice-render", version = "1.0.0" }
 horizon-lattice-style = { path = "crates/horizon-lattice-style", version = "1.0.0" }
+
+# Release profile: Balanced optimization for performance with reduced binary size
+[profile.release]
+lto = true            # Link-time optimization for better inlining and dead code elimination
+codegen-units = 1     # Single codegen unit maximizes optimization opportunities
+strip = true          # Remove symbols from binary (reduces size by ~3-8%)
+
+# Development profile with faster compile times
+[profile.dev]
+# Use default settings for fast iteration
+
+# Test profile inherits from dev
+[profile.test]
+# Use default settings
+
+# Bench profile inherits from release
+[profile.bench]
+# Inherits release settings automatically

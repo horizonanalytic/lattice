@@ -140,11 +140,11 @@ windows = { version = "0.58", features = [
 ] }
 
 # X11 clipboard support (Linux)
-x11-clipboard = "0.9"
+x11-clipboard = "0.8"
 
 # Native dialog dependencies (Linux)
-ashpd = "0.11"
-zbus = "5"
+ashpd = "0.9"
+zbus = "4"
 futures-util = "0.3"
 tokio-stream = "0.1"
 async-stream = "0.3"

@@ -1059,7 +1059,7 @@ fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError
             let _ = GlobalUnlock(hglobal);
 
             // Set clipboard data
-            SetClipboardData(CF_HDROP.0 as u32, Some(HANDLE(hglobal.0)))
+            SetClipboardData(CF_HDROP.0 as u32, HANDLE(hglobal.0))
                 .map_err(|e| ClipboardError::new(format!("Failed to set clipboard data: {}", e)))?;
 
             Ok(())

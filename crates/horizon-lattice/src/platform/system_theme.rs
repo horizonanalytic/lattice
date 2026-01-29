@@ -590,7 +590,7 @@ fn windows_theme_watch_loop(inner: &ThemeWatcherInner) -> Result<(), SystemTheme
         // Message loop
         let mut msg = MSG::default();
         while !inner.stop.load(Ordering::SeqCst) {
-            let ret = GetMessageW(&mut msg, Some(hwnd), 0, 0);
+            let ret = GetMessageW(&mut msg, hwnd, 0, 0);
             if ret.0 <= 0 {
                 break;
             }

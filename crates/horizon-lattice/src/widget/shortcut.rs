@@ -48,10 +48,10 @@
 //!
 //! Mnemonics are indicated by '&' in button text:
 //!
-//! ```ignore
-//! // "&Open" -> mnemonic is 'o', displayed text is "Open" with underlined 'O'
-//! // "Save &As" -> mnemonic is 'a', displayed text is "Save As" with underlined 'A'
-//! // "Fish && Chips" -> no mnemonic, displayed text is "Fish & Chips"
+//! ```text
+//! "&Open" -> mnemonic is 'o', displayed text is "Open" with underlined 'O'
+//! "Save &As" -> mnemonic is 'a', displayed text is "Save As" with underlined 'A'
+//! "Fish && Chips" -> no mnemonic, displayed text is "Fish & Chips"
 //! ```
 
 use std::fmt;

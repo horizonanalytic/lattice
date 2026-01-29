@@ -282,6 +282,8 @@ pub enum ButtonOrder {
     Gnome,
 }
 
+// Manual impl needed for platform-specific default behavior
+#[allow(clippy::derivable_impls)]
 impl Default for ButtonOrder {
     fn default() -> Self {
         // Default to Windows style; could be made platform-specific

@@ -768,7 +768,7 @@ mod linux {
     use super::*;
     use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
     use std::ffi::CString;
-    use std::os::raw::{c_int, c_long, c_uchar, c_ulong};
+    use std::os::raw::{c_int, c_uchar, c_ulong};
 
     // X11 bindings (we use raw bindings to avoid adding another dependency)
     #[link(name = "X11")]
@@ -1090,7 +1090,7 @@ mod linux {
         let a = width as f64 / 2.0;
         let b = height as f64 / 2.0;
         let cx = x as f64 + a;
-        let cy = y as f64 + b;
+        let _cy = y as f64 + b;
 
         for dy in 0..height as i32 {
             let rel_y = dy as f64 - b;

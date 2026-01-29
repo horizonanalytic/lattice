@@ -9,8 +9,7 @@ use horizon_lattice_render::Color;
 
 use super::{
     NativeColorOptions, NativeFileDialogOptions, NativeFileFilter, NativeFontDesc,
-    NativeFontOptions, NativeMessageButtons, NativeMessageLevel, NativeMessageOptions,
-    NativeMessageResult,
+    NativeFontOptions, NativeMessageOptions, NativeMessageResult,
 };
 
 #[cfg(target_os = "linux")]
@@ -70,10 +69,7 @@ where
 {
     // Use pollster for simple blocking execution
     // This works for portal dialogs since they handle their own event loop
-    match pollster::block_on(future) {
-        Ok(result) => Ok(result),
-        Err(e) => Err(e),
-    }
+    pollster::block_on(future)
 }
 
 /// Open a native file open dialog for a single file.

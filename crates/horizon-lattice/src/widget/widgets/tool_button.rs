@@ -117,7 +117,7 @@ impl ToolButtonStyle {
 
 /// A quick-access button typically used in toolbars.
 ///
-/// ToolButton differs from [`PushButton`] in several ways:
+/// ToolButton differs from `PushButton` in several ways:
 /// - Defaults to icon-only display (more compact)
 /// - Supports auto-raise behavior (flat until hovered)
 /// - Supports dropdown menu modes (delayed, instant, or split button)

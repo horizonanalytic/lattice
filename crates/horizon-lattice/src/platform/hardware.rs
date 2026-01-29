@@ -689,7 +689,7 @@ mod platform {
         let rest = &s[x_idx + 1..];
 
         // Find first + or - for position
-        let pos_idx = rest.find(|c| c == '+' || c == '-')?;
+        let pos_idx = rest.find(['+', '-'])?;
         let height: u32 = rest[..pos_idx].parse().ok()?;
 
         let pos_str = &rest[pos_idx..];
@@ -990,6 +990,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires desktop environment, may hang in CI"]
     fn test_screen_watcher_start_stop() {
         let watcher = ScreenWatcher::new().unwrap();
 

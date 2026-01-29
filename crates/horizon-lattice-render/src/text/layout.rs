@@ -617,7 +617,7 @@ impl InlineElement {
 
 /// A text span with styling for rich text.
 ///
-/// Used with [`TextLayout::with_spans`] for rich text with mixed styles.
+/// Used with `TextLayout::with_spans()` for rich text with mixed styles.
 ///
 /// # Examples
 ///

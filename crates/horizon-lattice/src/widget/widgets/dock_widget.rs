@@ -272,7 +272,7 @@ struct ButtonState {
 
 /// A dockable panel widget.
 ///
-/// DockWidget provides a panel that can be docked in a [`MainWindow`]'s dock
+/// DockWidget provides a panel that can be docked in a `MainWindow`'s dock
 /// areas or floated as an independent panel. It consists of a title bar with
 /// controls and a content area.
 ///

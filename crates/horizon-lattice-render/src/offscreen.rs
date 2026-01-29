@@ -229,7 +229,7 @@ impl OffscreenSurface {
 
     /// Read the rendered pixels back from the GPU.
     ///
-    /// Returns RGBA pixel data as a flat Vec<u8> in row-major order.
+    /// Returns RGBA pixel data as a flat `Vec<u8>` in row-major order.
     /// Each pixel is 4 bytes (R, G, B, A).
     ///
     /// # Note

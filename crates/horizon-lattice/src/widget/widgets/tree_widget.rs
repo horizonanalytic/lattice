@@ -493,7 +493,7 @@ fn decode_path(id: u64) -> Option<Vec<usize>> {
 /// A model-less tree widget for simple hierarchical data displays.
 ///
 /// `TreeWidget` provides direct item manipulation without requiring a separate model.
-/// For complex scenarios (large datasets, custom data types), use [`TreeView`]
+/// For complex scenarios (large datasets, custom data types), use `TreeView`
 /// with an explicit model instead.
 pub struct TreeWidget {
     base: WidgetBase,

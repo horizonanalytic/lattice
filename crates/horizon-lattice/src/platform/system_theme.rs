@@ -68,6 +68,7 @@
 use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 use std::time::Duration;
 
 use horizon_lattice_core::Signal;
@@ -470,6 +471,10 @@ impl ThemeWatcher {
         Ok(())
     }
 
+    /// Start watching for theme changes (Linux).
+    ///
+    /// This spawns a background thread to monitor D-Bus for XDG portal
+    /// theme change notifications.
     #[cfg(target_os = "linux")]
     pub fn start(&self) -> Result<(), SystemThemeError> {
         if self.inner.running.swap(true, Ordering::SeqCst) {
@@ -640,7 +645,9 @@ unsafe extern "system" fn theme_wndproc(
         WM_CREATE => {
             // Store the inner pointer from CREATESTRUCT
             // SAFETY: lparam points to a valid CREATESTRUCTW during WM_CREATE
-            let cs = unsafe { &*(lparam.0 as *const windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW) };
+            let cs = unsafe {
+                &*(lparam.0 as *const windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW)
+            };
             let _inner = cs.lpCreateParams as *const ThemeWatcherInner;
             // Store in a second user data slot (we use GWLP_USERDATA + 8)
             // Actually, we need to be more careful. Let's use a different approach.
@@ -830,7 +837,7 @@ async fn linux_theme_watch_loop(inner: &ThemeWatcherInner) -> Result<(), SystemT
 
 /// Automatically updates a StyleEngine when the system theme changes.
 ///
-/// This connects a [`ThemeWatcher`] to a [`StyleEngine`], automatically switching
+/// This connects a `ThemeWatcher` to a `StyleEngine`, automatically switching
 /// between light and dark themes when the user changes their system preferences.
 ///
 /// # Example
@@ -996,6 +1003,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires desktop environment, may hang in CI on Windows"]
     fn test_system_theme_detection() {
         // Just verify it doesn't panic
         let _scheme = SystemTheme::color_scheme();
@@ -1023,6 +1031,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires desktop environment, may hang in CI on Windows"]
     fn test_theme_auto_updater_creation() {
         use horizon_lattice_style::prelude::{StyleEngine, Theme};
 
@@ -1044,6 +1053,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires desktop environment, may hang in CI on Windows"]
     fn test_theme_auto_updater_sync() {
         use horizon_lattice_style::prelude::{StyleEngine, Theme};
 

@@ -10,18 +10,18 @@
 //!
 //! # Core Types
 //!
-//! - [`ModelIndex`]: Identifies an item's position in a model
-//! - [`ItemRole`]: Specifies what type of data to access
-//! - [`ItemData`]: Type-erased container for item data
-//! - [`ItemModel`]: The trait that models implement
-//! - [`ModelSignals`]: Signals for change notifications
+//! - `ModelIndex`: Identifies an item's position in a model
+//! - `ItemRole`: Specifies what type of data to access
+//! - `ItemData`: Type-erased container for item data
+//! - `ItemModel`: The trait that models implement
+//! - `ModelSignals`: Signals for change notifications
 //!
 //! # Model Implementations
 //!
-//! - [`ListModel`]: Simple list of items with trait-based or closure-based data extraction
-//! - [`TableModel`]: 2D grid with rows and columns, supports headers
-//! - [`TreeModel`]: Hierarchical tree structure with parent-child relationships
-//! - [`ProxyModel`]: Wraps another model to provide filtering and sorting
+//! - `ListModel`: Simple list of items with trait-based or closure-based data extraction
+//! - `TableModel`: 2D grid with rows and columns, supports headers
+//! - `TreeModel`: Hierarchical tree structure with parent-child relationships
+//! - `ProxyModel`: Wraps another model to provide filtering and sorting
 //!
 //! # Example
 //!

@@ -826,7 +826,9 @@ impl X11Clipboard {
                     .getter
                     .connection
                     .intern_atom(false, b"SECONDARY")
-                    .map_err(|e| ClipboardError::new(format!("Failed to intern SECONDARY atom: {:?}", e)))?
+                    .map_err(|e| {
+                        ClipboardError::new(format!("Failed to intern SECONDARY atom: {:?}", e))
+                    })?
                     .reply()
                     .map_err(|e| ClipboardError::new(format!("Failed to get atom reply: {:?}", e)))?
                     .atom
@@ -871,7 +873,9 @@ impl X11Clipboard {
                     .setter
                     .connection
                     .intern_atom(false, b"SECONDARY")
-                    .map_err(|e| ClipboardError::new(format!("Failed to intern SECONDARY atom: {:?}", e)))?
+                    .map_err(|e| {
+                        ClipboardError::new(format!("Failed to intern SECONDARY atom: {:?}", e))
+                    })?
                     .reply()
                     .map_err(|e| ClipboardError::new(format!("Failed to get atom reply: {:?}", e)))?
                     .atom
@@ -1406,6 +1410,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires desktop environment, hangs in CI"]
     fn test_clipboard_watcher_start_stop() {
         if let Ok(watcher) = ClipboardWatcher::new() {
             assert!(!watcher.is_running());

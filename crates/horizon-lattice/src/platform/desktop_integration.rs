@@ -500,6 +500,10 @@ impl TaskbarBadge {
         ))
     }
 
+    /// Set a text badge on the dock/taskbar icon (Linux).
+    ///
+    /// Note: Text badges are desktop-environment specific on Linux and
+    /// not universally supported.
     #[cfg(target_os = "linux")]
     pub fn set_text(_text: &str) -> Result<(), DesktopIntegrationError> {
         Err(DesktopIntegrationError::unsupported_platform(
@@ -1140,7 +1144,7 @@ mod linux_impl {
         Ok(get_data_home()?.join("recently-used.xbel"))
     }
 
-    fn escape_xml(s: &str) -> String {
+    pub(crate) fn escape_xml(s: &str) -> String {
         s.replace('&', "&amp;")
             .replace('<', "&lt;")
             .replace('>', "&gt;")
@@ -1230,7 +1234,11 @@ mod linux_impl {
             .exec
             .as_ref()
             .map(|p| p.to_string_lossy().into_owned())
-            .or_else(|| env::current_exe().ok().map(|p| p.to_string_lossy().into_owned()))
+            .or_else(|| {
+                env::current_exe()
+                    .ok()
+                    .map(|p| p.to_string_lossy().into_owned())
+            })
             .unwrap_or_default();
 
         let mut content = String::new();

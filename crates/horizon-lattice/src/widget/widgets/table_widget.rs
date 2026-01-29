@@ -345,7 +345,7 @@ const HEADER_HEIGHT: f32 = 26.0;
 /// A model-less table widget for simple tabular data displays.
 ///
 /// `TableWidget` provides direct cell manipulation without requiring a separate model.
-/// For complex scenarios (large datasets, custom data types), use [`TableView`]
+/// For complex scenarios (large datasets, custom data types), use `TableView`
 /// with an explicit model instead.
 pub struct TableWidget {
     base: WidgetBase,

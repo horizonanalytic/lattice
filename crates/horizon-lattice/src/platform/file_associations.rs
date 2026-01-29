@@ -259,7 +259,7 @@ impl Opener {
     ///
     /// # Arguments
     ///
-    /// * `url` - The URL to open (e.g., "https://example.com" or "myapp://action")
+    /// * `url` - The URL to open (e.g., `https://example.com` or `myapp://action`)
     ///
     /// # Errors
     ///
@@ -395,7 +395,7 @@ impl LaunchArgs {
     /// categorizes each argument as either a file path or a URL.
     ///
     /// An argument is considered a URL if it:
-    /// - Contains "://" (e.g., "https://example.com" or "myapp://action")
+    /// - Contains "://" (e.g., `https://example.com` or `myapp://action`)
     /// - Starts with a known URL scheme pattern
     ///
     /// All other arguments that exist as files on the filesystem are
@@ -691,6 +691,9 @@ impl FileTypeRegistration {
         windows_register_file_type(&info, &executable, &app_name)
     }
 
+    /// Register the file type association (Linux).
+    ///
+    /// On Linux, this creates a .desktop file and MIME type association.
     #[cfg(target_os = "linux")]
     pub fn register(self) -> Result<(), FileAssociationError> {
         let info = self
@@ -918,6 +921,9 @@ impl UrlSchemeRegistration {
         windows_register_url_scheme(&info, &executable, &app_name)
     }
 
+    /// Register the URL scheme handler (Linux).
+    ///
+    /// On Linux, this creates a .desktop file with the URL scheme handler.
     #[cfg(target_os = "linux")]
     pub fn register(self) -> Result<(), FileAssociationError> {
         let info = self

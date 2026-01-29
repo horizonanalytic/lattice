@@ -327,11 +327,11 @@ impl MatchFlags {
 
 /// A model-less list widget for simple list displays.
 ///
-/// `ListWidget` wraps a [`ListView`] and provides direct item manipulation
+/// `ListWidget` wraps a `ListView` and provides direct item manipulation
 /// without requiring a separate model. This is convenient for simple use cases.
 ///
 /// For more complex scenarios (large datasets, custom data types), use
-/// [`ListView`] with an explicit model instead.
+/// `ListView` with an explicit model instead.
 pub struct ListWidget {
     base: WidgetBase,
     items: Arc<RwLock<Vec<ListWidgetItem>>>,

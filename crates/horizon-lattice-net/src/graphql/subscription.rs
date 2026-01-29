@@ -1,7 +1,7 @@
 //! GraphQL subscription support over WebSocket.
 //!
 //! Implements the graphql-transport-ws protocol (graphql-ws).
-//! See: https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md
+//! See: <https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md>
 
 use std::collections::HashMap;
 use std::sync::Arc;

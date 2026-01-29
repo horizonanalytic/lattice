@@ -43,7 +43,7 @@ use crate::types::Size;
 ///
 /// # File Naming Convention
 ///
-/// When loading images with [`ImageManager::load_scalable()`], the following
+/// When loading scalable images with the image manager, the following
 /// naming convention is used:
 ///
 /// - `icon.png` - Base @1x image

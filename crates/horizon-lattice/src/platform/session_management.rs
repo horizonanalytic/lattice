@@ -496,8 +496,6 @@ impl SessionInhibitorGuard {
         app_name: String,
         options: SessionInhibitOptions,
     ) -> Result<Self, SessionManagementError> {
-        use std::os::fd::OwnedFd;
-
         if !options.shutdown && !options.logout {
             return Ok(Self { _inhibit_fd: None });
         }
@@ -974,7 +972,12 @@ async fn linux_take_inhibit_lock(
     // Use "delay" mode to give the app time to save, not "block" which would
     // prevent shutdown entirely
     let fd: OwnedFd = manager
-        .inhibit(what.to_string(), who.to_string(), why.to_string(), "delay".to_string())
+        .inhibit(
+            what.to_string(),
+            who.to_string(),
+            why.to_string(),
+            "delay".to_string(),
+        )
         .await
         .map_err(|e| SessionManagementError::inhibit(e.to_string()))?
         .into();

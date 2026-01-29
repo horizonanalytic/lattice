@@ -45,7 +45,7 @@ use crate::error::{NetworkError, Result};
 /// Authentication method for REST APIs.
 #[derive(Clone, Debug)]
 pub enum ApiAuth {
-    /// Bearer token authentication (Authorization: Bearer <token>).
+    /// Bearer token authentication (`Authorization: Bearer <token>`).
     Bearer(String),
     /// API key in a custom header.
     ApiKey {

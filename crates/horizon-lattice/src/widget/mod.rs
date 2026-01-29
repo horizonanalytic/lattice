@@ -2,16 +2,16 @@
 //!
 //! This module provides the foundational widget architecture including:
 //!
-//! - [`Widget`] trait: The base trait for all UI elements
-//! - [`WidgetBase`]: Common implementation for widget functionality
+//! - `Widget` trait: The base trait for all UI elements
+//! - `WidgetBase`: Common implementation for widget functionality
 //! - Size hints and policies for layout negotiation
 //! - Widget events for input handling and lifecycle
 //!
 //! # Overview
 //!
 //! The widget system follows Qt's design philosophy while being idiomatic Rust.
-//! Each widget implements the [`Widget`] trait and typically contains a
-//! [`WidgetBase`] that handles common functionality.
+//! Each widget implements the `Widget` trait and typically contains a
+//! `WidgetBase` that handles common functionality.
 //!
 //! # Creating a Widget
 //!
@@ -114,9 +114,9 @@
 //!
 //! Size policies control how widgets behave during layout:
 //!
-//! - [`SizePolicy::Fixed`]: Cannot grow or shrink
-//! - [`SizePolicy::Preferred`]: Can grow/shrink but has a preferred size
-//! - [`SizePolicy::Expanding`]: Actively wants more space
+//! - `SizePolicy::Fixed`: Cannot grow or shrink
+//! - `SizePolicy::Preferred`: Can grow/shrink but has a preferred size
+//! - `SizePolicy::Expanding`: Actively wants more space
 //!
 //! ```no_run
 //! use horizon_lattice::widget::{Widget, PushButton, SizePolicy, SizePolicyPair};

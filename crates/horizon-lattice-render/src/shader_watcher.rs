@@ -26,15 +26,15 @@
 //! ```
 
 use notify::RecursiveMode;
-use notify_debouncer_mini::{new_debouncer, DebouncedEventKind, Debouncer};
+use notify_debouncer_mini::{DebouncedEventKind, Debouncer, new_debouncer};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::Duration;
 
-use crate::error::{RenderError, RenderResult};
 use crate::GraphicsContext;
+use crate::error::{RenderError, RenderResult};
 
 /// Identifies which shader was changed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -149,12 +149,11 @@ impl ShaderWatcher {
             match self.rx.try_recv() {
                 Ok(Ok(events)) => {
                     for event in events {
-                        if event.kind == DebouncedEventKind::Any {
-                            if let Some(kind) = ShaderKind::from_path(&event.path) {
+                        if event.kind == DebouncedEventKind::Any
+                            && let Some(kind) = ShaderKind::from_path(&event.path) {
                                 tracing::debug!("Detected change in shader: {:?}", kind);
                                 self.pending_changes.insert(kind);
                             }
-                        }
                     }
                 }
                 Ok(Err(e)) => {
@@ -190,11 +189,7 @@ impl ShaderWatcher {
         for &kind in kinds {
             let path = self.shader_dir.join(kind.filename());
             let source = fs::read_to_string(&path).map_err(|e| {
-                RenderError::ShaderError(format!(
-                    "Failed to read shader {}: {}",
-                    path.display(),
-                    e
-                ))
+                RenderError::ShaderError(format!("Failed to read shader {}: {}", path.display(), e))
             })?;
 
             // Try to compile the shader
@@ -219,11 +214,7 @@ impl ShaderWatcher {
     pub fn read_shader(&self, kind: ShaderKind) -> RenderResult<String> {
         let path = self.shader_dir.join(kind.filename());
         fs::read_to_string(&path).map_err(|e| {
-            RenderError::ShaderError(format!(
-                "Failed to read shader {}: {}",
-                path.display(),
-                e
-            ))
+            RenderError::ShaderError(format!("Failed to read shader {}: {}", path.display(), e))
         })
     }
 
@@ -242,11 +233,7 @@ pub fn load_shader_source(kind: ShaderKind, shader_dir: Option<&Path>) -> Render
         // Load from file for hot-reload
         let path = dir.join(kind.filename());
         fs::read_to_string(&path).map_err(|e| {
-            RenderError::ShaderError(format!(
-                "Failed to read shader {}: {}",
-                path.display(),
-                e
-            ))
+            RenderError::ShaderError(format!("Failed to read shader {}: {}", path.display(), e))
         })
     } else {
         // Return embedded source
@@ -273,14 +260,8 @@ mod tests {
             ShaderKind::from_path(Path::new("image.wgsl")),
             Some(ShaderKind::Image)
         );
-        assert_eq!(
-            ShaderKind::from_path(Path::new("unknown.wgsl")),
-            None
-        );
-        assert_eq!(
-            ShaderKind::from_path(Path::new("rect.txt")),
-            None
-        );
+        assert_eq!(ShaderKind::from_path(Path::new("unknown.wgsl")), None);
+        assert_eq!(ShaderKind::from_path(Path::new("rect.txt")), None);
     }
 
     #[test]

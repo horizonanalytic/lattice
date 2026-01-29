@@ -195,7 +195,10 @@ impl WindowState {
     }
 
     fn save_geometry(&mut self) {
-        let pos = self.window.outer_position().unwrap_or(PhysicalPosition::new(0, 0));
+        let pos = self
+            .window
+            .outer_position()
+            .unwrap_or(PhysicalPosition::new(0, 0));
         let size = self.window.inner_size();
         self.saved_geometry = Some(SavedGeometry {
             position: (pos.x, pos.y),
@@ -219,14 +222,18 @@ impl WindowState {
             }
 
             // Then restore position and size
-            self.window.set_outer_position(PhysicalPosition::new(geom.position.0, geom.position.1));
-            let _ = self.window.request_inner_size(winit::dpi::PhysicalSize::new(geom.size.0, geom.size.1));
+            self.window
+                .set_outer_position(PhysicalPosition::new(geom.position.0, geom.position.1));
+            let _ = self
+                .window
+                .request_inner_size(winit::dpi::PhysicalSize::new(geom.size.0, geom.size.1));
 
             // Finally restore state
             if geom.is_maximized {
                 self.window.set_maximized(true);
             } else if geom.is_fullscreen {
-                self.window.set_fullscreen(Some(Fullscreen::Borderless(None)));
+                self.window
+                    .set_fullscreen(Some(Fullscreen::Borderless(None)));
             }
         } else {
             println!("No saved geometry to restore");
@@ -378,20 +385,29 @@ impl WindowManagementApp {
                 let size = monitor.size();
                 let pos = monitor.position();
                 let scale = monitor.scale_factor();
-                let refresh = monitor.refresh_rate_millihertz()
+                let refresh = monitor
+                    .refresh_rate_millihertz()
                     .map(|r| format!("{:.2} Hz", r as f64 / 1000.0))
                     .unwrap_or_else(|| "N/A".to_string());
 
-                println!("  [{}] {} - {}x{} at ({}, {}), scale: {:.2}x, refresh: {}",
-                    i, name, size.width, size.height, pos.x, pos.y, scale, refresh);
+                println!(
+                    "  [{}] {} - {}x{} at ({}, {}), scale: {:.2}x, refresh: {}",
+                    i, name, size.width, size.height, pos.x, pos.y, scale, refresh
+                );
             }
 
             if let Some(primary) = state.window.primary_monitor() {
-                println!("Primary: {}", primary.name().unwrap_or_else(|| "Unknown".to_string()));
+                println!(
+                    "Primary: {}",
+                    primary.name().unwrap_or_else(|| "Unknown".to_string())
+                );
             }
 
             if let Some(current) = state.window.current_monitor() {
-                println!("Current window is on: {}", current.name().unwrap_or_else(|| "Unknown".to_string()));
+                println!(
+                    "Current window is on: {}",
+                    current.name().unwrap_or_else(|| "Unknown".to_string())
+                );
             }
         }
         println!("===================================\n");
@@ -400,7 +416,9 @@ impl WindowManagementApp {
     fn cascade_windows(&mut self) {
         let mut offset = 0;
         for state in self.windows.values() {
-            state.window.set_outer_position(PhysicalPosition::new(100 + offset, 100 + offset));
+            state
+                .window
+                .set_outer_position(PhysicalPosition::new(100 + offset, 100 + offset));
             offset += 40;
         }
         println!("Cascaded {} windows", self.windows.len());
@@ -454,7 +472,12 @@ impl ApplicationHandler for WindowManagementApp {
         println!("================================\n");
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
         match event {
             WindowEvent::CloseRequested => {
                 println!("Close requested for window: {:?}", window_id);
@@ -468,7 +491,10 @@ impl ApplicationHandler for WindowManagementApp {
             WindowEvent::Resized(size) => {
                 if let Some(state) = self.windows.get_mut(&window_id) {
                     state.resize(size.width, size.height);
-                    println!("Window {:?} resized to {}x{}", window_id, size.width, size.height);
+                    println!(
+                        "Window {:?} resized to {}x{}",
+                        window_id, size.width, size.height
+                    );
                 }
             }
 
@@ -477,7 +503,11 @@ impl ApplicationHandler for WindowManagementApp {
             }
 
             WindowEvent::Focused(focused) => {
-                println!("Window {:?} focus: {}", window_id, if focused { "gained" } else { "lost" });
+                println!(
+                    "Window {:?} focus: {}",
+                    window_id,
+                    if focused { "gained" } else { "lost" }
+                );
             }
 
             WindowEvent::RedrawRequested => {
@@ -487,11 +517,19 @@ impl ApplicationHandler for WindowManagementApp {
             }
 
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                println!("Window {:?} scale factor changed to {:.2}", window_id, scale_factor);
+                println!(
+                    "Window {:?} scale factor changed to {:.2}",
+                    window_id, scale_factor
+                );
             }
 
             WindowEvent::KeyboardInput {
-                event: KeyEvent { logical_key, state: ElementState::Pressed, .. },
+                event:
+                    KeyEvent {
+                        logical_key,
+                        state: ElementState::Pressed,
+                        ..
+                    },
                 ..
             } => {
                 match logical_key.as_ref() {
@@ -582,7 +620,9 @@ impl ApplicationHandler for WindowManagementApp {
                     }
                     Key::Character("l") | Key::Character("L") => {
                         if let Some(state) = self.windows.get(&window_id) {
-                            state.window.set_fullscreen(Some(Fullscreen::Borderless(None)));
+                            state
+                                .window
+                                .set_fullscreen(Some(Fullscreen::Borderless(None)));
                             println!("Entered fullscreen");
                         }
                     }
@@ -601,13 +641,12 @@ impl ApplicationHandler for WindowManagementApp {
                         self.print_screen_info();
                     }
                     Key::Character("r") | Key::Character("R") => {
-                        if let Some(state) = self.windows.get(&window_id) {
-                            if let Ok(pos) = state.window.outer_position() {
+                        if let Some(state) = self.windows.get(&window_id)
+                            && let Ok(pos) = state.window.outer_position() {
                                 let new_pos = PhysicalPosition::new(pos.x + 50, pos.y);
                                 state.window.set_outer_position(new_pos);
                                 println!("Moved window right to ({}, {})", new_pos.x, new_pos.y);
                             }
-                        }
                     }
                     Key::Character("g") | Key::Character("G") => {
                         if let Some(state) = self.windows.get(&window_id) {
@@ -620,13 +659,23 @@ impl ApplicationHandler for WindowManagementApp {
                             let is_full = state.window.fullscreen().is_some();
 
                             println!("\n=== Window Geometry ===");
-                            println!("Inner size: {}x{} (physical pixels)", size.width, size.height);
-                            println!("Outer size: {}x{} (including decorations)", outer_size.width, outer_size.height);
+                            println!(
+                                "Inner size: {}x{} (physical pixels)",
+                                size.width, size.height
+                            );
+                            println!(
+                                "Outer size: {}x{} (including decorations)",
+                                outer_size.width, outer_size.height
+                            );
                             if let Some(p) = pos {
                                 println!("Position: ({}, {})", p.x, p.y);
                             }
                             println!("Scale factor: {:.2}", scale);
-                            println!("Logical size: {:.1}x{:.1}", size.width as f64 / scale, size.height as f64 / scale);
+                            println!(
+                                "Logical size: {:.1}x{:.1}",
+                                size.width as f64 / scale,
+                                size.height as f64 / scale
+                            );
                             println!("Maximized: {}", is_max);
                             println!("Minimized: {:?}", is_min);
                             println!("Fullscreen: {}", is_full);

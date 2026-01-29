@@ -1,6 +1,6 @@
 //! GraphQL response types.
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::fmt;
 
@@ -125,7 +125,9 @@ impl GraphQLResponse {
             Some(data) => serde_json::from_value(data.clone()).map_err(|e| {
                 NetworkError::Json(format!("Failed to deserialize GraphQL response: {}", e))
             }),
-            None => Err(NetworkError::InvalidBody("No data in GraphQL response".into())),
+            None => Err(NetworkError::InvalidBody(
+                "No data in GraphQL response".into(),
+            )),
         }
     }
 
@@ -148,16 +150,15 @@ impl GraphQLResponse {
                     NetworkError::InvalidBody(format!("Field '{}' not found in response", field))
                 })?;
                 serde_json::from_value(field_value.clone()).map_err(|e| {
-                    NetworkError::Json(format!(
-                        "Failed to deserialize field '{}': {}",
-                        field, e
-                    ))
+                    NetworkError::Json(format!("Failed to deserialize field '{}': {}", field, e))
                 })
             }
             Some(_) => Err(NetworkError::InvalidBody(
                 "Response data is not an object".into(),
             )),
-            None => Err(NetworkError::InvalidBody("No data in GraphQL response".into())),
+            None => Err(NetworkError::InvalidBody(
+                "No data in GraphQL response".into(),
+            )),
         }
     }
 

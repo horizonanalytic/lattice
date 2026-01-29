@@ -32,7 +32,9 @@ use horizon_lattice_render::{
 use super::frame::{FrameShadow, FrameShape};
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::layout::{ContentMargins, LayoutItem, LayoutKind};
-use crate::widget::{PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent};
+use crate::widget::{
+    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+};
 
 /// A container widget with a title and optional checkbox.
 ///
@@ -119,7 +121,10 @@ impl GroupBox {
     /// Create a new group box with the specified title.
     pub fn new(title: impl Into<String>) -> Self {
         let mut base = WidgetBase::new::<Self>();
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Preferred,
+        ));
 
         Self {
             base,
@@ -308,11 +313,7 @@ impl GroupBox {
     ///
     /// Returns `true` if not in checkable mode.
     pub fn is_checked(&self) -> bool {
-        if self.checkable {
-            self.checked
-        } else {
-            true
-        }
+        if self.checkable { self.checked } else { true }
     }
 
     /// Set the checked state.
@@ -561,7 +562,11 @@ impl GroupBox {
             0.0
         } else {
             let mut font_system = FontSystem::new();
-            let text = if self.title.is_empty() { "Xg" } else { &self.title };
+            let text = if self.title.is_empty() {
+                "Xg"
+            } else {
+                &self.title
+            };
             let layout = TextLayout::new(&mut font_system, text, &self.title_font);
             let text_height = layout.height().max(self.checkbox_size);
             text_height + 8.0 // Add spacing below title
@@ -586,7 +591,8 @@ impl GroupBox {
             frame_width + self.content_margins.left,
             frame_width + title_h + self.content_margins.top,
             (rect.width() - 2.0 * frame_width - self.content_margins.horizontal()).max(0.0),
-            (rect.height() - 2.0 * frame_width - title_h - self.content_margins.vertical()).max(0.0),
+            (rect.height() - 2.0 * frame_width - title_h - self.content_margins.vertical())
+                .max(0.0),
         )
     }
 
@@ -640,12 +646,7 @@ impl GroupBox {
             (base.b * 1.3).min(1.0),
             base.a,
         );
-        let dark = Color::from_rgba(
-            base.r * 0.6,
-            base.g * 0.6,
-            base.b * 0.6,
-            base.a,
-        );
+        let dark = Color::from_rgba(base.r * 0.6, base.g * 0.6, base.b * 0.6, base.a);
 
         (light, dark)
     }
@@ -685,15 +686,27 @@ impl GroupBox {
         // Draw bottom edge
         let stroke_br = Stroke::new(bottom_right_color, lw);
         ctx.renderer().draw_line(
-            Point::new(frame_rect.origin.x, frame_rect.origin.y + frame_rect.height()),
-            Point::new(frame_rect.origin.x + frame_rect.width(), frame_rect.origin.y + frame_rect.height()),
+            Point::new(
+                frame_rect.origin.x,
+                frame_rect.origin.y + frame_rect.height(),
+            ),
+            Point::new(
+                frame_rect.origin.x + frame_rect.width(),
+                frame_rect.origin.y + frame_rect.height(),
+            ),
             &stroke_br,
         );
 
         // Draw right edge
         ctx.renderer().draw_line(
-            Point::new(frame_rect.origin.x + frame_rect.width(), frame_rect.origin.y),
-            Point::new(frame_rect.origin.x + frame_rect.width(), frame_rect.origin.y + frame_rect.height()),
+            Point::new(
+                frame_rect.origin.x + frame_rect.width(),
+                frame_rect.origin.y,
+            ),
+            Point::new(
+                frame_rect.origin.x + frame_rect.width(),
+                frame_rect.origin.y + frame_rect.height(),
+            ),
             &stroke_br,
         );
 
@@ -701,7 +714,10 @@ impl GroupBox {
         let stroke_tl = Stroke::new(top_left_color, lw);
         ctx.renderer().draw_line(
             Point::new(frame_rect.origin.x, frame_rect.origin.y),
-            Point::new(frame_rect.origin.x, frame_rect.origin.y + frame_rect.height()),
+            Point::new(
+                frame_rect.origin.x,
+                frame_rect.origin.y + frame_rect.height(),
+            ),
             &stroke_tl,
         );
 
@@ -723,7 +739,10 @@ impl GroupBox {
             if title_gap_end < frame_rect.origin.x + frame_rect.width() {
                 ctx.renderer().draw_line(
                     Point::new(title_gap_end, frame_rect.origin.y),
-                    Point::new(frame_rect.origin.x + frame_rect.width(), frame_rect.origin.y),
+                    Point::new(
+                        frame_rect.origin.x + frame_rect.width(),
+                        frame_rect.origin.y,
+                    ),
                     &stroke_tl,
                 );
             }
@@ -731,7 +750,10 @@ impl GroupBox {
             // No title, draw complete top edge
             ctx.renderer().draw_line(
                 Point::new(frame_rect.origin.x, frame_rect.origin.y),
-                Point::new(frame_rect.origin.x + frame_rect.width(), frame_rect.origin.y),
+                Point::new(
+                    frame_rect.origin.x + frame_rect.width(),
+                    frame_rect.origin.y,
+                ),
                 &stroke_tl,
             );
         }
@@ -894,10 +916,7 @@ impl Widget for GroupBox {
         let min_width = 2.0 * frame_width + self.content_margins.horizontal();
         let min_height = 2.0 * frame_width + title_h + self.content_margins.vertical();
 
-        let preferred = Size::new(
-            min_width.max(150.0),
-            min_height.max(50.0),
-        );
+        let preferred = Size::new(min_width.max(150.0), min_height.max(50.0));
 
         SizeHint::new(preferred).with_minimum(Size::new(min_width, min_height))
     }
@@ -948,12 +967,8 @@ impl Widget for GroupBox {
             };
 
             if let Ok(mut text_renderer) = TextRenderer::new() {
-                let _ = text_renderer.prepare_layout(
-                    &mut font_system,
-                    &layout,
-                    text_pos,
-                    text_color,
-                );
+                let _ =
+                    text_renderer.prepare_layout(&mut font_system, &layout, text_pos, text_color);
             }
         }
 
@@ -968,13 +983,12 @@ impl Widget for GroupBox {
                     return false;
                 }
 
-                if e.button == crate::widget::MouseButton::Left {
-                    if self.is_point_in_checkbox(e.local_pos) {
+                if e.button == crate::widget::MouseButton::Left
+                    && self.is_point_in_checkbox(e.local_pos) {
                         self.toggle();
                         event.accept();
                         return true;
                     }
-                }
                 false
             }
             _ => false,
@@ -989,8 +1003,8 @@ static_assertions::assert_impl_all!(GroupBox: Send, Sync);
 mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
-    use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
     fn setup() {
         init_global_registry();
@@ -1029,8 +1043,7 @@ mod tests {
     #[test]
     fn test_checkbox_mode() {
         setup();
-        let mut group = GroupBox::new("Options")
-            .with_checkable(true);
+        let mut group = GroupBox::new("Options").with_checkable(true);
 
         assert!(group.is_checkable());
         assert!(group.is_checked()); // Default checked
@@ -1059,8 +1072,7 @@ mod tests {
     #[test]
     fn test_toggled_signal() {
         setup();
-        let mut group = GroupBox::new("Toggle Test")
-            .with_checkable(true);
+        let mut group = GroupBox::new("Toggle Test").with_checkable(true);
 
         let signal_received = Arc::new(AtomicBool::new(false));
         let signal_clone = signal_received.clone();
@@ -1127,8 +1139,7 @@ mod tests {
     #[test]
     fn test_layout_integration() {
         setup();
-        let mut group = GroupBox::new("Layout Test")
-            .with_layout(LayoutKind::vertical());
+        let mut group = GroupBox::new("Layout Test").with_layout(LayoutKind::vertical());
 
         assert!(group.has_layout());
 
@@ -1168,10 +1179,11 @@ mod tests {
     #[test]
     fn test_contents_rect() {
         setup();
-        let mut group = GroupBox::new("Content")
-            .with_content_margin(10.0);
+        let mut group = GroupBox::new("Content").with_content_margin(10.0);
 
-        group.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        group
+            .widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         let content = group.contents_rect();
         // Content should be inset by frame_width (1) + margin (10) horizontally
@@ -1185,8 +1197,7 @@ mod tests {
     #[test]
     fn test_size_hint() {
         setup();
-        let group = GroupBox::new("Size Test")
-            .with_content_margin(20.0);
+        let group = GroupBox::new("Size Test").with_content_margin(20.0);
 
         let hint = group.size_hint();
 

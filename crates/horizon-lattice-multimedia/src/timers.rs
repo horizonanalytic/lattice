@@ -31,8 +31,8 @@
 //! timer.stop()?;
 //! ```
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -591,7 +591,7 @@ mod tests {
 
         // Should have approximately 3 ticks (175ms / 50ms = 3.5)
         let ticks = tick_count.load(Ordering::SeqCst);
-        assert!(ticks >= 2 && ticks <= 5, "Expected 2-5 ticks, got {ticks}");
+        assert!((2..=5).contains(&ticks), "Expected 2-5 ticks, got {ticks}");
     }
 
     #[test]
@@ -617,7 +617,7 @@ mod tests {
         std::thread::sleep(Duration::from_millis(100));
         let count = timer.tick_count();
         timer.stop().unwrap();
-        assert!(count >= 3 && count <= 7, "Expected 3-7 ticks, got {count}");
+        assert!((3..=7).contains(&count), "Expected 3-7 ticks, got {count}");
     }
 
     #[test]

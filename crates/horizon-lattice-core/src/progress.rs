@@ -38,8 +38,8 @@
 //! assert!((aggregate.progress() - 0.75).abs() < 0.01);
 //! ```
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use parking_lot::Mutex;
 
@@ -157,7 +157,8 @@ impl ProgressReporterInner {
     }
 
     fn reset(&self) {
-        self.progress_bits.store(0.0_f32.to_bits(), Ordering::Release);
+        self.progress_bits
+            .store(0.0_f32.to_bits(), Ordering::Release);
         {
             let mut guard = self.message.lock();
             *guard = None;
@@ -494,8 +495,8 @@ impl std::fmt::Debug for AggregateProgress {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicI32, Ordering as AtomicOrdering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicI32, Ordering as AtomicOrdering};
 
     #[test]
     fn test_progress_reporter_basic() {

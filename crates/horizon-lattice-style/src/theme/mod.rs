@@ -1,9 +1,9 @@
 //! Theme system with built-in themes.
 
+mod builtin;
 mod palette;
 mod variables;
-mod builtin;
 
+pub use builtin::{Theme, ThemeMode};
 pub use palette::ColorPalette;
 pub use variables::ThemeVariables;
-pub use builtin::{Theme, ThemeMode};

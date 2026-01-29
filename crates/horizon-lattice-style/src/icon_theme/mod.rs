@@ -49,7 +49,7 @@ mod resolver;
 mod types;
 
 pub use loader::IconThemeLoader;
-pub use resolver::{lookup_standard_icon, IconResolver};
+pub use resolver::{IconResolver, lookup_standard_icon};
 pub use types::{
     IconContext, IconLookup, IconName, IconSizeType, IconThemeDirectory, IconThemeInfo,
 };

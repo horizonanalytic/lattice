@@ -50,21 +50,19 @@
 //! All operations must be performed on the main thread (AppKit requirement).
 //! Methods will return an error if called from a non-main thread.
 
-#![cfg(target_os = "macos")]
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
+use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2::sel;
-use objc2::MainThreadMarker;
 use objc2_app_kit::{NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem};
 use objc2_foundation::NSString;
 
-use crate::widget::widgets::{Action, Menu, MenuBar, MenuItem, MenuRole};
 use crate::widget::KeySequence;
+use crate::widget::widgets::{Action, Menu, MenuBar, MenuItem, MenuRole};
 
 // ============================================================================
 // Error Types
@@ -328,13 +326,8 @@ impl NativeMenuBar {
 
         // Preferences (disabled by default, user needs to provide action)
         let prefs_title = NSString::from_str("Settings...");
-        let prefs_item = create_menu_item(
-            mtm,
-            &prefs_title,
-            None,
-            ",",
-            NSEventModifierFlags::Command,
-        );
+        let prefs_item =
+            create_menu_item(mtm, &prefs_title, None, ",", NSEventModifierFlags::Command);
         prefs_item.setEnabled(false);
         app_menu.addItem(&prefs_item);
 
@@ -605,7 +598,7 @@ impl NativeMenuBar {
                         continue;
                     }
 
-                    let ns_item = self.create_menu_item_from_action(&action, mtm)?;
+                    let ns_item = self.create_menu_item_from_action(action, mtm)?;
                     ns_menu.addItem(&ns_item);
                 }
                 MenuItem::Separator => {

@@ -38,10 +38,10 @@
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::{Rect, Size};
 
+use super::ContentMargins;
 use super::base::LayoutBase;
 use super::item::LayoutItem;
 use super::traits::Layout;
-use super::ContentMargins;
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::geometry::{SizeHint, SizePolicyPair};
 
@@ -132,7 +132,12 @@ impl Anchor {
     }
 
     /// Create a new anchor to a sibling.
-    pub fn to_sibling(source: AnchorLine, sibling_index: usize, target: AnchorLine, margin: f32) -> Self {
+    pub fn to_sibling(
+        source: AnchorLine,
+        sibling_index: usize,
+        target: AnchorLine,
+        margin: f32,
+    ) -> Self {
         Self {
             source_line: source,
             target: AnchorTarget::Sibling {
@@ -250,7 +255,10 @@ impl AnchorLayout {
 
         // Check for duplicate anchor on same source line
         let anchors = &mut self.item_anchors[item_index];
-        if let Some(existing) = anchors.iter_mut().find(|a| a.source_line == anchor.source_line) {
+        if let Some(existing) = anchors
+            .iter_mut()
+            .find(|a| a.source_line == anchor.source_line)
+        {
             *existing = anchor;
         } else {
             anchors.push(anchor);
@@ -470,7 +478,8 @@ impl AnchorLayout {
                     }
                 };
 
-                self.base.set_item_geometry(item_idx, Rect::new(x, y, width, height));
+                self.base
+                    .set_item_geometry(item_idx, Rect::new(x, y, width, height));
             }
 
             if !changed {
@@ -499,17 +508,15 @@ impl AnchorLayout {
             // Add margins from anchors
             for anchor in anchors {
                 match anchor.target {
-                    AnchorTarget::Parent(_) => {
-                        match anchor.source_line {
-                            AnchorLine::Left | AnchorLine::Right => {
-                                item_width += anchor.margin.abs();
-                            }
-                            AnchorLine::Top | AnchorLine::Bottom => {
-                                item_height += anchor.margin.abs();
-                            }
-                            _ => {}
+                    AnchorTarget::Parent(_) => match anchor.source_line {
+                        AnchorLine::Left | AnchorLine::Right => {
+                            item_width += anchor.margin.abs();
                         }
-                    }
+                        AnchorLine::Top | AnchorLine::Bottom => {
+                            item_height += anchor.margin.abs();
+                        }
+                        _ => {}
+                    },
                     AnchorTarget::Sibling { .. } => {
                         // Sibling anchors don't directly contribute to layout size
                     }
@@ -552,11 +559,13 @@ impl Layout for AnchorLayout {
         // Update sibling anchor indices for items after the insertion
         for anchors in &mut self.item_anchors {
             for anchor in anchors {
-                if let AnchorTarget::Sibling { index: ref mut sib_idx, .. } = anchor.target {
-                    if *sib_idx >= index {
+                if let AnchorTarget::Sibling {
+                    index: ref mut sib_idx,
+                    ..
+                } = anchor.target
+                    && *sib_idx >= index {
                         *sib_idx += 1;
                     }
-                }
             }
         }
     }
@@ -572,7 +581,11 @@ impl Layout for AnchorLayout {
         // Update sibling anchor indices and remove invalid anchors
         for anchors in &mut self.item_anchors {
             anchors.retain_mut(|anchor| {
-                if let AnchorTarget::Sibling { index: ref mut sib_idx, .. } = anchor.target {
+                if let AnchorTarget::Sibling {
+                    index: ref mut sib_idx,
+                    ..
+                } = anchor.target
+                {
                     if *sib_idx == index {
                         return false; // Remove anchor to deleted item
                     }
@@ -588,9 +601,12 @@ impl Layout for AnchorLayout {
     }
 
     fn remove_widget(&mut self, widget: ObjectId) -> bool {
-        if let Some(index) = self.base.items().iter().position(|item| {
-            matches!(item, LayoutItem::Widget(id) if *id == widget)
-        }) {
+        if let Some(index) = self
+            .base
+            .items()
+            .iter()
+            .position(|item| matches!(item, LayoutItem::Widget(id) if *id == widget))
+        {
             self.remove_item(index);
             true
         } else {
@@ -679,7 +695,8 @@ impl Layout for AnchorLayout {
         // Cache size hint
         let size_hint = self.calculate_size_hint(storage);
         self.base.set_cached_size_hint(size_hint);
-        self.base.set_cached_minimum_size(size_hint.effective_minimum());
+        self.base
+            .set_cached_minimum_size(size_hint.effective_minimum());
 
         self.base.mark_valid();
         self.base.geometry().size
@@ -728,7 +745,7 @@ mod tests {
     use crate::widget::base::WidgetBase;
     use crate::widget::geometry::SizeHint;
     use crate::widget::traits::{PaintContext, Widget};
-    use horizon_lattice_core::{init_global_registry, Object, ObjectId};
+    use horizon_lattice_core::{Object, ObjectId, init_global_registry};
     use std::collections::HashMap;
 
     /// Mock widget for testing layouts.

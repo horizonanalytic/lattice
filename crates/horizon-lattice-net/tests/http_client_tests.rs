@@ -71,7 +71,10 @@ async fn test_json_body() {
         }))
         .build();
 
-    matches!(request.body, horizon_lattice_net::http::RequestBody::Json(_));
+    matches!(
+        request.body,
+        horizon_lattice_net::http::RequestBody::Json(_)
+    );
 }
 
 #[tokio::test]
@@ -83,9 +86,15 @@ async fn test_form_body() {
     form_data.insert("username".to_string(), "testuser".to_string());
     form_data.insert("password".to_string(), "secret".to_string());
 
-    let request = client.post("https://example.com/login").form(form_data).build();
+    let request = client
+        .post("https://example.com/login")
+        .form(form_data)
+        .build();
 
-    matches!(request.body, horizon_lattice_net::http::RequestBody::Form(_));
+    matches!(
+        request.body,
+        horizon_lattice_net::http::RequestBody::Form(_)
+    );
 }
 
 #[tokio::test]
@@ -120,7 +129,12 @@ async fn test_multipart_form() {
     let _form = MultipartForm::new()
         .text("field1", "value1")
         .text("field2", "value2")
-        .file_bytes("file", vec![1, 2, 3, 4], "test.bin", Some("application/octet-stream"));
+        .file_bytes(
+            "file",
+            vec![1, 2, 3, 4],
+            "test.bin",
+            Some("application/octet-stream"),
+        );
 }
 
 // Note: We use wiremock for mocked HTTP tests
@@ -142,7 +156,7 @@ mod integration_tests {
 
         let client = HttpClient::new();
         let response = client
-            .get(&format!("{}/test", mock_server.uri()))
+            .get(format!("{}/test", mock_server.uri()))
             .send()
             .await
             .expect("Request failed");
@@ -169,7 +183,7 @@ mod integration_tests {
 
         let client = HttpClient::new();
         let response = client
-            .post(&format!("{}/api/users", mock_server.uri()))
+            .post(format!("{}/api/users", mock_server.uri()))
             .json(&serde_json::json!({"name": "John"}))
             .send()
             .await
@@ -197,7 +211,10 @@ mod integration_tests {
             .build()
             .expect("Failed to build client");
 
-        let result = client.get(&format!("{}/slow", mock_server.uri())).send().await;
+        let result = client
+            .get(format!("{}/slow", mock_server.uri()))
+            .send()
+            .await;
 
         assert!(result.is_err());
     }
@@ -214,7 +231,7 @@ mod integration_tests {
 
         let client = HttpClient::new();
         let response = client
-            .get(&format!("{}/not-found", mock_server.uri()))
+            .get(format!("{}/not-found", mock_server.uri()))
             .send()
             .await
             .expect("Request failed");

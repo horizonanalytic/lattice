@@ -98,18 +98,15 @@ impl std::fmt::Debug for AnimationFrame {
 
 /// Loop behavior for animations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum LoopCount {
     /// Loop indefinitely.
+    #[default]
     Infinite,
     /// Loop a specific number of times.
     Finite(u32),
 }
 
-impl Default for LoopCount {
-    fn default() -> Self {
-        LoopCount::Infinite
-    }
-}
 
 /// An animated image containing multiple frames.
 ///
@@ -153,9 +150,8 @@ impl AnimatedImage {
     /// println!("Loaded {} frames", animated.frame_count());
     /// ```
     pub fn from_file(path: impl AsRef<Path>) -> RenderResult<Self> {
-        let file = std::fs::File::open(path.as_ref()).map_err(|e| {
-            RenderError::ImageLoad(format!("Failed to open file: {}", e))
-        })?;
+        let file = std::fs::File::open(path.as_ref())
+            .map_err(|e| RenderError::ImageLoad(format!("Failed to open file: {}", e)))?;
         let reader = BufReader::new(file);
         Self::from_reader(reader)
     }
@@ -193,9 +189,8 @@ impl AnimatedImage {
         let mut total_duration = Duration::ZERO;
 
         for frame_result in image_frames {
-            let frame = frame_result.map_err(|e| {
-                RenderError::ImageLoad(format!("Failed to decode frame: {}", e))
-            })?;
+            let frame = frame_result
+                .map_err(|e| RenderError::ImageLoad(format!("Failed to decode frame: {}", e)))?;
 
             let delay = frame.delay();
             let (num, denom) = delay.numer_denom_ms();
@@ -873,7 +868,9 @@ mod tests {
     fn test_animated_image_accessors() {
         let frames = vec![
             AnimationFrame {
-                rgba_data: vec![255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255],
+                rgba_data: vec![
+                    255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255,
+                ],
                 width: 2,
                 height: 2,
                 delay: Duration::from_millis(100),
@@ -881,7 +878,9 @@ mod tests {
                 top: 0,
             },
             AnimationFrame {
-                rgba_data: vec![0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255],
+                rgba_data: vec![
+                    0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255,
+                ],
                 width: 2,
                 height: 2,
                 delay: Duration::from_millis(150),

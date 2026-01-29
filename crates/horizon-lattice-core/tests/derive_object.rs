@@ -1,9 +1,9 @@
 //! Integration tests for the #[derive(Object)] macro.
 
-use horizon_lattice_core::object::{init_global_registry, ObjectId};
+use horizon_lattice_core::object::{ObjectId, init_global_registry};
 use horizon_lattice_core::property::Property;
 use horizon_lattice_core::signal::Signal;
-use horizon_lattice_core::{object::ObjectBase, Object};
+use horizon_lattice_core::{Object, object::ObjectBase};
 use horizon_lattice_macros::Object;
 use std::any::TypeId;
 
@@ -321,7 +321,7 @@ fn test_multiple_signal_params() {
 
     let two = meta.signal("two_params").unwrap();
     // Two params represented as tuple types
-    assert!(two.param_types.len() >= 1);
+    assert!(!two.param_types.is_empty());
 
     let no = meta.signal("no_params").unwrap();
     assert!(no.param_types.is_empty());
@@ -429,6 +429,12 @@ fn test_multiple_types_registered() {
     assert!(counter.is_some());
 
     // Verify they're different types
-    assert_eq!(button.unwrap().meta_object().unwrap().type_name, "TestButton");
-    assert_eq!(counter.unwrap().meta_object().unwrap().type_name, "TestCounter");
+    assert_eq!(
+        button.unwrap().meta_object().unwrap().type_name,
+        "TestButton"
+    );
+    assert_eq!(
+        counter.unwrap().meta_object().unwrap().type_name,
+        "TestCounter"
+    );
 }

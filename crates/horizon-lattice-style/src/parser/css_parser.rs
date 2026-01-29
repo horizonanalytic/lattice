@@ -4,16 +4,16 @@
 //! tokenizes CSS input and constructs [`StyleRule`] objects containing selectors
 //! and their associated style properties.
 
-use cssparser::{Parser, ParserInput, Token, ParseError as CssParseError};
-use horizon_lattice_render::{
-    Color, CornerRadii, BoxShadow,
-    text::{FontFamily, FontWeight, FontStyle},
-};
 use crate::rules::StyleRule;
-use crate::selector::{Selector, SelectorPart, TypeSelector, PseudoClass, Combinator, NthExpr};
+use crate::selector::{Combinator, NthExpr, PseudoClass, Selector, SelectorPart, TypeSelector};
 use crate::style::StyleProperties;
-use crate::types::{StyleValue, LengthValue, EdgeValues, BorderStyle, TextAlign, Cursor};
+use crate::types::{BorderStyle, Cursor, EdgeValues, LengthValue, StyleValue, TextAlign};
 use crate::{Error, Result};
+use cssparser::{ParseError as CssParseError, Parser, ParserInput, Token};
+use horizon_lattice_render::{
+    BoxShadow, Color, CornerRadii,
+    text::{FontFamily, FontStyle, FontWeight},
+};
 
 /// Parse a CSS stylesheet string into a list of style rules.
 ///
@@ -81,24 +81,28 @@ pub fn parse_css(css: &str) -> Result<Vec<StyleRule>> {
 /// Parse a single CSS rule: selector { declarations }
 fn parse_rule<'i>(parser: &mut Parser<'i, '_>, order: u32) -> Result<StyleRule> {
     // Parse selector until we hit the curly brace block
-    let selector = parser.parse_until_before(cssparser::Delimiter::CurlyBracketBlock, |p| {
-        parse_selector(p).map_err(|_| p.new_custom_error(()))
-    }).map_err(|e: CssParseError<'_, ()>| {
-        Error::parse(format!("Failed to parse selector: {:?}", e), 0, 0)
-    })?;
+    let selector = parser
+        .parse_until_before(cssparser::Delimiter::CurlyBracketBlock, |p| {
+            parse_selector(p).map_err(|_| p.new_custom_error(()))
+        })
+        .map_err(|e: CssParseError<'_, ()>| {
+            Error::parse(format!("Failed to parse selector: {:?}", e), 0, 0)
+        })?;
 
     // Consume the curly bracket block - we need to get past the opening '{'
     // by consuming it as a CurlyBracketBlock token
     let properties = match parser.next() {
-        Ok(Token::CurlyBracketBlock) => {
-            parser.parse_nested_block(|block_parser| {
-                parse_declarations(block_parser)
-            }).map_err(|e: CssParseError<'_, ()>| {
+        Ok(Token::CurlyBracketBlock) => parser
+            .parse_nested_block(|block_parser| parse_declarations(block_parser))
+            .map_err(|e: CssParseError<'_, ()>| {
                 Error::parse(format!("Failed to parse declaration block: {:?}", e), 0, 0)
-            })?
-        }
+            })?,
         _ => {
-            return Err(Error::parse("Expected '{' after selector".to_string(), 0, 0));
+            return Err(Error::parse(
+                "Expected '{' after selector".to_string(),
+                0,
+                0,
+            ));
         }
     };
 
@@ -123,7 +127,10 @@ fn parse_selector<'i>(parser: &mut Parser<'i, '_>) -> Result<Selector> {
         match &token {
             Token::Ident(name) => {
                 // Type selector - but check if this should start a new part (descendant combinator)
-                if current_part.type_selector.is_none() && current_part.id.is_none() && current_part.classes.is_empty() {
+                if current_part.type_selector.is_none()
+                    && current_part.id.is_none()
+                    && current_part.classes.is_empty()
+                {
                     current_part.type_selector = Some(TypeSelector::Type(name.to_string()));
                 } else if !is_empty_part(&current_part) {
                     // We have a current part and got a new type selector - descendant combinator
@@ -148,7 +155,8 @@ fn parse_selector<'i>(parser: &mut Parser<'i, '_>) -> Result<Selector> {
 
             Token::Delim('.') => {
                 // Class selector
-                let class = parser.expect_ident()
+                let class = parser
+                    .expect_ident()
                     .map_err(|_| Error::invalid_selector(".", "Expected class name after '.'"))?;
                 current_part.classes.push(class.to_string());
             }
@@ -172,8 +180,9 @@ fn parse_selector<'i>(parser: &mut Parser<'i, '_>) -> Result<Selector> {
 
             Token::Colon => {
                 // Pseudo-class
-                let pseudo_name = parser.expect_ident()
-                    .map_err(|_| Error::invalid_selector(":", "Expected pseudo-class name after ':'"))?;
+                let pseudo_name = parser.expect_ident().map_err(|_| {
+                    Error::invalid_selector(":", "Expected pseudo-class name after ':'")
+                })?;
 
                 let pseudo = match pseudo_name.as_ref() {
                     "hover" => PseudoClass::Hover,
@@ -189,20 +198,23 @@ fn parse_selector<'i>(parser: &mut Parser<'i, '_>) -> Result<Selector> {
                     "empty" => PseudoClass::Empty,
                     "nth-child" => {
                         // Parse nth-child expression
-                        let expr = parser.parse_nested_block(|p| {
-                            parse_nth_expr(p)
-                        }).map_err(|_: CssParseError<'_, ()>| {
-                            Error::invalid_selector(":nth-child", "Invalid nth-child expression")
-                        })?;
+                        let expr = parser.parse_nested_block(|p| parse_nth_expr(p)).map_err(
+                            |_: CssParseError<'_, ()>| {
+                                Error::invalid_selector(
+                                    ":nth-child",
+                                    "Invalid nth-child expression",
+                                )
+                            },
+                        )?;
                         PseudoClass::NthChild(expr)
                     }
                     "not" => {
                         // Parse :not() argument
-                        let inner = parser.parse_nested_block(|p| {
-                            parse_simple_selector(p)
-                        }).map_err(|_: CssParseError<'_, ()>| {
-                            Error::invalid_selector(":not", "Invalid :not() argument")
-                        })?;
+                        let inner = parser
+                            .parse_nested_block(|p| parse_simple_selector(p))
+                            .map_err(|_: CssParseError<'_, ()>| {
+                                Error::invalid_selector(":not", "Invalid :not() argument")
+                            })?;
                         PseudoClass::Not(Box::new(inner))
                     }
                     _ => {
@@ -275,7 +287,9 @@ fn is_empty_part(part: &SelectorPart) -> bool {
 }
 
 /// Parse a simple selector (for :not() argument).
-fn parse_simple_selector<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<SelectorPart, CssParseError<'i, ()>> {
+fn parse_simple_selector<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<SelectorPart, CssParseError<'i, ()>> {
     let mut part = SelectorPart::default();
 
     parser.skip_whitespace();
@@ -303,25 +317,34 @@ fn parse_simple_selector<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result
 }
 
 /// Parse nth-child expression (e.g., "odd", "even", "3", "2n+1").
-fn parse_nth_expr<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<NthExpr, CssParseError<'i, ()>> {
+fn parse_nth_expr<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<NthExpr, CssParseError<'i, ()>> {
     parser.skip_whitespace();
 
     if let Ok(token) = parser.next() {
         match token.clone() {
-            Token::Ident(name) => {
-                match name.as_ref() {
-                    "odd" => return Ok(NthExpr::odd()),
-                    "even" => return Ok(NthExpr::even()),
-                    _ => {}
-                }
-            }
-            Token::Number { int_value: Some(n), .. } => {
+            Token::Ident(name) => match name.as_ref() {
+                "odd" => return Ok(NthExpr::odd()),
+                "even" => return Ok(NthExpr::even()),
+                _ => {}
+            },
+            Token::Number {
+                int_value: Some(n), ..
+            } => {
                 return Ok(NthExpr::new(0, n));
             }
-            Token::Dimension { int_value: Some(a), unit, .. } if unit.eq_ignore_ascii_case("n") => {
+            Token::Dimension {
+                int_value: Some(a),
+                unit,
+                ..
+            } if unit.eq_ignore_ascii_case("n") => {
                 // Check for +B or -B
                 parser.skip_whitespace();
-                let b = if let Ok(Token::Number { int_value: Some(b), .. }) = parser.next() {
+                let b = if let Ok(Token::Number {
+                    int_value: Some(b), ..
+                }) = parser.next()
+                {
                     *b
                 } else {
                     0
@@ -337,7 +360,9 @@ fn parse_nth_expr<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<NthExp
 }
 
 /// Parse CSS declarations.
-fn parse_declarations<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<StyleProperties, CssParseError<'i, ()>> {
+fn parse_declarations<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<StyleProperties, CssParseError<'i, ()>> {
     let mut props = StyleProperties::default();
 
     loop {
@@ -413,18 +438,34 @@ fn parse_property_value<'i>(
         "margin" => {
             props.margin = StyleValue::Set(parse_edge_values(parser)?);
         }
-        "margin-top" => update_edge(&mut props.margin, |e| e.top = parse_length(parser).unwrap_or_default()),
-        "margin-right" => update_edge(&mut props.margin, |e| e.right = parse_length(parser).unwrap_or_default()),
-        "margin-bottom" => update_edge(&mut props.margin, |e| e.bottom = parse_length(parser).unwrap_or_default()),
-        "margin-left" => update_edge(&mut props.margin, |e| e.left = parse_length(parser).unwrap_or_default()),
+        "margin-top" => update_edge(&mut props.margin, |e| {
+            e.top = parse_length(parser).unwrap_or_default()
+        }),
+        "margin-right" => update_edge(&mut props.margin, |e| {
+            e.right = parse_length(parser).unwrap_or_default()
+        }),
+        "margin-bottom" => update_edge(&mut props.margin, |e| {
+            e.bottom = parse_length(parser).unwrap_or_default()
+        }),
+        "margin-left" => update_edge(&mut props.margin, |e| {
+            e.left = parse_length(parser).unwrap_or_default()
+        }),
 
         "padding" => {
             props.padding = StyleValue::Set(parse_edge_values(parser)?);
         }
-        "padding-top" => update_edge(&mut props.padding, |e| e.top = parse_length(parser).unwrap_or_default()),
-        "padding-right" => update_edge(&mut props.padding, |e| e.right = parse_length(parser).unwrap_or_default()),
-        "padding-bottom" => update_edge(&mut props.padding, |e| e.bottom = parse_length(parser).unwrap_or_default()),
-        "padding-left" => update_edge(&mut props.padding, |e| e.left = parse_length(parser).unwrap_or_default()),
+        "padding-top" => update_edge(&mut props.padding, |e| {
+            e.top = parse_length(parser).unwrap_or_default()
+        }),
+        "padding-right" => update_edge(&mut props.padding, |e| {
+            e.right = parse_length(parser).unwrap_or_default()
+        }),
+        "padding-bottom" => update_edge(&mut props.padding, |e| {
+            e.bottom = parse_length(parser).unwrap_or_default()
+        }),
+        "padding-left" => update_edge(&mut props.padding, |e| {
+            e.left = parse_length(parser).unwrap_or_default()
+        }),
 
         "border-width" => {
             props.border_width = StyleValue::Set(parse_edge_values(parser)?);
@@ -433,11 +474,10 @@ fn parse_property_value<'i>(
             props.border_color = StyleValue::Set(parse_color(parser)?);
         }
         "border-style" => {
-            if let Ok(Token::Ident(s)) = parser.next() {
-                if let Some(style) = BorderStyle::from_css(&s) {
+            if let Ok(Token::Ident(s)) = parser.next()
+                && let Some(style) = BorderStyle::from_css(s) {
                     props.border_style = StyleValue::Set(style);
                 }
-            }
         }
         "border-radius" => {
             props.border_radius = StyleValue::Set(parse_border_radius(parser)?);
@@ -469,11 +509,10 @@ fn parse_property_value<'i>(
             props.font_family = StyleValue::Set(parse_font_family(parser)?);
         }
         "text-align" => {
-            if let Ok(Token::Ident(s)) = parser.next() {
-                if let Some(align) = TextAlign::from_css(&s) {
+            if let Ok(Token::Ident(s)) = parser.next()
+                && let Some(align) = TextAlign::from_css(s) {
                     props.text_align = StyleValue::Set(align);
                 }
-            }
         }
         "line-height" => {
             if let Ok(Token::Number { value, .. }) = parser.next() {
@@ -495,11 +534,10 @@ fn parse_property_value<'i>(
 
         // === Interaction ===
         "cursor" => {
-            if let Ok(Token::Ident(s)) = parser.next() {
-                if let Some(cursor) = Cursor::from_css(&s) {
+            if let Ok(Token::Ident(s)) = parser.next()
+                && let Some(cursor) = Cursor::from_css(s) {
                     props.cursor = StyleValue::Set(cursor);
                 }
-            }
         }
         "pointer-events" => {
             if let Ok(Token::Ident(s)) = parser.next() {
@@ -579,11 +617,14 @@ fn set_unset(name: &str, props: &mut StyleProperties) {
 }
 
 /// Parse a length value.
-fn parse_length<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<LengthValue, CssParseError<'i, ()>> {
+fn parse_length<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<LengthValue, CssParseError<'i, ()>> {
     parser.skip_whitespace();
 
     let token = parser.next()?;
 
+    #[allow(clippy::redundant_guards)] // CSS `0` should be zero length regardless of unit
     match token.clone() {
         Token::Number { value, .. } if value == 0.0 => Ok(LengthValue::Zero),
         Token::Dimension { value, unit, .. } => {
@@ -602,7 +643,9 @@ fn parse_length<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<LengthVa
 }
 
 /// Parse edge values (1-4 values for margin/padding shorthand).
-fn parse_edge_values<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<EdgeValues, CssParseError<'i, ()>> {
+fn parse_edge_values<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<EdgeValues, CssParseError<'i, ()>> {
     let mut values = vec![];
 
     while values.len() < 4 {
@@ -636,7 +679,9 @@ fn parse_edge_values<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<Edg
 }
 
 /// Parse a color value.
-fn parse_color<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<Color, CssParseError<'i, ()>> {
+fn parse_color<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<Color, CssParseError<'i, ()>> {
     parser.skip_whitespace();
 
     let token = parser.next()?;
@@ -662,7 +707,9 @@ fn parse_color<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<Color, Cs
                 _ => Err(parser.new_custom_error(())),
             }
         }
-        Token::Function(name) if name.eq_ignore_ascii_case("rgb") || name.eq_ignore_ascii_case("rgba") => {
+        Token::Function(name)
+            if name.eq_ignore_ascii_case("rgb") || name.eq_ignore_ascii_case("rgba") =>
+        {
             // Parse rgb(r, g, b) or rgba(r, g, b, a)
             let (r, g, b, a) = parser.parse_nested_block(|p| {
                 let r = parse_color_component(p)?;
@@ -683,7 +730,9 @@ fn parse_color<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<Color, Cs
     }
 }
 
-fn parse_color_component<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<f32, CssParseError<'i, ()>> {
+fn parse_color_component<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<f32, CssParseError<'i, ()>> {
     parser.skip_whitespace();
     match parser.next()? {
         Token::Number { value, .. } => Ok(*value / 255.0),
@@ -692,7 +741,9 @@ fn parse_color_component<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result
     }
 }
 
-fn parse_alpha_component<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<f32, CssParseError<'i, ()>> {
+fn parse_alpha_component<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<f32, CssParseError<'i, ()>> {
     parser.skip_whitespace();
     match parser.next()? {
         Token::Number { value, .. } => Ok(value.clamp(0.0, 1.0)),
@@ -702,7 +753,9 @@ fn parse_alpha_component<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result
 }
 
 /// Parse border-radius (1-4 values).
-fn parse_border_radius<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<CornerRadii, CssParseError<'i, ()>> {
+fn parse_border_radius<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<CornerRadii, CssParseError<'i, ()>> {
     let mut values = vec![];
 
     while values.len() < 4 {
@@ -751,34 +804,36 @@ fn parse_border_radius<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<C
 }
 
 /// Parse font-weight.
-fn parse_font_weight<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<FontWeight, CssParseError<'i, ()>> {
+fn parse_font_weight<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<FontWeight, CssParseError<'i, ()>> {
     parser.skip_whitespace();
 
     match parser.next()? {
-        Token::Number { int_value: Some(n), .. } => {
-            Ok(FontWeight::new(*n as u16))
-        }
-        Token::Ident(name) => {
-            match name.as_ref().to_lowercase().as_str() {
-                "normal" => Ok(FontWeight::NORMAL),
-                "bold" => Ok(FontWeight::BOLD),
-                "lighter" => Ok(FontWeight::LIGHT),
-                "bolder" => Ok(FontWeight::BOLD),
-                "thin" => Ok(FontWeight::THIN),
-                "light" => Ok(FontWeight::LIGHT),
-                "medium" => Ok(FontWeight::MEDIUM),
-                "semibold" | "semi-bold" => Ok(FontWeight::SEMI_BOLD),
-                "extrabold" | "extra-bold" => Ok(FontWeight::EXTRA_BOLD),
-                "black" => Ok(FontWeight::BLACK),
-                _ => Ok(FontWeight::NORMAL),
-            }
-        }
+        Token::Number {
+            int_value: Some(n), ..
+        } => Ok(FontWeight::new(*n as u16)),
+        Token::Ident(name) => match name.as_ref().to_lowercase().as_str() {
+            "normal" => Ok(FontWeight::NORMAL),
+            "bold" => Ok(FontWeight::BOLD),
+            "lighter" => Ok(FontWeight::LIGHT),
+            "bolder" => Ok(FontWeight::BOLD),
+            "thin" => Ok(FontWeight::THIN),
+            "light" => Ok(FontWeight::LIGHT),
+            "medium" => Ok(FontWeight::MEDIUM),
+            "semibold" | "semi-bold" => Ok(FontWeight::SEMI_BOLD),
+            "extrabold" | "extra-bold" => Ok(FontWeight::EXTRA_BOLD),
+            "black" => Ok(FontWeight::BLACK),
+            _ => Ok(FontWeight::NORMAL),
+        },
         _ => Err(parser.new_custom_error(())),
     }
 }
 
 /// Parse font-style.
-fn parse_font_style<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<FontStyle, CssParseError<'i, ()>> {
+fn parse_font_style<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<FontStyle, CssParseError<'i, ()>> {
     parser.skip_whitespace();
 
     if let Ok(Token::Ident(name)) = parser.next() {
@@ -794,7 +849,9 @@ fn parse_font_style<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<Font
 }
 
 /// Parse font-family.
-fn parse_font_family<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<Vec<FontFamily>, CssParseError<'i, ()>> {
+fn parse_font_family<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<Vec<FontFamily>, CssParseError<'i, ()>> {
     let mut families = vec![];
 
     loop {
@@ -832,16 +889,17 @@ fn parse_font_family<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<Vec
 }
 
 /// Parse a box-shadow value.
-fn parse_box_shadow<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<BoxShadow, CssParseError<'i, ()>> {
+fn parse_box_shadow<'i>(
+    parser: &mut Parser<'i, '_>,
+) -> std::result::Result<BoxShadow, CssParseError<'i, ()>> {
     parser.skip_whitespace();
 
     // Check for "none"
     let state = parser.state();
-    if let Ok(Token::Ident(name)) = parser.next() {
-        if name.eq_ignore_ascii_case("none") {
+    if let Ok(Token::Ident(name)) = parser.next()
+        && name.eq_ignore_ascii_case("none") {
             return Err(parser.new_custom_error(())); // No shadow
         }
-    }
     parser.reset(&state);
 
     let mut offset_x = 0.0;
@@ -890,12 +948,11 @@ fn parse_box_shadow<'i>(parser: &mut Parser<'i, '_>) -> std::result::Result<BoxS
         parser.reset(&state);
 
         // Try to parse "inset"
-        if let Ok(Token::Ident(name)) = parser.next() {
-            if name.eq_ignore_ascii_case("inset") {
+        if let Ok(Token::Ident(name)) = parser.next()
+            && name.eq_ignore_ascii_case("inset") {
                 inset = true;
                 continue;
             }
-        }
 
         break;
     }
@@ -972,7 +1029,11 @@ mod tests {
         let rules = parse_css(css).unwrap();
 
         assert_eq!(rules.len(), 1);
-        assert!(rules[0].selector.parts[0].classes.contains(&"primary".to_string()));
+        assert!(
+            rules[0].selector.parts[0]
+                .classes
+                .contains(&"primary".to_string())
+        );
     }
 
     #[test]
@@ -992,7 +1053,11 @@ mod tests {
         let rules = parse_css(css).unwrap();
 
         assert_eq!(rules.len(), 1);
-        assert!(rules[0].selector.parts[0].pseudo_classes.contains(&PseudoClass::Hover));
+        assert!(
+            rules[0].selector.parts[0]
+                .pseudo_classes
+                .contains(&PseudoClass::Hover)
+        );
     }
 
     #[test]

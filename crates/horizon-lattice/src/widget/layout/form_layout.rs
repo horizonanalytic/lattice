@@ -18,11 +18,11 @@
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::{Rect, Size};
 
+use super::ContentMargins;
 use super::base::LayoutBase;
 use super::box_layout::Alignment;
 use super::item::LayoutItem;
 use super::traits::Layout;
-use super::ContentMargins;
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::geometry::{SizeHint, SizePolicy, SizePolicyPair};
 
@@ -473,12 +473,11 @@ impl FormLayout {
         let mut max_width: f32 = 0.0;
 
         for row in &self.rows {
-            if let FormRow::LabelField { label, .. } = row {
-                if self.base.is_item_visible(storage, label) {
+            if let FormRow::LabelField { label, .. } = row
+                && self.base.is_item_visible(storage, label) {
                     let hint = self.base.get_item_size_hint(storage, label);
                     max_width = max_width.max(hint.preferred.width);
                 }
-            }
         }
 
         max_width
@@ -584,7 +583,8 @@ impl Layout for FormLayout {
     fn insert_item(&mut self, index: usize, item: LayoutItem) {
         // For raw item insertion, add as spanning at the corresponding row
         let row_index = self.base_index_to_row(index);
-        self.rows.insert(row_index, FormRow::Spanning { item: item.clone() });
+        self.rows
+            .insert(row_index, FormRow::Spanning { item: item.clone() });
         self.label_geometries.insert(row_index, None);
         self.field_geometries.insert(row_index, Rect::ZERO);
         self.base.insert_item(index, item);
@@ -728,8 +728,13 @@ impl Layout for FormLayout {
                         let label_height = label_hint.preferred.height;
                         let label_x = match self.label_alignment {
                             Alignment::Start => content_rect.origin.x,
-                            Alignment::End => content_rect.origin.x + content_width - label_hint.preferred.width,
-                            Alignment::Center => content_rect.origin.x + (content_width - label_hint.preferred.width) / 2.0,
+                            Alignment::End => {
+                                content_rect.origin.x + content_width - label_hint.preferred.width
+                            }
+                            Alignment::Center => {
+                                content_rect.origin.x
+                                    + (content_width - label_hint.preferred.width) / 2.0
+                            }
                             Alignment::Stretch => content_rect.origin.x,
                         };
                         let label_w = if self.label_alignment == Alignment::Stretch {
@@ -738,12 +743,8 @@ impl Layout for FormLayout {
                             label_hint.preferred.width
                         };
 
-                        self.label_geometries[row_idx] = Some(Rect::new(
-                            label_x,
-                            y_pos,
-                            label_w,
-                            label_height,
-                        ));
+                        self.label_geometries[row_idx] =
+                            Some(Rect::new(label_x, y_pos, label_w, label_height));
 
                         y_pos += label_height + self.vertical_spacing;
 
@@ -766,13 +767,19 @@ impl Layout for FormLayout {
                     } else {
                         // Side-by-side layout
 
-                        let row_height = label_hint.preferred.height.max(field_hint.preferred.height);
+                        let row_height =
+                            label_hint.preferred.height.max(field_hint.preferred.height);
 
                         // Label geometry (aligned within label column)
                         let label_x = match self.label_alignment {
                             Alignment::Start => content_rect.origin.x,
-                            Alignment::End => content_rect.origin.x + label_width - label_hint.preferred.width,
-                            Alignment::Center => content_rect.origin.x + (label_width - label_hint.preferred.width) / 2.0,
+                            Alignment::End => {
+                                content_rect.origin.x + label_width - label_hint.preferred.width
+                            }
+                            Alignment::Center => {
+                                content_rect.origin.x
+                                    + (label_width - label_hint.preferred.width) / 2.0
+                            }
                             Alignment::Stretch => content_rect.origin.x,
                         };
                         let label_w = if self.label_alignment == Alignment::Stretch {
@@ -843,7 +850,8 @@ impl Layout for FormLayout {
         // Cache the calculated size hint
         let size_hint = self.calculate_size_hint(storage);
         self.base.set_cached_size_hint(size_hint);
-        self.base.set_cached_minimum_size(size_hint.effective_minimum());
+        self.base
+            .set_cached_minimum_size(size_hint.effective_minimum());
 
         self.base.mark_valid();
         self.base.geometry().size
@@ -924,7 +932,7 @@ mod tests {
     use crate::widget::base::WidgetBase;
     use crate::widget::geometry::SizeHint;
     use crate::widget::traits::{PaintContext, Widget};
-    use horizon_lattice_core::{init_global_registry, Object, ObjectId};
+    use horizon_lattice_core::{Object, ObjectId, init_global_registry};
     use std::collections::HashMap;
 
     /// Mock widget for testing layouts.
@@ -1001,7 +1009,10 @@ mod tests {
         assert_eq!(form.row_count(), 0);
         assert!(form.is_form_empty());
         assert_eq!(form.label_alignment(), Alignment::End);
-        assert_eq!(form.field_growth_policy(), FieldGrowthPolicy::ExpandingFieldsGrow);
+        assert_eq!(
+            form.field_growth_policy(),
+            FieldGrowthPolicy::ExpandingFieldsGrow
+        );
     }
 
     #[test]
@@ -1160,9 +1171,15 @@ mod tests {
         let mut form = FormLayout::new();
 
         form.set_field_growth_policy(FieldGrowthPolicy::FieldsStayAtSizeHint);
-        assert_eq!(form.field_growth_policy(), FieldGrowthPolicy::FieldsStayAtSizeHint);
+        assert_eq!(
+            form.field_growth_policy(),
+            FieldGrowthPolicy::FieldsStayAtSizeHint
+        );
 
         form.set_field_growth_policy(FieldGrowthPolicy::AllNonFixedFieldsGrow);
-        assert_eq!(form.field_growth_policy(), FieldGrowthPolicy::AllNonFixedFieldsGrow);
+        assert_eq!(
+            form.field_growth_policy(),
+            FieldGrowthPolicy::AllNonFixedFieldsGrow
+        );
     }
 }

@@ -32,8 +32,8 @@ use std::time::{Duration, Instant};
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    icon_tint_for_state, Color, FontSystem, Icon, IconMode, IconPosition, ImageScaleMode, Point,
-    Rect, Renderer, RoundedRect, Size, Stroke, TextLayout, TextRenderer,
+    Color, FontSystem, Icon, IconMode, IconPosition, ImageScaleMode, Point, Rect, Renderer,
+    RoundedRect, Size, Stroke, TextLayout, TextRenderer, icon_tint_for_state,
 };
 
 use super::abstract_button::{AbstractButton, ButtonVariant};
@@ -570,7 +570,9 @@ impl ToolButton {
         self.inner.set_icon(action.icon());
 
         // Sync enabled state
-        self.inner.widget_base_mut().set_enabled(action.is_enabled());
+        self.inner
+            .widget_base_mut()
+            .set_enabled(action.is_enabled());
 
         // Sync checkable/checked state
         self.inner.set_checkable(action.is_checkable());
@@ -735,13 +737,12 @@ impl ToolButton {
             return false;
         }
 
-        if let Some(start) = self.press_start {
-            if !self.menu_shown_for_press && start.elapsed() >= self.popup_delay {
+        if let Some(start) = self.press_start
+            && !self.menu_shown_for_press && start.elapsed() >= self.popup_delay {
                 self.menu_shown_for_press = true;
                 self.request_menu_popup();
                 return true;
             }
-        }
         false
     }
 
@@ -907,11 +908,17 @@ impl Widget for ToolButton {
         let is_checked = self.inner.is_checked();
 
         // Get colors
-        let (bg_color, border_color) = self.get_colors(is_disabled, is_pressed, is_hovered, is_checked);
+        let (bg_color, border_color) =
+            self.get_colors(is_disabled, is_pressed, is_hovered, is_checked);
 
         // Draw main button area background
         let main_rect = if self.popup_mode == ToolButtonPopupMode::MenuButtonPopup {
-            Rect::new(rect.origin.x, rect.origin.y, rect.size.width - self.arrow_width, rect.size.height)
+            Rect::new(
+                rect.origin.x,
+                rect.origin.y,
+                rect.size.width - self.arrow_width,
+                rect.size.height,
+            )
         } else {
             rect
         };
@@ -969,12 +976,14 @@ impl Widget for ToolButton {
 
         // Center content
         let content_size = self.inner.content_size();
-        let content_x = content_rect.origin.x + (content_rect.size.width - content_size.width) / 2.0;
-        let content_y = content_rect.origin.y + (content_rect.size.height - content_size.height) / 2.0;
+        let content_x =
+            content_rect.origin.x + (content_rect.size.width - content_size.width) / 2.0;
+        let content_y =
+            content_rect.origin.y + (content_rect.size.height - content_size.height) / 2.0;
 
         // Draw icon
-        if shows_icon {
-            if let Some(icon) = self.inner.icon() {
+        if shows_icon
+            && let Some(icon) = self.inner.icon() {
                 let image = if is_disabled {
                     icon.disabled_image()
                 } else {
@@ -982,13 +991,17 @@ impl Widget for ToolButton {
                 };
 
                 if let Some(img) = image {
-                    let icon_x = if shows_text && self.tool_button_style == ToolButtonStyle::TextBesideIcon {
+                    let icon_x = if shows_text
+                        && self.tool_button_style == ToolButtonStyle::TextBesideIcon
+                    {
                         content_x
                     } else {
                         content_rect.origin.x + (content_rect.size.width - icon_size.width) / 2.0
                     };
 
-                    let icon_y = if shows_text && self.tool_button_style == ToolButtonStyle::TextUnderIcon {
+                    let icon_y = if shows_text
+                        && self.tool_button_style == ToolButtonStyle::TextUnderIcon
+                    {
                         content_y
                     } else {
                         content_rect.origin.y + (content_rect.size.height - icon_size.height) / 2.0
@@ -1004,10 +1017,10 @@ impl Widget for ToolButton {
                         is_hovered,
                     );
 
-                    ctx.renderer().draw_image(img, icon_rect, ImageScaleMode::Fit);
+                    ctx.renderer()
+                        .draw_image(img, icon_rect, ImageScaleMode::Fit);
                 }
             }
-        }
 
         // Draw text if visible
         if shows_text && !self.inner.display_text().is_empty() {
@@ -1017,8 +1030,12 @@ impl Widget for ToolButton {
 
             let text_x = if shows_icon {
                 match self.tool_button_style {
-                    ToolButtonStyle::TextBesideIcon => content_x + icon_size.width + self.inner.icon_spacing(),
-                    ToolButtonStyle::TextUnderIcon => content_rect.origin.x + (content_rect.size.width - layout.width()) / 2.0,
+                    ToolButtonStyle::TextBesideIcon => {
+                        content_x + icon_size.width + self.inner.icon_spacing()
+                    }
+                    ToolButtonStyle::TextUnderIcon => {
+                        content_rect.origin.x + (content_rect.size.width - layout.width()) / 2.0
+                    }
                     _ => content_rect.origin.x + (content_rect.size.width - layout.width()) / 2.0,
                 }
             } else {
@@ -1035,7 +1052,8 @@ impl Widget for ToolButton {
             let text_color = self.inner.effective_text_color();
 
             if let Ok(mut text_renderer) = TextRenderer::new() {
-                let _ = text_renderer.prepare_layout(&mut font_system, &layout, text_pos, text_color);
+                let _ =
+                    text_renderer.prepare_layout(&mut font_system, &layout, text_pos, text_color);
             }
         }
 
@@ -1135,11 +1153,10 @@ impl Widget for ToolButton {
                 // Trigger action if menu wasn't shown (DelayedPopup)
                 // and we're still over the button
                 let is_over = self.inner.widget_base().contains_point(e.local_pos);
-                if is_over && self.inner.widget_base().is_pressed() && !menu_was_shown {
-                    if self.popup_mode != ToolButtonPopupMode::InstantPopup {
+                if is_over && self.inner.widget_base().is_pressed() && !menu_was_shown
+                    && self.popup_mode != ToolButtonPopupMode::InstantPopup {
                         self.trigger();
                     }
-                }
 
                 event.accept();
                 true
@@ -1150,8 +1167,8 @@ impl Widget for ToolButton {
                 self.check_delayed_popup();
 
                 // Update arrow hover state for MenuButtonPopup
-                if self.popup_mode == ToolButtonPopupMode::MenuButtonPopup {
-                    if let Some(ar) = self.arrow_rect() {
+                if self.popup_mode == ToolButtonPopupMode::MenuButtonPopup
+                    && let Some(ar) = self.arrow_rect() {
                         let local_arrow = Rect::new(
                             ar.origin.x - self.inner.widget_base().rect().origin.x,
                             0.0,
@@ -1165,7 +1182,6 @@ impl Widget for ToolButton {
                             return true;
                         }
                     }
-                }
                 false
             }
 
@@ -1216,8 +1232,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
 
     fn setup() {
@@ -1281,8 +1297,7 @@ mod tests {
     #[test]
     fn test_instant_popup_mode_triggers_menu() {
         setup();
-        let mut button = ToolButton::new()
-            .with_popup_mode(ToolButtonPopupMode::InstantPopup);
+        let mut button = ToolButton::new().with_popup_mode(ToolButtonPopupMode::InstantPopup);
 
         let menu_requested = Arc::new(AtomicBool::new(false));
         let triggered = Arc::new(AtomicBool::new(false));
@@ -1349,8 +1364,7 @@ mod tests {
     fn test_size_hint_varies_by_popup_mode() {
         setup();
         let button_normal = ToolButton::new();
-        let button_menu = ToolButton::new()
-            .with_popup_mode(ToolButtonPopupMode::MenuButtonPopup);
+        let button_menu = ToolButton::new().with_popup_mode(ToolButtonPopupMode::MenuButtonPopup);
 
         let hint_normal = button_normal.size_hint();
         let hint_menu = button_menu.size_hint();

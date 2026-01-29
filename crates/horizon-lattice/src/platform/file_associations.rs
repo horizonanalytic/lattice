@@ -249,8 +249,7 @@ impl Opener {
         A: Into<String>,
     {
         let path = path.as_ref();
-        open::with(path, application)
-            .map_err(|e| FileAssociationError::open_failed(e.to_string()))
+        open::with(path, application).map_err(|e| FileAssociationError::open_failed(e.to_string()))
     }
 
     /// Open a URL in the default browser.
@@ -1102,11 +1101,7 @@ fn windows_unregister_file_type(extension: &str) -> Result<(), FileAssociationEr
 
     // Remove extension key
     let _ = Command::new("reg")
-        .args([
-            "delete",
-            &format!("HKCU\\Software\\Classes\\{}", ext),
-            "/f",
-        ])
+        .args(["delete", &format!("HKCU\\Software\\Classes\\{}", ext), "/f"])
         .output();
 
     notify_shell_change();
@@ -1228,11 +1223,7 @@ fn linux_register_file_type(
     // Register MIME type if content_type is provided
     if let Some(ref content_type) = info.content_type {
         let _ = Command::new("xdg-mime")
-            .args([
-                "default",
-                &format!("{}.desktop", app_id),
-                content_type,
-            ])
+            .args(["default", &format!("{}.desktop", app_id), content_type])
             .output();
     }
 
@@ -1293,11 +1284,7 @@ fn linux_register_url_scheme(
     // Register as handler for x-scheme-handler
     let mime_type = format!("x-scheme-handler/{}", info.scheme);
     let _ = Command::new("xdg-mime")
-        .args([
-            "default",
-            &format!("{}-url.desktop", app_id),
-            &mime_type,
-        ])
+        .args(["default", &format!("{}-url.desktop", app_id), &mime_type])
         .output();
 
     // Update desktop database

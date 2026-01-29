@@ -45,13 +45,17 @@
 use std::sync::{Arc, RwLock};
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
-use horizon_lattice_render::{Color, Font, FontSystem, Point, Rect, Renderer, Size, TextLayout, TextRenderer};
+use horizon_lattice_render::{
+    Color, Font, FontSystem, Point, Rect, Renderer, Size, TextLayout, TextRenderer,
+};
 
 use super::button_group::ButtonGroup;
 use super::radio_button::RadioButton;
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::layout::{ContentMargins, LayoutKind};
-use crate::widget::{PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent};
+use crate::widget::{
+    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+};
 
 /// A visual container widget for grouping radio buttons with automatic exclusivity.
 ///
@@ -135,7 +139,10 @@ impl RadioGroup {
     /// Create a new radio group.
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Preferred,
+        ));
 
         let group = Arc::new(RwLock::new(ButtonGroup::new()));
 
@@ -645,12 +652,18 @@ impl RadioGroup {
             );
 
             let top_left = Point::new(frame_rect.origin.x, frame_rect.origin.y);
-            let top_right = Point::new(frame_rect.origin.x + frame_rect.width(), frame_rect.origin.y);
+            let top_right = Point::new(
+                frame_rect.origin.x + frame_rect.width(),
+                frame_rect.origin.y,
+            );
             let bottom_right = Point::new(
                 frame_rect.origin.x + frame_rect.width(),
                 frame_rect.origin.y + frame_rect.height(),
             );
-            let bottom_left = Point::new(frame_rect.origin.x, frame_rect.origin.y + frame_rect.height());
+            let bottom_left = Point::new(
+                frame_rect.origin.x,
+                frame_rect.origin.y + frame_rect.height(),
+            );
 
             ctx.renderer().draw_line(top_left, top_right, &stroke);
             ctx.renderer().draw_line(top_right, bottom_right, &stroke);
@@ -687,10 +700,7 @@ impl Widget for RadioGroup {
         let min_height = self.content_margins.vertical() + title_h;
 
         // Default preferred size
-        let preferred = Size::new(
-            min_width.max(150.0),
-            min_height.max(100.0),
-        );
+        let preferred = Size::new(min_width.max(150.0), min_height.max(100.0));
 
         SizeHint::new(preferred).with_minimum(Size::new(min_width, min_height))
     }
@@ -930,8 +940,7 @@ mod tests {
     #[test]
     fn test_layout_integration() {
         setup();
-        let mut group = RadioGroup::new()
-            .with_layout(LayoutKind::vertical());
+        let mut group = RadioGroup::new().with_layout(LayoutKind::vertical());
 
         assert!(group.has_layout());
 
@@ -946,10 +955,11 @@ mod tests {
     #[test]
     fn test_content_margins() {
         setup();
-        let mut group = RadioGroup::new()
-            .with_content_margin(16.0);
+        let mut group = RadioGroup::new().with_content_margin(16.0);
 
-        group.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        group
+            .widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         let content = group.contents_rect();
         assert_eq!(content.origin.x, 16.0);

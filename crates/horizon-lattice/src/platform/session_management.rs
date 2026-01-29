@@ -69,8 +69,8 @@
 use std::fmt;
 use std::io;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use horizon_lattice_core::Signal;
 
@@ -180,6 +180,7 @@ impl From<io::Error> for SessionManagementError {
 
 /// The reason why a session is ending.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub enum SessionEndReason {
     /// System is shutting down.
     Shutdown,
@@ -189,14 +190,10 @@ pub enum SessionEndReason {
     Logout,
     /// Session is ending for unknown/unspecified reason.
     /// Used when the platform cannot distinguish between shutdown types.
+    #[default]
     Unknown,
 }
 
-impl Default for SessionEndReason {
-    fn default() -> Self {
-        Self::Unknown
-    }
-}
 
 // ============================================================================
 // Session Event Watcher
@@ -413,20 +410,23 @@ impl SessionInhibitorGuard {
     ) -> Result<Self, SessionManagementError> {
         use std::ffi::OsStr;
         use std::os::windows::ffi::OsStrExt;
-        use windows::core::PCWSTR;
         use windows::Win32::Foundation::HWND;
         use windows::Win32::System::Shutdown::ShutdownBlockReasonCreate;
         use windows::Win32::UI::WindowsAndMessaging::{
-            CreateWindowExW, GetDesktopWindow, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
+            CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, CreateWindowExW, GetDesktopWindow,
             WINDOW_EX_STYLE, WNDCLASSW, WS_OVERLAPPED,
         };
+        use windows::core::PCWSTR;
 
         if !options.shutdown && !options.logout {
             return Ok(Self { hwnd: None });
         }
 
         fn to_wide(s: &str) -> Vec<u16> {
-            OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
+            OsStr::new(s)
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect()
         }
 
         unsafe {
@@ -472,8 +472,7 @@ impl Drop for SessionInhibitorGuard {
     fn drop(&mut self) {
         if let Some(hwnd) = self.hwnd.take() {
             unsafe {
-                let _ =
-                    windows::Win32::System::Shutdown::ShutdownBlockReasonDestroy(hwnd);
+                let _ = windows::Win32::System::Shutdown::ShutdownBlockReasonDestroy(hwnd);
                 let _ = windows::Win32::UI::WindowsAndMessaging::DestroyWindow(hwnd);
             }
         }
@@ -503,9 +502,8 @@ impl SessionInhibitorGuard {
             parts.join(":")
         };
 
-        let fd = pollster::block_on(async {
-            linux_take_inhibit_lock(&what, &app_name, &reason).await
-        })?;
+        let fd =
+            pollster::block_on(async { linux_take_inhibit_lock(&what, &app_name, &reason).await })?;
 
         Ok(Self {
             _inhibit_fd: Some(fd),
@@ -628,8 +626,12 @@ impl StateLocation {
 
         let config_dir = PathBuf::from(&appdata).join(&app_folder);
         let data_dir = PathBuf::from(&appdata).join(&app_folder).join("Data");
-        let state_dir = PathBuf::from(&local_appdata).join(&app_folder).join("State");
-        let cache_dir = PathBuf::from(&local_appdata).join(&app_folder).join("Cache");
+        let state_dir = PathBuf::from(&local_appdata)
+            .join(&app_folder)
+            .join("State");
+        let cache_dir = PathBuf::from(&local_appdata)
+            .join(&app_folder)
+            .join("Cache");
 
         Ok(Self {
             config_dir,
@@ -645,8 +647,9 @@ impl StateLocation {
         _organization: &str,
         application: &str,
     ) -> Result<Self, SessionManagementError> {
-        let home = std::env::var("HOME")
-            .map_err(|_| SessionManagementError::state_storage("HOME environment variable not set"))?;
+        let home = std::env::var("HOME").map_err(|_| {
+            SessionManagementError::state_storage("HOME environment variable not set")
+        })?;
         let home = PathBuf::from(home);
 
         let app_support = home.join("Library/Application Support").join(application);
@@ -666,8 +669,9 @@ impl StateLocation {
         _organization: &str,
         application: &str,
     ) -> Result<Self, SessionManagementError> {
-        let home = std::env::var("HOME")
-            .map_err(|_| SessionManagementError::state_storage("HOME environment variable not set"))?;
+        let home = std::env::var("HOME").map_err(|_| {
+            SessionManagementError::state_storage("HOME environment variable not set")
+        })?;
         let home = PathBuf::from(home);
 
         // Use XDG directories
@@ -837,11 +841,10 @@ impl ApplicationState {
         };
 
         for entry in entries.flatten() {
-            if let Some(name) = entry.file_name().to_str() {
-                if let Some(key) = name.strip_suffix(".state") {
+            if let Some(name) = entry.file_name().to_str()
+                && let Some(key) = name.strip_suffix(".state") {
                     keys.push(key.to_string());
                 }
-            }
         }
 
         Ok(keys)
@@ -977,14 +980,14 @@ fn windows_session_event_loop(
 ) -> Result<(), SessionManagementError> {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
-    use windows::core::PCWSTR;
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
-        PeekMessageW, RegisterClassW, TranslateMessage, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
-        MSG, PM_NOREMOVE, WNDCLASSW, WS_OVERLAPPEDWINDOW,
+        CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow,
+        DispatchMessageW, GetMessageW, MSG, PM_NOREMOVE, PeekMessageW, RegisterClassW,
+        TranslateMessage, WNDCLASSW, WS_OVERLAPPEDWINDOW,
     };
+    use windows::core::PCWSTR;
 
     // Session-related window messages
     const WM_QUERYENDSESSION: u32 = 0x0011;
@@ -992,7 +995,10 @@ fn windows_session_event_loop(
     const ENDSESSION_LOGOFF: usize = 0x80000000;
 
     fn to_wide(s: &str) -> Vec<u16> {
-        OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
+        OsStr::new(s)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
     }
 
     thread_local! {

@@ -214,7 +214,13 @@ pub trait Renderer {
     // =========================================================================
 
     /// Fill an ellipse.
-    fn fill_ellipse(&mut self, center: Point, radius_x: f32, radius_y: f32, paint: impl Into<Paint>);
+    fn fill_ellipse(
+        &mut self,
+        center: Point,
+        radius_x: f32,
+        radius_y: f32,
+        paint: impl Into<Paint>,
+    );
 
     /// Stroke an ellipse.
     fn stroke_ellipse(&mut self, center: Point, radius_x: f32, radius_y: f32, stroke: &Stroke);

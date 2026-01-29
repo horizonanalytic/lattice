@@ -25,11 +25,11 @@
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::{Rect, Size};
 
+use super::ContentMargins;
 use super::base::LayoutBase;
 use super::box_layout::Alignment;
 use super::item::LayoutItem;
 use super::traits::Layout;
-use super::ContentMargins;
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::geometry::{SizeHint, SizePolicy, SizePolicyPair};
 
@@ -573,7 +573,9 @@ impl GridLayout {
 
         // Apply minimum width constraints
         for (col, hints) in col_hints.iter_mut().enumerate() {
-            hints.1 = hints.1.max(self.col_min_width.get(col).copied().unwrap_or(0.0));
+            hints.1 = hints
+                .1
+                .max(self.col_min_width.get(col).copied().unwrap_or(0.0));
             hints.0 = hints.0.max(hints.1); // preferred >= minimum
         }
 
@@ -595,7 +597,10 @@ impl GridLayout {
             if cell.row_span == 1 {
                 let row = cell.row;
                 let pref = hint.preferred.height;
-                let min = hint.effective_minimum().height.max(self.row_min_height[row]);
+                let min = hint
+                    .effective_minimum()
+                    .height
+                    .max(self.row_min_height[row]);
                 let max = hint.effective_maximum().height;
 
                 row_hints[row].0 = row_hints[row].0.max(pref);
@@ -606,7 +611,9 @@ impl GridLayout {
 
         // Apply minimum height constraints
         for (row, hints) in row_hints.iter_mut().enumerate() {
-            hints.1 = hints.1.max(self.row_min_height.get(row).copied().unwrap_or(0.0));
+            hints.1 = hints
+                .1
+                .max(self.row_min_height.get(row).copied().unwrap_or(0.0));
             hints.0 = hints.0.max(hints.1); // preferred >= minimum
         }
 
@@ -926,9 +933,11 @@ impl Layout for GridLayout {
     }
 
     fn remove_widget(&mut self, widget: ObjectId) -> bool {
-        if let Some(index) = self.cells.iter().position(|cell| {
-            matches!(&cell.item, LayoutItem::Widget(id) if *id == widget)
-        }) {
+        if let Some(index) = self
+            .cells
+            .iter()
+            .position(|cell| matches!(&cell.item, LayoutItem::Widget(id) if *id == widget))
+        {
             self.cells.remove(index);
             self.base.remove_widget(widget);
             self.base.invalidate();
@@ -1085,7 +1094,8 @@ impl Layout for GridLayout {
         // Cache size hint
         let size_hint = self.calculate_size_hint(storage);
         self.base.set_cached_size_hint(size_hint);
-        self.base.set_cached_minimum_size(size_hint.effective_minimum());
+        self.base
+            .set_cached_minimum_size(size_hint.effective_minimum());
 
         self.base.mark_valid();
 
@@ -1137,7 +1147,7 @@ mod tests {
     use super::*;
     use crate::widget::base::WidgetBase;
     use crate::widget::traits::{PaintContext, Widget};
-    use horizon_lattice_core::{init_global_registry, Object, ObjectId};
+    use horizon_lattice_core::{Object, ObjectId, init_global_registry};
     use std::collections::HashMap;
 
     /// Mock widget for testing layouts.

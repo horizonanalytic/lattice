@@ -2,8 +2,10 @@
 
 /// Current state of a WebSocket connection.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Default)]
 pub enum WebSocketState {
     /// Not connected to any server.
+    #[default]
     Disconnected,
     /// Currently attempting to connect.
     Connecting,
@@ -13,16 +15,13 @@ pub enum WebSocketState {
     Reconnecting,
 }
 
-impl Default for WebSocketState {
-    fn default() -> Self {
-        Self::Disconnected
-    }
-}
 
 /// Standard WebSocket close codes as defined in RFC 6455.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Default)]
 pub enum CloseCode {
     /// Normal closure; the connection successfully completed.
+    #[default]
     Normal,
     /// Endpoint is going away (e.g., server shutting down).
     Away,
@@ -94,11 +93,6 @@ impl CloseCode {
     }
 }
 
-impl Default for CloseCode {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
 
 /// Reason for closing a WebSocket connection.
 #[derive(Clone, Debug, Default)]

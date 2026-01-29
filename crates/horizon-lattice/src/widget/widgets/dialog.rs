@@ -33,9 +33,9 @@ use horizon_lattice_render::{Color, Point, Rect, Renderer, Size, Stroke};
 
 use crate::widget::layout::ContentMargins;
 use crate::widget::{
-    FocusPolicy, Key, KeyPressEvent, KeyReleaseEvent, MouseButton,
-    MouseMoveEvent, MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy,
-    SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+    FocusPolicy, Key, KeyPressEvent, KeyReleaseEvent, MouseButton, MouseMoveEvent, MousePressEvent,
+    MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase,
+    WidgetEvent,
 };
 
 use super::dialog_button_box::{ButtonRole, StandardButton};
@@ -293,7 +293,10 @@ impl Dialog {
     pub fn new(title: impl Into<String>) -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Preferred,
+        ));
         // Dialogs start hidden
         base.hide();
 
@@ -748,11 +751,7 @@ impl Dialog {
 
         // Register with the modal manager if this is a modal dialog
         if self.modality.is_modal() {
-            ModalManager::push_modal(
-                self.base.object_id(),
-                self.modality,
-                self.parent_window,
-            );
+            ModalManager::push_modal(self.base.object_id(), self.modality, self.parent_window);
         }
 
         self.about_to_show.emit(());
@@ -840,7 +839,8 @@ impl Dialog {
 
         // Request focus restoration before hiding
         // This allows the application to restore focus to the previously focused widget
-        self.focus_restore_requested.emit(self.previously_focused_widget);
+        self.focus_restore_requested
+            .emit(self.previously_focused_widget);
 
         // Clear the previously focused widget
         self.previously_focused_widget = None;
@@ -1102,12 +1102,11 @@ impl Dialog {
         }
 
         // Handle Alt+key mnemonic activation
-        if event.modifiers.alt {
-            if let Some(key_char) = event.key.to_ascii_char() {
+        if event.modifiers.alt
+            && let Some(key_char) = event.key.to_ascii_char() {
                 self.mnemonic_key_pressed.emit(key_char);
                 return true;
             }
-        }
 
         false
     }
@@ -1209,7 +1208,8 @@ impl Dialog {
             rect.width() - self.border_width * 2.0,
             rect.height() - self.title_bar_height - self.border_width,
         );
-        ctx.renderer().fill_rect(content_rect, self.content_background);
+        ctx.renderer()
+            .fill_rect(content_rect, self.content_background);
     }
 
     fn paint_button_box_separator(&self, ctx: &mut PaintContext<'_>) {
@@ -1224,10 +1224,7 @@ impl Dialog {
         let stroke = Stroke::new(self.border_color, 1.0);
         ctx.renderer().draw_line(
             Point::new(self.border_width, separator_y),
-            Point::new(
-                self.base.rect().width() - self.border_width,
-                separator_y,
-            ),
+            Point::new(self.base.rect().width() - self.border_width, separator_y),
             &stroke,
         );
     }
@@ -1305,8 +1302,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
 
     fn setup() {
@@ -1570,8 +1567,7 @@ mod tests {
         setup();
         ModalManager::clear();
 
-        let mut dialog = Dialog::new("Non-Modal")
-            .with_modality(WindowModality::NonModal);
+        let mut dialog = Dialog::new("Non-Modal").with_modality(WindowModality::NonModal);
 
         let other_window_id = ObjectId::from_raw((1_u64 << 32) | 200).unwrap();
 

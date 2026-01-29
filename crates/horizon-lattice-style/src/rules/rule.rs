@@ -35,7 +35,11 @@ impl StyleRule {
     }
 
     /// Create a rule with a type selector.
-    pub fn for_type(widget_type: impl Into<String>, properties: StyleProperties, order: u32) -> Self {
+    pub fn for_type(
+        widget_type: impl Into<String>,
+        properties: StyleProperties,
+        order: u32,
+    ) -> Self {
         Self::new(Selector::type_selector(widget_type), properties, order)
     }
 
@@ -58,15 +62,13 @@ impl StyleRule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use horizon_lattice_render::Color;
     use crate::style::Style;
-    use crate::types::StyleValue;
+    
+    use horizon_lattice_render::Color;
 
     #[test]
     fn rule_creation() {
-        let props = Style::new()
-            .background_color(Color::RED)
-            .build();
+        let props = Style::new().background_color(Color::RED).build();
 
         let rule = StyleRule::for_type("Button", props, 0);
 

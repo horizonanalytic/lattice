@@ -20,5 +20,5 @@
 mod easing;
 mod transition;
 
-pub use easing::{ease, Easing};
+pub use easing::{Easing, ease};
 pub use transition::{Transition, TransitionState, TransitionType};

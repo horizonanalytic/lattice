@@ -227,60 +227,57 @@ mod info;
 pub mod ini_support;
 pub mod json;
 mod mmap;
-mod resource;
-mod temp;
-pub mod xml_support;
 mod operations;
 mod path;
 mod reader;
+mod resource;
 mod settings;
+mod temp;
 pub mod toml_support;
 mod watcher;
 mod writer;
+pub mod xml_support;
 
 pub use async_directory::{
-    count_entries_async, dir_size_async, is_dir_empty_async, list_dir_async, read_dir_async,
-    read_dir_recursive_async, AsyncDirEntry, AsyncDirIterator, AsyncWalkDir, AsyncWalkEntry,
+    AsyncDirEntry, AsyncDirIterator, AsyncWalkDir, AsyncWalkEntry, count_entries_async,
+    dir_size_async, is_dir_empty_async, list_dir_async, read_dir_async, read_dir_recursive_async,
+};
+pub use compression::{
+    CompressionLevel, GzipOptions, TarEntry, TarOptions, ZipEntry, ZipOptions, compress_gzip,
+    compress_gzip_file, compress_gzip_file_with_options, compress_gzip_with_options, create_tar,
+    create_tar_gz, create_tar_gz_with_options, create_tar_with_options, create_zip,
+    create_zip_with_options, decompress_gzip, decompress_gzip_file, extract_tar, extract_tar_gz,
+    extract_tar_gz_with_options, extract_tar_with_options, extract_zip, extract_zip_with_options,
+    list_tar, list_tar_gz, list_zip, read_gzip, write_gzip, write_gzip_with_options,
 };
 pub use directory::{
-    count_entries, create_dir, create_dir_all, dir_size, is_dir_empty, list_dir, list_dir_glob,
-    read_dir, read_dir_recursive, remove_dir, remove_dir_all, DirEntry, DirIterator,
-    FilteredDirIterator, GlobDirIterator, WalkDir, WalkDirOptions, WalkEntry,
+    DirEntry, DirIterator, FilteredDirIterator, GlobDirIterator, WalkDir, WalkDirOptions,
+    WalkEntry, count_entries, create_dir, create_dir_all, dir_size, is_dir_empty, list_dir,
+    list_dir_glob, read_dir, read_dir_recursive, remove_dir, remove_dir_all,
 };
 pub use error::{FileError, FileErrorKind, FileResult};
 pub use info::{
-    exists, exists_no_follow, file_size, is_dir, is_file, is_symlink, FileInfo, FileType,
-    Permissions,
+    FileInfo, FileType, Permissions, exists, exists_no_follow, file_size, is_dir, is_file,
+    is_symlink,
 };
+pub use mmap::{MappedFile, MappedFileMut, MmapOptions, map_file, map_file_mut};
 pub use operations::{
     append_bytes, append_text, atomic_write, copy_file, read_bytes, read_lines, read_text,
     remove_file, rename_file, write_bytes, write_text,
 };
 pub use path::{
-    absolute_path, cache_dir, canonicalize, config_dir, data_dir, data_local_dir, desktop_dir,
-    documents_dir, downloads_dir, extension, file_name, file_name_os, file_stem, home_dir,
-    is_absolute, is_relative, join_path, join_paths, music_dir, normalize_path, parent,
-    pictures_dir, relative_to, temp_dir, videos_dir, with_extension, with_file_name, AppPaths,
-    PathBuilder,
+    AppPaths, PathBuilder, absolute_path, cache_dir, canonicalize, config_dir, data_dir,
+    data_local_dir, desktop_dir, documents_dir, downloads_dir, extension, file_name, file_name_os,
+    file_stem, home_dir, is_absolute, is_relative, join_path, join_paths, music_dir,
+    normalize_path, parent, pictures_dir, relative_to, temp_dir, videos_dir, with_extension,
+    with_file_name,
 };
 pub use reader::{File, LineIterator};
-pub use watcher::{FileWatchEvent, FileWatcher, WatchEventKind, WatchOptions};
-pub use settings::{FromSettingsValue, Settings, SettingsFormat, SettingsValue, SharedSettings};
-pub use writer::{AtomicWriter, FileWriter};
-pub use mmap::{map_file, map_file_mut, MappedFile, MappedFileMut, MmapOptions};
 pub use resource::{
     EmbeddedDir, IncludeDir, LazyResource, ResourceEntry, ResourceManager, ResourcePath,
     TypedLazyResource,
 };
+pub use settings::{FromSettingsValue, Settings, SettingsFormat, SettingsValue, SharedSettings};
 pub use temp::{TempDirectory, TempDirectoryBuilder, TempFile, TempFileBuilder};
-pub use compression::{
-    CompressionLevel, GzipOptions, ZipOptions, TarOptions,
-    ZipEntry, TarEntry,
-    compress_gzip, compress_gzip_with_options, decompress_gzip,
-    compress_gzip_file, compress_gzip_file_with_options, decompress_gzip_file,
-    read_gzip, write_gzip, write_gzip_with_options,
-    create_zip, create_zip_with_options, extract_zip, extract_zip_with_options, list_zip,
-    create_tar, create_tar_with_options, extract_tar, extract_tar_with_options, list_tar,
-    create_tar_gz, create_tar_gz_with_options, extract_tar_gz, extract_tar_gz_with_options,
-    list_tar_gz,
-};
+pub use watcher::{FileWatchEvent, FileWatcher, WatchEventKind, WatchOptions};
+pub use writer::{AtomicWriter, FileWriter};

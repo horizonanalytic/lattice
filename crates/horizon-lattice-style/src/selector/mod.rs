@@ -1,9 +1,9 @@
 //! CSS selector types and matching.
 
-mod types;
-mod specificity;
 mod matcher;
+mod specificity;
+mod types;
 
-pub use types::*;
+pub use matcher::{SelectorMatcher, SiblingInfo, WidgetMatchContext, WidgetState};
 pub use specificity::{Specificity, SpecificityWithOrder};
-pub use matcher::{SelectorMatcher, WidgetMatchContext, WidgetState, SiblingInfo};
+pub use types::*;

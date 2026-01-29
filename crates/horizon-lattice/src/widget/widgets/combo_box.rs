@@ -34,8 +34,8 @@
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, Font, FontFamily, FontSystem, Icon, ImageScaleMode, Point, Rect, Renderer,
-    RoundedRect, Size, Stroke, TextLayout, TextLayoutOptions, TextRenderer,
+    Color, Font, FontFamily, FontSystem, Icon, ImageScaleMode, Point, Rect, Renderer, RoundedRect,
+    Size, Stroke, TextLayout, TextLayoutOptions, TextRenderer,
 };
 
 use crate::widget::{
@@ -111,11 +111,10 @@ pub trait ComboBoxModel: Send + Sync {
     /// Returns the first matching index, or `None` if not found.
     fn find_text(&self, text: &str) -> Option<usize> {
         for i in 0..self.row_count() {
-            if let Some(item_text) = self.text(i) {
-                if item_text == text {
+            if let Some(item_text) = self.text(i)
+                && item_text == text {
                     return Some(i);
                 }
-            }
         }
         None
     }
@@ -209,7 +208,7 @@ impl ComboBoxModel for StringListComboModel {
     }
 
     fn item(&self, index: usize) -> Option<ComboBoxItem> {
-        self.items.get(index).map(|text| ComboBoxItem::new(text))
+        self.items.get(index).map(ComboBoxItem::new)
     }
 
     fn text(&self, index: usize) -> Option<String> {
@@ -388,14 +387,14 @@ impl ComboBoxItemDelegate for DefaultComboBoxDelegate {
         let mut text_x = rect.origin.x + self.padding;
 
         // Draw icon if present
-        if let Some(icon) = &item.icon {
-            if let Some(image) = icon.image() {
+        if let Some(icon) = &item.icon
+            && let Some(image) = icon.image() {
                 let icon_y = rect.origin.y + (rect.height() - self.icon_size) / 2.0;
                 let icon_rect = Rect::new(text_x, icon_y, self.icon_size, self.icon_size);
-                ctx.renderer().draw_image(image, icon_rect, ImageScaleMode::Fit);
+                ctx.renderer()
+                    .draw_image(image, icon_rect, ImageScaleMode::Fit);
                 text_x += self.icon_size + self.padding;
             }
-        }
 
         // Draw text
         let mut font_system = FontSystem::new();
@@ -567,7 +566,10 @@ impl ComboBox {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -619,11 +621,10 @@ impl ComboBox {
     pub fn set_model(&mut self, model: Box<dyn ComboBoxModel>) {
         self.model = Some(model);
         // Reset selection if current index is out of bounds
-        if let Some(m) = &self.model {
-            if self.current_index >= m.row_count() as i32 {
+        if let Some(m) = &self.model
+            && self.current_index >= m.row_count() as i32 {
                 self.set_current_index(-1);
             }
-        }
         self.base.update();
     }
 
@@ -710,13 +711,12 @@ impl ComboBox {
             self.current_index = new_index;
 
             // Update edit text for editable mode
-            if self.editable && new_index >= 0 {
-                if let Some(text) = self.item_text(new_index as usize) {
+            if self.editable && new_index >= 0
+                && let Some(text) = self.item_text(new_index as usize) {
                     self.edit_text = text.clone();
                     self.cursor_pos = self.edit_text.len();
                     self.selection_start = None;
                 }
-            }
 
             self.base.update();
             self.current_index_changed.emit(new_index);
@@ -794,12 +794,11 @@ impl ComboBox {
             self.editable = editable;
 
             // Initialize edit text from current selection
-            if editable && self.current_index >= 0 {
-                if let Some(text) = self.item_text(self.current_index as usize) {
+            if editable && self.current_index >= 0
+                && let Some(text) = self.item_text(self.current_index as usize) {
                     self.edit_text = text;
                     self.cursor_pos = self.edit_text.len();
                 }
-            }
 
             self.base.update();
         }
@@ -1036,12 +1035,7 @@ impl ComboBox {
 
     fn display_rect(&self) -> Rect {
         let rect = self.base.rect();
-        Rect::new(
-            0.0,
-            0.0,
-            rect.width() - self.arrow_width,
-            rect.height(),
-        )
+        Rect::new(0.0, 0.0, rect.width() - self.arrow_width, rect.height())
     }
 
     fn arrow_rect(&self) -> Rect {
@@ -1350,9 +1344,9 @@ impl ComboBox {
         }
 
         // Handle character input for editable mode
-        if self.editable {
-            if let Some(ch) = event.text.chars().next() {
-                if !ch.is_control() {
+        if self.editable
+            && let Some(ch) = event.text.chars().next()
+                && !ch.is_control() {
                     // Insert character at cursor
                     self.edit_text.insert(self.cursor_pos, ch);
                     self.cursor_pos += ch.len_utf8();
@@ -1372,8 +1366,6 @@ impl ComboBox {
                     self.current_text_changed.emit(self.edit_text.clone());
                     return true;
                 }
-            }
-        }
 
         false
     }
@@ -1433,7 +1425,8 @@ impl ComboBox {
 
         // Draw background
         let rounded = RoundedRect::new(local_rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(rounded, self.background_color);
+        ctx.renderer()
+            .fill_rounded_rect(rounded, self.background_color);
 
         // Draw border
         let border_color = if self.base.has_focus() {
@@ -1455,8 +1448,14 @@ impl ComboBox {
 
         // Draw arrow button background on hover
         if matches!(self.hover_part, ComboBoxPart::Arrow) {
-            let arrow_rect = Rect::new(arrow_x + 1.0, 1.0, self.arrow_width - 2.0, rect.height() - 2.0);
-            ctx.renderer().fill_rect(arrow_rect, Color::from_rgba8(200, 200, 200, 50));
+            let arrow_rect = Rect::new(
+                arrow_x + 1.0,
+                1.0,
+                self.arrow_width - 2.0,
+                rect.height() - 2.0,
+            );
+            ctx.renderer()
+                .fill_rect(arrow_rect, Color::from_rgba8(200, 200, 200, 50));
         }
 
         // Draw dropdown arrow
@@ -1520,7 +1519,8 @@ impl ComboBox {
                         let icon_size = 16.0;
                         let icon_y = (rect.height() - icon_size) / 2.0;
                         let icon_rect = Rect::new(text_x, icon_y, icon_size, icon_size);
-                        ctx.renderer().draw_image(image, icon_rect, ImageScaleMode::Fit);
+                        ctx.renderer()
+                            .draw_image(image, icon_rect, ImageScaleMode::Fit);
                         icon_size + self.padding
                     } else {
                         0.0
@@ -1548,12 +1548,8 @@ impl ComboBox {
             return;
         };
 
-        let layout = TextLayout::with_options(
-            &mut font_system,
-            text,
-            &self.font,
-            TextLayoutOptions::new(),
-        );
+        let layout =
+            TextLayout::with_options(&mut font_system, text, &self.font, TextLayoutOptions::new());
 
         let text_x = self.padding;
         let text_y = (rect.height() - layout.height()) / 2.0;
@@ -1587,7 +1583,8 @@ impl ComboBox {
         let popup_rect = self.popup_rect();
 
         // Draw popup background
-        ctx.renderer().fill_rect(popup_rect, self.popup_background_color);
+        ctx.renderer()
+            .fill_rect(popup_rect, self.popup_background_color);
 
         // Draw popup border
         let stroke = Stroke::new(self.popup_border_color, 1.0);
@@ -1605,8 +1602,8 @@ impl ComboBox {
 
             let actual_idx = self.actual_index(list_idx);
 
-            if let Some(model) = &self.model {
-                if let Some(item) = model.item(actual_idx) {
+            if let Some(model) = &self.model
+                && let Some(item) = model.item(actual_idx) {
                     let item_rect = Rect::new(
                         popup_rect.origin.x + 1.0,
                         popup_rect.origin.y + 1.0 + (visual_idx as f32) * self.item_height,
@@ -1615,11 +1612,18 @@ impl ComboBox {
                     );
 
                     let is_selected = list_idx as i32 == self.highlighted_index;
-                    let is_hovered = matches!(self.hover_part, ComboBoxPart::PopupItem(idx) if idx == list_idx);
+                    let is_hovered =
+                        matches!(self.hover_part, ComboBoxPart::PopupItem(idx) if idx == list_idx);
 
-                    self.delegate.paint_item(ctx, item_rect, &item, actual_idx, is_selected, is_hovered);
+                    self.delegate.paint_item(
+                        ctx,
+                        item_rect,
+                        &item,
+                        actual_idx,
+                        is_selected,
+                        is_hovered,
+                    );
                 }
-            }
         }
 
         // Draw scroll indicators if needed
@@ -1628,7 +1632,12 @@ impl ComboBox {
         }
     }
 
-    fn paint_scroll_indicator(&self, ctx: &mut PaintContext<'_>, popup_rect: Rect, item_count: usize) {
+    fn paint_scroll_indicator(
+        &self,
+        ctx: &mut PaintContext<'_>,
+        popup_rect: Rect,
+        item_count: usize,
+    ) {
         let indicator_width = 4.0;
         let track_height = popup_rect.size.height - 2.0;
         let thumb_height = (self.max_visible_items as f32 / item_count as f32) * track_height;
@@ -1653,8 +1662,10 @@ impl ComboBox {
             thumb_height.max(10.0),
         );
 
-        ctx.renderer().fill_rect(track_rect, Color::from_rgb8(240, 240, 240));
-        ctx.renderer().fill_rect(thumb_rect, Color::from_rgb8(180, 180, 180));
+        ctx.renderer()
+            .fill_rect(track_rect, Color::from_rgb8(240, 240, 240));
+        ctx.renderer()
+            .fill_rect(thumb_rect, Color::from_rgb8(180, 180, 180));
     }
 }
 
@@ -1669,8 +1680,7 @@ impl Widget for ComboBox {
 
     fn size_hint(&self) -> SizeHint {
         let preferred = Size::new(120.0, 28.0);
-        SizeHint::new(preferred)
-            .with_minimum(Size::new(60.0, 24.0))
+        SizeHint::new(preferred).with_minimum(Size::new(60.0, 24.0))
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {

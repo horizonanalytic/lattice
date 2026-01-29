@@ -46,7 +46,7 @@ use std::time::Duration;
 
 use notify::event::{ModifyKind, RenameMode};
 use notify::{EventKind, RecommendedWatcher, RecursiveMode};
-use notify_debouncer_full::{new_debouncer, DebouncedEvent, Debouncer, RecommendedCache};
+use notify_debouncer_full::{DebouncedEvent, Debouncer, RecommendedCache, new_debouncer};
 
 use horizon_lattice_core::signal::Signal;
 
@@ -220,12 +220,15 @@ impl FileWatcher {
 
         // Use tick_rate = None to let the debouncer choose (1/4 of timeout)
         // RecommendedCache automatically enables file ID tracking on Windows/macOS
-        let debouncer = new_debouncer(options.debounce_duration, None, tx)
-            .map_err(|e| FileError::new(
+        let debouncer = new_debouncer(options.debounce_duration, None, tx).map_err(|e| {
+            FileError::new(
                 FileErrorKind::Other,
                 None,
-                Some(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())),
-            ))?;
+                Some(std::io::Error::other(
+                    e.to_string(),
+                )),
+            )
+        })?;
 
         Ok(Self {
             debouncer,
@@ -257,7 +260,8 @@ impl FileWatcher {
         let path = path.as_ref();
 
         // Canonicalize the path for consistent tracking
-        let canonical = path.canonicalize()
+        let canonical = path
+            .canonicalize()
             .map_err(|e| FileError::from_io(e, path.to_path_buf()))?;
 
         if self.watched_paths.contains(&canonical) {
@@ -265,13 +269,15 @@ impl FileWatcher {
             return Ok(());
         }
 
-        self.debouncer
-            .watch(&canonical, mode)
-            .map_err(|e| FileError::new(
+        self.debouncer.watch(&canonical, mode).map_err(|e| {
+            FileError::new(
                 FileErrorKind::Other,
                 Some(canonical.clone()),
-                Some(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())),
-            ))?;
+                Some(std::io::Error::other(
+                    e.to_string(),
+                )),
+            )
+        })?;
 
         self.watched_paths.insert(canonical.clone());
         self.watch_modes.insert(
@@ -296,7 +302,9 @@ impl FileWatcher {
                 // File might be deleted, try to find it in watched paths
                 // by checking if any watched path ends with this path
                 let path_buf = path.to_path_buf();
-                let found = self.watched_paths.iter()
+                let found = self
+                    .watched_paths
+                    .iter()
                     .find(|p| p.ends_with(path) || *p == &path_buf)
                     .cloned();
 
@@ -383,10 +391,7 @@ impl FileWatcher {
                 RenameMode::Both => {
                     // Both paths available: paths[0] = old, paths[1] = new
                     if paths.len() >= 2 {
-                        return Some(FileWatchEvent::renamed(
-                            paths[0].clone(),
-                            paths[1].clone(),
-                        ));
+                        return Some(FileWatchEvent::renamed(paths[0].clone(), paths[1].clone()));
                     }
                 }
                 RenameMode::From => {
@@ -508,7 +513,10 @@ impl FileWatcher {
         if let Ok(canonical) = path.canonicalize() {
             matches!(self.watch_modes.get(&canonical), Some(WatchMode::Recursive))
         } else {
-            matches!(self.watch_modes.get(&path.to_path_buf()), Some(WatchMode::Recursive))
+            matches!(
+                self.watch_modes.get(&path.to_path_buf()),
+                Some(WatchMode::Recursive)
+            )
         }
     }
 }
@@ -516,10 +524,10 @@ impl FileWatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use parking_lot::Mutex;
     use std::fs;
     use std::io::Write;
     use std::sync::Arc;
-    use parking_lot::Mutex;
 
     fn temp_dir() -> tempfile::TempDir {
         tempfile::tempdir().expect("Failed to create temp directory")
@@ -659,10 +667,7 @@ mod tests {
 
     #[test]
     fn test_file_watch_event_renamed() {
-        let event = FileWatchEvent::renamed(
-            PathBuf::from("/old/path"),
-            PathBuf::from("/new/path"),
-        );
+        let event = FileWatchEvent::renamed(PathBuf::from("/old/path"), PathBuf::from("/new/path"));
         assert!(!event.is_created());
         assert!(!event.is_modified());
         assert!(!event.is_removed());
@@ -717,7 +722,13 @@ mod tests {
         assert!(!events.is_empty(), "Expected at least one event");
 
         let event = &events[0];
-        assert_eq!(event.path.canonicalize().unwrap(), file_path.canonicalize().unwrap());
-        assert!(matches!(event.kind, WatchEventKind::Modified | WatchEventKind::Created));
+        assert_eq!(
+            event.path.canonicalize().unwrap(),
+            file_path.canonicalize().unwrap()
+        );
+        assert!(matches!(
+            event.kind,
+            WatchEventKind::Modified | WatchEventKind::Created
+        ));
     }
 }

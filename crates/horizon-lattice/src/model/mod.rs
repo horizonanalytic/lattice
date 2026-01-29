@@ -76,7 +76,7 @@ mod traits;
 mod tree_model;
 
 pub use delegate::{
-    ClickRegion, DefaultItemDelegate, DelegatePaintContext, DelegateTheme, DecorationPosition,
+    ClickRegion, DecorationPosition, DefaultItemDelegate, DelegatePaintContext, DelegateTheme,
     ItemDelegate, StyleOptionViewItem, ViewItemFeatures, ViewItemState,
 };
 pub use index::ModelIndex;
@@ -85,7 +85,7 @@ pub use proxy_model::{CompareFn, FilterFn, ProxyModel, ProxyModelBuilder};
 pub use role::{
     CheckState, HorizontalAlignment, ItemData, ItemRole, TextAlignment, VerticalAlignment,
 };
+pub use selection::{SelectionBehavior, SelectionFlags, SelectionMode, SelectionModel};
 pub use table_model::{CellExtractor, HeaderExtractor, SimpleTableModel, TableModel};
 pub use traits::{ItemFlags, ItemModel, ModelSignals, Orientation};
-pub use selection::{SelectionBehavior, SelectionFlags, SelectionMode, SelectionModel};
 pub use tree_model::{ExtractorTreeModel, TreeModel, TreeNodeData};

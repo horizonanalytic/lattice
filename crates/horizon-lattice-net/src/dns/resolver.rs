@@ -4,16 +4,14 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::sync::Arc;
 use std::time::Duration;
 
-use hickory_resolver::config::{
-    NameServerConfig, ResolverConfig, ResolverOpts, ResolveHosts,
-};
+use hickory_resolver::config::{NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts};
 use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_resolver::proto::xfer::Protocol;
 use hickory_resolver::{Resolver, TokioResolver};
 use horizon_lattice_core::signal::Signal;
 
-use crate::error::{NetworkError, Result};
 use crate::dns::config::{DnsConfig, IpStrategy};
+use crate::error::{NetworkError, Result};
 
 /// Result of a DNS lookup.
 #[derive(Debug, Clone)]
@@ -68,9 +66,10 @@ impl DnsResolver {
     pub fn new(config: DnsConfig) -> Result<Self> {
         let (resolver_config, resolver_opts) = build_resolver_config(&config)?;
 
-        let resolver = Resolver::builder_with_config(resolver_config, TokioConnectionProvider::default())
-            .with_options(resolver_opts)
-            .build();
+        let resolver =
+            Resolver::builder_with_config(resolver_config, TokioConnectionProvider::default())
+                .with_options(resolver_opts)
+                .build();
 
         Ok(Self {
             resolver,
@@ -206,9 +205,7 @@ fn build_resolver_config(config: &DnsConfig) -> Result<(ResolverConfig, Resolver
         // Use system configuration
         ResolverConfig::default()
     } else if config.nameservers.is_empty() {
-        return Err(NetworkError::Dns(
-            "No nameservers configured".to_string(),
-        ));
+        return Err(NetworkError::Dns("No nameservers configured".to_string()));
     } else {
         // Build custom configuration from nameservers
         let mut resolver_config = ResolverConfig::new();
@@ -248,10 +245,7 @@ fn build_resolver_config(config: &DnsConfig) -> Result<(ResolverConfig, Resolver
 }
 
 /// Resolve a hostname to IP addresses.
-async fn resolve_hostname(
-    resolver: &TokioResolver,
-    hostname: &str,
-) -> Result<DnsLookupResult> {
+async fn resolve_hostname(resolver: &TokioResolver, hostname: &str) -> Result<DnsLookupResult> {
     let response = resolver
         .lookup_ip(hostname)
         .await
@@ -283,10 +277,7 @@ async fn resolve_hostname(
 }
 
 /// Resolve a hostname to IPv4 addresses only.
-async fn resolve_v4(
-    resolver: &TokioResolver,
-    hostname: &str,
-) -> Result<DnsLookupResult> {
+async fn resolve_v4(resolver: &TokioResolver, hostname: &str) -> Result<DnsLookupResult> {
     let response = resolver
         .ipv4_lookup(hostname)
         .await
@@ -317,10 +308,7 @@ async fn resolve_v4(
 }
 
 /// Resolve a hostname to IPv6 addresses only.
-async fn resolve_v6(
-    resolver: &TokioResolver,
-    hostname: &str,
-) -> Result<DnsLookupResult> {
+async fn resolve_v6(resolver: &TokioResolver, hostname: &str) -> Result<DnsLookupResult> {
     let response = resolver
         .ipv6_lookup(hostname)
         .await

@@ -32,7 +32,7 @@ use std::collections::BinaryHeap;
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
-use slotmap::{new_key_type, SlotMap};
+use slotmap::{SlotMap, new_key_type};
 
 use crate::error::{Result, SchedulerError};
 
@@ -300,7 +300,11 @@ impl TaskScheduler {
     /// Process all tasks that should execute now.
     ///
     /// Returns the number of tasks that were executed.
-    #[tracing::instrument(skip(self), target = "horizon_lattice_core::scheduler", level = "trace")]
+    #[tracing::instrument(
+        skip(self),
+        target = "horizon_lattice_core::scheduler",
+        level = "trace"
+    )]
     pub fn process_ready(&mut self) -> usize {
         let now = Instant::now();
         let mut executed_count = 0;
@@ -470,8 +474,8 @@ impl Default for SharedTaskScheduler {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
 
@@ -571,7 +575,9 @@ mod tests {
         });
 
         // Immediately reschedule to a later time (200ms from now)
-        scheduler.reschedule(id, Duration::from_millis(200)).unwrap();
+        scheduler
+            .reschedule(id, Duration::from_millis(200))
+            .unwrap();
 
         // After 150ms, original time would have passed but task should not execute
         // because we rescheduled it

@@ -58,8 +58,8 @@ pub fn cascade_properties(target: &mut StyleProperties, source: &StyleProperties
 #[cfg(test)]
 mod tests {
     use super::*;
-    use horizon_lattice_render::Color;
     use crate::types::StyleValue;
+    use horizon_lattice_render::Color;
 
     #[test]
     fn cascade_overwrites_set_values() {

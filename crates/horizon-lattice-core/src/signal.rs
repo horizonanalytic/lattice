@@ -62,14 +62,14 @@
 //! [Signals Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/signals.html).
 
 use std::any::Any;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread::ThreadId;
 
 use parking_lot::Mutex;
-use slotmap::{new_key_type, SlotMap};
+use slotmap::{SlotMap, new_key_type};
 
-use crate::invocation::{completion_pair, invocation_registry, QueuedInvocation};
+use crate::invocation::{QueuedInvocation, completion_pair, invocation_registry};
 
 new_key_type! {
     /// A unique identifier for a signal-slot connection.
@@ -740,10 +740,7 @@ mod tests {
         signal.emit(42);
 
         assert_eq!(*received.lock(), vec![42]);
-        assert_eq!(
-            *emitting_thread.lock(),
-            Some(std::thread::current().id())
-        );
+        assert_eq!(*emitting_thread.lock(), Some(std::thread::current().id()));
     }
 
     #[test]
@@ -954,9 +951,7 @@ mod tests {
 
         // Disconnect from another thread
         let signal_clone = signal.clone();
-        let disconnect_handle = std::thread::spawn(move || {
-            signal_clone.disconnect(conn_id)
-        });
+        let disconnect_handle = std::thread::spawn(move || signal_clone.disconnect(conn_id));
 
         let disconnected = disconnect_handle.join().unwrap();
         assert!(disconnected);

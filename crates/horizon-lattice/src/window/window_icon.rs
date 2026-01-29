@@ -148,7 +148,8 @@ impl WindowIcon {
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, IconError> {
         let path = path.as_ref();
 
-        let img = image::open(path).map_err(|e| IconError::load_failed(format!("{}: {}", path.display(), e)))?;
+        let img = image::open(path)
+            .map_err(|e| IconError::load_failed(format!("{}: {}", path.display(), e)))?;
 
         let rgba_image = img.to_rgba8();
         let width = rgba_image.width();

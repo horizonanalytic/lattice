@@ -197,13 +197,12 @@ impl IniValue {
     ///
     /// Recognizes: true/false, yes/no, 1/0, on/off (case-insensitive).
     pub fn as_bool(&self, path: &str) -> Option<bool> {
-        self.get_str(path).and_then(|s| {
-            match s.to_lowercase().as_str() {
+        self.get_str(path)
+            .and_then(|s| match s.to_lowercase().as_str() {
                 "true" | "yes" | "1" | "on" => Some(true),
                 "false" | "no" | "0" | "off" => Some(false),
                 _ => None,
-            }
-        })
+            })
     }
 
     // ========================================================================
@@ -481,7 +480,10 @@ fn ini_error(e: ini::ParseError) -> FileError {
     FileError::new(
         FileErrorKind::InvalidData,
         None,
-        Some(std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())),
+        Some(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            e.to_string(),
+        )),
     )
 }
 
@@ -693,7 +695,7 @@ mod tests {
             [test]
             str = hello
             num = 42
-            float = 3.14
+            float = 2.5
             bool = true
             "#,
         )
@@ -706,7 +708,7 @@ mod tests {
         assert_eq!(num_ref.as_i64(), Some(42));
 
         let float_ref = value.get_ref("test.float").unwrap();
-        assert!((float_ref.as_f64().unwrap() - 3.14).abs() < 0.001);
+        assert!((float_ref.as_f64().unwrap() - 2.5).abs() < 0.001);
 
         let bool_ref = value.get_ref("test.bool").unwrap();
         assert_eq!(bool_ref.as_bool(), Some(true));
@@ -716,9 +718,6 @@ mod tests {
     fn test_parse_path() {
         assert_eq!(parse_path("section.key"), (Some("section"), "key"));
         assert_eq!(parse_path("key"), (None, "key"));
-        assert_eq!(
-            parse_path("deep.nested.key"),
-            (Some("deep"), "nested.key")
-        );
+        assert_eq!(parse_path("deep.nested.key"), (Some("deep"), "nested.key"));
     }
 }

@@ -3,6 +3,8 @@
 //! This is the main umbrella crate that re-exports all public APIs.
 
 #![warn(missing_docs)]
+// Allow pre-existing clippy lints - many have complex signatures needed for widget APIs
+#![allow(clippy::too_many_arguments)]
 //!
 //! # Example
 //!

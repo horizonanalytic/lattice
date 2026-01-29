@@ -538,7 +538,9 @@ impl AboutDialog {
         let width = min_width.max(max_width.min(400.0));
         let height = total_height.max(250.0).min(600.0);
 
-        self.dialog.widget_base_mut().set_size(Size::new(width, height));
+        self.dialog
+            .widget_base_mut()
+            .set_size(Size::new(width, height));
     }
 
     // =========================================================================
@@ -603,16 +605,12 @@ impl AboutDialog {
 
         let rect = self.dialog.widget_base().rect();
 
-        if let Some(link_rect) = self.credits_link_rect() {
-            Some(Rect::new(
+        self.credits_link_rect().map(|link_rect| Rect::new(
                 self.content_padding,
                 link_rect.origin.y + link_rect.height() + 4.0,
                 rect.width() - self.content_padding * 2.0,
                 self.expanded_section_height,
             ))
-        } else {
-            None
-        }
     }
 
     /// Get the license link button rectangle.
@@ -665,16 +663,12 @@ impl AboutDialog {
 
         let rect = self.dialog.widget_base().rect();
 
-        if let Some(link_rect) = self.license_link_rect() {
-            Some(Rect::new(
+        self.license_link_rect().map(|link_rect| Rect::new(
                 self.content_padding,
                 link_rect.origin.y + link_rect.height() + 4.0,
                 rect.width() - self.content_padding * 2.0,
                 self.expanded_section_height,
             ))
-        } else {
-            None
-        }
     }
 
     // =========================================================================
@@ -687,22 +681,20 @@ impl AboutDialog {
         }
 
         // Check credits link click
-        if let Some(credits_rect) = self.credits_link_rect() {
-            if credits_rect.contains(event.local_pos) {
+        if let Some(credits_rect) = self.credits_link_rect()
+            && credits_rect.contains(event.local_pos) {
                 self.credits_button_state.pressed = true;
                 self.dialog.widget_base_mut().update();
                 return true;
             }
-        }
 
         // Check license link click
-        if let Some(license_rect) = self.license_link_rect() {
-            if license_rect.contains(event.local_pos) {
+        if let Some(license_rect) = self.license_link_rect()
+            && license_rect.contains(event.local_pos) {
                 self.license_button_state.pressed = true;
                 self.dialog.widget_base_mut().update();
                 return true;
             }
-        }
 
         false
     }
@@ -716,13 +708,12 @@ impl AboutDialog {
         if self.credits_button_state.pressed {
             self.credits_button_state.pressed = false;
 
-            if let Some(credits_rect) = self.credits_link_rect() {
-                if credits_rect.contains(event.local_pos) {
+            if let Some(credits_rect) = self.credits_link_rect()
+                && credits_rect.contains(event.local_pos) {
                     self.credits_expanded = !self.credits_expanded;
                     self.credits_clicked.emit(());
                     self.update_size();
                 }
-            }
             self.dialog.widget_base_mut().update();
             return true;
         }
@@ -731,13 +722,12 @@ impl AboutDialog {
         if self.license_button_state.pressed {
             self.license_button_state.pressed = false;
 
-            if let Some(license_rect) = self.license_link_rect() {
-                if license_rect.contains(event.local_pos) {
+            if let Some(license_rect) = self.license_link_rect()
+                && license_rect.contains(event.local_pos) {
                     self.license_expanded = !self.license_expanded;
                     self.license_clicked.emit(());
                     self.update_size();
                 }
-            }
             self.dialog.widget_base_mut().update();
             return true;
         }
@@ -810,7 +800,8 @@ impl AboutDialog {
 
         // Dot at top
         let dot_rect = Rect::new(center.x - 3.0, center.y - 16.0, 6.0, 6.0);
-        ctx.renderer().fill_rounded_rect(RoundedRect::new(dot_rect, 3.0), Color::WHITE);
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(dot_rect, 3.0), Color::WHITE);
 
         // Vertical line below
         ctx.renderer().draw_line(
@@ -832,8 +823,14 @@ impl AboutDialog {
             // Draw underline for link appearance
             let stroke = Stroke::new(color, 1.0);
             ctx.renderer().draw_line(
-                Point::new(link_rect.origin.x, link_rect.origin.y + link_rect.height() - 2.0),
-                Point::new(link_rect.origin.x + link_rect.width(), link_rect.origin.y + link_rect.height() - 2.0),
+                Point::new(
+                    link_rect.origin.x,
+                    link_rect.origin.y + link_rect.height() - 2.0,
+                ),
+                Point::new(
+                    link_rect.origin.x + link_rect.width(),
+                    link_rect.origin.y + link_rect.height() - 2.0,
+                ),
                 &stroke,
             );
         }
@@ -861,8 +858,14 @@ impl AboutDialog {
             // Draw underline for link appearance
             let stroke = Stroke::new(color, 1.0);
             ctx.renderer().draw_line(
-                Point::new(link_rect.origin.x, link_rect.origin.y + link_rect.height() - 2.0),
-                Point::new(link_rect.origin.x + link_rect.width(), link_rect.origin.y + link_rect.height() - 2.0),
+                Point::new(
+                    link_rect.origin.x,
+                    link_rect.origin.y + link_rect.height() - 2.0,
+                ),
+                Point::new(
+                    link_rect.origin.x + link_rect.width(),
+                    link_rect.origin.y + link_rect.height() - 2.0,
+                ),
                 &stroke,
             );
         }
@@ -995,11 +998,7 @@ mod tests {
     #[test]
     fn test_about_with_description_helper() {
         setup();
-        let about = AboutDialog::about_with_description(
-            "My App",
-            "2.0.0",
-            "Does useful things",
-        );
+        let about = AboutDialog::about_with_description("My App", "2.0.0", "Does useful things");
         assert_eq!(about.app_name(), "My App");
         assert_eq!(about.version(), "2.0.0");
         assert_eq!(about.description(), "Does useful things");

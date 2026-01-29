@@ -2,8 +2,8 @@
 
 use std::io;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll};
 
 use horizon_lattice_core::Signal;
@@ -17,9 +17,9 @@ use tokio_rustls::TlsConnector;
 
 use super::config::TcpClientConfig;
 use super::state::TcpConnectionState;
+use crate::Result;
 use crate::error::NetworkError;
 use crate::websocket::ReconnectConfig;
-use crate::Result;
 
 /// A stream that may or may not be TLS-encrypted.
 enum MaybeTlsStream {
@@ -329,8 +329,8 @@ impl TcpClient {
                 };
 
                 // Check max attempts
-                if let Some(max) = reconnect_config.max_attempts {
-                    if reconnect_attempt >= max {
+                if let Some(max) = reconnect_config.max_attempts
+                    && reconnect_attempt >= max {
                         emit_error(NetworkError::Connection(format!(
                             "Max reconnection attempts ({}) reached",
                             max
@@ -340,7 +340,6 @@ impl TcpClient {
                         is_running.store(false, Ordering::SeqCst);
                         return;
                     }
-                }
 
                 // Wait before reconnecting
                 let delay = Self::delay_for_attempt(reconnect_config, reconnect_attempt);
@@ -387,8 +386,9 @@ impl TcpClient {
             let connector = TlsConnector::from(rustls_config);
 
             // Parse the server name for SNI
-            let server_name = ServerName::try_from(config.host.clone())
-                .map_err(|e| NetworkError::Tls(format!("Invalid server name '{}': {}", config.host, e)))?;
+            let server_name = ServerName::try_from(config.host.clone()).map_err(|e| {
+                NetworkError::Tls(format!("Invalid server name '{}': {}", config.host, e))
+            })?;
 
             let tls_stream = connector
                 .connect(server_name, tcp_stream)

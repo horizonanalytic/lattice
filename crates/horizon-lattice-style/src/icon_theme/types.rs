@@ -230,13 +230,22 @@ impl IconName {
             IconContext::Actions
         } else if name.starts_with("dialog-") {
             IconContext::Status
-        } else if name.starts_with("folder") || name.starts_with("user-") || name.starts_with("network-") {
+        } else if name.starts_with("folder")
+            || name.starts_with("user-")
+            || name.starts_with("network-")
+        {
             IconContext::Places
-        } else if name.starts_with("drive-") || name.starts_with("computer") || name.starts_with("printer") {
+        } else if name.starts_with("drive-")
+            || name.starts_with("computer")
+            || name.starts_with("printer")
+        {
             IconContext::Devices
         } else if name.starts_with("emblem-") {
             IconContext::Emblems
-        } else if name.contains('/') || name.starts_with("application-") || name.starts_with("text-") {
+        } else if name.contains('/')
+            || name.starts_with("application-")
+            || name.starts_with("text-")
+        {
             IconContext::MimeTypes
         } else {
             IconContext::Actions // Default
@@ -311,7 +320,7 @@ impl IconContext {
     }
 
     /// Parse a context from a string.
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "actions" => Some(IconContext::Actions),
             "animations" => Some(IconContext::Animations),
@@ -331,20 +340,17 @@ impl IconContext {
 
 /// Size type for icon theme directories.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum IconSizeType {
     /// Fixed size icons - must match exactly
     Fixed,
     /// Scalable icons (typically SVG)
     Scalable,
     /// Threshold-based sizing - matches within a range
+    #[default]
     Threshold,
 }
 
-impl Default for IconSizeType {
-    fn default() -> Self {
-        IconSizeType::Threshold
-    }
-}
 
 /// Information about an icon theme directory.
 #[derive(Debug, Clone)]
@@ -403,11 +409,7 @@ impl IconThemeDirectory {
                 let max = self.max_size.unwrap_or(self.size);
                 if target < min {
                     min - target
-                } else if target > max {
-                    target - max
-                } else {
-                    0
-                }
+                } else { target.saturating_sub(max) }
             }
             IconSizeType::Threshold => (self.size as i32 - target as i32).unsigned_abs(),
         }
@@ -564,17 +566,17 @@ mod tests {
     }
 
     #[test]
-    fn test_icon_context_from_str() {
-        assert_eq!(IconContext::from_str("actions"), Some(IconContext::Actions));
+    fn test_icon_context_parse() {
+        assert_eq!(IconContext::parse("actions"), Some(IconContext::Actions));
         assert_eq!(
-            IconContext::from_str("apps"),
+            IconContext::parse("apps"),
             Some(IconContext::Applications)
         );
         assert_eq!(
-            IconContext::from_str("applications"),
+            IconContext::parse("applications"),
             Some(IconContext::Applications)
         );
-        assert_eq!(IconContext::from_str("unknown"), None);
+        assert_eq!(IconContext::parse("unknown"), None);
     }
 
     #[test]

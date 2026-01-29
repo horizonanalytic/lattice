@@ -372,7 +372,8 @@ impl StatusBar {
     /// * `widget_id` - The object ID of the widget to add
     /// * `stretch` - Stretch factor (0 = fixed size, >0 = takes extra space)
     pub fn add_permanent_widget_with_stretch(&mut self, widget_id: ObjectId, stretch: i32) {
-        self.right_widgets.push(StatusBarItem::new(widget_id, stretch));
+        self.right_widgets
+            .push(StatusBarItem::new(widget_id, stretch));
         self.base.update();
     }
 
@@ -394,7 +395,8 @@ impl StatusBar {
     /// * `widget_id` - The object ID of the widget to insert
     /// * `stretch` - Stretch factor (0 = fixed size, >0 = takes extra space)
     pub fn insert_permanent_widget_with_stretch(&mut self, widget_id: ObjectId, stretch: i32) {
-        self.left_widgets.push(StatusBarItem::new(widget_id, stretch));
+        self.left_widgets
+            .push(StatusBarItem::new(widget_id, stretch));
         self.base.update();
     }
 
@@ -407,14 +409,20 @@ impl StatusBar {
     ///
     /// `true` if the widget was found and removed, `false` otherwise.
     pub fn remove_permanent_widget(&mut self, widget_id: ObjectId) -> bool {
-        let left_removed = self.left_widgets.iter().position(|w| w.widget_id == widget_id);
+        let left_removed = self
+            .left_widgets
+            .iter()
+            .position(|w| w.widget_id == widget_id);
         if let Some(index) = left_removed {
             self.left_widgets.remove(index);
             self.base.update();
             return true;
         }
 
-        let right_removed = self.right_widgets.iter().position(|w| w.widget_id == widget_id);
+        let right_removed = self
+            .right_widgets
+            .iter()
+            .position(|w| w.widget_id == widget_id);
         if let Some(index) = right_removed {
             self.right_widgets.remove(index);
             self.base.update();
@@ -552,8 +560,8 @@ impl StatusBar {
         let was_hovered = self.size_grip_hovered;
 
         // Update size grip hover state
-        self.size_grip_hovered = self.size_grip_enabled
-            && self.size_grip_rect().contains(event.local_pos);
+        self.size_grip_hovered =
+            self.size_grip_enabled && self.size_grip_rect().contains(event.local_pos);
 
         if was_hovered != self.size_grip_hovered {
             self.base.update();
@@ -655,8 +663,8 @@ impl Widget for StatusBar {
             let layout = TextLayout::new(&mut font_system, &self.current_message, &self.style.font);
 
             // Calculate vertical centering
-            let text_y = message_rect.origin.y
-                + (message_rect.height() - self.style.font.size()) / 2.0;
+            let text_y =
+                message_rect.origin.y + (message_rect.height() - self.style.font.size()) / 2.0;
 
             let position = Point::new(
                 rect.origin.x + message_rect.origin.x,
@@ -694,12 +702,11 @@ impl Widget for StatusBar {
             }
             WidgetEvent::Timer(timer_event) => {
                 // Check if this is our message timeout timer
-                if let Some(timer_id) = self.message_timer_id {
-                    if timer_event.id == timer_id {
+                if let Some(timer_id) = self.message_timer_id
+                    && timer_event.id == timer_id {
                         self.clear_message();
                         return true;
                     }
-                }
                 false
             }
             _ => false,
@@ -713,8 +720,8 @@ static_assertions::assert_impl_all!(StatusBar: Send, Sync);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::widget::widgets::Separator;
     use crate::widget::Widget;
+    use crate::widget::widgets::Separator;
     use horizon_lattice_core::init_global_registry;
 
     fn setup() {
@@ -829,9 +836,7 @@ mod tests {
         let mut style = StatusBarStyle::default();
         style.height = 30.0;
 
-        let status_bar = StatusBar::new()
-            .with_style(style)
-            .with_size_grip(false);
+        let status_bar = StatusBar::new().with_style(style).with_size_grip(false);
 
         assert_eq!(status_bar.style().height, 30.0);
         assert!(!status_bar.is_size_grip_enabled());

@@ -15,8 +15,8 @@
 //!    invocation from this registry.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::{Condvar, Mutex};
 
@@ -192,8 +192,8 @@ pub fn invocation_registry() -> &'static InvocationRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
 
     #[test]
     fn test_register_and_execute() {
@@ -269,8 +269,7 @@ mod tests {
         let (_handle, waiter) = completion_pair();
 
         // Should timeout since we never signal
-        let completed =
-            waiter.wait_timeout(std::time::Duration::from_millis(10));
+        let completed = waiter.wait_timeout(std::time::Duration::from_millis(10));
         assert!(!completed);
     }
 }

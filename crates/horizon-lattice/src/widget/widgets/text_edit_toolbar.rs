@@ -126,9 +126,8 @@ impl FormatActions {
         let underline = self.underline.clone();
         let strikethrough = self.strikethrough.clone();
 
-        text_edit
-            .format_changed
-            .connect(move |&(is_bold, is_italic, is_underline, is_strikethrough)| {
+        text_edit.format_changed.connect(
+            move |&(is_bold, is_italic, is_underline, is_strikethrough)| {
                 // Update action checked states without triggering their signals
                 // We need to be careful to avoid infinite loops
                 if bold.is_checked() != is_bold {
@@ -143,7 +142,8 @@ impl FormatActions {
                 if strikethrough.is_checked() != is_strikethrough {
                     strikethrough.set_checked(is_strikethrough);
                 }
-            });
+            },
+        );
 
         // Initialize action states from current format
         let format = text_edit.current_format();

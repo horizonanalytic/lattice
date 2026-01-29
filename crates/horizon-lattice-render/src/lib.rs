@@ -4,6 +4,9 @@
 //! It handles surface management, rendering primitives, and GPU resource management.
 
 #![warn(missing_docs)]
+// Allow pre-existing clippy lints - these are intentional patterns
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::explicit_counter_loop)]
 //!
 //! # Getting Started
 //!
@@ -99,10 +102,10 @@ mod atlas;
 mod context;
 pub mod damage;
 mod disk_cache;
-mod error;
-mod gradient;
-mod gpu_renderer;
 mod embedded_icon;
+mod error;
+mod gpu_renderer;
+mod gradient;
 mod icon;
 mod image;
 mod image_buffer;
@@ -114,9 +117,9 @@ mod path;
 mod renderer;
 mod scalable_image;
 pub mod stencil;
+mod surface;
 mod svg;
 mod svg_cache;
-mod surface;
 pub mod text;
 mod text_render_pass;
 mod text_renderer;
@@ -131,7 +134,7 @@ mod offscreen;
 mod shader_watcher;
 
 // Core infrastructure
-pub use context::{GraphicsConfig, GraphicsContext, GpuResources};
+pub use context::{GpuResources, GraphicsConfig, GraphicsContext};
 pub use error::{RenderError, RenderResult};
 pub use offscreen::{OffscreenConfig, OffscreenSurface};
 pub use surface::{PresentMode, RenderSurface, SurfaceConfig, SurfaceFrame};
@@ -145,12 +148,14 @@ pub use paint::{
     BlendMode, BoxShadow, BoxShadowParams, DashPattern, FillRule, GradientStop, LineCap, LineJoin,
     LinearGradient, Paint, RadialGradient, Stroke,
 };
-pub use path::{tessellate_fill, tessellate_stroke, TessellatedPath, DEFAULT_TOLERANCE};
+pub use path::{DEFAULT_TOLERANCE, TessellatedPath, tessellate_fill, tessellate_stroke};
 pub use transform::{Transform2D, TransformStack};
 pub use types::{Color, CornerRadii, Path, PathCommand, Point, Rect, RoundedRect, Size};
 
 // Image types
-pub use animated_image::{AnimatedImage, AnimationController, AnimationFrame, LoopCount, PlaybackState};
+pub use animated_image::{
+    AnimatedImage, AnimationController, AnimationFrame, LoopCount, PlaybackState,
+};
 pub use async_image::{AsyncImageHandle, AsyncImageLoader, AsyncImageLoaderConfig, LoadingState};
 pub use atlas::{ImageManager, TextureAtlas};
 pub use disk_cache::{DiskCacheConfig, DiskCacheStats, DiskImageCache};
@@ -163,9 +168,9 @@ pub use svg_cache::{SvgCache, SvgCacheConfig, SvgCacheKey, SvgCacheStats, SvgSou
 
 // Icon types
 pub use icon::{
-    icon_tint_for_state, icon_tint_for_state_full, icon_tint_for_state_with_hover, Icon, IconMode,
-    IconPosition, IconSize, IconSource, IconState, IconThemeMode, SizedIconSet, StatefulIconSet,
-    ThemedIconSet,
+    Icon, IconMode, IconPosition, IconSize, IconSource, IconState, IconThemeMode, SizedIconSet,
+    StatefulIconSet, ThemedIconSet, icon_tint_for_state, icon_tint_for_state_full,
+    icon_tint_for_state_with_hover,
 };
 
 // Embedded icon support
@@ -173,8 +178,8 @@ pub use embedded_icon::{EmbeddedIconData, EmbeddedIconSet, ImageFormat};
 
 // Image metadata
 pub use image_data::{
-    read_dimensions, read_dimensions_from_bytes, read_metadata, read_metadata_from_bytes,
-    ColorType, ExifData, ImageMetadata, Orientation,
+    ColorType, ExifData, ImageMetadata, Orientation, read_dimensions, read_dimensions_from_bytes,
+    read_metadata, read_metadata_from_bytes,
 };
 
 // Damage tracking
@@ -188,20 +193,54 @@ pub use stencil::{ClipShape, ClipStack};
 
 // Text rendering
 pub use text::{
-    Font, FontBuilder, FontFaceId, FontFaceInfo, FontFamily, FontFeature, FontLoadError,
-    FontMetrics, FontQuery, FontStretch, FontStyle, FontSystem, FontSystemConfig, FontWeight,
-    // Text shaping
-    GlyphCacheKey, GlyphId, ShapedGlyph, ShapedText, ShapingOptions, TextShaper,
     // Text layout
-    BackgroundRect, DecorationLine, HorizontalAlign, LayoutGlyph, LayoutLine, TextLayout,
-    TextLayoutOptions, TextSpan, VerticalAlign, WrapMode,
-    // Rich text
-    RichText, RichTextSpan,
-    // Text decoration
-    TextDecoration, TextDecorationStyle, TextDecorationType,
+    BackgroundRect,
+    DecorationLine,
+    Font,
+    FontBuilder,
+    FontFaceId,
+    FontFaceInfo,
+    FontFamily,
+    FontFeature,
+    FontLoadError,
+    FontMetrics,
+    FontQuery,
+    FontStretch,
+    FontStyle,
+    FontSystem,
+    FontSystemConfig,
+    FontWeight,
     // Glyph rendering
-    GlyphAllocation, GlyphAtlas, GlyphAtlasStats, GlyphCache, GlyphCacheStats, GlyphPixelFormat,
-    GlyphRenderMode, RasterizedGlyph,
+    GlyphAllocation,
+    GlyphAtlas,
+    GlyphAtlasStats,
+    GlyphCache,
+    // Text shaping
+    GlyphCacheKey,
+    GlyphCacheStats,
+    GlyphId,
+    GlyphPixelFormat,
+    GlyphRenderMode,
+    HorizontalAlign,
+    LayoutGlyph,
+    LayoutLine,
+    RasterizedGlyph,
+    // Rich text
+    RichText,
+    RichTextSpan,
+    ShapedGlyph,
+    ShapedText,
+    ShapingOptions,
+    // Text decoration
+    TextDecoration,
+    TextDecorationStyle,
+    TextDecorationType,
+    TextLayout,
+    TextLayoutOptions,
+    TextShaper,
+    TextSpan,
+    VerticalAlign,
+    WrapMode,
 };
 
 // Text renderer
@@ -210,7 +249,7 @@ pub use text_renderer::{PreparedGlyph, TextRenderer, TextRendererConfig, TextRen
 
 // Shader hot-reload support
 #[cfg(feature = "shader-hot-reload")]
-pub use shader_watcher::{load_shader_source, ShaderKind, ShaderReloadResult, ShaderWatcher};
+pub use shader_watcher::{ShaderKind, ShaderReloadResult, ShaderWatcher, load_shader_source};
 
 // Re-export wgpu types that users commonly need
 pub use wgpu;

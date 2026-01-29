@@ -135,21 +135,16 @@ impl GraphQLClientBuilder {
         };
 
         // Derive WebSocket URL if not provided
-        let websocket_url = self.websocket_url.unwrap_or_else(|| {
-            Self::http_to_ws_url(&self.http_url)
-        });
+        let websocket_url = self
+            .websocket_url
+            .unwrap_or_else(|| Self::http_to_ws_url(&self.http_url));
 
         // Build connection init payload
         let init_payload = if self.connection_init_payload.is_some() {
             self.connection_init_payload
-        } else if let Some(ref token) = self.auth_token {
-            // Default: include auth token in connection init
-            Some(serde_json::json!({
+        } else { self.auth_token.as_ref().map(|token| serde_json::json!({
                 "Authorization": format!("Bearer {}", token)
-            }))
-        } else {
-            None
-        };
+            })) };
 
         Ok(GraphQLClient {
             inner: Arc::new(GraphQLClientInner {
@@ -255,8 +250,8 @@ impl GraphQLClient {
         }
 
         // Serialize the GraphQL request
-        let body = serde_json::to_string(&request)
-            .map_err(|e| NetworkError::Json(e.to_string()))?;
+        let body =
+            serde_json::to_string(&request).map_err(|e| NetworkError::Json(e.to_string()))?;
 
         req = req.text(body);
 
@@ -382,9 +377,7 @@ impl GraphQLClient {
         *guard = Some(connection);
 
         // Return a reference
-        Ok(unsafe {
-            &*(guard.as_ref().unwrap() as *const SubscriptionConnection)
-        })
+        Ok(unsafe { &*(guard.as_ref().unwrap() as *const SubscriptionConnection) })
     }
 }
 

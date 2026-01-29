@@ -85,7 +85,10 @@ impl App {
         // Centered radial gradient
         let rect4 = Rect::new(50.0, 180.0, 200.0, 150.0);
         let gradient4 = Paint::radial_gradient(
-            Point::new(rect4.left() + rect4.width() / 2.0, rect4.top() + rect4.height() / 2.0),
+            Point::new(
+                rect4.left() + rect4.width() / 2.0,
+                rect4.top() + rect4.height() / 2.0,
+            ),
             75.0,
             None,
             vec![
@@ -111,7 +114,10 @@ impl App {
         // Small radius radial gradient (spotlight effect)
         let rect6 = Rect::new(510.0, 180.0, 200.0, 150.0);
         let gradient6 = Paint::radial_gradient(
-            Point::new(rect6.left() + rect6.width() / 2.0, rect6.top() + rect6.height() / 2.0),
+            Point::new(
+                rect6.left() + rect6.width() / 2.0,
+                rect6.top() + rect6.height() / 2.0,
+            ),
             50.0,
             None,
             vec![
@@ -138,7 +144,10 @@ impl App {
         // Rounded rect with radial gradient
         let rect8 = Rect::new(280.0, 360.0, 150.0, 100.0);
         let gradient8 = Paint::radial_gradient(
-            Point::new(rect8.left() + rect8.width() / 2.0, rect8.top() + rect8.height() / 2.0),
+            Point::new(
+                rect8.left() + rect8.width() / 2.0,
+                rect8.top() + rect8.height() / 2.0,
+            ),
             80.0,
             None,
             vec![
@@ -203,7 +212,11 @@ impl ApplicationHandler for App {
             .with_title("Gradients - Horizon Lattice Render")
             .with_inner_size(winit::dpi::LogicalSize::new(800, 500));
 
-        let window = Arc::new(event_loop.create_window(attrs).expect("Failed to create window"));
+        let window = Arc::new(
+            event_loop
+                .create_window(attrs)
+                .expect("Failed to create window"),
+        );
 
         // Create surface and renderer
         let surface = RenderSurface::new(Arc::clone(&window), SurfaceConfig::default())

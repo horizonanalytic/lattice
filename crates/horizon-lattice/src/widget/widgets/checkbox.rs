@@ -524,7 +524,10 @@ impl CheckBox {
         );
 
         // Start point (left side, slightly below middle)
-        let start = Point::new(inner_rect.origin.x, inner_rect.origin.y + inner_rect.height() * 0.5);
+        let start = Point::new(
+            inner_rect.origin.x,
+            inner_rect.origin.y + inner_rect.height() * 0.5,
+        );
 
         // Middle point (bottom of the checkmark)
         let middle = Point::new(
@@ -605,8 +608,12 @@ impl Widget for CheckBox {
         // Calculate indicator position (vertically centered)
         let indicator_x = rect.origin.x + padding;
         let indicator_y = rect.origin.y + (rect.height() - self.indicator_size) / 2.0;
-        let indicator_rect =
-            Rect::new(indicator_x, indicator_y, self.indicator_size, self.indicator_size);
+        let indicator_rect = Rect::new(
+            indicator_x,
+            indicator_y,
+            self.indicator_size,
+            self.indicator_size,
+        );
 
         // Draw indicator background
         let bg_color = self.indicator_color();
@@ -639,12 +646,8 @@ impl Widget for CheckBox {
             let text_color = self.effective_text_color();
 
             if let Ok(mut text_renderer) = TextRenderer::new() {
-                let _ = text_renderer.prepare_layout(
-                    &mut font_system,
-                    &layout,
-                    text_pos,
-                    text_color,
-                );
+                let _ =
+                    text_renderer.prepare_layout(&mut font_system, &layout, text_pos, text_color);
             }
         }
 
@@ -745,7 +748,9 @@ impl crate::widget::accessibility::Accessible for CheckBox {
     }
 
     fn accessible_description(&self) -> Option<String> {
-        self.widget_base().accessible_description().map(String::from)
+        self.widget_base()
+            .accessible_description()
+            .map(String::from)
     }
 
     fn is_accessible_checked(&self) -> Option<bool> {
@@ -796,8 +801,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicU32, Ordering},
         Arc,
+        atomic::{AtomicU32, Ordering},
     };
 
     fn setup() {

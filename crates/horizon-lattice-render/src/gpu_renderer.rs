@@ -13,7 +13,7 @@ use crate::atlas::TextureAtlas;
 use crate::context::GraphicsContext;
 use crate::damage::DamageTracker;
 use crate::error::RenderResult;
-use crate::gradient::{create_gradient_bind_group_layout, GradientAtlas};
+use crate::gradient::{GradientAtlas, create_gradient_bind_group_layout};
 use crate::image::{Image, ImageScaleMode, NinePatch};
 use crate::layer::Layer;
 use crate::offscreen::OffscreenSurface;
@@ -298,7 +298,13 @@ impl RectVertex {
     }
 
     /// Create a vertex for solid color rendering.
-    fn solid(position: [f32; 2], color: Color, rect_pos: [f32; 2], rect_size: [f32; 2], corner_radii: [f32; 4]) -> Self {
+    fn solid(
+        position: [f32; 2],
+        color: Color,
+        rect_pos: [f32; 2],
+        rect_size: [f32; 2],
+        corner_radii: [f32; 4],
+    ) -> Self {
         Self {
             position,
             color0: color.to_array(),
@@ -330,7 +336,12 @@ impl RectVertex {
             rect_pos,
             rect_size,
             corner_radii,
-            gradient_info: [PAINT_TYPE_LINEAR_GRADIENT as f32, start[0], start[1], end[0]],
+            gradient_info: [
+                PAINT_TYPE_LINEAR_GRADIENT as f32,
+                start[0],
+                start[1],
+                end[0],
+            ],
             gradient_end_stops: [end[1], stop0_offset, stop1_offset, 0.0],
             color1: stop1_color.to_array(),
         }
@@ -355,7 +366,12 @@ impl RectVertex {
             rect_pos,
             rect_size,
             corner_radii,
-            gradient_info: [PAINT_TYPE_RADIAL_GRADIENT as f32, center[0], center[1], radius],
+            gradient_info: [
+                PAINT_TYPE_RADIAL_GRADIENT as f32,
+                center[0],
+                center[1],
+                radius,
+            ],
             gradient_end_stops: [0.0, stop0_offset, stop1_offset, 0.0],
             color1: stop1_color.to_array(),
         }
@@ -380,7 +396,12 @@ impl RectVertex {
             rect_pos,
             rect_size,
             corner_radii,
-            gradient_info: [PAINT_TYPE_LINEAR_GRADIENT_TEX as f32, start[0], start[1], end[0]],
+            gradient_info: [
+                PAINT_TYPE_LINEAR_GRADIENT_TEX as f32,
+                start[0],
+                start[1],
+                end[0],
+            ],
             gradient_end_stops: [end[1], 0.0, 0.0, tex_v],
             color1: [0.0; 4],
         }
@@ -405,7 +426,12 @@ impl RectVertex {
             rect_pos,
             rect_size,
             corner_radii,
-            gradient_info: [PAINT_TYPE_RADIAL_GRADIENT_TEX as f32, center[0], center[1], radius],
+            gradient_info: [
+                PAINT_TYPE_RADIAL_GRADIENT_TEX as f32,
+                center[0],
+                center[1],
+                radius,
+            ],
             gradient_end_stops: [0.0, 0.0, 0.0, tex_v],
             color1: [0.0; 4],
         }
@@ -807,13 +833,8 @@ impl GpuRenderer {
         });
 
         // Create initial rect pipeline for Normal blend mode
-        let rect_pipeline_normal = create_rect_pipeline(
-            device,
-            &shader,
-            &pipeline_layout,
-            format,
-            BlendMode::Normal,
-        );
+        let rect_pipeline_normal =
+            create_rect_pipeline(device, &shader, &pipeline_layout, format, BlendMode::Normal);
 
         // Initialize rect pipeline cache with Normal blend mode
         let mut rect_pipelines = HashMap::new();
@@ -847,11 +868,12 @@ impl GpuRenderer {
         let image_bind_group_layout = TextureAtlas::bind_group_layout(device);
 
         // Create image pipeline layout
-        let image_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("image_pipeline_layout"),
-            bind_group_layouts: &[&bind_group_layout, &image_bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let image_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("image_pipeline_layout"),
+                bind_group_layouts: &[&bind_group_layout, &image_bind_group_layout],
+                push_constant_ranges: &[],
+            });
 
         // Create initial image pipeline for Normal blend mode
         let image_pipeline_normal = create_image_pipeline(
@@ -955,39 +977,40 @@ impl GpuRenderer {
         });
 
         // Pipeline for rendering content with stencil testing
-        let stencil_rect_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("stencil_rect_pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[RectVertex::desc()],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(crate::stencil::content_depth_stencil_state()),
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
+        let stencil_rect_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("stencil_rect_pipeline"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &[RectVertex::desc()],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("fs_main"),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format,
+                        blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                    compilation_options: Default::default(),
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: None,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: Some(crate::stencil::content_depth_stencil_state()),
+                multisample: wgpu::MultisampleState::default(),
+                multiview: None,
+                cache: None,
+            });
 
         // === Box shadow pipeline ===
 
@@ -1053,39 +1076,40 @@ impl GpuRenderer {
         let gradient_atlas = GradientAtlas::new(device, &gradient_bind_group_layout);
 
         // Create texture-based gradient pipeline (uses same layout as rect pipeline)
-        let gradient_tex_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("gradient_tex_pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[RectVertex::desc()],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
+        let gradient_tex_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("gradient_tex_pipeline"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &[RectVertex::desc()],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("fs_main"),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format,
+                        blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                    compilation_options: Default::default(),
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: None,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                multiview: None,
+                cache: None,
+            });
 
         debug!(
             target: "horizon_lattice_render::gpu_renderer",
@@ -1246,8 +1270,16 @@ impl GpuRenderer {
 
         // Upload vertex and index data for shadows
         if !self.shadow_vertices.is_empty() {
-            queue.write_buffer(&self.shadow_vertex_buffer, 0, bytemuck::cast_slice(&self.shadow_vertices));
-            queue.write_buffer(&self.shadow_index_buffer, 0, bytemuck::cast_slice(&self.shadow_indices));
+            queue.write_buffer(
+                &self.shadow_vertex_buffer,
+                0,
+                bytemuck::cast_slice(&self.shadow_vertices),
+            );
+            queue.write_buffer(
+                &self.shadow_index_buffer,
+                0,
+                bytemuck::cast_slice(&self.shadow_indices),
+            );
         }
 
         // Ensure we have the rect pipeline for the current blend mode
@@ -1262,8 +1294,9 @@ impl GpuRenderer {
 
         // Get stencil attachment if needed
         let depth_stencil_attachment = if use_stencil {
-            self.stencil_texture.as_ref().map(|tex| {
-                wgpu::RenderPassDepthStencilAttachment {
+            self.stencil_texture
+                .as_ref()
+                .map(|tex| wgpu::RenderPassDepthStencilAttachment {
                     view: tex.view(),
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
@@ -1273,8 +1306,7 @@ impl GpuRenderer {
                         load: wgpu::LoadOp::Clear(0),
                         store: wgpu::StoreOp::Store,
                     }),
-                }
-            })
+                })
         } else {
             None
         };
@@ -1315,7 +1347,11 @@ impl GpuRenderer {
                     let (clip_vertices, clip_indices) = self.clip_shape_to_vertices(&shape);
 
                     // Upload clip geometry
-                    queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&clip_vertices));
+                    queue.write_buffer(
+                        &self.vertex_buffer,
+                        0,
+                        bytemuck::cast_slice(&clip_vertices),
+                    );
                     queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&clip_indices));
 
                     if is_push {
@@ -1333,14 +1369,19 @@ impl GpuRenderer {
                     render_pass.set_bind_group(0, &self.bind_group, &[]);
                     render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                     render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                    render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass
+                        .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                     render_pass.draw_indexed(0..clip_indices.len() as u32, 0, 0..1);
                     self.draw_calls += 1;
                 }
 
                 // Re-upload content geometry after clip operations
                 if !self.vertices.is_empty() {
-                    queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+                    queue.write_buffer(
+                        &self.vertex_buffer,
+                        0,
+                        bytemuck::cast_slice(&self.vertices),
+                    );
                     queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.indices));
                 }
             }
@@ -1351,7 +1392,10 @@ impl GpuRenderer {
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.shadow_vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.shadow_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.set_index_buffer(
+                    self.shadow_index_buffer.slice(..),
+                    wgpu::IndexFormat::Uint32,
+                );
                 render_pass.draw_indexed(0..self.shadow_indices.len() as u32, 0, 0..1);
                 self.draw_calls += 1;
             }
@@ -1370,7 +1414,8 @@ impl GpuRenderer {
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass
+                    .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
                 self.draw_calls += 1;
             }
@@ -1378,14 +1423,23 @@ impl GpuRenderer {
             // Render texture-based gradients (multi-stop gradients)
             if !self.gradient_tex_indices.is_empty() {
                 // Upload gradient texture vertices
-                queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.gradient_tex_vertices));
-                queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.gradient_tex_indices));
+                queue.write_buffer(
+                    &self.vertex_buffer,
+                    0,
+                    bytemuck::cast_slice(&self.gradient_tex_vertices),
+                );
+                queue.write_buffer(
+                    &self.index_buffer,
+                    0,
+                    bytemuck::cast_slice(&self.gradient_tex_indices),
+                );
 
                 render_pass.set_pipeline(&self.gradient_tex_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass
+                    .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.gradient_tex_indices.len() as u32, 0, 0..1);
                 self.draw_calls += 1;
             }
@@ -1403,12 +1457,23 @@ impl GpuRenderer {
                     }
 
                     // Upload batch vertices and indices
-                    queue.write_buffer(&self.image_vertex_buffer, 0, bytemuck::cast_slice(&batch.vertices));
-                    queue.write_buffer(&self.image_index_buffer, 0, bytemuck::cast_slice(&batch.indices));
+                    queue.write_buffer(
+                        &self.image_vertex_buffer,
+                        0,
+                        bytemuck::cast_slice(&batch.vertices),
+                    );
+                    queue.write_buffer(
+                        &self.image_index_buffer,
+                        0,
+                        bytemuck::cast_slice(&batch.indices),
+                    );
 
                     render_pass.set_bind_group(1, batch.atlas.bind_group(), &[]);
                     render_pass.set_vertex_buffer(0, self.image_vertex_buffer.slice(..));
-                    render_pass.set_index_buffer(self.image_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.set_index_buffer(
+                        self.image_index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
                     render_pass.draw_indexed(0..batch.indices.len() as u32, 0, 0..1);
                     self.draw_calls += 1;
                 }
@@ -1465,8 +1530,16 @@ impl GpuRenderer {
 
         // Upload shadow vertex and index data
         if !self.shadow_vertices.is_empty() {
-            queue.write_buffer(&self.shadow_vertex_buffer, 0, bytemuck::cast_slice(&self.shadow_vertices));
-            queue.write_buffer(&self.shadow_index_buffer, 0, bytemuck::cast_slice(&self.shadow_indices));
+            queue.write_buffer(
+                &self.shadow_vertex_buffer,
+                0,
+                bytemuck::cast_slice(&self.shadow_vertices),
+            );
+            queue.write_buffer(
+                &self.shadow_index_buffer,
+                0,
+                bytemuck::cast_slice(&self.shadow_indices),
+            );
         }
 
         // Ensure we have the pipelines for the current blend mode
@@ -1512,7 +1585,10 @@ impl GpuRenderer {
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.shadow_vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.shadow_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.set_index_buffer(
+                    self.shadow_index_buffer.slice(..),
+                    wgpu::IndexFormat::Uint32,
+                );
                 render_pass.draw_indexed(0..self.shadow_indices.len() as u32, 0, 0..1);
                 self.draw_calls += 1;
             }
@@ -1524,7 +1600,8 @@ impl GpuRenderer {
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass
+                    .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
                 self.draw_calls += 1;
             }
@@ -1535,14 +1612,23 @@ impl GpuRenderer {
                 self.gradient_atlas.upload(queue);
 
                 // Upload gradient texture vertices
-                queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.gradient_tex_vertices));
-                queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.gradient_tex_indices));
+                queue.write_buffer(
+                    &self.vertex_buffer,
+                    0,
+                    bytemuck::cast_slice(&self.gradient_tex_vertices),
+                );
+                queue.write_buffer(
+                    &self.index_buffer,
+                    0,
+                    bytemuck::cast_slice(&self.gradient_tex_indices),
+                );
 
                 render_pass.set_pipeline(&self.gradient_tex_pipeline);
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass
+                    .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.gradient_tex_indices.len() as u32, 0, 0..1);
                 self.draw_calls += 1;
             }
@@ -1559,12 +1645,23 @@ impl GpuRenderer {
                     }
 
                     // Upload batch vertices and indices
-                    queue.write_buffer(&self.image_vertex_buffer, 0, bytemuck::cast_slice(&batch.vertices));
-                    queue.write_buffer(&self.image_index_buffer, 0, bytemuck::cast_slice(&batch.indices));
+                    queue.write_buffer(
+                        &self.image_vertex_buffer,
+                        0,
+                        bytemuck::cast_slice(&batch.vertices),
+                    );
+                    queue.write_buffer(
+                        &self.image_index_buffer,
+                        0,
+                        bytemuck::cast_slice(&batch.indices),
+                    );
 
                     render_pass.set_bind_group(1, batch.atlas.bind_group(), &[]);
                     render_pass.set_vertex_buffer(0, self.image_vertex_buffer.slice(..));
-                    render_pass.set_index_buffer(self.image_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.set_index_buffer(
+                        self.image_index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
                     render_pass.draw_indexed(0..batch.indices.len() as u32, 0, 0..1);
                     self.draw_calls += 1;
                 }
@@ -1610,7 +1707,12 @@ impl GpuRenderer {
 
         let rect_pos = [rect.left(), rect.top()];
         let rect_size = [rect.width(), rect.height()];
-        let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
+        let corner_radii = [
+            radii.top_left,
+            radii.top_right,
+            radii.bottom_right,
+            radii.bottom_left,
+        ];
 
         // Add four vertices for the quad
         let positions = [
@@ -1621,7 +1723,13 @@ impl GpuRenderer {
         ];
 
         for pos in positions {
-            self.vertices.push(RectVertex::solid(pos, color, rect_pos, rect_size, corner_radii));
+            self.vertices.push(RectVertex::solid(
+                pos,
+                color,
+                rect_pos,
+                rect_size,
+                corner_radii,
+            ));
         }
 
         // Add indices for two triangles
@@ -1653,10 +1761,20 @@ impl GpuRenderer {
     }
 
     /// Add a filled quad with a linear gradient.
-    fn add_linear_gradient_quad(&mut self, rect: Rect, radii: CornerRadii, gradient: &crate::paint::LinearGradient) {
+    fn add_linear_gradient_quad(
+        &mut self,
+        rect: Rect,
+        radii: CornerRadii,
+        gradient: &crate::paint::LinearGradient,
+    ) {
         let rect_pos = [rect.left(), rect.top()];
         let rect_size = [rect.width(), rect.height()];
-        let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
+        let corner_radii = [
+            radii.top_left,
+            radii.top_right,
+            radii.bottom_right,
+            radii.bottom_left,
+        ];
 
         // Convert gradient start/end from absolute coords to normalized local coords (0-1)
         let start = [
@@ -1676,23 +1794,24 @@ impl GpuRenderer {
         ];
 
         // Use texture-based gradient for >2 stops
-        if gradient.stops.len() > 2 {
-            if let Some(gradient_id) = self.gradient_atlas.get_or_create(&gradient.stops) {
+        if gradient.stops.len() > 2
+            && let Some(gradient_id) = self.gradient_atlas.get_or_create(&gradient.stops) {
                 let tex_v = gradient_id.tex_v();
                 let opacity = self.current_opacity;
                 let base_index = self.gradient_tex_vertices.len() as u32;
 
                 for pos in positions {
-                    self.gradient_tex_vertices.push(RectVertex::linear_gradient_tex(
-                        pos,
-                        rect_pos,
-                        rect_size,
-                        corner_radii,
-                        start,
-                        end,
-                        tex_v,
-                        opacity,
-                    ));
+                    self.gradient_tex_vertices
+                        .push(RectVertex::linear_gradient_tex(
+                            pos,
+                            rect_pos,
+                            rect_size,
+                            corner_radii,
+                            start,
+                            end,
+                            tex_v,
+                            opacity,
+                        ));
                 }
 
                 self.gradient_tex_indices.extend_from_slice(&[
@@ -1708,11 +1827,11 @@ impl GpuRenderer {
                 return;
             }
             // Fall through to 2-stop path if atlas is full
-        }
 
         // Use the 2-stop gradient path
         let base_index = self.vertices.len() as u32;
-        let (stop0_offset, stop0_color, stop1_offset, stop1_color) = self.extract_two_stops(&gradient.stops);
+        let (stop0_offset, stop0_color, stop1_offset, stop1_color) =
+            self.extract_two_stops(&gradient.stops);
         let stop0_color = self.apply_opacity(stop0_color);
         let stop1_color = self.apply_opacity(stop1_color);
 
@@ -1744,10 +1863,20 @@ impl GpuRenderer {
     }
 
     /// Add a filled quad with a radial gradient.
-    fn add_radial_gradient_quad(&mut self, rect: Rect, radii: CornerRadii, gradient: &crate::paint::RadialGradient) {
+    fn add_radial_gradient_quad(
+        &mut self,
+        rect: Rect,
+        radii: CornerRadii,
+        gradient: &crate::paint::RadialGradient,
+    ) {
         let rect_pos = [rect.left(), rect.top()];
         let rect_size = [rect.width(), rect.height()];
-        let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
+        let corner_radii = [
+            radii.top_left,
+            radii.top_right,
+            radii.bottom_right,
+            radii.bottom_left,
+        ];
 
         // Convert gradient center from absolute coords to normalized local coords (0-1)
         let center = [
@@ -1767,23 +1896,24 @@ impl GpuRenderer {
         ];
 
         // Use texture-based gradient for >2 stops
-        if gradient.stops.len() > 2 {
-            if let Some(gradient_id) = self.gradient_atlas.get_or_create(&gradient.stops) {
+        if gradient.stops.len() > 2
+            && let Some(gradient_id) = self.gradient_atlas.get_or_create(&gradient.stops) {
                 let tex_v = gradient_id.tex_v();
                 let opacity = self.current_opacity;
                 let base_index = self.gradient_tex_vertices.len() as u32;
 
                 for pos in positions {
-                    self.gradient_tex_vertices.push(RectVertex::radial_gradient_tex(
-                        pos,
-                        rect_pos,
-                        rect_size,
-                        corner_radii,
-                        center,
-                        normalized_radius,
-                        tex_v,
-                        opacity,
-                    ));
+                    self.gradient_tex_vertices
+                        .push(RectVertex::radial_gradient_tex(
+                            pos,
+                            rect_pos,
+                            rect_size,
+                            corner_radii,
+                            center,
+                            normalized_radius,
+                            tex_v,
+                            opacity,
+                        ));
                 }
 
                 self.gradient_tex_indices.extend_from_slice(&[
@@ -1799,11 +1929,11 @@ impl GpuRenderer {
                 return;
             }
             // Fall through to 2-stop path if atlas is full
-        }
 
         // Use the 2-stop gradient path
         let base_index = self.vertices.len() as u32;
-        let (stop0_offset, stop0_color, stop1_offset, stop1_color) = self.extract_two_stops(&gradient.stops);
+        let (stop0_offset, stop0_color, stop1_offset, stop1_color) =
+            self.extract_two_stops(&gradient.stops);
         let stop0_color = self.apply_opacity(stop0_color);
         let stop1_color = self.apply_opacity(stop1_color);
 
@@ -1840,8 +1970,18 @@ impl GpuRenderer {
     fn extract_two_stops(&self, stops: &[crate::paint::GradientStop]) -> (f32, Color, f32, Color) {
         match stops.len() {
             0 => (0.0, Color::BLACK, 1.0, Color::BLACK),
-            1 => (stops[0].offset, stops[0].color, stops[0].offset, stops[0].color),
-            2 => (stops[0].offset, stops[0].color, stops[1].offset, stops[1].color),
+            1 => (
+                stops[0].offset,
+                stops[0].color,
+                stops[0].offset,
+                stops[0].color,
+            ),
+            2 => (
+                stops[0].offset,
+                stops[0].color,
+                stops[1].offset,
+                stops[1].color,
+            ),
             _ => {
                 // For more than 2 stops, use first and last
                 // TODO: Support more stops with multi-pass or texture-based approach
@@ -1862,30 +2002,26 @@ impl GpuRenderer {
     }
 
     /// Transform a paint's gradient coordinates from original rect space to transformed rect space.
-    fn transform_paint(&self, paint: Paint, original_rect: &Rect, transformed_rect: &Rect) -> Paint {
+    fn transform_paint(
+        &self,
+        paint: Paint,
+        original_rect: &Rect,
+        transformed_rect: &Rect,
+    ) -> Paint {
         match paint {
             Paint::Solid(_) => paint, // No transformation needed for solid colors
             Paint::LinearGradient(mut gradient) => {
                 // Transform gradient start/end points
-                gradient.start = self.transform_gradient_point(
-                    gradient.start,
-                    original_rect,
-                    transformed_rect,
-                );
-                gradient.end = self.transform_gradient_point(
-                    gradient.end,
-                    original_rect,
-                    transformed_rect,
-                );
+                gradient.start =
+                    self.transform_gradient_point(gradient.start, original_rect, transformed_rect);
+                gradient.end =
+                    self.transform_gradient_point(gradient.end, original_rect, transformed_rect);
                 Paint::LinearGradient(gradient)
             }
             Paint::RadialGradient(mut gradient) => {
                 // Transform gradient center
-                gradient.center = self.transform_gradient_point(
-                    gradient.center,
-                    original_rect,
-                    transformed_rect,
-                );
+                gradient.center =
+                    self.transform_gradient_point(gradient.center, original_rect, transformed_rect);
                 // Scale radius proportionally (use average scale factor)
                 let scale_x = transformed_rect.width() / original_rect.width();
                 let scale_y = transformed_rect.height() / original_rect.height();
@@ -1896,7 +2032,12 @@ impl GpuRenderer {
     }
 
     /// Transform a point from original rect space to transformed rect space.
-    fn transform_gradient_point(&self, point: Point, original_rect: &Rect, transformed_rect: &Rect) -> Point {
+    fn transform_gradient_point(
+        &self,
+        point: Point,
+        original_rect: &Rect,
+        transformed_rect: &Rect,
+    ) -> Point {
         // Calculate normalized position within original rect
         let norm_x = (point.x - original_rect.left()) / original_rect.width();
         let norm_y = (point.y - original_rect.top()) / original_rect.height();
@@ -2008,7 +2149,12 @@ impl GpuRenderer {
                 let base_index = 0u32;
                 let rect_pos = [rect.left(), rect.top()];
                 let rect_size = [rect.width(), rect.height()];
-                let corner_radii = [radii.top_left, radii.top_right, radii.bottom_right, radii.bottom_left];
+                let corner_radii = [
+                    radii.top_left,
+                    radii.top_right,
+                    radii.bottom_right,
+                    radii.bottom_left,
+                ];
 
                 let positions = [
                     [rect.left(), rect.top()],
@@ -2080,7 +2226,8 @@ impl GpuRenderer {
                 let rect_size = [1.0, 1.0];
                 let corner_radii = [0.0; 4];
 
-                let vertices: Vec<RectVertex> = tessellated.vertices
+                let vertices: Vec<RectVertex> = tessellated
+                    .vertices
                     .iter()
                     .map(|pos| RectVertex::solid(*pos, color, rect_pos, rect_size, corner_radii))
                     .collect();
@@ -2166,8 +2313,16 @@ impl GpuRenderer {
 
         // Upload shadow vertex and index data
         if !self.shadow_vertices.is_empty() {
-            queue.write_buffer(&self.shadow_vertex_buffer, 0, bytemuck::cast_slice(&self.shadow_vertices));
-            queue.write_buffer(&self.shadow_index_buffer, 0, bytemuck::cast_slice(&self.shadow_indices));
+            queue.write_buffer(
+                &self.shadow_vertex_buffer,
+                0,
+                bytemuck::cast_slice(&self.shadow_vertices),
+            );
+            queue.write_buffer(
+                &self.shadow_index_buffer,
+                0,
+                bytemuck::cast_slice(&self.shadow_indices),
+            );
         }
 
         // Ensure we have the pipelines for the current blend mode
@@ -2213,7 +2368,10 @@ impl GpuRenderer {
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.shadow_vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.shadow_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.set_index_buffer(
+                    self.shadow_index_buffer.slice(..),
+                    wgpu::IndexFormat::Uint32,
+                );
                 render_pass.draw_indexed(0..self.shadow_indices.len() as u32, 0, 0..1);
                 self.draw_calls += 1;
             }
@@ -2225,7 +2383,8 @@ impl GpuRenderer {
                 render_pass.set_bind_group(0, &self.bind_group, &[]);
                 render_pass.set_bind_group(1, self.gradient_atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass
+                    .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
                 self.draw_calls += 1;
             }
@@ -2242,12 +2401,23 @@ impl GpuRenderer {
                     }
 
                     // Upload batch vertices and indices
-                    queue.write_buffer(&self.image_vertex_buffer, 0, bytemuck::cast_slice(&batch.vertices));
-                    queue.write_buffer(&self.image_index_buffer, 0, bytemuck::cast_slice(&batch.indices));
+                    queue.write_buffer(
+                        &self.image_vertex_buffer,
+                        0,
+                        bytemuck::cast_slice(&batch.vertices),
+                    );
+                    queue.write_buffer(
+                        &self.image_index_buffer,
+                        0,
+                        bytemuck::cast_slice(&batch.indices),
+                    );
 
                     render_pass.set_bind_group(1, batch.atlas.bind_group(), &[]);
                     render_pass.set_vertex_buffer(0, self.image_vertex_buffer.slice(..));
-                    render_pass.set_index_buffer(self.image_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.set_index_buffer(
+                        self.image_index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
                     render_pass.draw_indexed(0..batch.indices.len() as u32, 0, 0..1);
                     self.draw_calls += 1;
                 }
@@ -2278,7 +2448,12 @@ impl GpuRenderer {
     }
 
     /// Calculate the destination rectangle based on scale mode.
-    fn calculate_scaled_dest(&self, image_size: Size, dest: Rect, scale_mode: ImageScaleMode) -> Rect {
+    fn calculate_scaled_dest(
+        &self,
+        image_size: Size,
+        dest: Rect,
+        scale_mode: ImageScaleMode,
+    ) -> Rect {
         match scale_mode {
             ImageScaleMode::Stretch => dest,
             ImageScaleMode::Fit => {
@@ -2357,10 +2532,26 @@ impl GpuRenderer {
         let [u_min, v_min, u_max, v_max] = uvs;
 
         // Add four vertices for the quad
-        batch.vertices.push(ImageVertex::new([dest.left(), dest.top()], [u_min, v_min], tint));
-        batch.vertices.push(ImageVertex::new([dest.right(), dest.top()], [u_max, v_min], tint));
-        batch.vertices.push(ImageVertex::new([dest.right(), dest.bottom()], [u_max, v_max], tint));
-        batch.vertices.push(ImageVertex::new([dest.left(), dest.bottom()], [u_min, v_max], tint));
+        batch.vertices.push(ImageVertex::new(
+            [dest.left(), dest.top()],
+            [u_min, v_min],
+            tint,
+        ));
+        batch.vertices.push(ImageVertex::new(
+            [dest.right(), dest.top()],
+            [u_max, v_min],
+            tint,
+        ));
+        batch.vertices.push(ImageVertex::new(
+            [dest.right(), dest.bottom()],
+            [u_max, v_max],
+            tint,
+        ));
+        batch.vertices.push(ImageVertex::new(
+            [dest.left(), dest.bottom()],
+            [u_min, v_max],
+            tint,
+        ));
 
         // Add indices for two triangles
         batch.indices.extend_from_slice(&[
@@ -2413,7 +2604,10 @@ impl GpuRenderer {
                     // Recreate stencil pipelines that use the rect shader
                     self.recreate_stencil_pipelines();
 
-                    tracing::info!("Reloaded rect shader and recreated {} pipelines", self.rect_pipelines.len() + 3);
+                    tracing::info!(
+                        "Reloaded rect shader and recreated {} pipelines",
+                        self.rect_pipelines.len() + 3
+                    );
                 }
                 ShaderKind::Image => {
                     // Update image shader and clear pipeline cache
@@ -2442,45 +2636,48 @@ impl GpuRenderer {
                         source: wgpu::ShaderSource::Wgsl(source.clone().into()),
                     });
 
-                    self.shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                        label: Some("shadow_pipeline"),
-                        layout: Some(&self.rect_pipeline_layout),
-                        vertex: wgpu::VertexState {
-                            module: &shadow_shader,
-                            entry_point: Some("vs_main"),
-                            buffers: &[ShadowVertex::desc()],
-                            compilation_options: Default::default(),
-                        },
-                        fragment: Some(wgpu::FragmentState {
-                            module: &shadow_shader,
-                            entry_point: Some("fs_main"),
-                            targets: &[Some(wgpu::ColorTargetState {
-                                format: self.surface_format,
-                                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                                write_mask: wgpu::ColorWrites::ALL,
-                            })],
-                            compilation_options: Default::default(),
-                        }),
-                        primitive: wgpu::PrimitiveState {
-                            topology: wgpu::PrimitiveTopology::TriangleList,
-                            strip_index_format: None,
-                            front_face: wgpu::FrontFace::Ccw,
-                            cull_mode: None,
-                            polygon_mode: wgpu::PolygonMode::Fill,
-                            unclipped_depth: false,
-                            conservative: false,
-                        },
-                        depth_stencil: None,
-                        multisample: wgpu::MultisampleState::default(),
-                        multiview: None,
-                        cache: None,
-                    });
+                    self.shadow_pipeline =
+                        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                            label: Some("shadow_pipeline"),
+                            layout: Some(&self.rect_pipeline_layout),
+                            vertex: wgpu::VertexState {
+                                module: &shadow_shader,
+                                entry_point: Some("vs_main"),
+                                buffers: &[ShadowVertex::desc()],
+                                compilation_options: Default::default(),
+                            },
+                            fragment: Some(wgpu::FragmentState {
+                                module: &shadow_shader,
+                                entry_point: Some("fs_main"),
+                                targets: &[Some(wgpu::ColorTargetState {
+                                    format: self.surface_format,
+                                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                                    write_mask: wgpu::ColorWrites::ALL,
+                                })],
+                                compilation_options: Default::default(),
+                            }),
+                            primitive: wgpu::PrimitiveState {
+                                topology: wgpu::PrimitiveTopology::TriangleList,
+                                strip_index_format: None,
+                                front_face: wgpu::FrontFace::Ccw,
+                                cull_mode: None,
+                                polygon_mode: wgpu::PolygonMode::Fill,
+                                unclipped_depth: false,
+                                conservative: false,
+                            },
+                            depth_stencil: None,
+                            multisample: wgpu::MultisampleState::default(),
+                            multiview: None,
+                            cache: None,
+                        });
 
                     tracing::info!("Reloaded shadow shader and recreated pipeline");
                 }
                 ShaderKind::Composite => {
                     // Composite shader is used by the Compositor, not directly by GpuRenderer
-                    tracing::info!("Composite shader changed - Compositor must be recreated to use new shader");
+                    tracing::info!(
+                        "Composite shader changed - Compositor must be recreated to use new shader"
+                    );
                 }
             }
         }
@@ -2563,39 +2760,40 @@ impl GpuRenderer {
         });
 
         // Stencil rect pipeline (for rendering with stencil testing)
-        self.stencil_rect_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("stencil_rect_pipeline"),
-            layout: Some(&self.rect_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &self.rect_shader,
-                entry_point: Some("vs_main"),
-                buffers: &[RectVertex::desc()],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &self.rect_shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: self.surface_format,
-                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(crate::stencil::content_depth_stencil_state()),
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
+        self.stencil_rect_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("stencil_rect_pipeline"),
+                layout: Some(&self.rect_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &self.rect_shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &[RectVertex::desc()],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &self.rect_shader,
+                    entry_point: Some("fs_main"),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: self.surface_format,
+                        blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                    compilation_options: Default::default(),
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: None,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: Some(crate::stencil::content_depth_stencil_state()),
+                multisample: wgpu::MultisampleState::default(),
+                multiview: None,
+                cache: None,
+            });
     }
 }
 
@@ -2895,7 +3093,13 @@ impl Renderer for GpuRenderer {
         ];
 
         for pos in positions {
-            self.vertices.push(RectVertex::solid(pos, color, rect_pos, rect_size, corner_radii));
+            self.vertices.push(RectVertex::solid(
+                pos,
+                color,
+                rect_pos,
+                rect_size,
+                corner_radii,
+            ));
         }
 
         self.indices.extend_from_slice(&[
@@ -2920,7 +3124,13 @@ impl Renderer for GpuRenderer {
         }
     }
 
-    fn fill_ellipse(&mut self, center: Point, radius_x: f32, radius_y: f32, paint: impl Into<Paint>) {
+    fn fill_ellipse(
+        &mut self,
+        center: Point,
+        radius_x: f32,
+        radius_y: f32,
+        paint: impl Into<Paint>,
+    ) {
         // Approximate ellipse as a rounded rect with full radius
         let rect = Rect::from_center(center, Size::new(radius_x * 2.0, radius_y * 2.0));
         let radius = radius_x.min(radius_y);
@@ -2936,7 +3146,12 @@ impl Renderer for GpuRenderer {
         self.stroke_rounded_rect(rrect, stroke);
     }
 
-    fn fill_path(&mut self, path: &crate::types::Path, paint: impl Into<Paint>, fill_rule: crate::paint::FillRule) {
+    fn fill_path(
+        &mut self,
+        path: &crate::types::Path,
+        paint: impl Into<Paint>,
+        fill_rule: crate::paint::FillRule,
+    ) {
         if path.is_empty() {
             return;
         }
@@ -2944,7 +3159,8 @@ impl Renderer for GpuRenderer {
         let paint = paint.into();
 
         // Tessellate the path
-        let tessellated = crate::path::tessellate_fill(path, fill_rule, crate::path::DEFAULT_TOLERANCE);
+        let tessellated =
+            crate::path::tessellate_fill(path, fill_rule, crate::path::DEFAULT_TOLERANCE);
 
         if tessellated.is_empty() {
             return;
@@ -2980,7 +3196,10 @@ impl Renderer for GpuRenderer {
         // Add vertices
         for pos in &tessellated.vertices {
             // Apply transform to each vertex
-            let p = self.state.transform().transform_point(Point::new(pos[0], pos[1]));
+            let p = self
+                .state
+                .transform()
+                .transform_point(Point::new(pos[0], pos[1]));
             self.vertices.push(RectVertex::solid(
                 [p.x, p.y],
                 color,
@@ -3004,7 +3223,8 @@ impl Renderer for GpuRenderer {
         }
 
         // Tessellate the stroke
-        let tessellated = crate::path::tessellate_stroke(path, stroke, crate::path::DEFAULT_TOLERANCE);
+        let tessellated =
+            crate::path::tessellate_stroke(path, stroke, crate::path::DEFAULT_TOLERANCE);
 
         if tessellated.is_empty() {
             return;
@@ -3039,7 +3259,10 @@ impl Renderer for GpuRenderer {
         // Add vertices
         for pos in &tessellated.vertices {
             // Apply transform to each vertex
-            let p = self.state.transform().transform_point(Point::new(pos[0], pos[1]));
+            let p = self
+                .state
+                .transform()
+                .transform_point(Point::new(pos[0], pos[1]));
             self.vertices.push(RectVertex::solid(
                 [p.x, p.y],
                 color,
@@ -3142,7 +3365,11 @@ impl Renderer for GpuRenderer {
 
         for (src, dest) in patches {
             // Skip patches with zero area
-            if src.width() <= 0.0 || src.height() <= 0.0 || dest.width() <= 0.0 || dest.height() <= 0.0 {
+            if src.width() <= 0.0
+                || src.height() <= 0.0
+                || dest.width() <= 0.0
+                || dest.height() <= 0.0
+            {
                 continue;
             }
 
@@ -3202,11 +3429,11 @@ mod tests {
             [0.0, 0.0],
             [100.0, 100.0],
             [0.0; 4],
-            [0.0, 0.0],   // start
-            [1.0, 0.0],   // end
-            0.0,          // stop0 offset
+            [0.0, 0.0], // start
+            [1.0, 0.0], // end
+            0.0,        // stop0 offset
             Color::RED,
-            1.0,          // stop1 offset
+            1.0, // stop1 offset
             Color::BLUE,
         );
         assert_eq!(vertex.gradient_info[0], PAINT_TYPE_LINEAR_GRADIENT as f32);
@@ -3219,11 +3446,11 @@ mod tests {
             [0.0, 0.0],
             [100.0, 100.0],
             [0.0; 4],
-            [0.5, 0.5],   // center
-            0.5,          // radius
-            0.0,          // stop0 offset
+            [0.5, 0.5], // center
+            0.5,        // radius
+            0.0,        // stop0 offset
             Color::WHITE,
-            1.0,          // stop1 offset
+            1.0, // stop1 offset
             Color::BLACK,
         );
         assert_eq!(vertex.gradient_info[0], PAINT_TYPE_RADIAL_GRADIENT as f32);

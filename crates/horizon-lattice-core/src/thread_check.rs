@@ -66,8 +66,8 @@
 //! }
 //! ```
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::ThreadId;
 
 /// Global storage for the main thread ID.
@@ -440,8 +440,8 @@ impl ThreadAffinity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     // Note: We can't easily test set_main_thread() since it's a OnceLock.
     // These tests focus on the other functionality.
@@ -476,7 +476,10 @@ mod tests {
         });
 
         handle.join().unwrap();
-        assert!(result.load(Ordering::SeqCst), "is_same_thread() should return false from different thread");
+        assert!(
+            result.load(Ordering::SeqCst),
+            "is_same_thread() should return false from different thread"
+        );
 
         // Verify we're back on the original thread
         assert_eq!(std::thread::current().id(), main_thread_id);
@@ -492,7 +495,10 @@ mod tests {
         .join();
 
         // The spawned thread should have panicked
-        assert!(result.is_err(), "Expected thread to panic with affinity violation");
+        assert!(
+            result.is_err(),
+            "Expected thread to panic with affinity violation"
+        );
     }
 
     #[test]

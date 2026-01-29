@@ -162,20 +162,13 @@ impl TouchInputHandler {
         // Create the touch point
         let point = if let Some(f) = force {
             TouchPoint::with_force(
-                touch.id,
-                window_pos, // local_pos will be calculated during dispatch
-                window_pos,
-                global,
-                phase,
-                f,
+                touch.id, window_pos, // local_pos will be calculated during dispatch
+                window_pos, global, phase, f,
             )
         } else {
             TouchPoint::new(
-                touch.id,
-                window_pos, // local_pos will be calculated during dispatch
-                window_pos,
-                global,
-                phase,
+                touch.id, window_pos, // local_pos will be calculated during dispatch
+                window_pos, global, phase,
             )
         };
 

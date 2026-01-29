@@ -273,9 +273,10 @@ impl PopupPlacement {
                 anchor_rect.origin.x + anchor_rect.size.width - popup_size.width,
                 anchor_rect.origin.y + anchor_rect.size.height,
             ),
-            PopupPlacement::AboveAlignLeft => {
-                Point::new(anchor_rect.origin.x, anchor_rect.origin.y - popup_size.height)
-            }
+            PopupPlacement::AboveAlignLeft => Point::new(
+                anchor_rect.origin.x,
+                anchor_rect.origin.y - popup_size.height,
+            ),
             PopupPlacement::AboveAlignRight => Point::new(
                 anchor_rect.origin.x + anchor_rect.size.width - popup_size.width,
                 anchor_rect.origin.y - popup_size.height,
@@ -311,23 +312,21 @@ impl PopupPlacement {
             PopupPlacement::Above
                 | PopupPlacement::AboveAlignLeft
                 | PopupPlacement::AboveAlignRight
-        ) {
-            if popup_rect.origin.y < bounds.origin.y {
+        )
+            && popup_rect.origin.y < bounds.origin.y {
                 // Flip to below
                 result.y = anchor_rect.origin.y + anchor_rect.size.height;
             }
-        }
 
         // Flip horizontally if needed
         if matches!(placement, PopupPlacement::Left) {
             if popup_rect.origin.x < bounds.origin.x {
                 result.x = anchor_rect.origin.x + anchor_rect.size.width;
             }
-        } else if matches!(placement, PopupPlacement::Right) {
-            if popup_rect.right() > bounds.right() {
+        } else if matches!(placement, PopupPlacement::Right)
+            && popup_rect.right() > bounds.right() {
                 result.x = anchor_rect.origin.x - popup_size.width;
             }
-        }
 
         // Shift to stay within bounds (after flipping)
         if result.x < bounds.origin.x {
@@ -447,7 +446,10 @@ impl Popup {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Preferred,
+        ));
         // Start hidden
         base.hide();
 
@@ -624,9 +626,9 @@ impl Popup {
     /// and applies flip/shift if available bounds are set.
     pub fn position_relative_to_rect(&mut self, anchor_rect: Rect) {
         let popup_size = self.base.size();
-        let pos =
-            self.placement
-                .calculate_position(anchor_rect, popup_size, self.available_bounds);
+        let pos = self
+            .placement
+            .calculate_position(anchor_rect, popup_size, self.available_bounds);
         self.base.set_pos(pos);
     }
 
@@ -788,13 +790,12 @@ impl Popup {
         }
 
         // Check close button
-        if let Some(button_rect) = self.close_button_rect() {
-            if button_rect.contains(pos) {
+        if let Some(button_rect) = self.close_button_rect()
+            && button_rect.contains(pos) {
                 self.close_button_state.pressed = true;
                 self.base.update();
                 return true;
             }
-        }
 
         false
     }
@@ -809,12 +810,11 @@ impl Popup {
         // Check close button release
         if self.close_button_state.pressed {
             self.close_button_state.pressed = false;
-            if let Some(button_rect) = self.close_button_rect() {
-                if button_rect.contains(pos) {
+            if let Some(button_rect) = self.close_button_rect()
+                && button_rect.contains(pos) {
                     self.close();
                     return true;
                 }
-            }
             self.base.update();
             return true;
         }

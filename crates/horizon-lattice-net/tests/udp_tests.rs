@@ -1,11 +1,13 @@
 //! Tests for UDP socket functionality.
 
 use std::net::{Ipv4Addr, SocketAddr};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
-use horizon_lattice_net::udp::{Datagram, MulticastConfig, UdpSocket, UdpSocketConfig, UdpSocketState};
+use horizon_lattice_net::udp::{
+    Datagram, MulticastConfig, UdpSocket, UdpSocketConfig, UdpSocketState,
+};
 
 #[test]
 fn test_config_builder() {
@@ -40,7 +42,10 @@ fn test_multicast_config() {
 
     assert_eq!(config.groups.len(), 2);
     assert_eq!(config.groups[0], (multicast_addr, None));
-    assert_eq!(config.groups[1], ("239.255.0.2".parse().unwrap(), Some(interface)));
+    assert_eq!(
+        config.groups[1],
+        ("239.255.0.2".parse().unwrap(), Some(interface))
+    );
     assert!(config.loopback);
     assert_eq!(config.ttl, 5);
 }
@@ -192,12 +197,10 @@ async fn test_bidirectional_communication() {
     let socket2_config = UdpSocketConfig::new("127.0.0.1", 0);
     let socket2 = UdpSocket::new(socket2_config);
 
-    let received1: Arc<parking_lot::Mutex<Vec<u8>>> =
-        Arc::new(parking_lot::Mutex::new(Vec::new()));
+    let received1: Arc<parking_lot::Mutex<Vec<u8>>> = Arc::new(parking_lot::Mutex::new(Vec::new()));
     let received1_clone = received1.clone();
 
-    let received2: Arc<parking_lot::Mutex<Vec<u8>>> =
-        Arc::new(parking_lot::Mutex::new(Vec::new()));
+    let received2: Arc<parking_lot::Mutex<Vec<u8>>> = Arc::new(parking_lot::Mutex::new(Vec::new()));
     let received2_clone = received2.clone();
 
     socket1.datagram_received.connect(move |datagram| {
@@ -268,7 +271,9 @@ async fn test_datagram_sent_signal() {
 
     // Send data (to a random port, doesn't matter if it's received)
     let test_data = b"Test message";
-    socket.send_to(test_data, "127.0.0.1:9999".parse().unwrap()).unwrap();
+    socket
+        .send_to(test_data, "127.0.0.1:9999".parse().unwrap())
+        .unwrap();
 
     // Wait for sent signal
     for _ in 0..100 {
@@ -319,8 +324,7 @@ async fn test_close_signal() {
 
 #[tokio::test]
 async fn test_broadcast_send() {
-    let config = UdpSocketConfig::new("127.0.0.1", 0)
-        .broadcast(true);
+    let config = UdpSocketConfig::new("127.0.0.1", 0).broadcast(true);
 
     let socket = UdpSocket::new(config);
     socket.bind();
@@ -369,7 +373,9 @@ async fn test_multiple_datagrams() {
 
     // Send multiple datagrams
     for i in 0..5 {
-        sender.send_to(format!("Message {}", i).as_bytes(), receiver_addr).unwrap();
+        sender
+            .send_to(format!("Message {}", i).as_bytes(), receiver_addr)
+            .unwrap();
     }
 
     // Wait for all to be received

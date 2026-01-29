@@ -236,11 +236,7 @@ impl FontSystem {
     pub fn face_info(&self, face_id: FontFaceId) -> Option<FontFaceInfo> {
         self.inner.db().face(face_id).map(|face| FontFaceInfo {
             id: face.id,
-            families: face
-                .families
-                .iter()
-                .map(|(name, _)| name.clone())
-                .collect(),
+            families: face.families.iter().map(|(name, _)| name.clone()).collect(),
             weight: FontWeight::from_fontdb(face.weight),
             style: FontStyle::from_fontdb(face.style),
             stretch: FontStretch::from_fontdb(face.stretch),
@@ -263,7 +259,10 @@ impl FontSystem {
                         ascent: face.ascender(),
                         descent: face.descender(),
                         line_gap: face.line_gap(),
-                        underline_position: face.underline_metrics().map(|m| m.position).unwrap_or(0),
+                        underline_position: face
+                            .underline_metrics()
+                            .map(|m| m.position)
+                            .unwrap_or(0),
                         underline_thickness: face
                             .underline_metrics()
                             .map(|m| m.thickness)
@@ -287,11 +286,7 @@ impl FontSystem {
     pub fn faces(&self) -> impl Iterator<Item = FontFaceInfo> + '_ {
         self.inner.db().faces().map(|face| FontFaceInfo {
             id: face.id,
-            families: face
-                .families
-                .iter()
-                .map(|(name, _)| name.clone())
-                .collect(),
+            families: face.families.iter().map(|(name, _)| name.clone()).collect(),
             weight: FontWeight::from_fontdb(face.weight),
             style: FontStyle::from_fontdb(face.style),
             stretch: FontStretch::from_fontdb(face.stretch),

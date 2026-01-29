@@ -1,6 +1,6 @@
 //! Selector matching algorithm.
 
-use super::{Selector, SelectorPart, TypeSelector, PseudoClass, Combinator};
+use super::{Combinator, PseudoClass, Selector, SelectorPart, TypeSelector};
 
 /// Widget state for selector matching.
 #[derive(Debug, Clone, Default)]
@@ -126,18 +126,13 @@ impl SelectorMatcher {
             PseudoClass::Checked => context.state.checked == Some(true),
             PseudoClass::Unchecked => context.state.checked == Some(false),
 
-            PseudoClass::FirstChild => {
-                context.sibling_info.map(|s| s.is_first()).unwrap_or(false)
-            }
-            PseudoClass::LastChild => {
-                context.sibling_info.map(|s| s.is_last()).unwrap_or(false)
-            }
-            PseudoClass::OnlyChild => {
-                context.sibling_info.map(|s| s.is_only()).unwrap_or(false)
-            }
-            PseudoClass::NthChild(expr) => {
-                context.sibling_info.map(|s| expr.matches(s.index)).unwrap_or(false)
-            }
+            PseudoClass::FirstChild => context.sibling_info.map(|s| s.is_first()).unwrap_or(false),
+            PseudoClass::LastChild => context.sibling_info.map(|s| s.is_last()).unwrap_or(false),
+            PseudoClass::OnlyChild => context.sibling_info.map(|s| s.is_only()).unwrap_or(false),
+            PseudoClass::NthChild(expr) => context
+                .sibling_info
+                .map(|s| expr.matches(s.index))
+                .unwrap_or(false),
             PseudoClass::Empty => context.child_count == 0,
 
             PseudoClass::Not(inner) => !Self::part_matches(inner, context),
@@ -146,6 +141,7 @@ impl SelectorMatcher {
 }
 
 /// Trait for providing ancestor context for selector matching.
+#[allow(dead_code)] // Public API for CSS combinator matching
 pub trait AncestorProvider {
     /// Get the parent's match context, if any.
     fn parent_context(&self) -> Option<WidgetMatchContext<'_>>;
@@ -164,6 +160,7 @@ pub trait AncestorProvider {
 ///
 /// This walks the selector from right to left, checking each part
 /// against the widget and its ancestors/siblings based on combinators.
+#[allow(dead_code)] // Public API for CSS combinator matching
 pub fn matches_full<A: AncestorProvider>(
     selector: &Selector,
     context: &WidgetMatchContext<'_>,
@@ -368,9 +365,9 @@ mod tests {
         let context = make_context("Button", &classes, state);
 
         // :not(.primary) should match because widget has no classes
-        let part = SelectorPart::new().with_pseudo(PseudoClass::Not(
-            Box::new(SelectorPart::class_only("primary"))
-        ));
+        let part = SelectorPart::new().with_pseudo(PseudoClass::Not(Box::new(
+            SelectorPart::class_only("primary"),
+        )));
         assert!(SelectorMatcher::part_matches(&part, &context));
 
         // Add the class

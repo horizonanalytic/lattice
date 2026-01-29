@@ -412,8 +412,7 @@ mod tests {
             .descendant(SelectorPart::class_only("primary").with_pseudo(PseudoClass::Hover));
         assert_eq!(sel.to_string(), "Button .primary:hover");
 
-        let sel = Selector::type_selector("Container")
-            .child(SelectorPart::type_only("Label"));
+        let sel = Selector::type_selector("Container").child(SelectorPart::type_only("Label"));
         assert_eq!(sel.to_string(), "Container > Label");
     }
 
@@ -432,21 +431,21 @@ mod tests {
         let expr = NthExpr::new(0, 3);
         assert!(!expr.matches(0)); // 1st child
         assert!(!expr.matches(1)); // 2nd child
-        assert!(expr.matches(2));  // 3rd child
+        assert!(expr.matches(2)); // 3rd child
         assert!(!expr.matches(3)); // 4th child
 
         // :nth-child(odd) = 2n+1
         let expr = NthExpr::odd();
-        assert!(expr.matches(0));  // 1st child
+        assert!(expr.matches(0)); // 1st child
         assert!(!expr.matches(1)); // 2nd child
-        assert!(expr.matches(2));  // 3rd child
+        assert!(expr.matches(2)); // 3rd child
         assert!(!expr.matches(3)); // 4th child
 
         // :nth-child(even) = 2n
         let expr = NthExpr::even();
         assert!(!expr.matches(0)); // 1st child
-        assert!(expr.matches(1));  // 2nd child
+        assert!(expr.matches(1)); // 2nd child
         assert!(!expr.matches(2)); // 3rd child
-        assert!(expr.matches(3));  // 4th child
+        assert!(expr.matches(3)); // 4th child
     }
 }

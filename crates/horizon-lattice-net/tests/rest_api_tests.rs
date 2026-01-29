@@ -1,7 +1,7 @@
 //! Tests for REST API client helpers.
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use horizon_lattice_net::http::{
@@ -46,10 +46,7 @@ fn test_rest_api_request_builder() {
     assert_eq!(request.url, "https://api.example.com/users");
 
     // Test POST with query params
-    let request = client
-        .post("/users")
-        .query("include", "profile")
-        .build();
+    let request = client.post("/users").query("include", "profile").build();
     assert_eq!(request.url, "https://api.example.com/users");
     assert_eq!(request.query.len(), 1);
 }
@@ -87,10 +84,7 @@ fn test_auth_override() {
         .expect("Failed to build client");
 
     // Override auth on request
-    let request = client
-        .get("/users")
-        .bearer_auth("override-token")
-        .build();
+    let request = client.get("/users").bearer_auth("override-token").build();
 
     // The override token should be used
     match request.auth {
@@ -221,7 +215,10 @@ fn test_json_body() {
         }))
         .build();
 
-    matches!(request.body, horizon_lattice_net::http::RequestBody::Json(_));
+    matches!(
+        request.body,
+        horizon_lattice_net::http::RequestBody::Json(_)
+    );
 }
 
 #[test]

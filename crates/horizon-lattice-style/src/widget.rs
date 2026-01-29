@@ -3,9 +3,9 @@
 //! This module provides traits and helpers for integrating the style system
 //! with widgets.
 
+use crate::style::{ComputedStyle, StyleProperties};
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::{Color, CornerRadii, Rect};
-use crate::style::{StyleProperties, ComputedStyle};
 
 /// Trait for widgets that support CSS-like styling.
 ///
@@ -177,8 +177,10 @@ pub fn paint_background(ctx: &mut dyn StylePaintContext, rect: Rect, style: &Com
 
     let radii = style.border_radius;
 
-    if radii.top_left == 0.0 && radii.top_right == 0.0
-        && radii.bottom_left == 0.0 && radii.bottom_right == 0.0
+    if radii.top_left == 0.0
+        && radii.top_right == 0.0
+        && radii.bottom_left == 0.0
+        && radii.bottom_right == 0.0
     {
         ctx.fill_rect(rect, bg_color);
     } else {
@@ -210,8 +212,10 @@ pub fn paint_border(ctx: &mut dyn StylePaintContext, rect: Rect, style: &Compute
         rect.height() - width,
     );
 
-    if radii.top_left == 0.0 && radii.top_right == 0.0
-        && radii.bottom_left == 0.0 && radii.bottom_right == 0.0
+    if radii.top_left == 0.0
+        && radii.top_right == 0.0
+        && radii.bottom_left == 0.0
+        && radii.bottom_right == 0.0
     {
         ctx.stroke_rect(border_rect, color, width);
     } else {
@@ -279,11 +283,19 @@ pub fn content_rect(rect: Rect, style: &ComputedStyle) -> Rect {
 ///
 /// This is the inverse of `content_rect` - given the desired content size,
 /// calculate the outer box size.
-pub fn border_box_size(content_width: f32, content_height: f32, style: &ComputedStyle) -> (f32, f32) {
-    let h_space = style.padding_left + style.padding_right
-        + style.border_left_width + style.border_right_width;
-    let v_space = style.padding_top + style.padding_bottom
-        + style.border_top_width + style.border_bottom_width;
+pub fn border_box_size(
+    content_width: f32,
+    content_height: f32,
+    style: &ComputedStyle,
+) -> (f32, f32) {
+    let h_space = style.padding_left
+        + style.padding_right
+        + style.border_left_width
+        + style.border_right_width;
+    let v_space = style.padding_top
+        + style.padding_bottom
+        + style.border_top_width
+        + style.border_bottom_width;
 
     (content_width + h_space, content_height + v_space)
 }

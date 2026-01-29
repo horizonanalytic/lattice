@@ -56,7 +56,10 @@ use std::sync::Arc;
 
 use horizon_lattice_core::Signal;
 use parking_lot::RwLock;
-use tray_icon::menu::{CheckMenuItem, ContextMenu, Menu as TrayIconMenu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu};
+use tray_icon::menu::{
+    CheckMenuItem, ContextMenu, Menu as TrayIconMenu, MenuEvent, MenuId, MenuItem,
+    PredefinedMenuItem, Submenu,
+};
 use tray_icon::{Icon, MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
 use super::Action;
@@ -428,10 +431,10 @@ impl SystemTrayIcon {
             match &menu {
                 Some(m) => {
                     let menu_clone = m.inner().clone();
-                    let _ = tray.set_menu(Some(Box::new(menu_clone) as Box<dyn ContextMenu>));
+                    tray.set_menu(Some(Box::new(menu_clone) as Box<dyn ContextMenu>));
                 }
                 None => {
-                    let _ = tray.set_menu(None::<Box<dyn ContextMenu>>);
+                    tray.set_menu(None::<Box<dyn ContextMenu>>);
                 }
             }
         }

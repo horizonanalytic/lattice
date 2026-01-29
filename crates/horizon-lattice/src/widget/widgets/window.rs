@@ -152,9 +152,8 @@ impl WindowFlags {
     );
 
     /// Flags for a dialog-style window (title bar, close button, movable, not resizable).
-    pub const DIALOG: WindowFlags = WindowFlags(
-        Self::CLOSE_BUTTON.0 | Self::MOVABLE.0 | Self::TITLE_BAR.0 | Self::BORDER.0,
-    );
+    pub const DIALOG: WindowFlags =
+        WindowFlags(Self::CLOSE_BUTTON.0 | Self::MOVABLE.0 | Self::TITLE_BAR.0 | Self::BORDER.0);
 
     /// Flags for a tool window (small title bar, close button, movable).
     pub const TOOL: WindowFlags =
@@ -599,7 +598,10 @@ impl Window {
     pub fn new(title: impl Into<String>) -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::ClickFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Preferred,
+        ));
 
         Self {
             base,
@@ -1197,11 +1199,7 @@ impl Window {
     /// // Register Ctrl+S to trigger the save button
     /// window.register_shortcut(KeySequence::ctrl(Key::S), save_button_id);
     /// ```
-    pub fn register_shortcut(
-        &mut self,
-        shortcut: crate::widget::KeySequence,
-        button_id: ObjectId,
-    ) {
+    pub fn register_shortcut(&mut self, shortcut: crate::widget::KeySequence, button_id: ObjectId) {
         self.shortcut_registry
             .entry(shortcut)
             .or_default()
@@ -1247,10 +1245,7 @@ impl Window {
     ///
     /// Returns `Some(ObjectId)` if there's a button registered for this shortcut,
     /// `None` otherwise.
-    fn get_shortcut_target(
-        &mut self,
-        shortcut: &crate::widget::KeySequence,
-    ) -> Option<ObjectId> {
+    fn get_shortcut_target(&mut self, shortcut: &crate::widget::KeySequence) -> Option<ObjectId> {
         // Get button count first to avoid borrow issues
         let num_buttons = self
             .shortcut_registry
@@ -1264,7 +1259,11 @@ impl Window {
 
         let index = if self.last_shortcut.as_ref() == Some(shortcut) {
             // Same shortcut pressed again - cycle to next
-            let current = self.shortcut_cycle_state.get(shortcut).copied().unwrap_or(0);
+            let current = self
+                .shortcut_cycle_state
+                .get(shortcut)
+                .copied()
+                .unwrap_or(0);
             (current + 1) % num_buttons
         } else {
             // Different shortcut - start at first match
@@ -1714,21 +1713,18 @@ impl Window {
 
     /// Check which button is at the given position.
     fn hit_test_button(&self, pos: Point) -> Option<TitleBarButton> {
-        if let Some(close_rect) = self.close_button_rect() {
-            if close_rect.contains(pos) {
+        if let Some(close_rect) = self.close_button_rect()
+            && close_rect.contains(pos) {
                 return Some(TitleBarButton::Close);
             }
-        }
-        if let Some(max_rect) = self.maximize_button_rect() {
-            if max_rect.contains(pos) {
+        if let Some(max_rect) = self.maximize_button_rect()
+            && max_rect.contains(pos) {
                 return Some(TitleBarButton::Maximize);
             }
-        }
-        if let Some(min_rect) = self.minimize_button_rect() {
-            if min_rect.contains(pos) {
+        if let Some(min_rect) = self.minimize_button_rect()
+            && min_rect.contains(pos) {
                 return Some(TitleBarButton::Minimize);
             }
-        }
         None
     }
 
@@ -1808,33 +1804,30 @@ impl Window {
         // Check button releases
         if self.close_button_state.pressed {
             self.close_button_state.pressed = false;
-            if let Some(rect) = self.close_button_rect() {
-                if rect.contains(pos) {
+            if let Some(rect) = self.close_button_rect()
+                && rect.contains(pos) {
                     self.close();
                 }
-            }
             self.base.update();
             return true;
         }
 
         if self.maximize_button_state.pressed {
             self.maximize_button_state.pressed = false;
-            if let Some(rect) = self.maximize_button_rect() {
-                if rect.contains(pos) {
+            if let Some(rect) = self.maximize_button_rect()
+                && rect.contains(pos) {
                     self.toggle_maximize();
                 }
-            }
             self.base.update();
             return true;
         }
 
         if self.minimize_button_state.pressed {
             self.minimize_button_state.pressed = false;
-            if let Some(rect) = self.minimize_button_rect() {
-                if rect.contains(pos) {
+            if let Some(rect) = self.minimize_button_rect()
+                && rect.contains(pos) {
                     self.minimize();
                 }
-            }
             self.base.update();
             return true;
         }
@@ -1961,8 +1954,10 @@ impl Window {
                     // Vertical edges: height is primary
                     ResizeEdge::Top | ResizeEdge::Bottom => (false, false),
                     // Corners: use width as primary (more intuitive for most users)
-                    ResizeEdge::TopLeft | ResizeEdge::TopRight |
-                    ResizeEdge::BottomLeft | ResizeEdge::BottomRight => (true, true),
+                    ResizeEdge::TopLeft
+                    | ResizeEdge::TopRight
+                    | ResizeEdge::BottomLeft
+                    | ResizeEdge::BottomRight => (true, true),
                     ResizeEdge::None => (true, false),
                 };
 
@@ -2033,7 +2028,8 @@ impl Window {
                 }
             }
 
-            self.base.set_geometry(Rect::new(new_x, new_y, new_width, new_height));
+            self.base
+                .set_geometry(Rect::new(new_x, new_y, new_width, new_height));
             if self.state == WindowState::Normal {
                 self.normal_geometry = Rect::new(new_x, new_y, new_width, new_height);
             }
@@ -2085,12 +2081,11 @@ impl Window {
 
         // Handle Enter key for default button activation
         // This handles Enter at the window level when no focused widget consumed it
-        if event.key == Key::Enter && !event.is_repeat {
-            if let Some(button_id) = self.default_button {
+        if event.key == Key::Enter && !event.is_repeat
+            && let Some(button_id) = self.default_button {
                 self.default_button_activated.emit(button_id);
                 return true;
             }
-        }
 
         // Handle Alt key press - show mnemonic underlines
         if matches!(event.key, Key::AltLeft | Key::AltRight) {
@@ -2103,13 +2098,12 @@ impl Window {
         }
 
         // Handle Alt+key mnemonic activation
-        if event.modifiers.alt {
-            if let Some(key_char) = event.key.to_ascii_char() {
+        if event.modifiers.alt
+            && let Some(key_char) = event.key.to_ascii_char() {
                 // Emit signal for mnemonic dispatch
                 self.mnemonic_key_pressed.emit(key_char);
                 return true; // Consume the Alt+key event
             }
-        }
 
         false
     }
@@ -2119,14 +2113,13 @@ impl Window {
         if matches!(event.key, Key::AltLeft | Key::AltRight) {
             // Only hide if no Alt keys remain pressed
             // (Check modifiers to see if Alt is still held via the other Alt key)
-            if !event.modifiers.alt {
-                if self.alt_held {
+            if !event.modifiers.alt
+                && self.alt_held {
                     self.alt_held = false;
                     self.reset_mnemonic_cycle();
                     // Trigger repaint of window to hide mnemonic underlines
                     self.base.update();
                 }
-            }
             return false; // Don't consume the Alt key event
         }
 
@@ -2272,7 +2265,8 @@ impl Window {
 
     fn paint_content_area(&self, ctx: &mut PaintContext<'_>) {
         let content_rect = self.content_rect();
-        ctx.renderer().fill_rect(content_rect, self.content_background);
+        ctx.renderer()
+            .fill_rect(content_rect, self.content_background);
     }
 }
 
@@ -2442,7 +2436,7 @@ mod tests {
     #[test]
     fn test_set_default_button() {
         use crate::widget::widgets::PushButton;
-        use horizon_lattice_core::{init_global_registry, Object};
+        use horizon_lattice_core::{Object, init_global_registry};
         init_global_registry();
 
         let mut window = Window::new("Test Window");
@@ -2459,7 +2453,7 @@ mod tests {
     #[test]
     fn test_default_button_builder() {
         use crate::widget::widgets::PushButton;
-        use horizon_lattice_core::{init_global_registry, Object};
+        use horizon_lattice_core::{Object, init_global_registry};
         init_global_registry();
 
         let button = PushButton::new("OK");
@@ -2612,8 +2606,8 @@ mod tests {
     #[test]
     fn test_close_requested_signal_emitted_on_accepted_close() {
         use horizon_lattice_core::init_global_registry;
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
         init_global_registry();
 
         let mut window = Window::new("Test Window");
@@ -2631,8 +2625,8 @@ mod tests {
     #[test]
     fn test_close_requested_signal_not_emitted_on_vetoed_close() {
         use horizon_lattice_core::init_global_registry;
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
         init_global_registry();
 
         let mut window = Window::new("Test Window");
@@ -2687,14 +2681,12 @@ mod tests {
         init_global_registry();
 
         // Build with 4:3 aspect ratio
-        let window = Window::new("Test")
-            .with_aspect_ratio(4.0 / 3.0);
+        let window = Window::new("Test").with_aspect_ratio(4.0 / 3.0);
         let ratio = window.aspect_ratio().unwrap();
         assert!((ratio - 1.333).abs() < 0.01);
 
         // Build with square aspect ratio
-        let window = Window::new("Square")
-            .with_aspect_ratio(1.0);
+        let window = Window::new("Square").with_aspect_ratio(1.0);
         assert_eq!(window.aspect_ratio(), Some(1.0));
     }
 
@@ -2726,8 +2718,8 @@ mod tests {
     fn test_window_resized_signal_emitted_on_event() {
         use crate::widget::{ResizeEvent, Widget, WidgetEvent};
         use horizon_lattice_core::init_global_registry;
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
         init_global_registry();
 
         let mut window = Window::new("Test Window");
@@ -2751,8 +2743,8 @@ mod tests {
     fn test_window_moved_signal_emitted_on_event() {
         use crate::widget::{MoveEvent, Widget, WidgetEvent};
         use horizon_lattice_core::init_global_registry;
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
         init_global_registry();
 
         let mut window = Window::new("Test Window");
@@ -2775,8 +2767,8 @@ mod tests {
     #[test]
     fn test_window_state_changed_signal_emitted() {
         use horizon_lattice_core::init_global_registry;
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
         init_global_registry();
 
         let mut window = Window::new("Test Window");
@@ -2797,8 +2789,8 @@ mod tests {
     fn test_window_activated_signal_emitted() {
         use crate::widget::{FocusInEvent, FocusReason, Widget, WidgetEvent};
         use horizon_lattice_core::init_global_registry;
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
         init_global_registry();
 
         let mut window = Window::new("Test Window");
@@ -2820,8 +2812,8 @@ mod tests {
     fn test_window_deactivated_signal_emitted() {
         use crate::widget::{FocusOutEvent, FocusReason, Widget, WidgetEvent};
         use horizon_lattice_core::init_global_registry;
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
         init_global_registry();
 
         let mut window = Window::new("Test Window");

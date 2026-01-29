@@ -126,8 +126,12 @@ impl Spacer {
     /// Create a spacer with minimum size that can expand.
     pub fn minimum_expanding(min_width: f32, min_height: f32) -> Self {
         let mut spacer = Self::new(min_width, min_height, true, true);
-        spacer.base.set_horizontal_policy(SizePolicy::MinimumExpanding);
-        spacer.base.set_vertical_policy(SizePolicy::MinimumExpanding);
+        spacer
+            .base
+            .set_horizontal_policy(SizePolicy::MinimumExpanding);
+        spacer
+            .base
+            .set_vertical_policy(SizePolicy::MinimumExpanding);
         spacer
     }
 

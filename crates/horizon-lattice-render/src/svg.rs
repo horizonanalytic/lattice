@@ -95,9 +95,8 @@ impl SvgImage {
     /// let svg = SvgImage::from_file("assets/icons/menu.svg")?;
     /// ```
     pub fn from_file(path: impl AsRef<Path>) -> RenderResult<Self> {
-        let data = std::fs::read(path.as_ref()).map_err(|e| {
-            RenderError::ImageLoad(format!("Failed to read SVG file: {}", e))
-        })?;
+        let data = std::fs::read(path.as_ref())
+            .map_err(|e| RenderError::ImageLoad(format!("Failed to read SVG file: {}", e)))?;
         Self::from_bytes(&data)
     }
 
@@ -122,9 +121,8 @@ impl SvgImage {
         let options = usvg::Options::default();
 
         // Parse the SVG
-        let tree = usvg::Tree::from_data(data, &options).map_err(|e| {
-            RenderError::ImageLoad(format!("Failed to parse SVG: {}", e))
-        })?;
+        let tree = usvg::Tree::from_data(data, &options)
+            .map_err(|e| RenderError::ImageLoad(format!("Failed to parse SVG: {}", e)))?;
 
         // Get the natural size from the SVG viewBox or dimensions
         let size = tree.size();
@@ -473,10 +471,10 @@ mod tests {
 
         // Center pixel should be red (circle is at center)
         let center_idx = (24 * 48 + 24) * 4;
-        assert!(rgba[center_idx] > 200, "Red channel should be high");  // R
-        assert!(rgba[center_idx + 1] < 50, "Green channel should be low");  // G
-        assert!(rgba[center_idx + 2] < 50, "Blue channel should be low");  // B
-        assert!(rgba[center_idx + 3] > 200, "Alpha should be opaque");  // A
+        assert!(rgba[center_idx] > 200, "Red channel should be high"); // R
+        assert!(rgba[center_idx + 1] < 50, "Green channel should be low"); // G
+        assert!(rgba[center_idx + 2] < 50, "Blue channel should be low"); // B
+        assert!(rgba[center_idx + 3] > 200, "Alpha should be opaque"); // A
     }
 
     #[test]

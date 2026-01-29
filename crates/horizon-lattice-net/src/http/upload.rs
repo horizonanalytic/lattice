@@ -48,8 +48,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use horizon_lattice_core::Signal;
 use parking_lot::Mutex;
@@ -268,11 +268,10 @@ impl UploadManager {
 
         // Add filename to metadata if not present
         let mut metadata = metadata;
-        if !metadata.contains_key("filename") {
-            if let Some(name) = file_path.file_name() {
+        if !metadata.contains_key("filename")
+            && let Some(name) = file_path.file_name() {
                 metadata.insert("filename".to_string(), name.to_string_lossy().to_string());
             }
-        }
 
         let task = UploadTask {
             file_path: file_path.clone(),
@@ -337,8 +336,8 @@ impl UploadManager {
     /// Returns `true` if the upload was paused, `false` if it was not in a pausable state.
     pub fn pause(&self, id: UploadId) -> bool {
         let mut uploads = self.uploads.lock();
-        if let Some(task) = uploads.get_mut(&id) {
-            if matches!(task.state, UploadState::Creating | UploadState::Uploading) {
+        if let Some(task) = uploads.get_mut(&id)
+            && matches!(task.state, UploadState::Creating | UploadState::Uploading) {
                 // Send cancel signal to stop the current upload
                 if let Some(tx) = task.cancel_tx.take() {
                     let _ = tx.send(());
@@ -348,7 +347,6 @@ impl UploadManager {
                 self.event.emit(UploadEvent::Paused { id });
                 return true;
             }
-        }
         false
     }
 
@@ -357,8 +355,8 @@ impl UploadManager {
     /// Returns `true` if the upload was resumed, `false` if it was not in a resumable state.
     pub fn resume(&self, id: UploadId) -> bool {
         let mut uploads = self.uploads.lock();
-        if let Some(task) = uploads.get_mut(&id) {
-            if task.state == UploadState::Paused {
+        if let Some(task) = uploads.get_mut(&id)
+            && task.state == UploadState::Paused {
                 let (cancel_tx, cancel_rx) = oneshot::channel();
                 task.cancel_tx = Some(cancel_tx);
                 task.state = UploadState::Pending;
@@ -369,7 +367,6 @@ impl UploadManager {
                 self.spawn_upload_task(id, cancel_rx);
                 return true;
             }
-        }
         false
     }
 
@@ -378,8 +375,8 @@ impl UploadManager {
     /// Returns `true` if the upload was cancelled.
     pub fn cancel(&self, id: UploadId) -> bool {
         let mut uploads = self.uploads.lock();
-        if let Some(task) = uploads.get_mut(&id) {
-            if matches!(
+        if let Some(task) = uploads.get_mut(&id)
+            && matches!(
                 task.state,
                 UploadState::Pending
                     | UploadState::Creating
@@ -395,7 +392,6 @@ impl UploadManager {
                 self.event.emit(UploadEvent::Cancelled { id });
                 return true;
             }
-        }
         false
     }
 
@@ -416,21 +412,23 @@ impl UploadManager {
     ///
     /// Returns `None` if the upload hasn't been created yet or if it's not a Tus upload.
     pub fn upload_url(&self, id: UploadId) -> Option<String> {
-        self.uploads.lock().get(&id).and_then(|t| t.upload_url.clone())
+        self.uploads
+            .lock()
+            .get(&id)
+            .and_then(|t| t.upload_url.clone())
     }
 
     /// Remove a completed, failed, or cancelled upload from the manager.
     pub fn remove(&self, id: UploadId) -> bool {
         let mut uploads = self.uploads.lock();
-        if let Some(task) = uploads.get(&id) {
-            if matches!(
+        if let Some(task) = uploads.get(&id)
+            && matches!(
                 task.state,
                 UploadState::Completed | UploadState::Failed | UploadState::Cancelled
             ) {
                 uploads.remove(&id);
                 return true;
             }
-        }
         false
     }
 
@@ -504,9 +502,9 @@ impl UploadManager {
         // Get task info
         let (file_path, endpoint_url, upload_url, total_bytes, metadata) = {
             let uploads = uploads.lock();
-            let task = uploads.get(&id).ok_or_else(|| {
-                NetworkError::InvalidBody("Upload task not found".to_string())
-            })?;
+            let task = uploads
+                .get(&id)
+                .ok_or_else(|| NetworkError::InvalidBody("Upload task not found".to_string()))?;
             (
                 task.file_path.clone(),
                 task.endpoint_url.clone(),
@@ -519,13 +517,20 @@ impl UploadManager {
         // Step 1: Create upload resource if we don't have an upload URL
         let upload_url = if let Some(url) = upload_url {
             // Update state
-            uploads.lock().get_mut(&id).map(|t| t.state = UploadState::Uploading);
+            uploads
+                .lock()
+                .get_mut(&id)
+                .map(|t| t.state = UploadState::Uploading);
             url
         } else {
             // Update state to creating
-            uploads.lock().get_mut(&id).map(|t| t.state = UploadState::Creating);
+            uploads
+                .lock()
+                .get_mut(&id)
+                .map(|t| t.state = UploadState::Creating);
 
-            let url = Self::create_tus_upload(client, &endpoint_url, total_bytes, &metadata).await?;
+            let url =
+                Self::create_tus_upload(client, &endpoint_url, total_bytes, &metadata).await?;
 
             // Store upload URL
             uploads.lock().get_mut(&id).map(|t| {
@@ -540,7 +545,10 @@ impl UploadManager {
         let current_offset = Self::get_tus_offset(client, &upload_url).await?;
 
         // Update bytes_uploaded
-        uploads.lock().get_mut(&id).map(|t| t.bytes_uploaded = current_offset);
+        uploads
+            .lock()
+            .get_mut(&id)
+            .map(|t| t.bytes_uploaded = current_offset);
 
         if current_offset > 0 {
             emit_progress(current_offset, total_bytes);
@@ -566,12 +574,16 @@ impl UploadManager {
             file.read_exact(chunk_buffer)?;
 
             // Upload chunk
-            let new_offset = Self::upload_tus_chunk(client, &upload_url, offset, chunk_buffer).await?;
+            let new_offset =
+                Self::upload_tus_chunk(client, &upload_url, offset, chunk_buffer).await?;
 
             offset = new_offset;
 
             // Update progress
-            uploads.lock().get_mut(&id).map(|t| t.bytes_uploaded = offset);
+            uploads
+                .lock()
+                .get_mut(&id)
+                .map(|t| t.bytes_uploaded = offset);
             emit_progress(offset, total_bytes);
         }
 
@@ -596,7 +608,8 @@ impl UploadManager {
                 .iter()
                 .map(|(k, v)| {
                     use base64::Engine;
-                    let encoded_value = base64::engine::general_purpose::STANDARD.encode(v.as_bytes());
+                    let encoded_value =
+                        base64::engine::general_purpose::STANDARD.encode(v.as_bytes());
                     format!("{} {}", k, encoded_value)
                 })
                 .collect();
@@ -639,9 +652,7 @@ impl UploadManager {
         response
             .header("Upload-Offset")
             .and_then(|s| s.parse().ok())
-            .ok_or_else(|| {
-                NetworkError::InvalidBody("Missing Upload-Offset header".to_string())
-            })
+            .ok_or_else(|| NetworkError::InvalidBody("Missing Upload-Offset header".to_string()))
     }
 
     /// Upload a chunk of data.
@@ -672,7 +683,9 @@ impl UploadManager {
             .header("Upload-Offset")
             .and_then(|s| s.parse().ok())
             .ok_or_else(|| {
-                NetworkError::InvalidBody("Missing Upload-Offset header in chunk response".to_string())
+                NetworkError::InvalidBody(
+                    "Missing Upload-Offset header in chunk response".to_string(),
+                )
             })
     }
 }

@@ -229,11 +229,7 @@ impl GrpcStatus {
 
     /// Convert to a Result.
     pub fn to_result<T>(self, value: T) -> Result<T, Self> {
-        if self.is_ok() {
-            Ok(value)
-        } else {
-            Err(self)
-        }
+        if self.is_ok() { Ok(value) } else { Err(self) }
     }
 }
 

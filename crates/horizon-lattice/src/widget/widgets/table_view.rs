@@ -36,14 +36,14 @@ use crate::model::{
     Orientation, SelectionBehavior, SelectionFlags, SelectionMode, SelectionModel,
     StyleOptionViewItem, ViewItemFeatures, ViewItemState,
 };
+use crate::widget::drag_drop::{
+    DragData, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DropAction, DropEvent,
+    DropIndicatorState, DropPosition,
+};
 use crate::widget::{
     ContextMenuEvent, FocusPolicy, Key, KeyPressEvent, MouseButton, MouseMoveEvent,
     MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair,
     WheelEvent, Widget, WidgetBase, WidgetEvent,
-};
-use crate::widget::drag_drop::{
-    DragData, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DropAction, DropEvent,
-    DropIndicatorState, DropPosition,
 };
 
 use super::header_view::{HeaderView, SortOrder};
@@ -210,7 +210,10 @@ impl TableView {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         let mut selection_model = SelectionModel::new();
         selection_model.set_selection_behavior(SelectionBehavior::SelectRows);
@@ -613,7 +616,9 @@ impl TableView {
             // Configure whether we accept drops based on the mode
             let accepts_drops = matches!(
                 mode,
-                TableDragDropMode::DropOnly | TableDragDropMode::DragDrop | TableDragDropMode::InternalMove
+                TableDragDropMode::DropOnly
+                    | TableDragDropMode::DragDrop
+                    | TableDragDropMode::InternalMove
             );
             self.base.set_accepts_drops(accepts_drops);
         }
@@ -623,7 +628,9 @@ impl TableView {
     pub fn drag_enabled(&self) -> bool {
         matches!(
             self.drag_drop_mode,
-            TableDragDropMode::DragOnly | TableDragDropMode::DragDrop | TableDragDropMode::InternalMove
+            TableDragDropMode::DragOnly
+                | TableDragDropMode::DragDrop
+                | TableDragDropMode::InternalMove
         )
     }
 
@@ -631,7 +638,9 @@ impl TableView {
     pub fn drop_enabled(&self) -> bool {
         matches!(
             self.drag_drop_mode,
-            TableDragDropMode::DropOnly | TableDragDropMode::DragDrop | TableDragDropMode::InternalMove
+            TableDragDropMode::DropOnly
+                | TableDragDropMode::DragDrop
+                | TableDragDropMode::InternalMove
         )
     }
 
@@ -648,20 +657,19 @@ impl TableView {
             let texts: Vec<String> = indices
                 .iter()
                 .filter_map(|index| {
-                    model.data(index, ItemRole::Display).as_string().map(String::from)
+                    model
+                        .data(index, ItemRole::Display)
+                        .as_string()
+                        .map(String::from)
                 })
                 .collect();
 
             if !texts.is_empty() {
-                data.set_text(&texts.join("\n"));
+                data.set_text(texts.join("\n"));
             }
         }
 
-        if data.is_empty() {
-            None
-        } else {
-            Some(data)
-        }
+        if data.is_empty() { None } else { Some(data) }
     }
 
     /// Returns the drop position for the given point.
@@ -790,7 +798,11 @@ impl TableView {
         // Find the first row whose bottom is visible
         let scroll_y = self.scroll_y as f32;
         for (row, &pos) in self.row_positions.iter().enumerate() {
-            let height = self.row_heights.get(row).copied().unwrap_or(self.default_row_height);
+            let height = self
+                .row_heights
+                .get(row)
+                .copied()
+                .unwrap_or(self.default_row_height);
             if pos + height > scroll_y {
                 return row;
             }
@@ -819,7 +831,11 @@ impl TableView {
     fn row_rect_visual(&self, row: usize) -> Option<Rect> {
         let content_area = self.content_area_rect();
         let y = self.row_positions.get(row)?;
-        let height = self.row_heights.get(row).copied().unwrap_or(self.default_row_height);
+        let height = self
+            .row_heights
+            .get(row)
+            .copied()
+            .unwrap_or(self.default_row_height);
 
         // Adjust for scrolling
         let visual_y = y - self.scroll_y as f32 + content_area.origin.y;
@@ -972,7 +988,11 @@ impl TableView {
         while lo < hi {
             let mid = (lo + hi) / 2;
             let row_top = self.row_positions.get(mid).copied().unwrap_or(0.0);
-            let row_height = self.row_heights.get(mid).copied().unwrap_or(self.default_row_height);
+            let row_height = self
+                .row_heights
+                .get(mid)
+                .copied()
+                .unwrap_or(self.default_row_height);
 
             if y < row_top {
                 hi = mid;
@@ -1053,7 +1073,11 @@ impl TableView {
             .iter()
             .enumerate()
             .find(|(i, pos)| {
-                let height = self.row_heights.get(*i).copied().unwrap_or(self.default_row_height);
+                let height = self
+                    .row_heights
+                    .get(*i)
+                    .copied()
+                    .unwrap_or(self.default_row_height);
                 *pos + height >= viewport_top
             })
             .map(|(i, _)| i)
@@ -1165,7 +1189,11 @@ impl TableView {
         let x = self.horizontal_header.section_position(col);
         let y = self.row_positions.get(row).copied()?;
         let width = self.horizontal_header.section_size(col);
-        let height = self.row_heights.get(row).copied().unwrap_or(self.default_row_height);
+        let height = self
+            .row_heights
+            .get(row)
+            .copied()
+            .unwrap_or(self.default_row_height);
 
         Some(Rect::new(x, y, width, height))
     }
@@ -1175,7 +1203,8 @@ impl TableView {
     // =========================================================================
 
     fn paint_background(&self, ctx: &mut PaintContext<'_>) {
-        ctx.renderer().fill_rect(self.base.rect(), self.background_color);
+        ctx.renderer()
+            .fill_rect(self.base.rect(), self.background_color);
     }
 
     fn paint_cells(&self, ctx: &mut PaintContext<'_>) {
@@ -1332,12 +1361,7 @@ impl TableView {
 
         // Corner widget (if both headers visible)
         if self.show_horizontal_header && self.show_vertical_header {
-            let corner_rect = Rect::new(
-                0.0,
-                0.0,
-                self.row_header_width(),
-                self.header_height(),
-            );
+            let corner_rect = Rect::new(0.0, 0.0, self.row_header_width(), self.header_height());
             ctx.renderer()
                 .fill_rect(corner_rect, Color::from_rgb8(230, 230, 230));
         }
@@ -1366,8 +1390,7 @@ impl TableView {
             } else {
                 0.0
             };
-            let thumb_y =
-                track_rect.origin.y + scroll_ratio * (track_rect.height() - thumb_height);
+            let thumb_y = track_rect.origin.y + scroll_ratio * (track_rect.height() - thumb_height);
 
             let thumb_rect = Rect::new(
                 track_rect.origin.x + 2.0,
@@ -1398,8 +1421,7 @@ impl TableView {
             } else {
                 0.0
             };
-            let thumb_x =
-                track_rect.origin.x + scroll_ratio * (track_rect.width() - thumb_width);
+            let thumb_x = track_rect.origin.x + scroll_ratio * (track_rect.width() - thumb_width);
 
             let thumb_rect = Rect::new(
                 thumb_x,
@@ -1478,7 +1500,9 @@ impl TableView {
 
             let flags = match mode {
                 SelectionMode::NoSelection => SelectionFlags::NONE,
-                SelectionMode::SingleSelection => SelectionFlags::CLEAR_SELECT_CURRENT.with_anchor(),
+                SelectionMode::SingleSelection => {
+                    SelectionFlags::CLEAR_SELECT_CURRENT.with_anchor()
+                }
                 SelectionMode::MultiSelection => {
                     if event.modifiers.control {
                         SelectionFlags::TOGGLE.with_current()
@@ -1574,14 +1598,17 @@ impl TableView {
 
         // Check for header clicks
         let header_height = self.header_height();
-        if self.show_horizontal_header && event.local_pos.y < header_height {
-            if let Some(col) = self.column_at_content_x(event.local_pos.x - self.row_header_width() + self.scroll_x as f32) {
+        if self.show_horizontal_header && event.local_pos.y < header_height
+            && let Some(col) = self.column_at_content_x(
+                event.local_pos.x - self.row_header_width() + self.scroll_x as f32,
+            ) {
                 self.header_clicked.emit((Orientation::Horizontal, col));
 
                 if self.sorting_enabled {
                     // Toggle sort order
                     let current_order = self.horizontal_header.sort_indicator_order();
-                    let new_order = if self.horizontal_header.sort_indicator_section() == Some(col) {
+                    let new_order = if self.horizontal_header.sort_indicator_section() == Some(col)
+                    {
                         match current_order {
                             SortOrder::Ascending => SortOrder::Descending,
                             SortOrder::Descending => SortOrder::Ascending,
@@ -1593,7 +1620,6 @@ impl TableView {
                 }
                 return true;
             }
-        }
 
         false
     }
@@ -1606,9 +1632,9 @@ impl TableView {
         let pressed = self.pressed_cell.take();
         self.base.update();
 
-        if let Some((row, col)) = pressed {
-            if let Some(index) = self.index_at(event.local_pos) {
-                if index.row() == row && index.column() == col {
+        if let Some((row, col)) = pressed
+            && let Some(index) = self.index_at(event.local_pos)
+                && index.row() == row && index.column() == col {
                     let emit_index = ModelIndex::new(row, col, ModelIndex::invalid());
                     self.clicked.emit(emit_index.clone());
 
@@ -1616,8 +1642,8 @@ impl TableView {
                     let now = Instant::now();
                     if let (Some(last_time), Some(last_cell)) =
                         (self.last_click_time, self.last_click_cell)
-                    {
-                        if last_cell == (row, col) && now.duration_since(last_time).as_millis() < 500
+                        && last_cell == (row, col)
+                            && now.duration_since(last_time).as_millis() < 500
                         {
                             self.double_clicked.emit(emit_index.clone());
                             self.activated.emit(emit_index);
@@ -1625,13 +1651,10 @@ impl TableView {
                             self.last_click_cell = None;
                             return true;
                         }
-                    }
 
                     self.last_click_time = Some(now);
                     self.last_click_cell = Some((row, col));
                 }
-            }
-        }
 
         true
     }
@@ -1767,8 +1790,11 @@ impl TableView {
                         );
                     }
                     SelectionBehavior::SelectRows => {
-                        self.selection_model
-                            .select_range(anchor.row(), row, SelectionFlags::CLEAR_AND_SELECT);
+                        self.selection_model.select_range(
+                            anchor.row(),
+                            row,
+                            SelectionFlags::CLEAR_AND_SELECT,
+                        );
                     }
                     SelectionBehavior::SelectColumns => {
                         let row_count = self.row_count();
@@ -1776,8 +1802,11 @@ impl TableView {
                         let end_col = anchor.column().max(col);
                         self.selection_model.clear_selection();
                         for c in start_col..=end_col {
-                            self.selection_model
-                                .select_column(c, row_count, SelectionFlags::SELECT);
+                            self.selection_model.select_column(
+                                c,
+                                row_count,
+                                SelectionFlags::SELECT,
+                            );
                         }
                     }
                 }
@@ -1996,8 +2025,8 @@ mod tests {
 
     #[test]
     fn test_context_menu_signal() {
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
 
         setup();
         let table = TableView::new();

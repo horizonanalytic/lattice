@@ -517,7 +517,10 @@ impl ToolBar {
     pub fn new(title: impl Into<String>) -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::NoFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -698,7 +701,8 @@ impl ToolBar {
         });
 
         // Remove from action_buttons
-        self.action_buttons.retain(|btn| btn.action.object_id() != action_id);
+        self.action_buttons
+            .retain(|btn| btn.action.object_id() != action_id);
 
         self.update_layout();
     }
@@ -809,7 +813,8 @@ impl ToolBar {
 
     /// Get the tool button style.
     pub fn tool_button_style(&self) -> ToolButtonStyle {
-        self.button_style_override.unwrap_or(self.style.button_style)
+        self.button_style_override
+            .unwrap_or(self.style.button_style)
     }
 
     /// Set the tool button style.
@@ -1029,14 +1034,25 @@ impl ToolBar {
 
             let item_size = match item {
                 ToolBarItem::Action(_) => {
-                    if is_horizontal { button_size.width } else { button_size.height }
+                    if is_horizontal {
+                        button_size.width
+                    } else {
+                        button_size.height
+                    }
                 }
                 ToolBarItem::Separator => separator_size,
                 ToolBarItem::Widget(widget_id) => {
                     // Use stored widget size, with fallback to default
-                    let size = self.widget_sizes.get(widget_id).copied()
+                    let size = self
+                        .widget_sizes
+                        .get(widget_id)
+                        .copied()
                         .unwrap_or(Size::new(50.0, 50.0));
-                    if is_horizontal { size.width } else { size.height }
+                    if is_horizontal {
+                        size.width
+                    } else {
+                        size.height
+                    }
                 }
             };
 
@@ -1047,17 +1063,19 @@ impl ToolBar {
                 self.style.overflow_button_width + self.style.spacing
             };
 
-            if pos + item_size + overflow_button_space > available && first_overflow_index.is_none() {
+            if pos + item_size + overflow_button_space > available && first_overflow_index.is_none()
+            {
                 // We need overflow, recalculate with overflow button space
-                let available_with_overflow = available - self.style.overflow_button_width - self.style.spacing;
+                let available_with_overflow =
+                    available - self.style.overflow_button_width - self.style.spacing;
                 if pos > available_with_overflow {
                     first_overflow_index = Some(i);
                 }
             }
 
             // Update button rect if this is an action
-            if let ToolBarItem::Action(_) = item {
-                if button_idx < self.action_buttons.len() {
+            if let ToolBarItem::Action(_) = item
+                && button_idx < self.action_buttons.len() {
                     let btn = &mut self.action_buttons[button_idx];
                     btn.in_overflow = first_overflow_index.is_some_and(|fi| i >= fi);
 
@@ -1080,7 +1098,6 @@ impl ToolBar {
                     }
                     button_idx += 1;
                 }
-            }
 
             if first_overflow_index.is_none() || first_overflow_index.is_some_and(|fi| i < fi) {
                 pos += item_size + self.style.spacing;
@@ -1105,12 +1122,14 @@ impl ToolBar {
                 // Estimate text size
                 Size::new(60.0, 24.0)
             }
-            ToolButtonStyle::TextBesideIcon => {
-                Size::new(icon_size.width + 60.0 + padding, icon_size.height.max(20.0) + padding)
-            }
-            ToolButtonStyle::TextUnderIcon => {
-                Size::new(icon_size.width.max(50.0) + padding, icon_size.height + 20.0 + padding)
-            }
+            ToolButtonStyle::TextBesideIcon => Size::new(
+                icon_size.width + 60.0 + padding,
+                icon_size.height.max(20.0) + padding,
+            ),
+            ToolButtonStyle::TextUnderIcon => Size::new(
+                icon_size.width.max(50.0) + padding,
+                icon_size.height + 20.0 + padding,
+            ),
         }
     }
 
@@ -1241,11 +1260,10 @@ impl ToolBar {
             None
         };
 
-        if let Some(rect) = global_rect {
-            if let Some(menu) = &mut self.overflow_menu {
+        if let Some(rect) = global_rect
+            && let Some(menu) = &mut self.overflow_menu {
                 menu.popup_relative_to(rect, PopupPlacement::BelowAlignLeft);
             }
-        }
     }
 
     // =========================================================================
@@ -1428,7 +1446,8 @@ impl ToolBar {
             let line_spacing = 3.0;
 
             if is_horizontal {
-                let start_y = rect.origin.y + (rect.height() - (num_lines as f32 - 1.0) * line_spacing) / 2.0;
+                let start_y =
+                    rect.origin.y + (rect.height() - (num_lines as f32 - 1.0) * line_spacing) / 2.0;
                 for i in 0..num_lines {
                     let y = start_y + i as f32 * line_spacing;
                     let stroke = Stroke::new(color, 1.0);
@@ -1439,7 +1458,8 @@ impl ToolBar {
                     );
                 }
             } else {
-                let start_x = rect.origin.x + (rect.width() - (num_lines as f32 - 1.0) * line_spacing) / 2.0;
+                let start_x =
+                    rect.origin.x + (rect.width() - (num_lines as f32 - 1.0) * line_spacing) / 2.0;
                 for i in 0..num_lines {
                     let x = start_x + i as f32 * line_spacing;
                     let stroke = Stroke::new(color, 1.0);
@@ -1473,7 +1493,9 @@ impl ToolBar {
 
             // Check if this item is in overflow
             if let Some(start) = self.overflow_start_index {
-                let current_idx = self.items.iter()
+                let current_idx = self
+                    .items
+                    .iter()
                     .position(|i| std::ptr::eq(i, item))
                     .unwrap_or(0);
                 if current_idx >= start {
@@ -1491,7 +1513,11 @@ impl ToolBar {
                         let btn = &self.action_buttons[button_idx];
                         if !btn.in_overflow {
                             self.paint_button(ctx, btn);
-                            pos += if is_horizontal { button_size.width } else { button_size.height };
+                            pos += if is_horizontal {
+                                button_size.width
+                            } else {
+                                button_size.height
+                            };
                             pos += self.style.spacing;
                         }
                         button_idx += 1;
@@ -1499,9 +1525,16 @@ impl ToolBar {
                 }
                 ToolBarItem::Widget(widget_id) => {
                     // Widget painting is handled by the widget itself
-                    let size = self.widget_sizes.get(widget_id).copied()
+                    let size = self
+                        .widget_sizes
+                        .get(widget_id)
+                        .copied()
                         .unwrap_or(Size::new(50.0, 50.0));
-                    pos += (if is_horizontal { size.width } else { size.height }) + self.style.spacing;
+                    pos += (if is_horizontal {
+                        size.width
+                    } else {
+                        size.height
+                    }) + self.style.spacing;
                 }
             }
         }
@@ -1578,7 +1611,12 @@ impl ToolBar {
 
         // Draw text if style includes text
         let style = self.tool_button_style();
-        if matches!(style, ToolButtonStyle::TextOnly | ToolButtonStyle::TextBesideIcon | ToolButtonStyle::TextUnderIcon) {
+        if matches!(
+            style,
+            ToolButtonStyle::TextOnly
+                | ToolButtonStyle::TextBesideIcon
+                | ToolButtonStyle::TextUnderIcon
+        ) {
             let text = btn.action.display_text();
             let text_color = if is_disabled {
                 Color::from_rgb8(160, 160, 160)
@@ -1856,8 +1894,8 @@ mod tests {
     #[test]
     fn test_toolbar_allowed_areas() {
         setup();
-        let toolbar = ToolBar::new("Test")
-            .with_allowed_areas(ToolBarAreas::TOP | ToolBarAreas::BOTTOM);
+        let toolbar =
+            ToolBar::new("Test").with_allowed_areas(ToolBarAreas::TOP | ToolBarAreas::BOTTOM);
 
         assert!(toolbar.is_area_allowed(ToolBarArea::Top));
         assert!(toolbar.is_area_allowed(ToolBarArea::Bottom));

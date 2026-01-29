@@ -11,6 +11,8 @@ pub const DEPTH_STENCIL_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth
 /// Manages a depth/stencil texture for clipping operations.
 #[derive(Debug)]
 pub struct StencilTexture {
+    /// Kept alive for GPU resource lifetime - view references this
+    #[allow(dead_code)]
     texture: wgpu::Texture,
     view: wgpu::TextureView,
     size: Size,

@@ -49,10 +49,10 @@
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::Point;
 
+use super::Widget;
 use super::base::ContextMenuPolicy;
 use super::cursor::{CursorManager, CursorShape};
 use super::events::{ContextMenuEvent, ContextMenuReason, WidgetEvent};
-use super::Widget;
 
 /// Result of dispatching an event to a widget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -132,11 +132,10 @@ impl EventDispatcher {
 
         // Step 1: Invoke event filters (in reverse order - most recent first)
         for filter_id in filters.iter().rev() {
-            if let Some(filter_widget) = storage.get_widget_mut(*filter_id) {
-                if filter_widget.event_filter(event, target_id) {
+            if let Some(filter_widget) = storage.get_widget_mut(*filter_id)
+                && filter_widget.event_filter(event, target_id) {
                     return DispatchResult::Filtered;
                 }
-            }
         }
 
         // Step 2: Send to the target widget
@@ -152,11 +151,10 @@ impl EventDispatcher {
         }
 
         // Step 3: Propagate to parent if the event supports it
-        if event.should_propagate() {
-            if let Some(parent_id) = parent_id {
+        if event.should_propagate()
+            && let Some(parent_id) = parent_id {
                 return Self::send_event(storage, parent_id, event);
             }
-        }
 
         DispatchResult::Ignored
     }
@@ -183,11 +181,10 @@ impl EventDispatcher {
 
         // Invoke event filters (in reverse order)
         for filter_id in filters.iter().rev() {
-            if let Some(filter_widget) = storage.get_widget_mut(*filter_id) {
-                if filter_widget.event_filter(event, target_id) {
+            if let Some(filter_widget) = storage.get_widget_mut(*filter_id)
+                && filter_widget.event_filter(event, target_id) {
                     return DispatchResult::Filtered;
                 }
-            }
         }
 
         // Send to the target widget

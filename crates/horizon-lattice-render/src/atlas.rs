@@ -4,8 +4,8 @@
 //! multiple images into a single GPU texture. It uses a shelf-based
 //! allocation algorithm inspired by the `etagere` crate.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use parking_lot::Mutex;
 
@@ -14,7 +14,7 @@ use std::path::Path;
 use crate::context::GraphicsContext;
 use crate::error::{RenderError, RenderResult};
 use crate::image::Image;
-use crate::scalable_image::{scaled_path, ScalableImage};
+use crate::scalable_image::{ScalableImage, scaled_path};
 use crate::svg::SvgImage;
 
 /// Global atlas ID counter.
@@ -125,7 +125,8 @@ pub struct TextureAtlas {
     texture: wgpu::Texture,
     /// Texture view for rendering.
     texture_view: wgpu::TextureView,
-    /// Texture sampler.
+    /// Texture sampler - kept alive for bind_group to reference.
+    #[allow(dead_code)]
     sampler: wgpu::Sampler,
     /// Bind group for this atlas.
     bind_group: wgpu::BindGroup,
@@ -300,8 +301,8 @@ impl TextureAtlas {
         }
 
         // Allocate from best fitting shelf
-        if let Some(idx) = best_shelf_idx {
-            if let Some((x, y)) = state.shelves[idx].try_allocate(width, height, self.size) {
+        if let Some(idx) = best_shelf_idx
+            && let Some((x, y)) = state.shelves[idx].try_allocate(width, height, self.size) {
                 return Some(AtlasAllocation {
                     x,
                     y,
@@ -310,7 +311,6 @@ impl TextureAtlas {
                     atlas_size: self.size,
                 });
             }
-        }
 
         // Create a new shelf if there's room
         if state.next_shelf_y + padded_height <= self.size {
@@ -425,9 +425,8 @@ impl ImageManager {
 
     /// Load an image from a file path.
     pub fn load_file(&mut self, path: impl AsRef<std::path::Path>) -> RenderResult<Image> {
-        let img = image::open(path.as_ref()).map_err(|e| {
-            RenderError::ImageLoad(format!("Failed to load image: {}", e))
-        })?;
+        let img = image::open(path.as_ref())
+            .map_err(|e| RenderError::ImageLoad(format!("Failed to load image: {}", e)))?;
         self.load_dynamic_image(img)
     }
 
@@ -476,22 +475,18 @@ impl ImageManager {
         let mut scalable = ScalableImage::new(image_1x);
 
         // Try to load @2x variant (optional)
-        if let Some(path_2x) = scaled_path(path, 2) {
-            if path_2x.exists() {
-                if let Ok(image_2x) = self.load_file(path_2x.as_path()) {
+        if let Some(path_2x) = scaled_path(path, 2)
+            && path_2x.exists()
+                && let Ok(image_2x) = self.load_file(path_2x.as_path()) {
                     scalable.add_variant(2, image_2x);
                 }
-            }
-        }
 
         // Try to load @3x variant (optional)
-        if let Some(path_3x) = scaled_path(path, 3) {
-            if path_3x.exists() {
-                if let Ok(image_3x) = self.load_file(path_3x.as_path()) {
+        if let Some(path_3x) = scaled_path(path, 3)
+            && path_3x.exists()
+                && let Ok(image_3x) = self.load_file(path_3x.as_path()) {
                     scalable.add_variant(3, image_3x);
                 }
-            }
-        }
 
         Ok(scalable)
     }
@@ -559,9 +554,8 @@ impl ImageManager {
 
     /// Load an image from bytes in memory.
     pub fn load_bytes(&mut self, bytes: &[u8]) -> RenderResult<Image> {
-        let img = image::load_from_memory(bytes).map_err(|e| {
-            RenderError::ImageLoad(format!("Failed to decode image: {}", e))
-        })?;
+        let img = image::load_from_memory(bytes)
+            .map_err(|e| RenderError::ImageLoad(format!("Failed to decode image: {}", e)))?;
         self.load_dynamic_image(img)
     }
 

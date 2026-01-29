@@ -1,8 +1,8 @@
 //! UDP socket with signal-based event delivery.
 
 use std::net::{Ipv4Addr, SocketAddr};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use horizon_lattice_core::Signal;
 use parking_lot::Mutex;
@@ -11,8 +11,8 @@ use tokio::sync::mpsc;
 
 use super::config::{Datagram, UdpSocketConfig};
 use super::state::UdpSocketState;
-use crate::error::NetworkError;
 use crate::Result;
+use crate::error::NetworkError;
 
 /// Internal state for the UDP socket.
 struct UdpSocketInner {
@@ -185,24 +185,22 @@ impl UdpSocket {
             };
 
             // Apply socket options
-            if config.broadcast {
-                if let Err(e) = socket.set_broadcast(true) {
+            if config.broadcast
+                && let Err(e) = socket.set_broadcast(true) {
                     emit_error(NetworkError::UdpSocket(format!(
                         "Failed to enable broadcast: {}",
                         e
                     )));
                 }
-            }
 
             // Apply multicast settings
-            if config.multicast.ttl > 0 {
-                if let Err(e) = socket.set_multicast_ttl_v4(config.multicast.ttl) {
+            if config.multicast.ttl > 0
+                && let Err(e) = socket.set_multicast_ttl_v4(config.multicast.ttl) {
                     emit_error(NetworkError::UdpSocket(format!(
                         "Failed to set multicast TTL: {}",
                         e
                     )));
                 }
-            }
 
             if let Err(e) = socket.set_multicast_loop_v4(config.multicast.loopback) {
                 emit_error(NetworkError::UdpSocket(format!(

@@ -30,14 +30,15 @@ use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{Color, Point, Rect, Renderer, RoundedRect, Size, Stroke};
 
 use crate::widget::{
-    Key, KeyPressEvent, MouseButton,
-    MouseMoveEvent, MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint,
-    Widget, WidgetBase, WidgetEvent,
+    Key, KeyPressEvent, MouseButton, MouseMoveEvent, MousePressEvent, MouseReleaseEvent,
+    PaintContext, SizeHint, Widget, WidgetBase, WidgetEvent,
 };
 
 use super::dialog::{Dialog, DialogResult};
 use super::dialog_button_box::{ButtonRole, StandardButton};
-use super::native_dialogs::{self, NativeMessageButtons, NativeMessageLevel, NativeMessageOptions, NativeMessageResult};
+use super::native_dialogs::{
+    self, NativeMessageButtons, NativeMessageLevel, NativeMessageOptions, NativeMessageResult,
+};
 
 // ============================================================================
 // Message Icon
@@ -72,10 +73,10 @@ impl MessageIcon {
     pub fn color(&self) -> Color {
         match self {
             MessageIcon::NoIcon => Color::TRANSPARENT,
-            MessageIcon::Information => Color::from_rgb8(0, 120, 215),    // Blue
-            MessageIcon::Warning => Color::from_rgb8(255, 185, 0),        // Orange/Yellow
-            MessageIcon::Critical => Color::from_rgb8(232, 17, 35),       // Red
-            MessageIcon::Question => Color::from_rgb8(0, 120, 215),       // Blue
+            MessageIcon::Information => Color::from_rgb8(0, 120, 215), // Blue
+            MessageIcon::Warning => Color::from_rgb8(255, 185, 0),     // Orange/Yellow
+            MessageIcon::Critical => Color::from_rgb8(232, 17, 35),    // Red
+            MessageIcon::Question => Color::from_rgb8(0, 120, 215),    // Blue
         }
     }
 
@@ -645,8 +646,7 @@ impl MessageBox {
                     NativeMessageButtons::YesNoCancel
                 } else if buttons.has(StandardButton::YES) && buttons.has(StandardButton::NO) {
                     NativeMessageButtons::YesNo
-                } else if buttons.has(StandardButton::OK) && buttons.has(StandardButton::CANCEL)
-                {
+                } else if buttons.has(StandardButton::OK) && buttons.has(StandardButton::CANCEL) {
                     NativeMessageButtons::OkCancel
                 } else {
                     NativeMessageButtons::Ok
@@ -784,7 +784,9 @@ impl MessageBox {
         let width = min_width.max(max_width.min(400.0));
         let height = total_height.max(160.0);
 
-        self.dialog.widget_base_mut().set_size(Size::new(width, height));
+        self.dialog
+            .widget_base_mut()
+            .set_size(Size::new(width, height));
     }
 
     // =========================================================================
@@ -841,12 +843,7 @@ impl MessageBox {
                 24.0,
             ))
         } else {
-            Some(Rect::new(
-                self.content_padding,
-                y,
-                120.0,
-                24.0,
-            ))
+            Some(Rect::new(self.content_padding, y, 120.0, 24.0))
         }
     }
 
@@ -859,16 +856,12 @@ impl MessageBox {
         let rect = self.dialog.widget_base().rect();
 
         // Position below the detail button, above the button row
-        if let Some(button_rect) = self.detail_button_rect() {
-            Some(Rect::new(
+        self.detail_button_rect().map(|button_rect| Rect::new(
                 self.content_padding,
                 button_rect.origin.y + button_rect.height() + 8.0,
                 rect.width() - self.content_padding * 2.0,
                 self.detail_section_height,
             ))
-        } else {
-            None
-        }
     }
 
     // =========================================================================
@@ -881,13 +874,12 @@ impl MessageBox {
         }
 
         // Check detail button click
-        if let Some(detail_rect) = self.detail_button_rect() {
-            if detail_rect.contains(event.local_pos) {
+        if let Some(detail_rect) = self.detail_button_rect()
+            && detail_rect.contains(event.local_pos) {
                 self.detail_button_state.pressed = true;
                 self.dialog.widget_base_mut().update();
                 return true;
             }
-        }
 
         false
     }
@@ -901,12 +893,11 @@ impl MessageBox {
         if self.detail_button_state.pressed {
             self.detail_button_state.pressed = false;
 
-            if let Some(detail_rect) = self.detail_button_rect() {
-                if detail_rect.contains(event.local_pos) {
+            if let Some(detail_rect) = self.detail_button_rect()
+                && detail_rect.contains(event.local_pos) {
                     self.detail_button_state.expanded = !self.detail_button_state.expanded;
                     self.update_size();
                 }
-            }
             self.dialog.widget_base_mut().update();
             return true;
         }
@@ -930,20 +921,18 @@ impl MessageBox {
 
     fn handle_key_press(&mut self, event: &KeyPressEvent) -> bool {
         // Enter to activate default button
-        if event.key == Key::Enter && !event.is_repeat {
-            if self.default_button != StandardButton::NONE {
+        if event.key == Key::Enter && !event.is_repeat
+            && self.default_button != StandardButton::NONE {
                 self.handle_button_click(self.default_button);
                 return true;
             }
-        }
 
         // Escape to activate escape button
-        if event.key == Key::Escape {
-            if self.escape_button != StandardButton::NONE {
+        if event.key == Key::Escape
+            && self.escape_button != StandardButton::NONE {
                 self.handle_button_click(self.escape_button);
                 return true;
             }
-        }
 
         false
     }
@@ -998,7 +987,8 @@ impl MessageBox {
             radius * 2.0,
             radius * 2.0,
         );
-        ctx.renderer().fill_rounded_rect(RoundedRect::new(rect, radius), color);
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(rect, radius), color);
     }
 
     fn draw_info_symbol(&self, ctx: &mut PaintContext<'_>, center: Point, color: Color) {
@@ -1007,7 +997,8 @@ impl MessageBox {
         // Dot at top
         let dot_center = Point::new(center.x, center.y - 6.0);
         let dot_rect = Rect::new(dot_center.x - 2.0, dot_center.y - 2.0, 4.0, 4.0);
-        ctx.renderer().fill_rounded_rect(RoundedRect::new(dot_rect, 2.0), color);
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(dot_rect, 2.0), color);
 
         // Vertical line below
         ctx.renderer().draw_line(
@@ -1052,10 +1043,17 @@ impl MessageBox {
         // Dot at bottom
         let dot_center = Point::new(center.x, center.y + 7.0);
         let dot_rect = Rect::new(dot_center.x - 2.0, dot_center.y - 2.0, 4.0, 4.0);
-        ctx.renderer().fill_rounded_rect(RoundedRect::new(dot_rect, 2.0), color);
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(dot_rect, 2.0), color);
     }
 
-    fn draw_x_symbol(&self, ctx: &mut PaintContext<'_>, center: Point, half_size: f32, color: Color) {
+    fn draw_x_symbol(
+        &self,
+        ctx: &mut PaintContext<'_>,
+        center: Point,
+        half_size: f32,
+        color: Color,
+    ) {
         let stroke = Stroke::new(color, 2.5);
 
         ctx.renderer().draw_line(
@@ -1099,7 +1097,8 @@ impl MessageBox {
         // Dot at bottom
         let dot_center = Point::new(center.x, center.y + 7.0);
         let dot_rect = Rect::new(dot_center.x - 2.0, dot_center.y - 2.0, 4.0, 4.0);
-        ctx.renderer().fill_rounded_rect(RoundedRect::new(dot_rect, 2.0), color);
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(dot_rect, 2.0), color);
     }
 
     fn paint_detail_button(&self, ctx: &mut PaintContext<'_>) {
@@ -1130,7 +1129,8 @@ impl MessageBox {
         if let Some(rect) = self.detail_section_rect() {
             // Background
             let rrect = RoundedRect::new(rect, 4.0);
-            ctx.renderer().fill_rounded_rect(rrect, self.detailed_text_background);
+            ctx.renderer()
+                .fill_rounded_rect(rrect, self.detailed_text_background);
 
             // Border
             let stroke = Stroke::new(Color::from_rgb8(200, 200, 200), 1.0);
@@ -1326,8 +1326,8 @@ mod tests {
     #[test]
     fn test_default_and_escape_buttons() {
         setup();
-        let msg = MessageBox::new()
-            .with_standard_buttons(StandardButton::OK | StandardButton::CANCEL);
+        let msg =
+            MessageBox::new().with_standard_buttons(StandardButton::OK | StandardButton::CANCEL);
 
         assert_eq!(msg.default_button(), StandardButton::OK);
         assert_eq!(msg.escape_button(), StandardButton::CANCEL);
@@ -1341,7 +1341,10 @@ mod tests {
             .with_detailed_text("This is detailed information that can be expanded.");
 
         assert_eq!(msg.text(), "Main message");
-        assert_eq!(msg.detailed_text(), "This is detailed information that can be expanded.");
+        assert_eq!(
+            msg.detailed_text(),
+            "This is detailed information that can be expanded."
+        );
     }
 
     #[test]
@@ -1359,8 +1362,8 @@ mod tests {
     #[test]
     fn test_button_clicked_signal() {
         setup();
-        let mut msg = MessageBox::new()
-            .with_standard_buttons(StandardButton::OK | StandardButton::CANCEL);
+        let mut msg =
+            MessageBox::new().with_standard_buttons(StandardButton::OK | StandardButton::CANCEL);
 
         let clicked = Arc::new(std::sync::Mutex::new(StandardButton::NONE));
         let clicked_clone = clicked.clone();

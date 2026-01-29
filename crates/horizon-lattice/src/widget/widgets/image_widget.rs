@@ -36,17 +36,18 @@ use std::time::Duration;
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    AnimatedImage, AnimationController, AsyncImageHandle, AsyncImageLoader, Color,
-    HorizontalAlign, Image, ImageManager, ImageScaleMode, LoadingState, Rect, Renderer, Size,
-    VerticalAlign,
+    AnimatedImage, AnimationController, AsyncImageHandle, AsyncImageLoader, Color, HorizontalAlign,
+    Image, ImageManager, ImageScaleMode, LoadingState, Rect, Renderer, Size, VerticalAlign,
 };
 
 use crate::widget::{FocusPolicy, PaintContext, SizeHint, Widget, WidgetBase};
 
 /// The content source for an ImageWidget.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub enum ImageSource {
     /// No image set.
+    #[default]
     None,
     /// Load from a file path.
     File(PathBuf),
@@ -57,16 +58,13 @@ pub enum ImageSource {
     Url(String),
 }
 
-impl Default for ImageSource {
-    fn default() -> Self {
-        ImageSource::None
-    }
-}
 
 /// The current state of the ImageWidget.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Default)]
 pub enum ImageWidgetState {
     /// No image source set.
+    #[default]
     Empty,
     /// Image is being loaded.
     Loading,
@@ -76,15 +74,12 @@ pub enum ImageWidgetState {
     Error(String),
 }
 
-impl Default for ImageWidgetState {
-    fn default() -> Self {
-        ImageWidgetState::Empty
-    }
-}
 
 /// Internal image content storage.
+#[derive(Default)]
 enum ImageContent {
     /// No content.
+    #[default]
     None,
     /// Static image.
     Static(Image),
@@ -97,11 +92,6 @@ enum ImageContent {
     },
 }
 
-impl Default for ImageContent {
-    fn default() -> Self {
-        ImageContent::None
-    }
-}
 
 /// A widget for displaying images.
 ///
@@ -682,8 +672,8 @@ impl ImageWidget {
         async_loader: &AsyncImageLoader,
         _image_manager: &mut ImageManager,
     ) -> bool {
-        if let Some(handle) = &self.async_handle {
-            if let Some(state) = async_loader.state(handle) {
+        if let Some(handle) = &self.async_handle
+            && let Some(state) = async_loader.state(handle) {
                 match state {
                     LoadingState::Loading => return false,
                     LoadingState::Ready(image) => {
@@ -703,7 +693,6 @@ impl ImageWidget {
                     }
                 }
             }
-        }
         false
     }
 
@@ -867,7 +856,11 @@ impl ImageWidget {
         match &self.content {
             ImageContent::None => None,
             ImageContent::Static(img) => Some(img),
-            ImageContent::Animated { gpu_frames, controller, .. } => {
+            ImageContent::Animated {
+                gpu_frames,
+                controller,
+                ..
+            } => {
                 let frame_idx = controller.current_frame();
                 gpu_frames.get(frame_idx).and_then(|opt| opt.as_ref())
             }

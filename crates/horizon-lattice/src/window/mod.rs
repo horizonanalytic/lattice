@@ -47,25 +47,25 @@
 //! }
 //! ```
 
-mod window_type;
-mod native_window;
-mod window_manager;
-mod window_config;
-mod window_icon;
-mod window_effects;
-mod frameless_chrome;
 mod event_router;
+mod frameless_chrome;
+mod native_window;
+mod window_config;
+mod window_effects;
 mod window_geometry;
+mod window_icon;
+mod window_manager;
+mod window_type;
 
-pub use window_type::WindowType;
-pub use native_window::{NativeWindow, NativeWindowId, NativeWindowError};
-pub use window_manager::WindowManager;
-pub use window_config::WindowConfig;
-pub use window_icon::WindowIcon;
-pub use window_effects::{WindowEffectError, WindowMask};
+pub use event_router::{create_window_event_handler, install_window_event_router};
 pub use frameless_chrome::{ChromeHitTestResult, FramelessWindowChrome, ResizeDirection};
-pub use event_router::{install_window_event_router, create_window_event_handler};
+pub use native_window::{NativeWindow, NativeWindowError, NativeWindowId};
+pub use window_config::WindowConfig;
+pub use window_effects::{WindowEffectError, WindowMask};
 pub use window_geometry::WindowGeometry;
+pub use window_icon::WindowIcon;
+pub use window_manager::WindowManager;
+pub use window_type::WindowType;
 
 // Re-export WindowFlags and related types from the widget module for convenience
 pub use crate::widget::widgets::{WindowFlags, WindowModality, WindowState};

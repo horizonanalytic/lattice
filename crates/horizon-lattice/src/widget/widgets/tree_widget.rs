@@ -29,10 +29,10 @@ use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{Color, Icon, Point, Rect, Renderer, Stroke};
 use parking_lot::RwLock;
 
+use crate::model::selection::SelectionMode;
 use crate::model::{
     CheckState, ItemData, ItemFlags, ItemModel, ItemRole, ModelIndex, ModelSignals,
 };
-use crate::model::selection::SelectionMode;
 use crate::widget::{
     FocusPolicy, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase,
     WidgetEvent,
@@ -279,7 +279,10 @@ impl TreeWidgetModel {
         }
     }
 
-    fn get_item_at_path<'a>(items: &'a [TreeWidgetItem], path: &[usize]) -> Option<&'a TreeWidgetItem> {
+    fn get_item_at_path<'a>(
+        items: &'a [TreeWidgetItem],
+        path: &[usize],
+    ) -> Option<&'a TreeWidgetItem> {
         if path.is_empty() {
             return None;
         }
@@ -301,11 +304,10 @@ impl ItemModel for TreeWidgetModel {
         }
 
         // Decode path from internal_id
-        if let Some(path) = decode_path(parent.internal_id()) {
-            if let Some(item) = TreeWidgetModel::get_item_at_path(&items, &path) {
+        if let Some(path) = decode_path(parent.internal_id())
+            && let Some(item) = TreeWidgetModel::get_item_at_path(&items, &path) {
                 return item.child_count();
             }
-        }
 
         0
     }
@@ -332,24 +334,29 @@ impl ItemModel for TreeWidgetModel {
 
         match role {
             ItemRole::Display => ItemData::String(item.text.clone()),
-            ItemRole::Decoration => {
-                item.icon.clone().map(ItemData::Icon).unwrap_or(ItemData::None)
-            }
-            ItemRole::ToolTip => {
-                item.tooltip.clone().map(ItemData::String).unwrap_or(ItemData::None)
-            }
-            ItemRole::CheckState => {
-                item.check_state.map(ItemData::CheckState).unwrap_or(ItemData::None)
-            }
-            ItemRole::BackgroundColor => {
-                item.background.map(ItemData::Color).unwrap_or(ItemData::None)
-            }
-            ItemRole::ForegroundColor => {
-                item.foreground.map(ItemData::Color).unwrap_or(ItemData::None)
-            }
-            ItemRole::User(n) => {
-                item.data.get(&n).cloned().unwrap_or(ItemData::None)
-            }
+            ItemRole::Decoration => item
+                .icon
+                .clone()
+                .map(ItemData::Icon)
+                .unwrap_or(ItemData::None),
+            ItemRole::ToolTip => item
+                .tooltip
+                .clone()
+                .map(ItemData::String)
+                .unwrap_or(ItemData::None),
+            ItemRole::CheckState => item
+                .check_state
+                .map(ItemData::CheckState)
+                .unwrap_or(ItemData::None),
+            ItemRole::BackgroundColor => item
+                .background
+                .map(ItemData::Color)
+                .unwrap_or(ItemData::None),
+            ItemRole::ForegroundColor => item
+                .foreground
+                .map(ItemData::Color)
+                .unwrap_or(ItemData::None),
+            ItemRole::User(n) => item.data.get(&n).cloned().unwrap_or(ItemData::None),
             _ => ItemData::None,
         }
     }
@@ -549,7 +556,10 @@ impl TreeWidget {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         let items = Arc::new(RwLock::new(Vec::new()));
         let model = Arc::new(TreeWidgetModel::new(items.clone()));
@@ -592,9 +602,11 @@ impl TreeWidget {
     /// Adds a top-level item.
     pub fn add_top_level_item(&mut self, item: TreeWidgetItem) {
         let row = self.items.read().len();
-        self.model.signals.emit_rows_inserted(ModelIndex::invalid(), row, row, || {
-            self.items.write().push(item);
-        });
+        self.model
+            .signals
+            .emit_rows_inserted(ModelIndex::invalid(), row, row, || {
+                self.items.write().push(item);
+            });
         self.layout_dirty = true;
         self.base.update();
     }
@@ -604,9 +616,11 @@ impl TreeWidget {
         let len = self.items.read().len();
         let index = index.min(len);
 
-        self.model.signals.emit_rows_inserted(ModelIndex::invalid(), index, index, || {
-            self.items.write().insert(index, item);
-        });
+        self.model
+            .signals
+            .emit_rows_inserted(ModelIndex::invalid(), index, index, || {
+                self.items.write().insert(index, item);
+            });
 
         self.layout_dirty = true;
         self.base.update();
@@ -619,9 +633,11 @@ impl TreeWidget {
         }
 
         let mut removed = None;
-        self.model.signals.emit_rows_removed(ModelIndex::invalid(), index, index, || {
-            removed = Some(self.items.write().remove(index));
-        });
+        self.model
+            .signals
+            .emit_rows_removed(ModelIndex::invalid(), index, index, || {
+                removed = Some(self.items.write().remove(index));
+            });
 
         self.layout_dirty = true;
         self.base.update();
@@ -663,7 +679,9 @@ impl TreeWidget {
         };
 
         let index = self.model.index(path[0], 0, &ModelIndex::invalid());
-        self.model.signals.emit_data_changed_single(index, vec![ItemRole::Display]);
+        self.model
+            .signals
+            .emit_data_changed_single(index, vec![ItemRole::Display]);
         self.item_changed.emit(path.to_vec());
         self.layout_dirty = true;
         self.base.update();
@@ -712,7 +730,10 @@ impl TreeWidget {
 
     /// Toggles expand/collapse for an item.
     pub fn toggle_expand(&mut self, path: &[usize]) {
-        let was_expanded = self.item_at_path(path).map(|i| i.is_expanded()).unwrap_or(false);
+        let was_expanded = self
+            .item_at_path(path)
+            .map(|i| i.is_expanded())
+            .unwrap_or(false);
         if was_expanded {
             self.collapse_item(path);
         } else {
@@ -906,7 +927,14 @@ impl TreeWidget {
         let count = items.len();
 
         for i in 0..count {
-            flatten_item(&items, i, &mut path, 0, i == count - 1, &mut self.flattened_rows);
+            flatten_item(
+                &items,
+                i,
+                &mut path,
+                0,
+                i == count - 1,
+                &mut self.flattened_rows,
+            );
         }
 
         self.content_height = self.flattened_rows.len() as f32 * self.item_height;
@@ -966,7 +994,12 @@ impl TreeWidget {
         self.scroll_y = self.scroll_y.max(0);
     }
 
-    fn handle_click(&mut self, row: usize, pos: Point, modifiers: &crate::widget::KeyboardModifiers) {
+    fn handle_click(
+        &mut self,
+        row: usize,
+        pos: Point,
+        modifiers: &crate::widget::KeyboardModifiers,
+    ) {
         let row_data = self.flattened_rows[row].clone();
 
         // Check if clicked on expand indicator
@@ -1003,7 +1036,8 @@ impl TreeWidget {
                 let old = self.current_path.clone();
                 self.current_path = Some(path.clone());
                 if old != self.current_path {
-                    self.current_item_changed.emit((old, self.current_path.clone()));
+                    self.current_item_changed
+                        .emit((old, self.current_path.clone()));
                 }
             }
         }
@@ -1084,7 +1118,8 @@ impl Widget for TreeWidget {
             }
 
             // Expand indicator
-            let content_x = row_data.depth as f32 * self.indentation + self.expand_indicator_size + 4.0;
+            let content_x =
+                row_data.depth as f32 * self.indentation + self.expand_indicator_size + 4.0;
 
             if row_data.has_children {
                 let indicator_rect = self.expand_indicator_rect(row);
@@ -1134,7 +1169,12 @@ impl Widget for TreeWidget {
             // Text rendering placeholder - actual text rendering requires FontSystem/TextLayout
             let text_width = item.text.len() as f32 * 7.0; // Approximate width
             ctx.renderer().fill_rect(
-                Rect::new(text_x, text_y, text_width.min(row_rect.width() - text_x + row_rect.origin.x), 14.0),
+                Rect::new(
+                    text_x,
+                    text_y,
+                    text_width.min(row_rect.width() - text_x + row_rect.origin.x),
+                    14.0,
+                ),
                 text_color.with_alpha(0.8),
             );
 
@@ -1157,14 +1197,13 @@ impl Widget for TreeWidget {
 
         match event {
             WidgetEvent::MousePress(e) => {
-                if e.button == crate::widget::MouseButton::Left {
-                    if let Some(row) = self.row_at_y(e.local_pos.y) {
+                if e.button == crate::widget::MouseButton::Left
+                    && let Some(row) = self.row_at_y(e.local_pos.y) {
                         self.pressed_row = Some(row);
                         self.handle_click(row, e.local_pos, &e.modifiers);
                         event.accept();
                         return true;
                     }
-                }
             }
             WidgetEvent::MouseRelease(e) => {
                 if e.button == crate::widget::MouseButton::Left {
@@ -1194,9 +1233,10 @@ impl Widget for TreeWidget {
                 }
 
                 // Find current row index
-                let current_row = self.current_path.as_ref().and_then(|path| {
-                    self.flattened_rows.iter().position(|r| &r.path == path)
-                });
+                let current_row = self
+                    .current_path
+                    .as_ref()
+                    .and_then(|path| self.flattened_rows.iter().position(|r| &r.path == path));
 
                 match e.key {
                     crate::widget::Key::ArrowUp => {
@@ -1241,8 +1281,10 @@ impl Widget for TreeWidget {
                     crate::widget::Key::ArrowRight => {
                         if let Some(path) = self.current_path.clone() {
                             let item = self.item_at_path(&path);
-                            let has_children = item.as_ref().map(|i| i.has_children()).unwrap_or(false);
-                            let is_expanded = item.as_ref().map(|i| i.is_expanded()).unwrap_or(false);
+                            let has_children =
+                                item.as_ref().map(|i| i.has_children()).unwrap_or(false);
+                            let is_expanded =
+                                item.as_ref().map(|i| i.is_expanded()).unwrap_or(false);
                             if has_children {
                                 if is_expanded {
                                     // Go to first child

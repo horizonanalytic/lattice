@@ -418,26 +418,16 @@ mod tests {
         handler.handle_cursor_moved(Point::new(100.0, 100.0), None);
 
         // First click
-        let event1 = handler.handle_mouse_input(
-            ElementState::Pressed,
-            WinitMouseButton::Left,
-            None,
-        );
+        let event1 =
+            handler.handle_mouse_input(ElementState::Pressed, WinitMouseButton::Left, None);
         assert!(matches!(event1, Some(MouseEvent::Press(_))));
 
         // Release
-        let _ = handler.handle_mouse_input(
-            ElementState::Released,
-            WinitMouseButton::Left,
-            None,
-        );
+        let _ = handler.handle_mouse_input(ElementState::Released, WinitMouseButton::Left, None);
 
         // Second click quickly should be double-click
-        let event2 = handler.handle_mouse_input(
-            ElementState::Pressed,
-            WinitMouseButton::Left,
-            None,
-        );
+        let event2 =
+            handler.handle_mouse_input(ElementState::Pressed, WinitMouseButton::Left, None);
         assert!(matches!(event2, Some(MouseEvent::DoubleClick(_))));
     }
 
@@ -447,23 +437,12 @@ mod tests {
         handler.handle_cursor_moved(Point::new(100.0, 100.0), None);
 
         // First click with left
-        let _ = handler.handle_mouse_input(
-            ElementState::Pressed,
-            WinitMouseButton::Left,
-            None,
-        );
-        let _ = handler.handle_mouse_input(
-            ElementState::Released,
-            WinitMouseButton::Left,
-            None,
-        );
+        let _ = handler.handle_mouse_input(ElementState::Pressed, WinitMouseButton::Left, None);
+        let _ = handler.handle_mouse_input(ElementState::Released, WinitMouseButton::Left, None);
 
         // Second click with right - should NOT be double-click
-        let event2 = handler.handle_mouse_input(
-            ElementState::Pressed,
-            WinitMouseButton::Right,
-            None,
-        );
+        let event2 =
+            handler.handle_mouse_input(ElementState::Pressed, WinitMouseButton::Right, None);
         assert!(matches!(event2, Some(MouseEvent::Press(_))));
     }
 
@@ -474,26 +453,15 @@ mod tests {
 
         // First click
         handler.handle_cursor_moved(Point::new(100.0, 100.0), None);
-        let _ = handler.handle_mouse_input(
-            ElementState::Pressed,
-            WinitMouseButton::Left,
-            None,
-        );
-        let _ = handler.handle_mouse_input(
-            ElementState::Released,
-            WinitMouseButton::Left,
-            None,
-        );
+        let _ = handler.handle_mouse_input(ElementState::Pressed, WinitMouseButton::Left, None);
+        let _ = handler.handle_mouse_input(ElementState::Released, WinitMouseButton::Left, None);
 
         // Move cursor far away
         handler.handle_cursor_moved(Point::new(200.0, 200.0), None);
 
         // Second click should NOT be double-click (too far)
-        let event2 = handler.handle_mouse_input(
-            ElementState::Pressed,
-            WinitMouseButton::Left,
-            None,
-        );
+        let event2 =
+            handler.handle_mouse_input(ElementState::Pressed, WinitMouseButton::Left, None);
         assert!(matches!(event2, Some(MouseEvent::Press(_))));
     }
 

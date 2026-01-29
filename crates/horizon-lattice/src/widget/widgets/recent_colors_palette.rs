@@ -28,7 +28,10 @@
 //! ```
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
-use horizon_lattice_render::{Color, Font, FontSystem, Point, Rect, Renderer, RoundedRect, Size, Stroke, TextLayout, TextRenderer};
+use horizon_lattice_render::{
+    Color, Font, FontSystem, Point, Rect, Renderer, RoundedRect, Size, Stroke, TextLayout,
+    TextRenderer,
+};
 
 use crate::widget::{
     FocusPolicy, Key, KeyPressEvent, MouseButton, MouseMoveEvent, MousePressEvent,
@@ -126,7 +129,10 @@ impl RecentColorsPalette {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Preferred,
+        ));
 
         Self {
             base,
@@ -304,7 +310,8 @@ impl RecentColorsPalette {
 
     /// Get the selected color, if any.
     pub fn selected_color(&self) -> Option<Color> {
-        self.selected_index.and_then(|i| self.colors.get(i).copied())
+        self.selected_index
+            .and_then(|i| self.colors.get(i).copied())
     }
 
     // =========================================================================
@@ -316,7 +323,7 @@ impl RecentColorsPalette {
         if self.colors.is_empty() {
             return 0;
         }
-        (self.colors.len() + self.columns - 1) / self.columns
+        self.colors.len().div_ceil(self.columns)
     }
 
     /// Calculate the grid height.
@@ -381,11 +388,10 @@ impl RecentColorsPalette {
     /// the point is not over any swatch.
     pub fn swatch_at_point(&self, point: Point) -> Option<usize> {
         for i in 0..self.colors.len() {
-            if let Some(rect) = self.swatch_rect(i) {
-                if rect.contains(point) {
+            if let Some(rect) = self.swatch_rect(i)
+                && rect.contains(point) {
                     return Some(i);
                 }
-            }
         }
         None
     }
@@ -402,13 +408,12 @@ impl RecentColorsPalette {
         let pos = event.local_pos;
 
         // Check action area
-        if let Some(action_rect) = self.action_rect() {
-            if action_rect.contains(pos) {
+        if let Some(action_rect) = self.action_rect()
+            && action_rect.contains(pos) {
                 self.action_pressed = true;
                 self.base.update();
                 return true;
             }
-        }
 
         // Check swatches
         if let Some(index) = self.swatch_at_point(pos) {
@@ -430,24 +435,22 @@ impl RecentColorsPalette {
         // Check action release
         if self.action_pressed {
             self.action_pressed = false;
-            if let Some(action_rect) = self.action_rect() {
-                if action_rect.contains(pos) {
+            if let Some(action_rect) = self.action_rect()
+                && action_rect.contains(pos) {
                     self.more_colors_requested.emit(());
                     self.base.update();
                     return true;
                 }
-            }
             self.base.update();
             return true;
         }
 
         // Check swatch release (emit color_selected)
-        if let Some(index) = self.swatch_at_point(pos) {
-            if let Some(&color) = self.colors.get(index) {
+        if let Some(index) = self.swatch_at_point(pos)
+            && let Some(&color) = self.colors.get(index) {
                 self.color_selected.emit(color);
                 return true;
             }
-        }
 
         false
     }
@@ -457,10 +460,7 @@ impl RecentColorsPalette {
         let mut needs_update = false;
 
         // Update action hover
-        let new_action_hover = self
-            .action_rect()
-            .map(|r| r.contains(pos))
-            .unwrap_or(false);
+        let new_action_hover = self.action_rect().map(|r| r.contains(pos)).unwrap_or(false);
         if new_action_hover != self.action_hovered {
             self.action_hovered = new_action_hover;
             needs_update = true;
@@ -764,7 +764,10 @@ static_assertions::assert_impl_all!(RecentColorsPalette: Send, Sync);
 mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
-    use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex};
+    use std::sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    };
 
     fn setup() {
         let _ = init_global_registry();
@@ -912,15 +915,13 @@ mod tests {
     #[test]
     fn test_row_count() {
         setup();
-        let palette = RecentColorsPalette::new()
-            .with_columns(4)
-            .with_colors(vec![
-                Color::RED,
-                Color::GREEN,
-                Color::BLUE,
-                Color::WHITE,
-                Color::BLACK,
-            ]);
+        let palette = RecentColorsPalette::new().with_columns(4).with_colors(vec![
+            Color::RED,
+            Color::GREEN,
+            Color::BLUE,
+            Color::WHITE,
+            Color::BLACK,
+        ]);
 
         // 5 colors with 4 columns = 2 rows
         assert_eq!(palette.row_count(), 2);

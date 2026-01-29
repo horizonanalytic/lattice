@@ -523,7 +523,9 @@ mod tests {
         signals
             .rows_about_to_be_inserted
             .connect(move |(parent, first, last)| {
-                recv_about.lock().push(("about", parent.row(), *first, *last));
+                recv_about
+                    .lock()
+                    .push(("about", parent.row(), *first, *last));
             });
 
         let recv_done = received.clone();

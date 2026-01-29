@@ -29,9 +29,7 @@ use std::time::{Duration, Instant};
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{Color, Rect, Renderer, RoundedRect};
 
-use crate::widget::{
-    Key, KeyPressEvent, PaintContext, SizeHint, Widget, WidgetBase, WidgetEvent,
-};
+use crate::widget::{Key, KeyPressEvent, PaintContext, SizeHint, Widget, WidgetBase, WidgetEvent};
 
 use super::dialog::{Dialog, DialogResult};
 use super::dialog_button_box::StandardButton;
@@ -162,11 +160,7 @@ impl ProgressDialog {
     /// // Indeterminate progress
     /// let dialog = ProgressDialog::new("Connecting", "Please wait...", 0);
     /// ```
-    pub fn new(
-        title: impl Into<String>,
-        label_text: impl Into<String>,
-        maximum: i32,
-    ) -> Self {
+    pub fn new(title: impl Into<String>, label_text: impl Into<String>, maximum: i32) -> Self {
         let dialog = Dialog::new(title)
             .with_size(400.0, 140.0)
             .with_standard_buttons(StandardButton::CANCEL);
@@ -469,14 +463,12 @@ impl ProgressDialog {
 
     /// Check if enough time has passed to show the dialog.
     fn check_minimum_duration(&mut self) {
-        if self.pending_show {
-            if let Some(start) = self.operation_start {
-                if start.elapsed() >= self.minimum_duration {
+        if self.pending_show
+            && let Some(start) = self.operation_start
+                && start.elapsed() >= self.minimum_duration {
                     self.pending_show = false;
                     self.dialog.open();
                 }
-            }
-        }
     }
 
     /// Check if the dialog is currently open.
@@ -704,8 +696,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, AtomicI32, Ordering},
         Arc,
+        atomic::{AtomicBool, AtomicI32, Ordering},
     };
 
     fn setup() {

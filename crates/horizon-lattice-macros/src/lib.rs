@@ -58,8 +58,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, Attribute, Data, DeriveInput, Expr, ExprLit, Field, Fields, Ident, Lit,
-    Type,
+    Attribute, Data, DeriveInput, Expr, ExprLit, Field, Fields, Ident, Lit, Type, parse_macro_input,
 };
 
 /// Derive the `Object` trait and generate meta-object information.
@@ -137,14 +136,14 @@ fn impl_derive_object(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 return Err(syn::Error::new_spanned(
                     input,
                     "Object derive only supports structs with named fields",
-                ))
+                ));
             }
         },
         _ => {
             return Err(syn::Error::new_spanned(
                 input,
                 "Object derive only supports structs",
-            ))
+            ));
         }
     };
 
@@ -350,7 +349,10 @@ fn parse_signal_field(field: &Field) -> syn::Result<Option<SignalInfo>> {
         None => return Ok(None),
     };
 
-    let has_signal_attr = field.attrs.iter().any(|attr| attr.path().is_ident("signal"));
+    let has_signal_attr = field
+        .attrs
+        .iter()
+        .any(|attr| attr.path().is_ident("signal"));
 
     if !has_signal_attr {
         return Ok(None);
@@ -368,34 +370,26 @@ fn parse_signal_field(field: &Field) -> syn::Result<Option<SignalInfo>> {
 
 /// Extract inner type from Property<T> or return the original type.
 fn extract_inner_type(ty: &Type) -> (Type, bool) {
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            if segment.ident == "Property" {
-                if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                    if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+            && segment.ident == "Property"
+                && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+                    && let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
                         return (inner.clone(), true);
                     }
-                }
-            }
-        }
-    }
     (ty.clone(), false)
 }
 
 /// Extract Signal<Args> type parameter and convert to type names.
 fn extract_signal_args(ty: &Type) -> syn::Result<(Type, Vec<String>)> {
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            if segment.ident == "Signal" {
-                if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                    if let Some(syn::GenericArgument::Type(args_type)) = args.args.first() {
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+            && segment.ident == "Signal"
+                && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+                    && let Some(syn::GenericArgument::Type(args_type)) = args.args.first() {
                         let param_names = extract_param_type_names(args_type);
                         return Ok((args_type.clone(), param_names));
                     }
-                }
-            }
-        }
-    }
 
     // Default to unit type if we can't parse
     let unit_type: Type = syn::parse_quote!(());

@@ -66,8 +66,8 @@
 //! - **Linux**: Uses D-Bus `SettingChanged` signal from XDG portal
 
 use std::fmt;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use horizon_lattice_core::Signal;
@@ -320,9 +320,7 @@ impl SystemTheme {
     fn accent_color_platform() -> Option<AccentColor> {
         // Use XDG Desktop Portal via ashpd
         // The accent-color setting returns (ddd) - three doubles for RGB in [0,1] range
-        pollster::block_on(async {
-            linux_get_accent_color().await.ok()
-        })
+        pollster::block_on(async { linux_get_accent_color().await.ok() })
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
@@ -366,9 +364,7 @@ async fn linux_get_accent_color() -> Result<AccentColor, SystemThemeError> {
     let value: (f64, f64, f64) = settings
         .read("org.freedesktop.appearance", "accent-color")
         .await
-        .map_err(|e| {
-            SystemThemeError::detection(format!("failed to read accent-color: {}", e))
-        })?;
+        .map_err(|e| SystemThemeError::detection(format!("failed to read accent-color: {}", e)))?;
 
     Ok(AccentColor::new(
         (value.0 * 255.0) as u8,
@@ -530,11 +526,11 @@ fn windows_theme_watch_loop(inner: &ThemeWatcherInner) -> Result<(), SystemTheme
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, PostMessageW,
-        RegisterClassW, TranslateMessage, HWND_MESSAGE, MSG, WM_SETTINGCHANGE, WM_USER, WNDCLASSW,
+        CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, HWND_MESSAGE, MSG,
+        PostMessageW, RegisterClassW, TranslateMessage, WM_SETTINGCHANGE, WM_USER, WNDCLASSW,
         WS_OVERLAPPED,
     };
-    use windows::core::{w, PCWSTR};
+    use windows::core::{PCWSTR, w};
 
     // Track previous state to detect changes
     let mut prev_scheme = SystemTheme::color_scheme();
@@ -636,15 +632,14 @@ unsafe extern "system" fn theme_wndproc(
     lparam: windows::Win32::Foundation::LPARAM,
 ) -> windows::Win32::Foundation::LRESULT {
     use windows::Win32::UI::WindowsAndMessaging::{
-        DefWindowProcW, GetWindowLongPtrW, SetWindowLongPtrW, GWLP_USERDATA, WM_CREATE,
+        DefWindowProcW, GWLP_USERDATA, GetWindowLongPtrW, SetWindowLongPtrW, WM_CREATE,
         WM_SETTINGCHANGE,
     };
 
     match msg {
         WM_CREATE => {
             // Store the inner pointer from CREATESTRUCT
-            let cs =
-                &*(lparam.0 as *const windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW);
+            let cs = &*(lparam.0 as *const windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW);
             let inner = cs.lpCreateParams as *const ThemeWatcherInner;
             // Store in a second user data slot (we use GWLP_USERDATA + 8)
             // Actually, we need to be more careful. Let's use a different approach.

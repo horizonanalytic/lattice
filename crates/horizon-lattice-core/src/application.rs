@@ -24,8 +24,8 @@
 //! [Threading Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/threading.html).
 
 use std::collections::BinaryHeap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use parking_lot::{Mutex, RwLock};
@@ -156,10 +156,9 @@ impl Application {
         init_global_registry();
 
         // Create the event loop first to get the proxy.
-        let event_loop: EventLoop<LatticeEvent> =
-            EventLoop::with_user_event()
-                .build()
-                .map_err(|e| LatticeError::EventLoopCreation(e.to_string()))?;
+        let event_loop: EventLoop<LatticeEvent> = EventLoop::with_user_event()
+            .build()
+            .map_err(|e| LatticeError::EventLoopCreation(e.to_string()))?;
 
         let proxy = event_loop.create_proxy();
 
@@ -215,7 +214,11 @@ impl Application {
     /// # Errors
     ///
     /// Returns an error if the event loop has already been consumed or exited.
-    #[tracing::instrument(skip(self), target = "horizon_lattice_core::event_loop", level = "debug")]
+    #[tracing::instrument(
+        skip(self),
+        target = "horizon_lattice_core::event_loop",
+        level = "debug"
+    )]
     pub fn run(&self) -> Result<()> {
         tracing::info!(target: "horizon_lattice_core::event_loop", "starting event loop");
         let event_loop = EVENT_LOOP.with(|cell| cell.borrow_mut().take());

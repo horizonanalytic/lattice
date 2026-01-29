@@ -1,9 +1,9 @@
 //! Style resolution engine.
 
-mod cascade;
-mod inheritance;
 mod cache;
+mod cascade;
 mod engine;
+mod inheritance;
 
-pub use engine::{StyleEngine, StyleContext, WidgetStyleState};
 pub use cascade::cascade_properties;
+pub use engine::{StyleContext, StyleEngine, WidgetStyleState};

@@ -280,10 +280,7 @@ impl Identity {
     }
 
     /// Create an identity from PEM-encoded files.
-    pub fn from_pem_files(
-        cert_path: impl AsRef<Path>,
-        key_path: impl AsRef<Path>,
-    ) -> Result<Self> {
+    pub fn from_pem_files(cert_path: impl AsRef<Path>, key_path: impl AsRef<Path>) -> Result<Self> {
         let cert_pem = std::fs::read(cert_path.as_ref()).map_err(|e| {
             NetworkError::Tls(format!(
                 "Failed to read certificate file '{}': {}",
@@ -367,7 +364,8 @@ impl Identity {
         // Write certificates
         for cert in &self.cert_chain {
             writeln!(pem_buf, "-----BEGIN CERTIFICATE-----").unwrap();
-            let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, cert.as_ref());
+            let b64 =
+                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, cert.as_ref());
             for chunk in b64.as_bytes().chunks(64) {
                 pem_buf.extend_from_slice(chunk);
                 pem_buf.push(b'\n');

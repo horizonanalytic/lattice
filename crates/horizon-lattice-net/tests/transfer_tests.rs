@@ -39,8 +39,7 @@ async fn test_download_event_id() {
     use horizon_lattice_net::http::DownloadId;
 
     // Test that events carry the correct ID
-    let events = vec![
-        DownloadEvent::Started {
+    let events = [DownloadEvent::Started {
             id: unsafe { std::mem::transmute::<u64, DownloadId>(1) },
         },
         DownloadEvent::Progress {
@@ -55,8 +54,7 @@ async fn test_download_event_id() {
         DownloadEvent::Error {
             id: unsafe { std::mem::transmute::<u64, DownloadId>(4) },
             message: "test error".to_string(),
-        },
-    ];
+        }];
 
     for (i, event) in events.iter().enumerate() {
         let id_val: u64 = unsafe { std::mem::transmute(event.id()) };
@@ -69,8 +67,7 @@ async fn test_upload_event_id() {
     use horizon_lattice_net::http::UploadId;
 
     // Test that events carry the correct ID
-    let events = vec![
-        UploadEvent::Started {
+    let events = [UploadEvent::Started {
             id: unsafe { std::mem::transmute::<u64, UploadId>(1) },
         },
         UploadEvent::Progress {
@@ -85,8 +82,7 @@ async fn test_upload_event_id() {
         UploadEvent::Error {
             id: unsafe { std::mem::transmute::<u64, UploadId>(4) },
             message: "test error".to_string(),
-        },
-    ];
+        }];
 
     for (i, event) in events.iter().enumerate() {
         let id_val: u64 = unsafe { std::mem::transmute(event.id()) };
@@ -137,13 +133,18 @@ mod integration_tests {
 
         // Start download
         let url = format!("{}/test-file.txt", mock_server.uri());
-        let id = manager.download(&url, &path).expect("Failed to start download");
+        let id = manager
+            .download(&url, &path)
+            .expect("Failed to start download");
 
         // Wait for completion
         let result = timeout(Duration::from_secs(5), async {
             loop {
                 let state = manager.state(id);
-                if matches!(state, Some(DownloadState::Completed) | Some(DownloadState::Failed)) {
+                if matches!(
+                    state,
+                    Some(DownloadState::Completed) | Some(DownloadState::Failed)
+                ) {
                     return state;
                 }
                 tokio::time::sleep(Duration::from_millis(50)).await;
@@ -160,8 +161,16 @@ mod integration_tests {
 
         // Verify events
         let events = events.lock();
-        assert!(events.iter().any(|e| matches!(e, DownloadEvent::Started { .. })));
-        assert!(events.iter().any(|e| matches!(e, DownloadEvent::Finished { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, DownloadEvent::Started { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, DownloadEvent::Finished { .. }))
+        );
     }
 
     #[tokio::test]
@@ -186,13 +195,18 @@ mod integration_tests {
         let path = temp_file.path().to_path_buf();
 
         let url = format!("{}/range-test.bin", mock_server.uri());
-        let id = manager.download(&url, &path).expect("Failed to start download");
+        let id = manager
+            .download(&url, &path)
+            .expect("Failed to start download");
 
         // Wait for completion
         let result = timeout(Duration::from_secs(5), async {
             loop {
                 let state = manager.state(id);
-                if matches!(state, Some(DownloadState::Completed) | Some(DownloadState::Failed)) {
+                if matches!(
+                    state,
+                    Some(DownloadState::Completed) | Some(DownloadState::Failed)
+                ) {
                     return state;
                 }
                 tokio::time::sleep(Duration::from_millis(50)).await;
@@ -219,7 +233,9 @@ mod integration_tests {
         let path = temp_file.path().to_path_buf();
 
         let url = format!("{}/slow-file.bin", mock_server.uri());
-        let id = manager.download(&url, &path).expect("Failed to start download");
+        let id = manager
+            .download(&url, &path)
+            .expect("Failed to start download");
 
         // Give it a moment to start
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -266,9 +282,7 @@ mod integration_tests {
             .and(path("/uploads/abc123"))
             .and(header("Tus-Resumable", "1.0.0"))
             .and(header("Content-Type", "application/offset+octet-stream"))
-            .respond_with(
-                ResponseTemplate::new(204).insert_header("Upload-Offset", "13"),
-            )
+            .respond_with(ResponseTemplate::new(204).insert_header("Upload-Offset", "13"))
             .mount(&mock_server)
             .await;
 
@@ -276,7 +290,9 @@ mod integration_tests {
 
         // Create temp file with content
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
-        temp_file.write_all(b"Hello, World!").expect("Failed to write to temp file");
+        temp_file
+            .write_all(b"Hello, World!")
+            .expect("Failed to write to temp file");
         temp_file.flush().expect("Failed to flush temp file");
 
         let endpoint = format!("{}/uploads", mock_server.uri());
@@ -288,7 +304,10 @@ mod integration_tests {
         let result = timeout(Duration::from_secs(5), async {
             loop {
                 let state = manager.state(id);
-                if matches!(state, Some(UploadState::Completed) | Some(UploadState::Failed)) {
+                if matches!(
+                    state,
+                    Some(UploadState::Completed) | Some(UploadState::Failed)
+                ) {
                     return state;
                 }
                 tokio::time::sleep(Duration::from_millis(50)).await;

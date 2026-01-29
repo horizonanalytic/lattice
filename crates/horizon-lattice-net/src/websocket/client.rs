@@ -1,8 +1,8 @@
 //! WebSocket client with signal-based event delivery.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
@@ -10,10 +10,10 @@ use horizon_lattice_core::Signal;
 use parking_lot::Mutex;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode as TungsteniteCloseCode;
-use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+use tokio_tungstenite::tungstenite::protocol::CloseFrame;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode as TungsteniteCloseCode;
 use tokio_tungstenite::{Connector, MaybeTlsStream, WebSocketStream};
 
 use super::message::{CloseCode, CloseReason, WebSocketState};
@@ -502,8 +502,8 @@ impl WebSocketClient {
                 };
 
                 // Check max attempts
-                if let Some(max) = reconnect_config.max_attempts {
-                    if reconnect_attempt >= max {
+                if let Some(max) = reconnect_config.max_attempts
+                    && reconnect_attempt >= max {
                         emit_error(NetworkError::Connection(format!(
                             "Max reconnection attempts ({}) reached",
                             max
@@ -513,7 +513,6 @@ impl WebSocketClient {
                         is_running.store(false, Ordering::SeqCst);
                         return;
                     }
-                }
 
                 // Wait before reconnecting
                 let delay = reconnect_config.delay_for_attempt(reconnect_attempt);

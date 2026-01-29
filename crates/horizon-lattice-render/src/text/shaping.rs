@@ -420,7 +420,8 @@ impl TextShaper {
         );
 
         // Make sure text is shaped
-        self.buffer.shape_until_scroll(font_system.inner_mut(), false);
+        self.buffer
+            .shape_until_scroll(font_system.inner_mut(), false);
 
         // Extract shaped glyphs
         self.extract_shaped_text(text, font_size, line_height)
@@ -586,12 +587,7 @@ mod tests {
         let font = Font::new(FontFamily::SansSerif, 16.0);
         let mut shaper = TextShaper::new();
 
-        let shaped = shaper.shape_text(
-            &mut font_system,
-            "",
-            &font,
-            ShapingOptions::default(),
-        );
+        let shaped = shaper.shape_text(&mut font_system, "", &font, ShapingOptions::default());
 
         assert!(shaped.is_empty());
     }

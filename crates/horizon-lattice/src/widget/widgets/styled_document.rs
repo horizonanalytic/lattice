@@ -6,8 +6,8 @@
 
 use std::ops::Range;
 
-use horizon_lattice_render::text::{FontFamily, FontWeight, HorizontalAlign};
 use horizon_lattice_render::Color;
+use horizon_lattice_render::text::{FontFamily, FontWeight, HorizontalAlign};
 
 /// Character-level formatting attributes.
 ///
@@ -238,9 +238,11 @@ impl LineSpacing {
 /// Modeled after Qt's QTextListFormat::Style, with negative values
 /// for bullets and positive values for numbered lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum ListStyle {
     // Bullet styles (unordered lists)
     /// Filled circle bullet (•)
+    #[default]
     Disc,
     /// Empty circle bullet (○)
     Circle,
@@ -263,7 +265,10 @@ pub enum ListStyle {
 impl ListStyle {
     /// Check if this is a bullet (unordered) list style.
     pub fn is_bullet(&self) -> bool {
-        matches!(self, ListStyle::Disc | ListStyle::Circle | ListStyle::Square)
+        matches!(
+            self,
+            ListStyle::Disc | ListStyle::Circle | ListStyle::Square
+        )
     }
 
     /// Check if this is a numbered (ordered) list style.
@@ -299,7 +304,11 @@ impl ListStyle {
     /// Convert a number to alphabetic representation (1=a, 2=b, ..., 26=z, 27=aa, ...).
     fn to_alpha(n: usize, uppercase: bool) -> String {
         if n == 0 {
-            return if uppercase { "A".to_string() } else { "a".to_string() };
+            return if uppercase {
+                "A".to_string()
+            } else {
+                "a".to_string()
+            };
         }
         let mut result = String::new();
         let mut num = n;
@@ -321,15 +330,35 @@ impl ListStyle {
 
         let numerals = if uppercase {
             [
-                (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
-                (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
-                (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+                (1000, "M"),
+                (900, "CM"),
+                (500, "D"),
+                (400, "CD"),
+                (100, "C"),
+                (90, "XC"),
+                (50, "L"),
+                (40, "XL"),
+                (10, "X"),
+                (9, "IX"),
+                (5, "V"),
+                (4, "IV"),
+                (1, "I"),
             ]
         } else {
             [
-                (1000, "m"), (900, "cm"), (500, "d"), (400, "cd"),
-                (100, "c"), (90, "xc"), (50, "l"), (40, "xl"),
-                (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i"),
+                (1000, "m"),
+                (900, "cm"),
+                (500, "d"),
+                (400, "cd"),
+                (100, "c"),
+                (90, "xc"),
+                (50, "l"),
+                (40, "xl"),
+                (10, "x"),
+                (9, "ix"),
+                (5, "v"),
+                (4, "iv"),
+                (1, "i"),
             ]
         };
 
@@ -366,11 +395,6 @@ impl ListStyle {
     }
 }
 
-impl Default for ListStyle {
-    fn default() -> Self {
-        ListStyle::Disc
-    }
-}
 
 /// List formatting information for a paragraph.
 ///
@@ -433,7 +457,9 @@ impl ListFormat {
         if self.style.is_bullet() {
             self.style.bullet_marker().unwrap_or("•").to_string()
         } else {
-            self.style.number_marker(item_index, self.start).unwrap_or_default()
+            self.style
+                .number_marker(item_index, self.start)
+                .unwrap_or_default()
         }
     }
 }
@@ -1463,7 +1489,7 @@ impl StyledDocument {
             self.block_format_at(para_idx)
                 .list_format
                 .as_ref()
-                .map_or(false, |lf| lf.style.is_bullet())
+                .is_some_and(|lf| lf.style.is_bullet())
         });
 
         if all_are_bullet_lists {
@@ -1473,7 +1499,10 @@ impl StyledDocument {
             // Add bullet list formatting
             for para_idx in range {
                 let existing = self.block_format_at(para_idx);
-                let indent_level = existing.list_format.as_ref().map_or(0, |lf| lf.indent_level);
+                let indent_level = existing
+                    .list_format
+                    .as_ref()
+                    .map_or(0, |lf| lf.indent_level);
                 let list_format = ListFormat::new(ListStyle::bullet_for_level(indent_level))
                     .with_indent_level(indent_level);
                 let new_format = BlockFormat {
@@ -1493,7 +1522,7 @@ impl StyledDocument {
             self.block_format_at(para_idx)
                 .list_format
                 .as_ref()
-                .map_or(false, |lf| lf.style.is_numbered())
+                .is_some_and(|lf| lf.style.is_numbered())
         });
 
         if all_are_numbered_lists {
@@ -1503,7 +1532,10 @@ impl StyledDocument {
             // Add numbered list formatting
             for para_idx in range {
                 let existing = self.block_format_at(para_idx);
-                let indent_level = existing.list_format.as_ref().map_or(0, |lf| lf.indent_level);
+                let indent_level = existing
+                    .list_format
+                    .as_ref()
+                    .map_or(0, |lf| lf.indent_level);
                 let list_format = ListFormat::new(ListStyle::number_for_level(indent_level))
                     .with_indent_level(indent_level);
                 let new_format = BlockFormat {
@@ -1543,8 +1575,8 @@ impl StyledDocument {
     pub fn decrease_list_indent(&mut self, range: Range<usize>) {
         for para_idx in range {
             let existing = self.block_format_at(para_idx);
-            if let Some(mut list_format) = existing.list_format.clone() {
-                if list_format.indent_level > 0 {
+            if let Some(mut list_format) = existing.list_format.clone()
+                && list_format.indent_level > 0 {
                     list_format.indent_level -= 1;
                     // Update the style for the new indent level
                     if list_format.style.is_bullet() {
@@ -1558,7 +1590,6 @@ impl StyledDocument {
                     };
                     self.set_block_format(para_idx..para_idx + 1, new_format);
                 }
-            }
         }
     }
 
@@ -1672,8 +1703,16 @@ impl StyledDocument {
                 if run.range.end <= para_start || run.range.start >= para_end {
                     continue;
                 }
-                let local_start = run.range.start.saturating_sub(para_start).min(para_text.len());
-                let local_end = run.range.end.saturating_sub(para_start).min(para_text.len());
+                let local_start = run
+                    .range
+                    .start
+                    .saturating_sub(para_start)
+                    .min(para_text.len());
+                let local_end = run
+                    .range
+                    .end
+                    .saturating_sub(para_start)
+                    .min(para_text.len());
                 if local_start < local_end {
                     char_spans.push((local_start..local_end, run.format.clone()));
                 }
@@ -1713,7 +1752,7 @@ impl StyledDocument {
         // Track list state for proper nesting
         let mut list_stack: Vec<(bool, usize)> = Vec::new(); // (is_ordered, indent_level)
 
-        for (_para_idx, (text, char_spans, block_format)) in paragraphs.iter().enumerate() {
+        for (text, char_spans, block_format) in paragraphs.iter() {
             let is_list_item = block_format.list_format.is_some();
             let list_format = block_format.list_format.as_ref();
 
@@ -1733,15 +1772,14 @@ impl StyledDocument {
                 }
 
                 // Check if we need to change list type at current level
-                if let Some(&(stack_ordered, stack_level)) = list_stack.last() {
-                    if stack_level == indent_level && stack_ordered != is_ordered {
+                if let Some(&(stack_ordered, stack_level)) = list_stack.last()
+                    && stack_level == indent_level && stack_ordered != is_ordered {
                         // Close and reopen with different type
                         let (was_ordered, _) = list_stack.pop().unwrap();
                         html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
                         html.push_str(if is_ordered { "<ol>" } else { "<ul>" });
                         list_stack.push((is_ordered, indent_level));
                     }
-                }
 
                 // Open new lists as needed
                 while list_stack.len() <= indent_level {
@@ -2065,14 +2103,13 @@ impl StyledDocument {
                 }
 
                 // Check if we need to change list type at current level
-                if let Some(&(stack_ordered, stack_level)) = list_stack.last() {
-                    if stack_level == indent_level && stack_ordered != is_ordered {
+                if let Some(&(stack_ordered, stack_level)) = list_stack.last()
+                    && stack_level == indent_level && stack_ordered != is_ordered {
                         let (was_ordered, _) = list_stack.pop().unwrap();
                         html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
                         html.push_str(if is_ordered { "<ol>" } else { "<ul>" });
                         list_stack.push((is_ordered, indent_level));
                     }
-                }
 
                 // Open new lists as needed
                 while list_stack.len() <= indent_level {
@@ -2204,11 +2241,11 @@ impl HtmlFormatState {
             italic: self.italic,
             underline: self.underline,
             strikethrough: self.strikethrough,
-            foreground_color: self.foreground_color.clone(),
-            background_color: self.background_color.clone(),
+            foreground_color: self.foreground_color,
+            background_color: self.background_color,
             font_family: self.font_family.clone(),
             font_size: self.font_size,
-            font_weight: self.font_weight.clone(),
+            font_weight: self.font_weight,
         }
     }
 }
@@ -2266,7 +2303,9 @@ impl HtmlDocumentParser {
     }
 
     fn current_format(&self) -> &HtmlFormatState {
-        self.format_stack.last().expect("format_stack should never be empty")
+        self.format_stack
+            .last()
+            .expect("format_stack should never be empty")
     }
 
     fn parse(html: &str) -> StyledDocument {
@@ -2608,25 +2647,22 @@ impl HtmlDocumentParser {
                 }
                 // Inline styles
                 "color" => {
-                    if let Some(color) = parse_css_color(value) {
-                        if let Some(f) = self.format_stack.last_mut() {
+                    if let Some(color) = parse_css_color(value)
+                        && let Some(f) = self.format_stack.last_mut() {
                             f.foreground_color = Some(color);
                         }
-                    }
                 }
                 "background-color" => {
-                    if let Some(color) = parse_css_color(value) {
-                        if let Some(f) = self.format_stack.last_mut() {
+                    if let Some(color) = parse_css_color(value)
+                        && let Some(f) = self.format_stack.last_mut() {
                             f.background_color = Some(color);
                         }
-                    }
                 }
                 "font-size" => {
-                    if let Some(px) = parse_px_value(value) {
-                        if let Some(f) = self.format_stack.last_mut() {
+                    if let Some(px) = parse_px_value(value)
+                        && let Some(f) = self.format_stack.last_mut() {
                             f.font_size = Some(px);
                         }
-                    }
                 }
                 "font-weight" => {
                     if let Some(f) = self.format_stack.last_mut() {
@@ -2638,11 +2674,10 @@ impl HtmlDocumentParser {
                     }
                 }
                 "font-style" => {
-                    if let Some(f) = self.format_stack.last_mut() {
-                        if value == "italic" || value == "oblique" {
+                    if let Some(f) = self.format_stack.last_mut()
+                        && (value == "italic" || value == "oblique") {
                             f.italic = true;
                         }
-                    }
                 }
                 "text-decoration" => {
                     if let Some(f) = self.format_stack.last_mut() {
@@ -2680,7 +2715,7 @@ fn parse_html_attributes(attrs_str: &str) -> Vec<(String, String)> {
 
     while chars.peek().is_some() {
         // Skip whitespace
-        while chars.peek().map_or(false, |c| c.is_whitespace()) {
+        while chars.peek().is_some_and(|c| c.is_whitespace()) {
             chars.next();
         }
 
@@ -2698,7 +2733,7 @@ fn parse_html_attributes(attrs_str: &str) -> Vec<(String, String)> {
         }
 
         // Skip whitespace before =
-        while chars.peek().map_or(false, |c| c.is_whitespace()) {
+        while chars.peek().is_some_and(|c| c.is_whitespace()) {
             chars.next();
         }
 
@@ -2709,7 +2744,7 @@ fn parse_html_attributes(attrs_str: &str) -> Vec<(String, String)> {
         chars.next();
 
         // Skip whitespace after =
-        while chars.peek().map_or(false, |c| c.is_whitespace()) {
+        while chars.peek().is_some_and(|c| c.is_whitespace()) {
             chars.next();
         }
 
@@ -2720,7 +2755,7 @@ fn parse_html_attributes(attrs_str: &str) -> Vec<(String, String)> {
         if quote_char == Some('"') || quote_char == Some('\'') {
             chars.next();
             let quote = quote_char.unwrap();
-            while let Some(c) = chars.next() {
+            for c in chars.by_ref() {
                 if c == quote {
                     break;
                 }
@@ -2760,16 +2795,14 @@ fn decode_html_entity(entity: &str) -> String {
             // Try numeric entity
             if let Some(hex) = entity.strip_prefix('#') {
                 if let Some(hex_val) = hex.strip_prefix('x').or_else(|| hex.strip_prefix('X')) {
-                    if let Ok(code_point) = u32::from_str_radix(hex_val, 16) {
-                        if let Some(c) = char::from_u32(code_point) {
+                    if let Ok(code_point) = u32::from_str_radix(hex_val, 16)
+                        && let Some(c) = char::from_u32(code_point) {
                             return c.to_string();
                         }
-                    }
-                } else if let Ok(code_point) = hex.parse::<u32>() {
-                    if let Some(c) = char::from_u32(code_point) {
+                } else if let Ok(code_point) = hex.parse::<u32>()
+                    && let Some(c) = char::from_u32(code_point) {
                         return c.to_string();
                     }
-                }
             }
             format!("&{};", entity)
         }
@@ -3291,7 +3324,10 @@ mod tests {
         assert_eq!(BlockFormat::left().alignment, HorizontalAlign::Left);
         assert_eq!(BlockFormat::center().alignment, HorizontalAlign::Center);
         assert_eq!(BlockFormat::right().alignment, HorizontalAlign::Right);
-        assert_eq!(BlockFormat::justified().alignment, HorizontalAlign::Justified);
+        assert_eq!(
+            BlockFormat::justified().alignment,
+            HorizontalAlign::Justified
+        );
     }
 
     #[test]
@@ -3370,7 +3406,10 @@ mod tests {
         assert_eq!(doc.block_format_at(0).left_indent, BlockFormat::INDENT_STEP);
 
         doc.increase_indent(0..1);
-        assert_eq!(doc.block_format_at(0).left_indent, BlockFormat::INDENT_STEP * 2.0);
+        assert_eq!(
+            doc.block_format_at(0).left_indent,
+            BlockFormat::INDENT_STEP * 2.0
+        );
     }
 
     #[test]
@@ -3379,7 +3418,10 @@ mod tests {
         doc.set_left_indent(0..1, 80.0);
 
         doc.decrease_indent(0..1);
-        assert_eq!(doc.block_format_at(0).left_indent, 80.0 - BlockFormat::INDENT_STEP);
+        assert_eq!(
+            doc.block_format_at(0).left_indent,
+            80.0 - BlockFormat::INDENT_STEP
+        );
 
         doc.decrease_indent(0..1);
         assert_eq!(doc.block_format_at(0).left_indent, 0.0);
@@ -3473,13 +3515,16 @@ mod tests {
         doc.set_line_spacing(0..2, LineSpacing::OnePointFive);
 
         // Verify each paragraph has the correct spacing
-        assert_eq!(doc.block_format_at(0).line_spacing, LineSpacing::OnePointFive);
-        assert_eq!(doc.block_format_at(1).line_spacing, LineSpacing::OnePointFive);
-
         assert_eq!(
-            doc.uniform_line_spacing(),
-            Some(LineSpacing::OnePointFive)
+            doc.block_format_at(0).line_spacing,
+            LineSpacing::OnePointFive
         );
+        assert_eq!(
+            doc.block_format_at(1).line_spacing,
+            LineSpacing::OnePointFive
+        );
+
+        assert_eq!(doc.uniform_line_spacing(), Some(LineSpacing::OnePointFive));
     }
 
     #[test]
@@ -3493,8 +3538,7 @@ mod tests {
 
     #[test]
     fn test_line_spacing_with_builder() {
-        let format = BlockFormat::new()
-            .with_line_spacing(LineSpacing::OnePointFive);
+        let format = BlockFormat::new().with_line_spacing(LineSpacing::OnePointFive);
         assert_eq!(format.line_spacing, LineSpacing::OnePointFive);
     }
 
@@ -3587,18 +3631,15 @@ mod tests {
         assert!(!default.is_styled());
 
         // Line spacing should make it styled
-        let with_line_spacing = BlockFormat::new()
-            .with_line_spacing(LineSpacing::Double);
+        let with_line_spacing = BlockFormat::new().with_line_spacing(LineSpacing::Double);
         assert!(with_line_spacing.is_styled());
 
         // Spacing before should make it styled
-        let with_spacing_before = BlockFormat::new()
-            .with_spacing_before(10.0);
+        let with_spacing_before = BlockFormat::new().with_spacing_before(10.0);
         assert!(with_spacing_before.is_styled());
 
         // Spacing after should make it styled
-        let with_spacing_after = BlockFormat::new()
-            .with_spacing_after(10.0);
+        let with_spacing_after = BlockFormat::new().with_spacing_after(10.0);
         assert!(with_spacing_after.is_styled());
     }
 
@@ -3656,29 +3697,74 @@ mod tests {
     #[test]
     fn test_list_style_number_markers() {
         // Decimal
-        assert_eq!(ListStyle::Decimal.number_marker(0, 1), Some("1.".to_string()));
-        assert_eq!(ListStyle::Decimal.number_marker(1, 1), Some("2.".to_string()));
-        assert_eq!(ListStyle::Decimal.number_marker(9, 1), Some("10.".to_string()));
+        assert_eq!(
+            ListStyle::Decimal.number_marker(0, 1),
+            Some("1.".to_string())
+        );
+        assert_eq!(
+            ListStyle::Decimal.number_marker(1, 1),
+            Some("2.".to_string())
+        );
+        assert_eq!(
+            ListStyle::Decimal.number_marker(9, 1),
+            Some("10.".to_string())
+        );
 
         // Lower alpha
-        assert_eq!(ListStyle::LowerAlpha.number_marker(0, 1), Some("a.".to_string()));
-        assert_eq!(ListStyle::LowerAlpha.number_marker(1, 1), Some("b.".to_string()));
-        assert_eq!(ListStyle::LowerAlpha.number_marker(25, 1), Some("z.".to_string()));
-        assert_eq!(ListStyle::LowerAlpha.number_marker(26, 1), Some("aa.".to_string()));
+        assert_eq!(
+            ListStyle::LowerAlpha.number_marker(0, 1),
+            Some("a.".to_string())
+        );
+        assert_eq!(
+            ListStyle::LowerAlpha.number_marker(1, 1),
+            Some("b.".to_string())
+        );
+        assert_eq!(
+            ListStyle::LowerAlpha.number_marker(25, 1),
+            Some("z.".to_string())
+        );
+        assert_eq!(
+            ListStyle::LowerAlpha.number_marker(26, 1),
+            Some("aa.".to_string())
+        );
 
         // Upper alpha
-        assert_eq!(ListStyle::UpperAlpha.number_marker(0, 1), Some("A.".to_string()));
-        assert_eq!(ListStyle::UpperAlpha.number_marker(25, 1), Some("Z.".to_string()));
+        assert_eq!(
+            ListStyle::UpperAlpha.number_marker(0, 1),
+            Some("A.".to_string())
+        );
+        assert_eq!(
+            ListStyle::UpperAlpha.number_marker(25, 1),
+            Some("Z.".to_string())
+        );
 
         // Lower roman
-        assert_eq!(ListStyle::LowerRoman.number_marker(0, 1), Some("i.".to_string()));
-        assert_eq!(ListStyle::LowerRoman.number_marker(1, 1), Some("ii.".to_string()));
-        assert_eq!(ListStyle::LowerRoman.number_marker(3, 1), Some("iv.".to_string()));
-        assert_eq!(ListStyle::LowerRoman.number_marker(8, 1), Some("ix.".to_string()));
+        assert_eq!(
+            ListStyle::LowerRoman.number_marker(0, 1),
+            Some("i.".to_string())
+        );
+        assert_eq!(
+            ListStyle::LowerRoman.number_marker(1, 1),
+            Some("ii.".to_string())
+        );
+        assert_eq!(
+            ListStyle::LowerRoman.number_marker(3, 1),
+            Some("iv.".to_string())
+        );
+        assert_eq!(
+            ListStyle::LowerRoman.number_marker(8, 1),
+            Some("ix.".to_string())
+        );
 
         // Upper roman
-        assert_eq!(ListStyle::UpperRoman.number_marker(0, 1), Some("I.".to_string()));
-        assert_eq!(ListStyle::UpperRoman.number_marker(9, 1), Some("X.".to_string()));
+        assert_eq!(
+            ListStyle::UpperRoman.number_marker(0, 1),
+            Some("I.".to_string())
+        );
+        assert_eq!(
+            ListStyle::UpperRoman.number_marker(9, 1),
+            Some("X.".to_string())
+        );
     }
 
     #[test]
@@ -3859,7 +3945,8 @@ mod tests {
 
     #[test]
     fn test_document_list_item_number() {
-        let mut doc = StyledDocument::from_text("Item 1\nItem 2\nItem 3\nNot a list\nItem 4\nItem 5");
+        let mut doc =
+            StyledDocument::from_text("Item 1\nItem 2\nItem 3\nNot a list\nItem 4\nItem 5");
 
         // Make first three items a numbered list
         doc.toggle_numbered_list(0..3);

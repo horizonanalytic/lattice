@@ -79,7 +79,7 @@ use std::sync::Arc;
 
 use horizon_lattice_core::signal::Signal;
 use parking_lot::RwLock;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use super::error::{FileError, FileErrorKind, FileResult};
 use super::operations::{atomic_write, read_text};
@@ -90,8 +90,10 @@ use super::operations::{atomic_write, read_text};
 /// For complex types, use serde serialization.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[derive(Default)]
 pub enum SettingsValue {
     /// A null/empty value.
+    #[default]
     Null,
     /// A boolean value.
     Bool(bool),
@@ -164,11 +166,6 @@ impl SettingsValue {
     }
 }
 
-impl Default for SettingsValue {
-    fn default() -> Self {
-        SettingsValue::Null
-    }
-}
 
 impl From<bool> for SettingsValue {
     fn from(v: bool) -> Self {
@@ -532,9 +529,7 @@ impl Settings {
             )
         })?;
 
-        atomic_write(&path, |writer| {
-            writer.write_all(json.as_bytes())
-        })
+        atomic_write(&path, |writer| writer.write_all(json.as_bytes()))
     }
 
     /// Saves settings to a TOML file.
@@ -551,9 +546,7 @@ impl Settings {
             )
         })?;
 
-        atomic_write(&path, |writer| {
-            writer.write_all(toml_str.as_bytes())
-        })
+        atomic_write(&path, |writer| writer.write_all(toml_str.as_bytes()))
     }
 
     /// Loads settings from an INI file.
@@ -566,7 +559,10 @@ impl Settings {
             FileError::new(
                 FileErrorKind::InvalidData,
                 Some(path.as_ref().to_path_buf()),
-                Some(std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())),
+                Some(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    e.to_string(),
+                )),
             )
         })?;
 
@@ -597,9 +593,7 @@ impl Settings {
             )
         })?;
 
-        atomic_write(&path, |writer| {
-            writer.write_all(&output)
-        })
+        atomic_write(&path, |writer| writer.write_all(&output))
     }
 
     /// Syncs settings to disk if auto-save is enabled.
@@ -625,7 +619,7 @@ impl Settings {
 
     /// Parses a path string into components.
     fn parse_path(path: &str) -> Vec<&str> {
-        path.split(|c| c == '.' || c == '/')
+        path.split(['.', '/'])
             .filter(|s| !s.is_empty())
             .collect()
     }
@@ -748,15 +742,13 @@ impl Settings {
             SettingsValue::Null => serde_json::Value::Null,
             SettingsValue::Bool(b) => serde_json::Value::Bool(b),
             SettingsValue::Integer(i) => serde_json::Value::Number(i.into()),
-            SettingsValue::Float(f) => {
-                serde_json::Number::from_f64(f)
-                    .map(serde_json::Value::Number)
-                    .unwrap_or(serde_json::Value::Null)
-            }
+            SettingsValue::Float(f) => serde_json::Number::from_f64(f)
+                .map(serde_json::Value::Number)
+                .unwrap_or(serde_json::Value::Null),
             SettingsValue::String(s) => serde_json::Value::String(s),
-            SettingsValue::Array(arr) => {
-                serde_json::Value::Array(arr.into_iter().map(Self::settings_value_to_json).collect())
-            }
+            SettingsValue::Array(arr) => serde_json::Value::Array(
+                arr.into_iter().map(Self::settings_value_to_json).collect(),
+            ),
             SettingsValue::Object(obj) => serde_json::Value::Object(
                 obj.into_iter()
                     .map(|(k, v)| (k, Self::settings_value_to_json(v)))
@@ -980,12 +972,12 @@ mod tests {
 
         settings.set("name", "test");
         settings.set("count", 42);
-        settings.set("ratio", 3.14);
+        settings.set("ratio", 2.5);
         settings.set("enabled", true);
 
         assert_eq!(settings.get::<String>("name"), Some("test".to_string()));
         assert_eq!(settings.get::<i32>("count"), Some(42));
-        assert_eq!(settings.get::<f64>("ratio"), Some(3.14));
+        assert_eq!(settings.get::<f64>("ratio"), Some(2.5));
         assert_eq!(settings.get::<bool>("enabled"), Some(true));
     }
 
@@ -999,7 +991,10 @@ mod tests {
 
         assert_eq!(settings.get::<i32>("app.window.width"), Some(1024));
         assert_eq!(settings.get::<i32>("app/window/height"), Some(768));
-        assert_eq!(settings.get::<String>("app.theme.name"), Some("dark".to_string()));
+        assert_eq!(
+            settings.get::<String>("app.theme.name"),
+            Some("dark".to_string())
+        );
     }
 
     #[test]
@@ -1109,7 +1104,7 @@ mod tests {
     fn test_ini_roundtrip() {
         let settings = Settings::new();
         settings.set("app.name", "test");
-        settings.set("app.version", "v1.0.0");  // Use string that won't parse as float
+        settings.set("app.version", "v1.0.0"); // Use string that won't parse as float
         settings.set("server.port", 8080);
         settings.set("server.enabled", true);
 
@@ -1118,7 +1113,10 @@ mod tests {
 
         let loaded = Settings::load_ini(&temp_path).unwrap();
         assert_eq!(loaded.get::<String>("app.name"), Some("test".to_string()));
-        assert_eq!(loaded.get::<String>("app.version"), Some("v1.0.0".to_string()));
+        assert_eq!(
+            loaded.get::<String>("app.version"),
+            Some("v1.0.0".to_string())
+        );
         assert_eq!(loaded.get::<i32>("server.port"), Some(8080));
         assert_eq!(loaded.get::<bool>("server.enabled"), Some(true));
 

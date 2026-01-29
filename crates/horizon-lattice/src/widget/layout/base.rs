@@ -5,8 +5,8 @@
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::{Rect, Size};
 
-use super::{ContentMargins, DEFAULT_MARGINS, DEFAULT_SPACING};
 use super::item::LayoutItem;
+use super::{ContentMargins, DEFAULT_MARGINS, DEFAULT_SPACING};
 use crate::platform::TextDirection;
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::geometry::{SizeHint, SizePolicy, SizePolicyPair};
@@ -103,9 +103,11 @@ impl LayoutBase {
 
     /// Remove a widget by its ObjectId.
     pub fn remove_widget(&mut self, widget: ObjectId) -> bool {
-        if let Some(index) = self.items.iter().position(|item| {
-            matches!(item, LayoutItem::Widget(id) if *id == widget)
-        }) {
+        if let Some(index) = self
+            .items
+            .iter()
+            .position(|item| matches!(item, LayoutItem::Widget(id) if *id == widget))
+        {
             self.remove_item(index);
             true
         } else {
@@ -409,9 +411,7 @@ impl LayoutBase {
     /// Check if an item is visible (for widgets) or non-empty (for others).
     pub fn is_item_visible<S: WidgetAccess>(&self, storage: &S, item: &LayoutItem) -> bool {
         match item {
-            LayoutItem::Widget(id) => storage
-                .get_widget(*id)
-                .is_some_and(|w| w.is_visible()),
+            LayoutItem::Widget(id) => storage.get_widget(*id).is_some_and(|w| w.is_visible()),
             LayoutItem::Spacer(_) => true,
             LayoutItem::Layout(layout) => !layout.is_empty(),
         }
@@ -431,11 +431,10 @@ impl LayoutBase {
         item: &LayoutItem,
         geometry: Rect,
     ) {
-        if let LayoutItem::Widget(id) = item {
-            if let Some(widget) = storage.get_widget_mut(*id) {
+        if let LayoutItem::Widget(id) = item
+            && let Some(widget) = storage.get_widget_mut(*id) {
                 widget.set_geometry(geometry);
             }
-        }
     }
 
     /// Distribute space among items based on their policies and stretch factors.
@@ -508,7 +507,10 @@ fn distribute_extra_space(
 
     for (i, (hint, policy, stretch)) in items.iter().enumerate() {
         if policy.can_grow() {
-            let item_max = hint.effective_maximum().width.max(hint.effective_maximum().height);
+            let item_max = hint
+                .effective_maximum()
+                .width
+                .max(hint.effective_maximum().height);
             let current = hint.preferred.width.max(hint.preferred.height);
             let growth_room = (item_max - current).max(0.0);
             if growth_room > 0.0 {
@@ -558,7 +560,10 @@ fn distribute_deficit_space(
 
     for (i, (hint, policy, _)) in items.iter().enumerate() {
         if policy.can_shrink() {
-            let item_min = hint.effective_minimum().width.max(hint.effective_minimum().height);
+            let item_min = hint
+                .effective_minimum()
+                .width
+                .max(hint.effective_minimum().height);
             let current = hint.preferred.width.max(hint.preferred.height);
             let shrink_room = (current - item_min).max(0.0);
             if shrink_room > 0.0 {
@@ -620,8 +625,7 @@ mod tests {
         ];
 
         let sizes = LayoutBase::distribute_space(
-            &items,
-            200.0, // available
+            &items, 200.0, // available
             100.0, // total_hint
             0.0,   // total_min
             400.0, // total_max
@@ -650,8 +654,7 @@ mod tests {
         ];
 
         let sizes = LayoutBase::distribute_space(
-            &items,
-            100.0, // available (need 200, only have 100)
+            &items, 100.0, // available (need 200, only have 100)
             200.0, // total_hint
             100.0, // total_min
             400.0, // total_max

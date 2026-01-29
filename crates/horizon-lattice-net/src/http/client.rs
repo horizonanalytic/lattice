@@ -5,9 +5,9 @@ use std::time::Duration;
 
 use reqwest::redirect::Policy;
 
+use super::request::{HttpMethod, HttpRequestBuilder};
 use crate::error::{NetworkError, Result};
 use crate::tls::{Certificate, Identity, TlsConfig, TlsVersion};
-use super::request::{HttpMethod, HttpRequestBuilder};
 
 /// Configuration for the HTTP client.
 #[derive(Clone, Debug)]
@@ -204,12 +204,12 @@ impl HttpClientBuilder {
         name: impl TryInto<http::HeaderName>,
         value: impl TryInto<http::HeaderValue>,
     ) -> Result<Self> {
-        let name = name.try_into().map_err(|_| {
-            NetworkError::InvalidHeader("Invalid header name".to_string())
-        })?;
-        let value = value.try_into().map_err(|_| {
-            NetworkError::InvalidHeader("Invalid header value".to_string())
-        })?;
+        let name = name
+            .try_into()
+            .map_err(|_| NetworkError::InvalidHeader("Invalid header name".to_string()))?;
+        let value = value
+            .try_into()
+            .map_err(|_| NetworkError::InvalidHeader("Invalid header value".to_string()))?;
         self.default_headers.insert(name, value);
         Ok(self)
     }
@@ -245,8 +245,8 @@ impl HttpClientBuilder {
 
         // Proxy
         if let Some(ref proxy_url) = self.config.proxy {
-            let proxy = reqwest::Proxy::all(proxy_url)
-                .map_err(|e| NetworkError::Proxy(e.to_string()))?;
+            let proxy =
+                reqwest::Proxy::all(proxy_url).map_err(|e| NetworkError::Proxy(e.to_string()))?;
             builder = builder.proxy(proxy);
         }
 

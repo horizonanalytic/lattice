@@ -244,7 +244,10 @@ impl DoubleSpinBox {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -829,11 +832,10 @@ impl DoubleSpinBox {
 
     /// Get the display text for the current value.
     fn display_text(&self) -> String {
-        if (self.value - self.minimum).abs() < f64::EPSILON {
-            if let Some(ref special) = self.special_value_text {
+        if (self.value - self.minimum).abs() < f64::EPSILON
+            && let Some(ref special) = self.special_value_text {
                 return special.clone();
             }
-        }
 
         let formatted_value = if self.should_use_scientific() {
             self.format_scientific(self.value)
@@ -945,11 +947,10 @@ impl DoubleSpinBox {
         self.editing = false;
 
         // Try to parse the edit text as a value
-        if let Ok(parsed) = self.edit_text.trim().parse::<f64>() {
-            if parsed.is_finite() {
+        if let Ok(parsed) = self.edit_text.trim().parse::<f64>()
+            && parsed.is_finite() {
                 self.set_value(parsed);
             }
-        }
 
         self.edit_text.clear();
         self.cursor_pos = 0;
@@ -1012,7 +1013,10 @@ impl DoubleSpinBox {
             // Don't allow decimal point after 'e' in exponent part
             let has_e = self.edit_text.contains('e') || self.edit_text.contains('E');
             if has_e {
-                let e_pos = self.edit_text.find('e').or_else(|| self.edit_text.find('E'));
+                let e_pos = self
+                    .edit_text
+                    .find('e')
+                    .or_else(|| self.edit_text.find('E'));
                 if let Some(pos) = e_pos {
                     // Only allow '.' if cursor is before 'e'
                     return self.cursor_pos <= pos;
@@ -1033,7 +1037,10 @@ impl DoubleSpinBox {
 
         // Allow '+' or '-' after 'e' for exponent sign
         if ch == '+' || ch == '-' {
-            let e_pos = self.edit_text.find('e').or_else(|| self.edit_text.find('E'));
+            let e_pos = self
+                .edit_text
+                .find('e')
+                .or_else(|| self.edit_text.find('E'));
             if let Some(pos) = e_pos {
                 // Allow sign immediately after 'e'
                 return self.cursor_pos == pos + 1;
@@ -1255,17 +1262,15 @@ impl DoubleSpinBox {
             }
             _ => {
                 // Start editing if a digit, minus, or decimal point is pressed
-                if !self.read_only {
-                    if let Some(ch) = event.text.chars().next() {
-                        if ch.is_ascii_digit() || ch == '-' || ch == '+' || ch == '.' {
+                if !self.read_only
+                    && let Some(ch) = event.text.chars().next()
+                        && (ch.is_ascii_digit() || ch == '-' || ch == '+' || ch == '.') {
                             self.start_editing();
                             self.edit_text.clear();
                             self.cursor_pos = 0;
                             self.selection_start = None;
                             return self.handle_edit_key(event);
                         }
-                    }
-                }
             }
         }
         false
@@ -1419,7 +1424,8 @@ impl DoubleSpinBox {
 
         // Draw main background
         let bg_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(bg_rrect, self.background_color);
+        ctx.renderer()
+            .fill_rounded_rect(bg_rrect, self.background_color);
 
         // Draw border
         let border_stroke = Stroke::new(self.border_color, 1.0);
@@ -1455,8 +1461,8 @@ impl DoubleSpinBox {
         let text_pos = Point::new(text_x, text_y);
 
         // Draw selection background if editing with selection
-        if self.editing {
-            if let Some(sel_start) = self.selection_start {
+        if self.editing
+            && let Some(sel_start) = self.selection_start {
                 let (start, end) = if sel_start < self.cursor_pos {
                     (sel_start, self.cursor_pos)
                 } else {
@@ -1464,24 +1470,14 @@ impl DoubleSpinBox {
                 };
                 if start != end {
                     let selection_color = Color::from_rgba8(66, 133, 244, 100);
-                    let sel_rect = Rect::new(
-                        text_x,
-                        text_y,
-                        layout.width(),
-                        layout.height(),
-                    );
+                    let sel_rect = Rect::new(text_x, text_y, layout.width(), layout.height());
                     ctx.renderer().fill_rect(sel_rect, selection_color);
                 }
             }
-        }
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
-            let _ = text_renderer.prepare_layout(
-                &mut font_system,
-                &layout,
-                text_pos,
-                self.text_color,
-            );
+            let _ =
+                text_renderer.prepare_layout(&mut font_system, &layout, text_pos, self.text_color);
         }
 
         // Draw cursor if editing
@@ -1572,7 +1568,8 @@ impl DoubleSpinBox {
         let focus_color = Color::from_rgba8(66, 133, 244, 180);
         let focus_stroke = Stroke::new(focus_color, 2.0);
         let focus_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().stroke_rounded_rect(focus_rrect, &focus_stroke);
+        ctx.renderer()
+            .stroke_rounded_rect(focus_rrect, &focus_stroke);
     }
 }
 
@@ -1611,9 +1608,16 @@ impl Widget for DoubleSpinBox {
             }
             NotationMode::Standard => {
                 let max_int = self.maximum.abs().max(self.minimum.abs()) as i64;
-                let int_digits =
-                    if max_int == 0 { 1 } else { (max_int as f64).log10().floor() as usize + 1 };
-                let decimal_part = if self.decimals > 0 { self.decimals as usize + 1 } else { 0 };
+                let int_digits = if max_int == 0 {
+                    1
+                } else {
+                    (max_int as f64).log10().floor() as usize + 1
+                };
+                let decimal_part = if self.decimals > 0 {
+                    self.decimals as usize + 1
+                } else {
+                    0
+                };
                 sign_width + int_digits + decimal_part
             }
         };
@@ -1624,8 +1628,7 @@ impl Widget for DoubleSpinBox {
         let width = (text_width + self.button_width + 16.0).max(100.0);
         let height = 28.0;
 
-        SizeHint::from_dimensions(width, height)
-            .with_minimum_dimensions(70.0, 22.0)
+        SizeHint::from_dimensions(width, height).with_minimum_dimensions(70.0, 22.0)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
@@ -1692,11 +1695,11 @@ static_assertions::assert_impl_all!(DoubleSpinBox: Send, Sync);
 mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
-    use std::sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    };
     use parking_lot::Mutex;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
 
     fn setup() {
         init_global_registry();
@@ -1802,9 +1805,7 @@ mod tests {
     #[test]
     fn test_range_change_clamps_value() {
         setup();
-        let mut spinbox = DoubleSpinBox::new()
-            .with_range(0.0, 100.0)
-            .with_value(75.0);
+        let mut spinbox = DoubleSpinBox::new().with_range(0.0, 100.0).with_value(75.0);
 
         spinbox.set_range(0.0, 50.0);
         assert!((spinbox.value() - 50.0).abs() < f64::EPSILON);
@@ -1853,7 +1854,11 @@ mod tests {
 
         // Should format in scientific notation
         let display = spinbox.display_text();
-        assert!(display.contains('e'), "Expected scientific notation: {}", display);
+        assert!(
+            display.contains('e'),
+            "Expected scientific notation: {}",
+            display
+        );
     }
 
     #[test]
@@ -1883,15 +1888,27 @@ mod tests {
 
         // Value below threshold - standard notation
         spinbox.set_value(500.0);
-        assert!(!spinbox.display_text().contains('e'), "Expected standard notation for 500: {}", spinbox.display_text());
+        assert!(
+            !spinbox.display_text().contains('e'),
+            "Expected standard notation for 500: {}",
+            spinbox.display_text()
+        );
 
         // Value at/above threshold - scientific notation
         spinbox.set_value(1500.0);
-        assert!(spinbox.display_text().contains('e'), "Expected scientific notation for 1500: {}", spinbox.display_text());
+        assert!(
+            spinbox.display_text().contains('e'),
+            "Expected scientific notation for 1500: {}",
+            spinbox.display_text()
+        );
 
         // Very small value - scientific notation
         spinbox.set_value(0.0005);
-        assert!(spinbox.display_text().contains('e'), "Expected scientific notation for 0.0005: {}", spinbox.display_text());
+        assert!(
+            spinbox.display_text().contains('e'),
+            "Expected scientific notation for 0.0005: {}",
+            spinbox.display_text()
+        );
     }
 
     #[test]
@@ -1905,7 +1922,10 @@ mod tests {
 
         let display = spinbox.display_text();
         // With 3 significant digits, should be "1.23e+03"
-        assert!(display.starts_with("1.23e") || display.starts_with("1.23E"),
-            "Expected 3 significant digits: {}", display);
+        assert!(
+            display.starts_with("1.23e") || display.starts_with("1.23E"),
+            "Expected 3 significant digits: {}",
+            display
+        );
     }
 }

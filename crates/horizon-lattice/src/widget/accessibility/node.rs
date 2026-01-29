@@ -4,8 +4,8 @@ use accesskit::{Action, Node, Toggled};
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::Rect;
 
-use super::role::AccessibleRole;
 use super::object_id_to_node_id;
+use super::role::AccessibleRole;
 
 /// Trait for widgets that provide accessibility information.
 ///
@@ -378,7 +378,10 @@ pub trait Accessible {
         }
 
         // Set children
-        let child_ids: Vec<_> = children.iter().map(|id| object_id_to_node_id(*id)).collect();
+        let child_ids: Vec<_> = children
+            .iter()
+            .map(|id| object_id_to_node_id(*id))
+            .collect();
         if !child_ids.is_empty() {
             node.set_children(child_ids);
         }

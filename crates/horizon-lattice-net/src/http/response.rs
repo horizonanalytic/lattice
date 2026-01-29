@@ -177,11 +177,7 @@ impl ResponseBody {
     }
 
     /// Download to a writer (e.g., a file) with optional progress callback.
-    pub async fn download_to<W, F>(
-        mut self,
-        mut writer: W,
-        mut on_progress: F,
-    ) -> Result<u64>
+    pub async fn download_to<W, F>(mut self, mut writer: W, mut on_progress: F) -> Result<u64>
     where
         W: std::io::Write,
         F: FnMut(u64, Option<u64>),

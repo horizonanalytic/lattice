@@ -115,8 +115,8 @@ mod shaping;
 mod types;
 
 pub use bidi::{
-    contains_rtl, detect_base_direction, is_ltr_char, is_rtl_char, is_strong_directional,
-    isolates, overrides, wrap_with_direction, TextDirection,
+    TextDirection, contains_rtl, detect_base_direction, is_ltr_char, is_rtl_char,
+    is_strong_directional, isolates, overrides, wrap_with_direction,
 };
 pub use font::{Font, FontBuilder, FontFeature};
 pub use font_system::{FontFaceInfo, FontLoadError, FontSystem, FontSystemConfig};
@@ -126,8 +126,8 @@ pub use glyph_cache::{
 };
 pub use layout::{
     BackgroundRect, DecorationLine, HorizontalAlign, InlineElement, InlineVerticalAlign,
-    LayoutGlyph, LayoutLine, SelectionRect, TextLayout, TextLayoutOptions, TextSpan,
-    VerticalAlign, WrapMode,
+    LayoutGlyph, LayoutLine, SelectionRect, TextLayout, TextLayoutOptions, TextSpan, VerticalAlign,
+    WrapMode,
 };
 pub use rich_text::{RichText, RichTextSpan};
 pub use shaping::{GlyphId, ShapedGlyph, ShapedText, ShapingOptions, TextShaper};

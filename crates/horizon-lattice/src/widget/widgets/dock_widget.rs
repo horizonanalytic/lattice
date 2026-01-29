@@ -30,8 +30,8 @@ use horizon_lattice_render::{Color, Point, Rect, Renderer, Size, Stroke};
 use crate::widget::layout::ContentMargins;
 use crate::widget::{
     FocusPolicy, Key, KeyPressEvent, MouseButton, MouseDoubleClickEvent, MouseMoveEvent,
-    MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair,
-    Widget, WidgetBase, WidgetEvent,
+    MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget,
+    WidgetBase, WidgetEvent,
 };
 
 /// Dock widget areas within a MainWindow.
@@ -53,7 +53,13 @@ pub enum DockArea {
 impl DockArea {
     /// Returns all dock areas as an iterator.
     pub fn all() -> impl Iterator<Item = DockArea> {
-        [DockArea::Left, DockArea::Right, DockArea::Top, DockArea::Bottom].into_iter()
+        [
+            DockArea::Left,
+            DockArea::Right,
+            DockArea::Top,
+            DockArea::Bottom,
+        ]
+        .into_iter()
     }
 
     /// Check if this is a horizontal dock area (left or right).
@@ -371,7 +377,10 @@ impl DockWidget {
     pub fn new(title: impl Into<String>) -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::ClickFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Preferred,
+        ));
 
         Self {
             base,
@@ -728,16 +737,14 @@ impl DockWidget {
 
     /// Check which button is at the given position.
     fn hit_test_button(&self, pos: Point) -> Option<TitleBarButton> {
-        if let Some(close_rect) = self.close_button_rect() {
-            if close_rect.contains(pos) {
+        if let Some(close_rect) = self.close_button_rect()
+            && close_rect.contains(pos) {
                 return Some(TitleBarButton::Close);
             }
-        }
-        if let Some(float_rect) = self.float_button_rect() {
-            if float_rect.contains(pos) {
+        if let Some(float_rect) = self.float_button_rect()
+            && float_rect.contains(pos) {
                 return Some(TitleBarButton::Float);
             }
-        }
         None
     }
 
@@ -801,22 +808,20 @@ impl DockWidget {
         // Check button releases
         if self.close_button_state.pressed {
             self.close_button_state.pressed = false;
-            if let Some(rect) = self.close_button_rect() {
-                if rect.contains(pos) {
+            if let Some(rect) = self.close_button_rect()
+                && rect.contains(pos) {
                     self.close_requested.emit(());
                 }
-            }
             self.base.update();
             return true;
         }
 
         if self.float_button_state.pressed {
             self.float_button_state.pressed = false;
-            if let Some(rect) = self.float_button_rect() {
-                if rect.contains(pos) {
+            if let Some(rect) = self.float_button_rect()
+                && rect.contains(pos) {
                     self.toggle_floating();
                 }
-            }
             self.base.update();
             return true;
         }
@@ -834,12 +839,8 @@ impl DockWidget {
         let pos = event.local_pos;
 
         // Update button hover states
-        let new_float_hover = self
-            .float_button_rect()
-            .map_or(false, |r| r.contains(pos));
-        let new_close_hover = self
-            .close_button_rect()
-            .map_or(false, |r| r.contains(pos));
+        let new_float_hover = self.float_button_rect().is_some_and(|r| r.contains(pos));
+        let new_close_hover = self.close_button_rect().is_some_and(|r| r.contains(pos));
 
         let hover_changed = self.float_button_state.hovered != new_float_hover
             || self.close_button_state.hovered != new_close_hover;
@@ -992,22 +993,17 @@ impl DockWidget {
             };
             let stroke = Stroke::new(icon_color, 1.5);
 
-            ctx.renderer().draw_line(
-                Point::new(x1, y1),
-                Point::new(x2, y2),
-                &stroke,
-            );
-            ctx.renderer().draw_line(
-                Point::new(x2, y1),
-                Point::new(x1, y2),
-                &stroke,
-            );
+            ctx.renderer()
+                .draw_line(Point::new(x1, y1), Point::new(x2, y2), &stroke);
+            ctx.renderer()
+                .draw_line(Point::new(x2, y1), Point::new(x1, y2), &stroke);
         }
     }
 
     fn paint_content_area(&self, ctx: &mut PaintContext<'_>) {
         let content_rect = self.content_rect();
-        ctx.renderer().fill_rect(content_rect, self.content_background);
+        ctx.renderer()
+            .fill_rect(content_rect, self.content_background);
     }
 
     fn paint_border(&self, ctx: &mut PaintContext<'_>) {

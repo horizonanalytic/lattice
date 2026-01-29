@@ -65,15 +65,15 @@
 //! engine.add_stylesheet(stylesheet);
 //! ```
 
-pub mod types;
-pub mod style;
-pub mod selector;
-pub mod rules;
-pub mod resolve;
-pub mod parser;
-pub mod theme;
-pub mod widget;
 pub mod icon_theme;
+pub mod parser;
+pub mod resolve;
+pub mod rules;
+pub mod selector;
+pub mod style;
+pub mod theme;
+pub mod types;
+pub mod widget;
 
 #[cfg(feature = "hot-reload")]
 pub mod hot_reload;
@@ -84,18 +84,17 @@ pub use error::{Error, Result};
 
 /// Prelude module with commonly used types.
 pub mod prelude {
-    pub use crate::types::{StyleValue, LengthValue, EdgeValues, BorderStyle, TextAlign, Cursor};
-    pub use crate::style::{StyleProperties, ComputedStyle, Style};
-    pub use crate::selector::{Selector, SelectorPart, PseudoClass, Combinator, Specificity};
-    pub use crate::rules::{StyleRule, StyleSheet, StylePriority};
-    pub use crate::resolve::{StyleEngine, StyleContext, WidgetStyleState};
-    pub use crate::theme::{Theme, ThemeVariables};
-    pub use crate::widget::{
-        StyledWidget, StylePaintContext,
-        paint_styled_box, paint_background, paint_border,
-        content_rect, border_box_size, margin_rect,
-    };
     pub use crate::icon_theme::{IconContext, IconLookup, IconName, IconResolver, IconThemeLoader};
+    pub use crate::resolve::{StyleContext, StyleEngine, WidgetStyleState};
+    pub use crate::rules::{StylePriority, StyleRule, StyleSheet};
+    pub use crate::selector::{Combinator, PseudoClass, Selector, SelectorPart, Specificity};
+    pub use crate::style::{ComputedStyle, Style, StyleProperties};
+    pub use crate::theme::{Theme, ThemeVariables};
+    pub use crate::types::{BorderStyle, Cursor, EdgeValues, LengthValue, StyleValue, TextAlign};
+    pub use crate::widget::{
+        StylePaintContext, StyledWidget, border_box_size, content_rect, margin_rect,
+        paint_background, paint_border, paint_styled_box,
+    };
 
     #[cfg(feature = "hot-reload")]
     pub use crate::hot_reload::StylesheetWatcher;

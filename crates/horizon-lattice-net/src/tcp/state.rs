@@ -2,8 +2,10 @@
 
 /// Current state of a TCP connection.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Default)]
 pub enum TcpConnectionState {
     /// Not connected to any server.
+    #[default]
     Disconnected,
     /// Currently attempting to connect.
     Connecting,
@@ -15,11 +17,6 @@ pub enum TcpConnectionState {
     Closing,
 }
 
-impl Default for TcpConnectionState {
-    fn default() -> Self {
-        Self::Disconnected
-    }
-}
 
 impl std::fmt::Display for TcpConnectionState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -35,8 +32,10 @@ impl std::fmt::Display for TcpConnectionState {
 
 /// Current state of a TCP server.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Default)]
 pub enum TcpServerState {
     /// Server is not running.
+    #[default]
     Stopped,
     /// Server is starting up.
     Starting,
@@ -46,11 +45,6 @@ pub enum TcpServerState {
     Stopping,
 }
 
-impl Default for TcpServerState {
-    fn default() -> Self {
-        Self::Stopped
-    }
-}
 
 impl std::fmt::Display for TcpServerState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

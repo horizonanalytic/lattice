@@ -92,7 +92,11 @@ impl App {
         renderer.restore();
 
         // Draw ellipse/circles
-        renderer.fill_circle(Point::new(500.0, 400.0), 40.0, Color::from_rgb(1.0, 0.5, 0.0));
+        renderer.fill_circle(
+            Point::new(500.0, 400.0),
+            40.0,
+            Color::from_rgb(1.0, 0.5, 0.0),
+        );
 
         // Draw with opacity
         renderer.set_opacity(0.5);
@@ -123,12 +127,15 @@ impl ApplicationHandler for App {
             .with_title("Simple Shapes - Horizon Lattice Render")
             .with_inner_size(winit::dpi::LogicalSize::new(700, 500));
 
-        let window = Arc::new(event_loop.create_window(attrs).expect("Failed to create window"));
+        let window = Arc::new(
+            event_loop
+                .create_window(attrs)
+                .expect("Failed to create window"),
+        );
 
         // Create surface and renderer
-        let surface =
-            RenderSurface::new(Arc::clone(&window), SurfaceConfig::default())
-                .expect("Failed to create surface");
+        let surface = RenderSurface::new(Arc::clone(&window), SurfaceConfig::default())
+            .expect("Failed to create surface");
 
         let renderer = GpuRenderer::new(&surface).expect("Failed to create renderer");
 

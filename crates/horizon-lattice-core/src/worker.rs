@@ -66,15 +66,15 @@
 //! });
 //! ```
 
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
+use crossbeam_channel::{Receiver, Sender, TrySendError, bounded};
 use parking_lot::{Condvar, Mutex};
 
-use crate::invocation::{invocation_registry, QueuedInvocation};
+use crate::invocation::{QueuedInvocation, invocation_registry};
 use crate::progress::ProgressReporter;
 use crate::signal::Signal;
 use crate::threadpool::CancellationToken;
@@ -427,7 +427,10 @@ impl<T: Clone + Send + 'static> Worker<T> {
 
         self.state.pending_tasks.fetch_add(1, Ordering::AcqRel);
 
-        match self.task_sender.try_send(WorkerTask::Execute(Box::new(task))) {
+        match self
+            .task_sender
+            .try_send(WorkerTask::Execute(Box::new(task)))
+        {
             Ok(()) => true,
             Err(TrySendError::Full(_)) | Err(TrySendError::Disconnected(_)) => {
                 self.state.pending_tasks.fetch_sub(1, Ordering::AcqRel);
@@ -485,8 +488,7 @@ impl<T: Clone + Send + 'static> Worker<T> {
             .task_sender
             .try_send(WorkerTask::Execute(Box::new(move || {
                 task(reporter_for_task)
-            })))
-        {
+            }))) {
             Ok(()) => Some(reporter),
             Err(TrySendError::Full(_)) | Err(TrySendError::Disconnected(_)) => {
                 self.state.pending_tasks.fetch_sub(1, Ordering::AcqRel);

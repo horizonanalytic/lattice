@@ -888,7 +888,7 @@ impl Label {
     ///
     /// Returns `true` if the label has rich text with `<a href="...">` tags.
     pub fn has_links(&self) -> bool {
-        self.rich_text.as_ref().map_or(false, |rt| rt.has_links())
+        self.rich_text.as_ref().is_some_and(|rt| rt.has_links())
     }
 
     /// Get the URL of the link currently under the mouse cursor.
@@ -956,13 +956,12 @@ impl Label {
         self.is_selecting = false;
 
         // Clear selection if it's empty (single click)
-        if let Some(anchor) = self.selection_anchor {
-            if anchor == self.cursor_pos {
+        if let Some(anchor) = self.selection_anchor
+            && anchor == self.cursor_pos {
                 self.selection_anchor = None;
                 self.selection_changed.emit(());
                 self.copy_available.emit(false);
             }
-        }
 
         true
     }
@@ -1160,13 +1159,12 @@ impl Label {
 
         if let Some(pressed_link) = pending_link {
             // Check if we're still on the same link
-            if let Some(current_link) = &self.current_hovered_link {
-                if current_link == &pressed_link {
+            if let Some(current_link) = &self.current_hovered_link
+                && current_link == &pressed_link {
                     // Complete click - emit link_activated
                     self.link_activated.emit(pressed_link);
                     return true;
                 }
-            }
         }
 
         false
@@ -1400,8 +1398,7 @@ impl Label {
 
     /// Build layout options based on current label settings.
     fn build_layout_options(&self, width_constraint: Option<f32>) -> TextLayoutOptions {
-        let mut options = TextLayoutOptions::new()
-            .horizontal_align(self.horizontal_align);
+        let mut options = TextLayoutOptions::new().horizontal_align(self.horizontal_align);
 
         // Set width constraint
         if let Some(width) = width_constraint {
@@ -1439,13 +1436,12 @@ impl Label {
         let mut cached = self.cached_layout.write();
 
         // Check if we can reuse the cached layout
-        if let Some(ref cache) = *cached {
-            if cache.width_constraint == width_constraint
+        if let Some(ref cache) = *cached
+            && cache.width_constraint == width_constraint
                 && cache.show_mnemonic_underline == show_mnemonic_underline
             {
                 return cache.layout.clone();
             }
-        }
 
         // Build new layout
         let options = self.build_layout_options(width_constraint);
@@ -1466,11 +1462,12 @@ impl Label {
             // Show mnemonic underline (Alt is held)
             if let Some(mnemonic_pos) = self.mnemonic_byte_pos {
                 // Plain text with mnemonic - create rich text to underline the mnemonic char
-                let display_text = if self.elide_mode != ElideMode::None && width_constraint.is_some() {
-                    self.compute_elided_text(font_system, width_constraint.unwrap())
-                } else {
-                    self.text.clone()
-                };
+                let display_text =
+                    if self.elide_mode != ElideMode::None && width_constraint.is_some() {
+                        self.compute_elided_text(font_system, width_constraint.unwrap())
+                    } else {
+                        self.text.clone()
+                    };
 
                 // Only apply mnemonic underlining if the position is still valid
                 if mnemonic_pos < display_text.len() {
@@ -1483,11 +1480,12 @@ impl Label {
                 }
             } else {
                 // No mnemonic, render as plain text
-                let display_text = if self.elide_mode != ElideMode::None && width_constraint.is_some() {
-                    self.compute_elided_text(font_system, width_constraint.unwrap())
-                } else {
-                    self.text.clone()
-                };
+                let display_text =
+                    if self.elide_mode != ElideMode::None && width_constraint.is_some() {
+                        self.compute_elided_text(font_system, width_constraint.unwrap())
+                    } else {
+                        self.text.clone()
+                    };
                 TextLayout::with_options(font_system, &display_text, &self.font, options)
             }
         } else {
@@ -1526,12 +1524,8 @@ impl Label {
         let ellipsis = "…";
 
         // Measure ellipsis width
-        let ellipsis_layout = TextLayout::with_options(
-            font_system,
-            ellipsis,
-            &self.font,
-            TextLayoutOptions::new(),
-        );
+        let ellipsis_layout =
+            TextLayout::with_options(font_system, ellipsis, &self.font, TextLayoutOptions::new());
         let ellipsis_width = ellipsis_layout.width();
 
         if ellipsis_width >= max_width {
@@ -1542,20 +1536,19 @@ impl Label {
 
         match self.elide_mode {
             ElideMode::None => self.text.clone(),
-            ElideMode::Right => {
-                self.elide_right(font_system, available_width, ellipsis)
-            }
-            ElideMode::Left => {
-                self.elide_left(font_system, available_width, ellipsis)
-            }
-            ElideMode::Middle => {
-                self.elide_middle(font_system, max_width, ellipsis)
-            }
+            ElideMode::Right => self.elide_right(font_system, available_width, ellipsis),
+            ElideMode::Left => self.elide_left(font_system, available_width, ellipsis),
+            ElideMode::Middle => self.elide_middle(font_system, max_width, ellipsis),
         }
     }
 
     /// Elide text from the right side.
-    fn elide_right(&self, font_system: &mut FontSystem, available_width: f32, ellipsis: &str) -> String {
+    fn elide_right(
+        &self,
+        font_system: &mut FontSystem,
+        available_width: f32,
+        ellipsis: &str,
+    ) -> String {
         let chars: Vec<char> = self.text.chars().collect();
 
         // Binary search for the right cutoff point
@@ -1563,7 +1556,7 @@ impl Label {
         let mut high = chars.len();
 
         while low < high {
-            let mid = (low + high + 1) / 2;
+            let mid = (low + high).div_ceil(2);
             let test_text: String = chars[..mid].iter().collect();
             let test_layout = TextLayout::with_options(
                 font_system,
@@ -1588,7 +1581,12 @@ impl Label {
     }
 
     /// Elide text from the left side.
-    fn elide_left(&self, font_system: &mut FontSystem, available_width: f32, ellipsis: &str) -> String {
+    fn elide_left(
+        &self,
+        font_system: &mut FontSystem,
+        available_width: f32,
+        ellipsis: &str,
+    ) -> String {
         let chars: Vec<char> = self.text.chars().collect();
 
         // Binary search for the right cutoff point from the end
@@ -1596,7 +1594,7 @@ impl Label {
         let mut high = chars.len();
 
         while low < high {
-            let mid = (low + high + 1) / 2;
+            let mid = (low + high).div_ceil(2);
             let start = chars.len() - mid;
             let test_text: String = chars[start..].iter().collect();
             let test_layout = TextLayout::with_options(
@@ -1630,12 +1628,8 @@ impl Label {
         }
 
         // Measure ellipsis
-        let ellipsis_layout = TextLayout::with_options(
-            font_system,
-            ellipsis,
-            &self.font,
-            TextLayoutOptions::new(),
-        );
+        let ellipsis_layout =
+            TextLayout::with_options(font_system, ellipsis, &self.font, TextLayoutOptions::new());
         let ellipsis_width = ellipsis_layout.width();
         let available_width = max_width - ellipsis_width;
 
@@ -1685,7 +1679,12 @@ impl Label {
             let start_part: String = chars[..start_len].iter().collect();
             let end_start = chars.len() - end_len;
             let end_part: String = chars[end_start..].iter().collect();
-            format!("{}{}{}", start_part.trim_end(), ellipsis, end_part.trim_start())
+            format!(
+                "{}{}{}",
+                start_part.trim_end(),
+                ellipsis,
+                end_part.trim_start()
+            )
         }
     }
 
@@ -1725,13 +1724,11 @@ impl Widget for Label {
         if self.word_wrap {
             // For word-wrapped text, we have a minimum width (longest word)
             // and no maximum width. Height will be determined by height_for_width.
-            SizeHint::new(size)
-                .with_minimum_dimensions(0.0, self.font.size())
+            SizeHint::new(size).with_minimum_dimensions(0.0, self.font.size())
         } else if self.elide_mode != ElideMode::None {
             // For elided text, we can shrink to just the ellipsis
             let ellipsis_layout = TextLayout::new(&mut font_system, "…", &self.font);
-            SizeHint::new(size)
-                .with_minimum_dimensions(ellipsis_layout.width(), size.height)
+            SizeHint::new(size).with_minimum_dimensions(ellipsis_layout.width(), size.height)
         } else {
             // Fixed text - preferred size equals natural size
             SizeHint::new(size)
@@ -1772,7 +1769,8 @@ impl Widget for Label {
         let show_mnemonic_underline = ctx.is_alt_held() && self.mnemonic_byte_pos.is_some();
 
         // Build the layout
-        let layout = self.ensure_layout(&mut font_system, width_constraint, show_mnemonic_underline);
+        let layout =
+            self.ensure_layout(&mut font_system, width_constraint, show_mnemonic_underline);
 
         // Calculate vertical offset based on alignment
         let y_offset = match self.vertical_align {
@@ -1796,8 +1794,8 @@ impl Widget for Label {
         let position = Point::new(rect.origin.x + x_offset, rect.origin.y + y_offset);
 
         // Draw selection background if we have a selection and label is selectable
-        if self.selectable && self.has_selection() {
-            if let Some((start, end)) = self.selection_range() {
+        if self.selectable && self.has_selection()
+            && let Some((start, end)) = self.selection_range() {
                 let selection_rects = layout.selection_rects(start, end);
                 for sel_rect in selection_rects {
                     ctx.renderer().fill_rect(
@@ -1811,16 +1809,12 @@ impl Widget for Label {
                     );
                 }
             }
-        }
 
         // Create text renderer and prepare glyphs
-        if let Ok(mut text_renderer) = TextRenderer::new() {
-            if let Ok(prepared_glyphs) = text_renderer.prepare_layout(
-                &mut font_system,
-                &layout,
-                position,
-                self.text_color,
-            ) {
+        if let Ok(mut text_renderer) = TextRenderer::new()
+            && let Ok(prepared_glyphs) =
+                text_renderer.prepare_layout(&mut font_system, &layout, position, self.text_color)
+            {
                 // In a full implementation, we would render the prepared glyphs
                 // through the text render pass. For now, we draw background rectangles
                 // for the text bounds to show the label area.
@@ -1830,7 +1824,6 @@ impl Widget for Label {
                 // application's render pass system. The prepared_glyphs would be
                 // submitted to a TextRenderPass during the frame render.
             }
-        }
     }
 
     fn event(&mut self, event: &mut WidgetEvent) -> bool {
@@ -1988,7 +1981,9 @@ impl crate::widget::accessibility::Accessible for Label {
     }
 
     fn accessible_description(&self) -> Option<String> {
-        self.widget_base().accessible_description().map(String::from)
+        self.widget_base()
+            .accessible_description()
+            .map(String::from)
     }
 
     fn accessible_actions(&self) -> Vec<accesskit::Action> {
@@ -2078,7 +2073,10 @@ mod tests {
     #[test]
     fn test_text_changed_signal() {
         setup();
-        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
 
         let mut label = Label::new("Initial");
         let signal_received = Arc::new(AtomicBool::new(false));
@@ -2185,9 +2183,8 @@ mod tests {
     #[test]
     fn test_complex_html() {
         setup();
-        let label = Label::from_html(
-            "<b>Bold</b> <i>italic</i> <u>underline</u> <s>strikethrough</s>"
-        );
+        let label =
+            Label::from_html("<b>Bold</b> <i>italic</i> <u>underline</u> <s>strikethrough</s>");
         assert_eq!(label.text(), "Bold italic underline strikethrough");
         assert!(label.has_rich_text());
 
@@ -2365,7 +2362,10 @@ mod tests {
     #[test]
     fn test_activate_mnemonic_signal() {
         setup();
-        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
 
         let label = Label::new("&Name");
         let signal_received = Arc::new(AtomicBool::new(false));
@@ -2382,7 +2382,10 @@ mod tests {
     #[test]
     fn test_mnemonic_no_signal_without_mnemonic() {
         setup();
-        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
 
         let label = Label::new("No mnemonic");
         let signal_received = Arc::new(AtomicBool::new(false));
@@ -2517,7 +2520,10 @@ mod tests {
     #[test]
     fn test_label_selection_changed_signal() {
         setup();
-        use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
 
         let mut label = Label::new("Hello, World!").with_selectable(true);
         let signal_count = Arc::new(AtomicUsize::new(0));
@@ -2537,7 +2543,10 @@ mod tests {
     #[test]
     fn test_label_copy_available_signal() {
         setup();
-        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
 
         let mut label = Label::new("Hello, World!").with_selectable(true);
         let copy_available = Arc::new(AtomicBool::new(false));
@@ -2611,9 +2620,7 @@ mod tests {
     #[test]
     fn test_label_multiple_links() {
         setup();
-        let label = Label::from_html(
-            "<a href=\"url1\">Link 1</a> and <a href=\"url2\">Link 2</a>"
-        );
+        let label = Label::from_html("<a href=\"url1\">Link 1</a> and <a href=\"url2\">Link 2</a>");
         assert_eq!(label.text(), "Link 1 and Link 2");
         assert!(label.has_links());
 

@@ -1,8 +1,8 @@
 //! CSS variables (custom properties) support.
 
-use std::collections::HashMap;
-use horizon_lattice_render::Color;
 use super::ColorPalette;
+use horizon_lattice_render::Color;
+use std::collections::HashMap;
 
 /// CSS custom properties (variables).
 ///

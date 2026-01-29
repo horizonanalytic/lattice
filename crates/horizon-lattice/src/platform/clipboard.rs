@@ -31,8 +31,8 @@
 //! - **Linux**: Uses X11 selections with XFIXES extension for change detection
 
 use std::fmt;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -226,21 +226,19 @@ impl Clipboard {
     /// an unsupported format.
     pub fn get(&mut self) -> ClipboardData {
         // Try text first (most common)
-        if let Ok(text) = self.inner.get_text() {
-            if !text.is_empty() {
+        if let Ok(text) = self.inner.get_text()
+            && !text.is_empty() {
                 return ClipboardData::Text(text);
             }
-        }
 
         // Try HTML
-        if let Ok(html) = self.inner.get().html() {
-            if !html.is_empty() {
+        if let Ok(html) = self.inner.get().html()
+            && !html.is_empty() {
                 return ClipboardData::Html {
                     html,
                     alt_text: self.inner.get_text().ok(),
                 };
             }
-        }
 
         // Try image
         if let Ok(img) = self.inner.get_image() {
@@ -497,9 +495,9 @@ impl ClipboardWatcher {
         use windows::Win32::System::DataExchange::AddClipboardFormatListener;
         use windows::Win32::System::LibraryLoader::GetModuleHandleW;
         use windows::Win32::UI::WindowsAndMessaging::{
-            CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
-            PeekMessageW, RegisterClassW, HMENU, MSG, PM_REMOVE, WM_CLIPBOARDUPDATE,
-            WM_USER, WNDCLASSW, WS_OVERLAPPED,
+            CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, HMENU, MSG,
+            PM_REMOVE, PeekMessageW, RegisterClassW, WM_CLIPBOARDUPDATE, WM_USER, WNDCLASSW,
+            WS_OVERLAPPED,
         };
         use windows::core::PCWSTR;
 
@@ -523,9 +521,7 @@ impl ClipboardWatcher {
         // - The message loop only accesses the window we created
         unsafe {
             // Register window class
-            let class_name: Vec<u16> = "HorizonLatticeClipboardWatcher\0"
-                .encode_utf16()
-                .collect();
+            let class_name: Vec<u16> = "HorizonLatticeClipboardWatcher\0".encode_utf16().collect();
             let class_name_ptr = PCWSTR::from_raw(class_name.as_ptr());
 
             let wc = WNDCLASSW {
@@ -764,7 +760,6 @@ impl fmt::Debug for ClipboardWatcher {
     }
 }
 
-
 // ============================================================================
 // X11 Selection Clipboard Support (Linux-specific)
 // ============================================================================
@@ -989,7 +984,7 @@ fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError
     use windows::Win32::System::DataExchange::{
         CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
     };
-    use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+    use windows::Win32::System::Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalUnlock};
     use windows::Win32::System::Ole::CF_HDROP;
     use windows::Win32::UI::Shell::DROPFILES;
 
@@ -1106,15 +1101,14 @@ fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
             let count = urls.count();
             for i in 0..count {
                 // Use objectAtIndex to get items from NSArray
-                let obj = unsafe { urls.objectAtIndex(i) };
+                let obj = urls.objectAtIndex(i);
                 // The object should be an NSURL - cast it via pointer
                 let url: &NSURL = unsafe { &*(&*obj as *const _ as *const NSURL) };
-                if url.isFileURL() {
-                    if let Some(path_str) = url.path() {
+                if url.isFileURL()
+                    && let Some(path_str) = url.path() {
                         let path_string: String = path_str.to_string();
                         paths.push(PathBuf::from(path_string));
                     }
-                }
             }
             if paths.is_empty() {
                 Err(ClipboardError::new("No file URLs in clipboard"))
@@ -1157,15 +1151,14 @@ fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError
     } else {
         // Fallback: try setting as plain text with file:// URLs
         let result = unsafe {
-            pasteboard.setString_forType(
-                &ns_uri_list,
-                objc2_app_kit::NSPasteboardTypeString,
-            )
+            pasteboard.setString_forType(&ns_uri_list, objc2_app_kit::NSPasteboardTypeString)
         };
         if result {
             Ok(())
         } else {
-            Err(ClipboardError::new("Failed to write file URLs to clipboard"))
+            Err(ClipboardError::new(
+                "Failed to write file URLs to clipboard",
+            ))
         }
     }
 }
@@ -1455,9 +1448,7 @@ mod tests {
             assert!(clipboard.has_file_urls());
 
             // Get them back
-            let retrieved = clipboard
-                .get_file_urls()
-                .expect("Failed to get file URLs");
+            let retrieved = clipboard.get_file_urls().expect("Failed to get file URLs");
             assert_eq!(retrieved.len(), 2);
         }
     }

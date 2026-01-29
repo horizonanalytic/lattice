@@ -173,17 +173,15 @@ impl ImageBuffer {
 
     /// Load an image from a file path.
     pub fn from_file(path: impl AsRef<Path>) -> RenderResult<Self> {
-        let img = image::open(path.as_ref()).map_err(|e| {
-            RenderError::ImageLoad(format!("Failed to load image: {}", e))
-        })?;
+        let img = image::open(path.as_ref())
+            .map_err(|e| RenderError::ImageLoad(format!("Failed to load image: {}", e)))?;
         Ok(Self { inner: img })
     }
 
     /// Load an image from bytes in memory.
     pub fn from_bytes(bytes: &[u8]) -> RenderResult<Self> {
-        let img = image::load_from_memory(bytes).map_err(|e| {
-            RenderError::ImageLoad(format!("Failed to decode image: {}", e))
-        })?;
+        let img = image::load_from_memory(bytes)
+            .map_err(|e| RenderError::ImageLoad(format!("Failed to decode image: {}", e)))?;
         Ok(Self { inner: img })
     }
 
@@ -286,7 +284,9 @@ impl ImageBuffer {
     #[must_use]
     pub fn resize(&self, width: u32, height: u32, filter: ResizeFilter) -> Self {
         Self {
-            inner: self.inner.resize_exact(width, height, filter.to_image_filter()),
+            inner: self
+                .inner
+                .resize_exact(width, height, filter.to_image_filter()),
         }
     }
 
@@ -297,7 +297,9 @@ impl ImageBuffer {
     #[must_use]
     pub fn resize_to_fit(&self, max_width: u32, max_height: u32, filter: ResizeFilter) -> Self {
         Self {
-            inner: self.inner.resize(max_width, max_height, filter.to_image_filter()),
+            inner: self
+                .inner
+                .resize(max_width, max_height, filter.to_image_filter()),
         }
     }
 
@@ -308,7 +310,9 @@ impl ImageBuffer {
     #[must_use]
     pub fn resize_to_fill(&self, width: u32, height: u32, filter: ResizeFilter) -> Self {
         Self {
-            inner: self.inner.resize_to_fill(width, height, filter.to_image_filter()),
+            inner: self
+                .inner
+                .resize_to_fill(width, height, filter.to_image_filter()),
         }
     }
 
@@ -535,7 +539,9 @@ impl ImageBuffer {
             return None;
         }
         let pixel = self.inner.get_pixel(x, y);
-        Some(Color::from_rgba8(pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3]))
+        Some(Color::from_rgba8(
+            pixel.0[0], pixel.0[1], pixel.0[2], pixel.0[3],
+        ))
     }
 
     /// Set the color of a pixel at the specified coordinates.
@@ -737,24 +743,28 @@ impl ImageBuffer {
     ///
     /// The format is determined by the file extension.
     pub fn save(&self, path: impl AsRef<Path>) -> RenderResult<()> {
-        self.inner.save(path.as_ref()).map_err(|e| {
-            RenderError::ImageSaveError(format!("Failed to save image: {}", e))
-        })
+        self.inner
+            .save(path.as_ref())
+            .map_err(|e| RenderError::ImageSaveError(format!("Failed to save image: {}", e)))
     }
 
     /// Save the image to a file with a specific format.
-    pub fn save_with_format(&self, path: impl AsRef<Path>, format: OutputFormat) -> RenderResult<()> {
-        self.inner.save_with_format(path.as_ref(), format.to_image_format()).map_err(|e| {
-            RenderError::ImageSaveError(format!("Failed to save image: {}", e))
-        })
+    pub fn save_with_format(
+        &self,
+        path: impl AsRef<Path>,
+        format: OutputFormat,
+    ) -> RenderResult<()> {
+        self.inner
+            .save_with_format(path.as_ref(), format.to_image_format())
+            .map_err(|e| RenderError::ImageSaveError(format!("Failed to save image: {}", e)))
     }
 
     /// Encode the image to bytes in the specified format.
     pub fn encode(&self, format: OutputFormat) -> RenderResult<Vec<u8>> {
         let mut buffer = Cursor::new(Vec::new());
-        self.inner.write_to(&mut buffer, format.to_image_format()).map_err(|e| {
-            RenderError::ImageSaveError(format!("Failed to encode image: {}", e))
-        })?;
+        self.inner
+            .write_to(&mut buffer, format.to_image_format())
+            .map_err(|e| RenderError::ImageSaveError(format!("Failed to encode image: {}", e)))?;
         Ok(buffer.into_inner())
     }
 
@@ -768,7 +778,13 @@ impl ImageBuffer {
         let mut buffer = Cursor::new(Vec::new());
         let rgb = self.inner.to_rgb8();
         let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, quality);
-        encoder.encode(&rgb, self.width(), self.height(), image::ExtendedColorType::Rgb8)
+        encoder
+            .encode(
+                &rgb,
+                self.width(),
+                self.height(),
+                image::ExtendedColorType::Rgb8,
+            )
             .map_err(|e| RenderError::ImageSaveError(format!("Failed to encode JPEG: {}", e)))?;
         Ok(buffer.into_inner())
     }
@@ -1225,11 +1241,11 @@ mod tests {
     #[test]
     fn test_hsv_conversion_roundtrip() {
         let colors = [
-            (255u8, 0u8, 0u8),   // Red
-            (0, 255, 0),         // Green
-            (0, 0, 255),         // Blue
-            (255, 255, 0),       // Yellow
-            (128, 128, 128),     // Gray
+            (255u8, 0u8, 0u8), // Red
+            (0, 255, 0),       // Green
+            (0, 0, 255),       // Blue
+            (255, 255, 0),     // Yellow
+            (128, 128, 128),   // Gray
         ];
 
         for (r, g, b) in colors {
@@ -1237,9 +1253,21 @@ mod tests {
             let (nr, ng, nb) = hsv_to_rgb(h, s, v);
 
             // Allow small rounding errors
-            assert!((r as i32 - nr as i32).abs() <= 1, "Red mismatch for {:?}", (r, g, b));
-            assert!((g as i32 - ng as i32).abs() <= 1, "Green mismatch for {:?}", (r, g, b));
-            assert!((b as i32 - nb as i32).abs() <= 1, "Blue mismatch for {:?}", (r, g, b));
+            assert!(
+                (r as i32 - nr as i32).abs() <= 1,
+                "Red mismatch for {:?}",
+                (r, g, b)
+            );
+            assert!(
+                (g as i32 - ng as i32).abs() <= 1,
+                "Green mismatch for {:?}",
+                (r, g, b)
+            );
+            assert!(
+                (b as i32 - nb as i32).abs() <= 1,
+                "Blue mismatch for {:?}",
+                (r, g, b)
+            );
         }
     }
 

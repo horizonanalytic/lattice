@@ -266,7 +266,8 @@ impl MappedFileMut {
             .open(&path)
             .map_err(|e| FileError::from_io(e, &path))?;
 
-        file.set_len(len).map_err(|e| FileError::from_io(e, &path))?;
+        file.set_len(len)
+            .map_err(|e| FileError::from_io(e, &path))?;
 
         // SAFETY: We just created the file and have exclusive access.
         let mmap = unsafe { MmapMut::map_mut(&file) }.map_err(|e| FileError::from_io(e, &path))?;
@@ -303,8 +304,7 @@ impl MappedFileMut {
         // SAFETY: Memory mapping is inherently unsafe because multiple processes
         // could map the same file. Users should ensure exclusive access when using
         // mutable mappings.
-        let mmap =
-            unsafe { mmap_opts.map_mut(&file) }.map_err(|e| FileError::from_io(e, &path))?;
+        let mmap = unsafe { mmap_opts.map_mut(&file) }.map_err(|e| FileError::from_io(e, &path))?;
 
         Ok(Self { mmap, path })
     }
@@ -344,7 +344,9 @@ impl MappedFileMut {
     ///
     /// Returns an error if the flush fails.
     pub fn flush(&self) -> FileResult<()> {
-        self.mmap.flush().map_err(|e| FileError::from_io(e, &self.path))
+        self.mmap
+            .flush()
+            .map_err(|e| FileError::from_io(e, &self.path))
     }
 
     /// Asynchronously flushes outstanding memory map modifications to disk.

@@ -146,8 +146,8 @@ pub mod drag_drop;
 mod events;
 pub mod file_drop;
 mod focus;
-pub mod gesture;
 mod geometry;
+pub mod gesture;
 pub mod ime;
 pub mod input_context;
 pub mod input_mask;
@@ -173,9 +173,6 @@ pub use drag_drop::{
     DragData, DragDropManager, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DragState,
     DropAction, DropEvent,
 };
-pub use file_drop::FileDropHandler;
-pub use focus::FocusManager;
-pub use modal::ModalManager;
 pub use events::{
     CloseEvent, ContextMenuEvent, ContextMenuReason, CustomEvent, EnterEvent, EventBase,
     FocusInEvent, FocusOutEvent, FocusReason, GestureState, GestureType, HideEvent, ImeCommitEvent,
@@ -183,21 +180,24 @@ pub use events::{
     KeyboardModifiers, LeaveEvent, LongPressGestureEvent, MouseButton, MouseDoubleClickEvent,
     MouseMoveEvent, MousePressEvent, MouseReleaseEvent, MoveEvent, PaintEvent, PanGestureEvent,
     PinchGestureEvent, ResizeEvent, RotationGestureEvent, ShowEvent, SwipeDirection,
-    SwipeGestureEvent, TapGestureEvent, TimerEvent, TouchEvent, TouchForce, TouchPhase,
-    TouchPoint, WheelEvent, WidgetEvent,
+    SwipeGestureEvent, TapGestureEvent, TimerEvent, TouchEvent, TouchForce, TouchPhase, TouchPoint,
+    WheelEvent, WidgetEvent,
 };
+pub use file_drop::FileDropHandler;
+pub use focus::FocusManager;
 pub use geometry::{SizeHint, SizePolicy, SizePolicyPair};
 pub use layout::{ContentMargins, Layout, LayoutBase, LayoutInvalidator, LayoutItem, SpacerItem};
+pub use modal::ModalManager;
 pub use painting::{FrameRenderer, FrameStats, RepaintManager};
 pub use shortcut::{
-    mnemonic_to_key, parse_mnemonic, KeyCombination, KeySequence, KeySequenceParseError,
-    MnemonicText, SequenceMatch, Shortcut, ShortcutManager, ShortcutResult, StandardKey,
-    DEFAULT_CHORD_TIMEOUT_MS, MAX_KEY_SEQUENCE_LENGTH,
+    DEFAULT_CHORD_TIMEOUT_MS, KeyCombination, KeySequence, KeySequenceParseError,
+    MAX_KEY_SEQUENCE_LENGTH, MnemonicText, SequenceMatch, Shortcut, ShortcutManager,
+    ShortcutResult, StandardKey, mnemonic_to_key, parse_mnemonic,
 };
 pub use traits::{AsWidget, PaintContext, Widget};
 
 #[cfg(feature = "accessibility")]
-pub use accessibility::{Accessible, AccessibilityManager, AccessibleRole};
+pub use accessibility::{AccessibilityManager, Accessible, AccessibleRole};
 
 // Re-export widgets for convenience
 pub use widgets::{

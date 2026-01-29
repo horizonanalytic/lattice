@@ -1,11 +1,11 @@
 //! Property inheritance and resolution to computed values.
 
+use crate::style::{ComputedStyle, StyleProperties};
+use crate::types::{BorderStyle, Cursor, LengthValue, StyleValue, TextAlign};
 use horizon_lattice_render::{
-    Color, Paint, CornerRadii,
-    text::{FontFamily, FontWeight, FontStyle, FontStretch},
+    Color, CornerRadii, Paint,
+    text::{FontFamily, FontStretch, FontStyle, FontWeight},
 };
-use crate::style::{StyleProperties, ComputedStyle};
-use crate::types::{StyleValue, LengthValue, BorderStyle, TextAlign, Cursor};
 
 /// Resolve StyleProperties to ComputedStyle, handling inheritance.
 ///
@@ -50,34 +50,19 @@ pub fn resolve_properties(
         parent.map(|p| &p.font_stretch),
         FontStretch::Normal,
     );
-    computed.color = resolve_inheritable(
-        &props.color,
-        parent.map(|p| &p.color),
-        Color::BLACK,
-    );
+    computed.color = resolve_inheritable(&props.color, parent.map(|p| &p.color), Color::BLACK);
     computed.text_align = resolve_inheritable(
         &props.text_align,
         parent.map(|p| &p.text_align),
         TextAlign::Start,
     );
-    computed.line_height = resolve_inheritable(
-        &props.line_height,
-        parent.map(|p| &p.line_height),
-        1.2,
-    );
-    computed.letter_spacing = resolve_length(
-        &props.letter_spacing,
-        font_size,
-        0.0,
-        root_font_size,
-        0.0,
-    );
+    computed.line_height =
+        resolve_inheritable(&props.line_height, parent.map(|p| &p.line_height), 1.2);
+    computed.letter_spacing =
+        resolve_length(&props.letter_spacing, font_size, 0.0, root_font_size, 0.0);
     computed.text_decoration = resolve_non_inheritable(&props.text_decoration, None);
-    computed.cursor = resolve_inheritable(
-        &props.cursor,
-        parent.map(|p| &p.cursor),
-        Cursor::Default,
-    );
+    computed.cursor =
+        resolve_inheritable(&props.cursor, parent.map(|p| &p.cursor), Cursor::Default);
 
     // === Box model (not inheritable) ===
     if let StyleValue::Set(edges) = &props.margin {
@@ -103,16 +88,19 @@ pub fn resolve_properties(
     }
     computed.border_color = resolve_non_inheritable(&props.border_color, Color::TRANSPARENT);
     computed.border_style = resolve_non_inheritable(&props.border_style, BorderStyle::None);
-    computed.border_radius = resolve_non_inheritable(&props.border_radius, CornerRadii::uniform(0.0));
+    computed.border_radius =
+        resolve_non_inheritable(&props.border_radius, CornerRadii::uniform(0.0));
 
     // === Background ===
     computed.background = resolve_background(&props.background, &props.background_color);
 
     // === Size constraints ===
     computed.min_width = resolve_optional_length(&props.min_width, font_size, 0.0, root_font_size);
-    computed.min_height = resolve_optional_length(&props.min_height, font_size, 0.0, root_font_size);
+    computed.min_height =
+        resolve_optional_length(&props.min_height, font_size, 0.0, root_font_size);
     computed.max_width = resolve_optional_length(&props.max_width, font_size, 0.0, root_font_size);
-    computed.max_height = resolve_optional_length(&props.max_height, font_size, 0.0, root_font_size);
+    computed.max_height =
+        resolve_optional_length(&props.max_height, font_size, 0.0, root_font_size);
     computed.width = resolve_optional_length(&props.width, font_size, 0.0, root_font_size);
     computed.height = resolve_optional_length(&props.height, font_size, 0.0, root_font_size);
 
@@ -127,16 +115,10 @@ pub fn resolve_properties(
 }
 
 /// Resolve an inheritable property.
-fn resolve_inheritable<T: Clone>(
-    value: &StyleValue<T>,
-    parent_value: Option<&T>,
-    initial: T,
-) -> T {
+fn resolve_inheritable<T: Clone>(value: &StyleValue<T>, parent_value: Option<&T>, initial: T) -> T {
     match value {
         StyleValue::Set(v) => v.clone(),
-        StyleValue::Inherit | StyleValue::Unset => {
-            parent_value.cloned().unwrap_or(initial)
-        }
+        StyleValue::Inherit | StyleValue::Unset => parent_value.cloned().unwrap_or(initial),
         StyleValue::Initial => initial,
     }
 }
@@ -150,11 +132,7 @@ fn resolve_non_inheritable<T: Clone>(value: &StyleValue<T>, initial: T) -> T {
 }
 
 /// Resolve font size specially (inherits by default).
-fn resolve_font_size(
-    value: &StyleValue<LengthValue>,
-    parent_size: f32,
-    root_size: f32,
-) -> f32 {
+fn resolve_font_size(value: &StyleValue<LengthValue>, parent_size: f32, root_size: f32) -> f32 {
     match value {
         StyleValue::Set(length) => length.to_px(parent_size, parent_size, root_size),
         StyleValue::Inherit | StyleValue::Unset => parent_size,
@@ -243,9 +221,7 @@ mod tests {
 
     #[test]
     fn resolve_rem_units() {
-        let props = Style::new()
-            .font_size(LengthValue::rem(1.5))
-            .build();
+        let props = Style::new().font_size(LengthValue::rem(1.5)).build();
 
         let computed = resolve_properties(&props, None, 16.0);
 
@@ -258,10 +234,7 @@ mod tests {
         parent_style.color = Color::BLUE;
         parent_style.font_size = 20.0;
 
-        let props = Style::new()
-            .inherit_color()
-            .inherit_font_size()
-            .build();
+        let props = Style::new().inherit_color().inherit_font_size().build();
 
         let computed = resolve_properties(&props, Some(&parent_style), 16.0);
 
@@ -272,9 +245,7 @@ mod tests {
     #[test]
     fn resolve_background() {
         // Test background-color
-        let props = Style::new()
-            .background_color(Color::WHITE)
-            .build();
+        let props = Style::new().background_color(Color::WHITE).build();
         let computed = resolve_properties(&props, None, 16.0);
         assert!(matches!(computed.background, Paint::Solid(c) if c == Color::WHITE));
 

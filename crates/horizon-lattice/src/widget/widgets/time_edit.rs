@@ -166,7 +166,10 @@ impl TimeEdit {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -320,7 +323,8 @@ impl TimeEdit {
 
     /// Check if seconds are shown.
     pub fn seconds_shown(&self) -> bool {
-        self.show_seconds.unwrap_or_else(|| self.display_format.shows_seconds())
+        self.show_seconds
+            .unwrap_or_else(|| self.display_format.shows_seconds())
     }
 
     /// Set whether to show seconds.
@@ -462,15 +466,27 @@ impl TimeEdit {
         let new_time = match self.current_section {
             EditSection::None => return,
             EditSection::Hour => {
-                let new_hour = if self.time.hour() == 0 { 23 } else { self.time.hour() - 1 };
+                let new_hour = if self.time.hour() == 0 {
+                    23
+                } else {
+                    self.time.hour() - 1
+                };
                 NaiveTime::from_hms_opt(new_hour, self.time.minute(), self.time.second())
             }
             EditSection::Minute => {
-                let new_minute = if self.time.minute() == 0 { 59 } else { self.time.minute() - 1 };
+                let new_minute = if self.time.minute() == 0 {
+                    59
+                } else {
+                    self.time.minute() - 1
+                };
                 NaiveTime::from_hms_opt(self.time.hour(), new_minute, self.time.second())
             }
             EditSection::Second => {
-                let new_second = if self.time.second() == 0 { 59 } else { self.time.second() - 1 };
+                let new_second = if self.time.second() == 0 {
+                    59
+                } else {
+                    self.time.second() - 1
+                };
                 NaiveTime::from_hms_opt(self.time.hour(), self.time.minute(), new_second)
             }
             EditSection::AmPm => {
@@ -512,28 +528,17 @@ impl TimeEdit {
                     am_pm
                 )
             } else {
-                format!(
-                    "{:02}:{:02} {}",
-                    display_hour,
-                    self.time.minute(),
-                    am_pm
-                )
+                format!("{:02}:{:02} {}", display_hour, self.time.minute(), am_pm)
             }
+        } else if show_seconds {
+            format!(
+                "{:02}:{:02}:{:02}",
+                self.time.hour(),
+                self.time.minute(),
+                self.time.second()
+            )
         } else {
-            if show_seconds {
-                format!(
-                    "{:02}:{:02}:{:02}",
-                    self.time.hour(),
-                    self.time.minute(),
-                    self.time.second()
-                )
-            } else {
-                format!(
-                    "{:02}:{:02}",
-                    self.time.hour(),
-                    self.time.minute()
-                )
-            }
+            format!("{:02}:{:02}", self.time.hour(), self.time.minute())
         }
     }
 
@@ -764,36 +769,33 @@ impl TimeEdit {
             }
             _ => {
                 // Handle A/P for AM/PM toggle
-                if self.is_12_hour() && self.current_section == EditSection::AmPm {
-                    if let Some(ch) = event.text.chars().next() {
+                if self.is_12_hour() && self.current_section == EditSection::AmPm
+                    && let Some(ch) = event.text.chars().next() {
                         let ch_lower = ch.to_ascii_lowercase();
                         if ch_lower == 'a' {
                             // Set to AM
-                            if self.time.hour() >= 12 {
-                                if let Some(t) = NaiveTime::from_hms_opt(
+                            if self.time.hour() >= 12
+                                && let Some(t) = NaiveTime::from_hms_opt(
                                     self.time.hour() - 12,
                                     self.time.minute(),
                                     self.time.second(),
                                 ) {
                                     self.set_time(t);
                                 }
-                            }
                             return true;
                         } else if ch_lower == 'p' {
                             // Set to PM
-                            if self.time.hour() < 12 {
-                                if let Some(t) = NaiveTime::from_hms_opt(
+                            if self.time.hour() < 12
+                                && let Some(t) = NaiveTime::from_hms_opt(
                                     self.time.hour() + 12,
                                     self.time.minute(),
                                     self.time.second(),
                                 ) {
                                     self.set_time(t);
                                 }
-                            }
                             return true;
                         }
                     }
-                }
             }
         }
         false
@@ -821,7 +823,8 @@ impl TimeEdit {
     fn paint_background(&self, ctx: &mut PaintContext<'_>) {
         let rect = ctx.rect();
         let bg_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(bg_rrect, self.background_color);
+        ctx.renderer()
+            .fill_rounded_rect(bg_rrect, self.background_color);
 
         let border_stroke = Stroke::new(self.border_color, 1.0);
         ctx.renderer().stroke_rounded_rect(bg_rrect, &border_stroke);
@@ -847,13 +850,9 @@ impl TimeEdit {
 
         // Highlight current section
         if self.current_section != EditSection::None && self.widget_base().has_focus() {
-            let highlight_rect = Rect::new(
-                text_x,
-                text_y,
-                layout.width(),
-                layout.height(),
-            );
-            ctx.renderer().fill_rect(highlight_rect, self.section_highlight_color);
+            let highlight_rect = Rect::new(text_x, text_y, layout.width(), layout.height());
+            ctx.renderer()
+                .fill_rect(highlight_rect, self.section_highlight_color);
         }
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
@@ -942,7 +941,8 @@ impl TimeEdit {
         let focus_color = Color::from_rgba8(66, 133, 244, 180);
         let focus_stroke = Stroke::new(focus_color, 2.0);
         let focus_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().stroke_rounded_rect(focus_rrect, &focus_stroke);
+        ctx.renderer()
+            .stroke_rounded_rect(focus_rrect, &focus_stroke);
     }
 }
 
@@ -970,14 +970,11 @@ impl Widget for TimeEdit {
     fn size_hint(&self) -> SizeHint {
         let text_width = if self.is_12_hour() {
             if self.seconds_shown() { 100.0 } else { 80.0 }
-        } else {
-            if self.seconds_shown() { 75.0 } else { 55.0 }
-        };
+        } else if self.seconds_shown() { 75.0 } else { 55.0 };
         let width = text_width + self.button_width + 16.0;
         let height = 28.0;
 
-        SizeHint::from_dimensions(width.max(80.0), height)
-            .with_minimum_dimensions(60.0, 22.0)
+        SizeHint::from_dimensions(width.max(80.0), height).with_minimum_dimensions(60.0, 22.0)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
@@ -1039,8 +1036,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
 
     fn setup() {
@@ -1071,9 +1068,7 @@ mod tests {
         let max = NaiveTime::from_hms_opt(17, 0, 0).unwrap();
         let time = NaiveTime::from_hms_opt(12, 30, 0).unwrap();
 
-        let time_edit = TimeEdit::new()
-            .with_time_range(min, max)
-            .with_time(time);
+        let time_edit = TimeEdit::new().with_time_range(min, max).with_time(time);
 
         assert_eq!(time_edit.minimum_time(), min);
         assert_eq!(time_edit.maximum_time(), max);

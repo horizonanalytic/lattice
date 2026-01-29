@@ -1,14 +1,14 @@
 //! Main style resolution engine.
 
-use horizon_lattice_core::ObjectId;
-use crate::rules::{StyleSheet, StyleRule};
-use crate::selector::{Selector, SelectorMatcher, SpecificityWithOrder};
-use crate::selector::{WidgetMatchContext, WidgetState, SiblingInfo};
-use crate::style::{StyleProperties, ComputedStyle};
+use crate::resolve::cache::{StyleCache, StyleCacheKey};
 use crate::resolve::cascade::cascade_properties;
 use crate::resolve::inheritance::resolve_properties;
-use crate::resolve::cache::{StyleCache, StyleCacheKey};
+use crate::rules::{StyleRule, StyleSheet};
+use crate::selector::{SelectorMatcher, SpecificityWithOrder};
+use crate::selector::{SiblingInfo, WidgetMatchContext, WidgetState};
+use crate::style::{ComputedStyle, StyleProperties};
 use crate::theme::Theme;
+use horizon_lattice_core::ObjectId;
 
 /// Context for style resolution.
 ///
@@ -44,9 +44,10 @@ impl<'a> StyleContext<'a> {
                 enabled: self.state.enabled,
                 checked: self.state.checked,
             },
-            sibling_info: self.state.sibling_info.map(|(index, count)| {
-                SiblingInfo { index, count }
-            }),
+            sibling_info: self
+                .state
+                .sibling_info
+                .map(|(index, count)| SiblingInfo { index, count }),
             child_count: self.state.child_count,
         }
     }
@@ -140,7 +141,8 @@ impl StyleEngine {
 
     /// Remove stylesheets from a specific source file.
     pub fn remove_stylesheet_by_path(&mut self, path: &std::path::Path) {
-        self.stylesheets.retain(|s| s.source_path.as_deref() != Some(path));
+        self.stylesheets
+            .retain(|s| s.source_path.as_deref() != Some(path));
         self.cache.invalidate_all();
     }
 
@@ -211,11 +213,7 @@ impl StyleEngine {
         }
 
         // Resolve to computed style
-        let computed = resolve_properties(
-            &cascaded,
-            context.parent_style,
-            context.root_font_size,
-        );
+        let computed = resolve_properties(&cascaded, context.parent_style, context.root_font_size);
 
         // Cache if no inline style
         if inline_style.is_none() {
@@ -272,13 +270,11 @@ impl Default for StyleEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use horizon_lattice_render::Color;
+    use crate::selector::Selector;
     use crate::style::Style;
+    use horizon_lattice_render::Color;
 
-    fn make_context<'a>(
-        widget_type: &'a str,
-        classes: &'a [String],
-    ) -> StyleContext<'a> {
+    fn make_context<'a>(widget_type: &'a str, classes: &'a [String]) -> StyleContext<'a> {
         StyleContext {
             widget_type,
             widget_name: None,

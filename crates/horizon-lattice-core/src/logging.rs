@@ -34,7 +34,7 @@
 
 use std::fmt::{self, Write as FmtWrite};
 
-use crate::object::{global_registry, ObjectId, ObjectResult};
+use crate::object::{ObjectId, ObjectResult, global_registry};
 
 /// Span names used throughout Horizon Lattice for tracing.
 ///
@@ -74,20 +74,17 @@ pub mod targets {
 
 /// Style options for object tree visualization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum TreeStyle {
     /// ASCII characters for tree branches.
     Ascii,
     /// Unicode box-drawing characters.
+    #[default]
     Unicode,
     /// Compact single-line representation.
     Compact,
 }
 
-impl Default for TreeStyle {
-    fn default() -> Self {
-        Self::Unicode
-    }
-}
 
 /// Configuration for object tree debug output.
 #[derive(Debug, Clone)]
@@ -167,8 +164,12 @@ impl ObjectTreeDebug {
         let roots = registry.root_objects();
 
         let mut output = String::new();
-        writeln!(output, "Object Tree ({} total objects):", registry.object_count())
-            .expect("write to String");
+        writeln!(
+            output,
+            "Object Tree ({} total objects):",
+            registry.object_count()
+        )
+        .expect("write to String");
 
         if roots.is_empty() {
             writeln!(output, "  (empty)").expect("write to String");
@@ -197,11 +198,10 @@ impl ObjectTreeDebug {
         output: &mut String,
     ) -> ObjectResult<()> {
         // Check max depth
-        if let Some(max) = self.options.max_depth {
-            if depth > max {
+        if let Some(max) = self.options.max_depth
+            && depth > max {
                 return Ok(());
             }
-        }
 
         let registry = global_registry()?;
         let name = registry.object_name(id)?;
@@ -213,11 +213,7 @@ impl ObjectTreeDebug {
         output.push_str(&prefix);
 
         // Object name
-        let display_name = if name.is_empty() {
-            "(unnamed)"
-        } else {
-            &name
-        };
+        let display_name = if name.is_empty() { "(unnamed)" } else { &name };
         output.push_str(display_name);
 
         // Optional ID
@@ -266,7 +262,11 @@ impl ObjectTreeDebug {
 
         let (branch, corner, space) = match self.options.style {
             TreeStyle::Ascii => ("|", "+--", "   "),
-            TreeStyle::Unicode => ("\u{2502}", "\u{251c}\u{2500}\u{2500}", "\u{2514}\u{2500}\u{2500}"),
+            TreeStyle::Unicode => (
+                "\u{2502}",
+                "\u{251c}\u{2500}\u{2500}",
+                "\u{2514}\u{2500}\u{2500}",
+            ),
             TreeStyle::Compact => ("", "- ", "- "),
         };
 
@@ -404,7 +404,7 @@ macro_rules! lattice_error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::object::{init_global_registry, Object, ObjectBase};
+    use crate::object::{Object, ObjectBase, init_global_registry};
 
     struct TestWidget {
         base: ObjectBase,

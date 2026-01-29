@@ -87,7 +87,10 @@ impl IconResolver {
         let theme_id = theme_id.into();
 
         if !self.loader.has_theme(&theme_id) {
-            return Err(crate::Error::invalid_value("theme_id", format!("Theme '{}' not found", theme_id)));
+            return Err(crate::Error::invalid_value(
+                "theme_id",
+                format!("Theme '{}' not found", theme_id),
+            ));
         }
 
         self.current_theme = theme_id;
@@ -157,14 +160,12 @@ impl IconResolver {
 
     /// Resolve an icon and return an Icon object.
     pub fn resolve(&mut self, lookup: &IconLookup) -> Option<Icon> {
-        self.resolve_path(lookup)
-            .map(|path| Icon::from_path(path))
+        self.resolve_path(lookup).map(Icon::from_path)
     }
 
     /// Resolve an icon source.
     pub fn resolve_source(&mut self, lookup: &IconLookup) -> Option<IconSource> {
-        self.resolve_path(lookup)
-            .map(|path| IconSource::Path(path))
+        self.resolve_path(lookup).map(IconSource::Path)
     }
 
     /// Resolve without caching.
@@ -176,15 +177,14 @@ impl IconResolver {
 
         while idx < themes_to_check.len() {
             let theme_id = &themes_to_check[idx];
-            if visited.insert(theme_id.clone()) {
-                if let Some(theme) = self.loader.get_theme(theme_id) {
+            if visited.insert(theme_id.clone())
+                && let Some(theme) = self.loader.get_theme(theme_id) {
                     for parent in &theme.inherits {
                         if !visited.contains(parent) {
                             themes_to_check.push(parent.clone());
                         }
                     }
                 }
-            }
             idx += 1;
         }
 
@@ -195,11 +195,10 @@ impl IconResolver {
 
         // Search through themes
         for theme_id in themes_to_check {
-            if let Some(theme) = self.loader.get_theme(&theme_id) {
-                if let Some(path) = self.find_icon_in_theme(theme, lookup) {
+            if let Some(theme) = self.loader.get_theme(&theme_id)
+                && let Some(path) = self.find_icon_in_theme(theme, lookup) {
                     return Some(path);
                 }
-            }
         }
 
         None
@@ -276,15 +275,14 @@ impl IconResolver {
 
         while idx < themes_to_check.len() {
             let theme_id = &themes_to_check[idx];
-            if visited.insert(theme_id.clone()) {
-                if let Some(theme) = self.loader.get_theme(theme_id) {
+            if visited.insert(theme_id.clone())
+                && let Some(theme) = self.loader.get_theme(theme_id) {
                     for parent in &theme.inherits {
                         if !visited.contains(parent) {
                             themes_to_check.push(parent.clone());
                         }
                     }
                 }
-            }
             idx += 1;
         }
 

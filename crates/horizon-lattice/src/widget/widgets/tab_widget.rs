@@ -28,7 +28,9 @@ use horizon_lattice_render::{Color, Icon, Rect, Renderer};
 
 use super::tab_bar::{TabBar, TabPosition};
 use crate::widget::layout::{ContentMargins, Layout, LayoutItem, StackLayout};
-use crate::widget::{PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent};
+use crate::widget::{
+    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+};
 
 /// A tabbed page container widget.
 ///
@@ -93,7 +95,10 @@ impl TabWidget {
     /// Create a new tab widget.
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         let tab_bar = TabBar::new();
 
@@ -144,16 +149,12 @@ impl TabWidget {
     }
 
     /// Insert a tab at the specified index.
-    pub fn insert_tab(
-        &mut self,
-        index: i32,
-        widget_id: ObjectId,
-        label: impl Into<String>,
-    ) -> i32 {
+    pub fn insert_tab(&mut self, index: i32, widget_id: ObjectId, label: impl Into<String>) -> i32 {
         let result_index = self.tab_bar.insert_tab(index, label);
         let insert_pos = (index as usize).min(self.pages.len());
         self.pages.insert(insert_pos, widget_id);
-        self.stack_layout.insert_item(insert_pos, LayoutItem::Widget(widget_id));
+        self.stack_layout
+            .insert_item(insert_pos, LayoutItem::Widget(widget_id));
         self.sync_current_index();
         self.base.update();
         result_index
@@ -405,7 +406,9 @@ impl TabWidget {
                 Rect::new(0.0, rect.height() - tab_height, rect.width(), tab_height)
             }
             TabPosition::Left => Rect::new(0.0, 0.0, tab_width, rect.height()),
-            TabPosition::Right => Rect::new(rect.width() - tab_width, 0.0, tab_width, rect.height()),
+            TabPosition::Right => {
+                Rect::new(rect.width() - tab_width, 0.0, tab_width, rect.height())
+            }
         }
     }
 
@@ -456,14 +459,24 @@ impl TabWidget {
                 rect.width(),
                 rect.height() - tab_bar_rect.height() + 1.0,
             ),
-            TabPosition::Bottom => Rect::new(0.0, 0.0, rect.width(), rect.height() - tab_bar_rect.height() + 1.0),
+            TabPosition::Bottom => Rect::new(
+                0.0,
+                0.0,
+                rect.width(),
+                rect.height() - tab_bar_rect.height() + 1.0,
+            ),
             TabPosition::Left => Rect::new(
                 tab_bar_rect.width() - 1.0,
                 0.0,
                 rect.width() - tab_bar_rect.width() + 1.0,
                 rect.height(),
             ),
-            TabPosition::Right => Rect::new(0.0, 0.0, rect.width() - tab_bar_rect.width() + 1.0, rect.height()),
+            TabPosition::Right => Rect::new(
+                0.0,
+                0.0,
+                rect.width() - tab_bar_rect.width() + 1.0,
+                rect.height(),
+            ),
         }
     }
 
@@ -627,7 +640,7 @@ mod tests {
     use super::*;
     use crate::widget::base::WidgetBase;
     use crate::widget::traits::{PaintContext, Widget};
-    use horizon_lattice_core::{init_global_registry, Object};
+    use horizon_lattice_core::{Object, init_global_registry};
 
     /// Mock widget for testing.
     struct MockWidget {

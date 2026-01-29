@@ -1,10 +1,10 @@
 //! Style properties definition.
 
+use crate::types::{BorderStyle, Cursor, EdgeValues, LengthValue, StyleValue, TextAlign};
 use horizon_lattice_render::{
-    Color, Paint, BoxShadow, CornerRadii,
-    text::{FontFamily, FontWeight, FontStyle, FontStretch, TextDecoration},
+    BoxShadow, Color, CornerRadii, Paint,
+    text::{FontFamily, FontStretch, FontStyle, FontWeight, TextDecoration},
 };
-use crate::types::{StyleValue, LengthValue, EdgeValues, BorderStyle, TextAlign, Cursor};
 
 /// Complete set of style properties for a widget.
 ///
@@ -126,18 +126,39 @@ impl StyleProperties {
 
         merge_if_set!(
             // Box model
-            margin, padding, border_width, border_color, border_style, border_radius,
+            margin,
+            padding,
+            border_width,
+            border_color,
+            border_style,
+            border_radius,
             // Background
-            background, background_color,
+            background,
+            background_color,
             // Size
-            min_width, min_height, max_width, max_height, width, height,
+            min_width,
+            min_height,
+            max_width,
+            max_height,
+            width,
+            height,
             // Typography
-            font_family, font_size, font_weight, font_style, font_stretch,
-            color, text_align, line_height, letter_spacing, text_decoration,
+            font_family,
+            font_size,
+            font_weight,
+            font_style,
+            font_stretch,
+            color,
+            text_align,
+            line_height,
+            letter_spacing,
+            text_decoration,
             // Effects
-            opacity, box_shadow,
+            opacity,
+            box_shadow,
             // Interaction
-            cursor, pointer_events,
+            cursor,
+            pointer_events,
         );
     }
 }

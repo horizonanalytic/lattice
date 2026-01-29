@@ -206,7 +206,10 @@ impl FontComboBox {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Fixed,
+        ));
 
         let mut this = Self {
             base,
@@ -338,9 +341,7 @@ impl FontComboBox {
 
     /// Check if a font family exists.
     pub fn has_font(&self, family: &str) -> bool {
-        self.families
-            .iter()
-            .any(|f| f.eq_ignore_ascii_case(family))
+        self.families.iter().any(|f| f.eq_ignore_ascii_case(family))
     }
 
     // =========================================================================
@@ -365,12 +366,11 @@ impl FontComboBox {
             self.current_index = new_index;
 
             // Update edit text for editable mode
-            if self.editable && new_index >= 0 {
-                if let Some(family) = self.font_family(new_index as usize) {
+            if self.editable && new_index >= 0
+                && let Some(family) = self.font_family(new_index as usize) {
                     self.edit_text = family.to_string();
                     self.cursor_pos = self.edit_text.len();
                 }
-            }
 
             self.base.update();
 
@@ -471,12 +471,11 @@ impl FontComboBox {
             self.editable = editable;
 
             // Initialize edit text from current selection
-            if editable && self.current_index >= 0 {
-                if let Some(family) = self.font_family(self.current_index as usize) {
+            if editable && self.current_index >= 0
+                && let Some(family) = self.font_family(self.current_index as usize) {
                     self.edit_text = family.to_string();
                     self.cursor_pos = self.edit_text.len();
                 }
-            }
 
             self.base.update();
         }
@@ -745,12 +744,7 @@ impl FontComboBox {
     #[allow(dead_code)]
     fn display_rect(&self) -> Rect {
         let rect = self.base.rect();
-        Rect::new(
-            0.0,
-            0.0,
-            rect.width() - self.arrow_width,
-            rect.height(),
-        )
+        Rect::new(0.0, 0.0, rect.width() - self.arrow_width, rect.height())
     }
 
     fn arrow_rect(&self) -> Rect {
@@ -1043,9 +1037,9 @@ impl FontComboBox {
         }
 
         // Handle character input for editable mode
-        if self.editable {
-            if let Some(ch) = event.text.chars().next() {
-                if !ch.is_control() {
+        if self.editable
+            && let Some(ch) = event.text.chars().next()
+                && !ch.is_control() {
                     // Insert character at cursor
                     self.edit_text.insert(self.cursor_pos, ch);
                     self.cursor_pos += ch.len_utf8();
@@ -1063,8 +1057,6 @@ impl FontComboBox {
                     self.base.update();
                     return true;
                 }
-            }
-        }
 
         false
     }
@@ -1122,7 +1114,8 @@ impl FontComboBox {
 
         // Draw background
         let rounded = RoundedRect::new(local_rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(rounded, self.background_color);
+        ctx.renderer()
+            .fill_rounded_rect(rounded, self.background_color);
 
         // Draw border
         let border_color = if self.base.has_focus() {
@@ -1144,8 +1137,14 @@ impl FontComboBox {
 
         // Draw arrow button background on hover
         if matches!(self.hover_part, FontComboBoxPart::Arrow) {
-            let arrow_rect = Rect::new(arrow_x + 1.0, 1.0, self.arrow_width - 2.0, rect.height() - 2.0);
-            ctx.renderer().fill_rect(arrow_rect, Color::from_rgba8(200, 200, 200, 50));
+            let arrow_rect = Rect::new(
+                arrow_x + 1.0,
+                1.0,
+                self.arrow_width - 2.0,
+                rect.height() - 2.0,
+            );
+            ctx.renderer()
+                .fill_rect(arrow_rect, Color::from_rgba8(200, 200, 200, 50));
         }
 
         // Draw dropdown arrow
@@ -1208,12 +1207,8 @@ impl FontComboBox {
             self.font.clone()
         };
 
-        let layout = TextLayout::with_options(
-            &mut font_system,
-            &text,
-            &font,
-            TextLayoutOptions::new(),
-        );
+        let layout =
+            TextLayout::with_options(&mut font_system, &text, &font, TextLayoutOptions::new());
 
         let text_x = self.padding;
         let text_y = (rect.height() - layout.height()) / 2.0;
@@ -1246,7 +1241,8 @@ impl FontComboBox {
         let popup_rect = self.popup_rect();
 
         // Draw popup background
-        ctx.renderer().fill_rect(popup_rect, self.popup_background_color);
+        ctx.renderer()
+            .fill_rect(popup_rect, self.popup_background_color);
 
         // Draw popup border
         let stroke = Stroke::new(self.popup_border_color, 1.0);
@@ -1275,7 +1271,8 @@ impl FontComboBox {
                 );
 
                 let is_selected = list_idx as i32 == self.highlighted_index;
-                let is_hovered = matches!(self.hover_part, FontComboBoxPart::PopupItem(idx) if idx == list_idx);
+                let is_hovered =
+                    matches!(self.hover_part, FontComboBoxPart::PopupItem(idx) if idx == list_idx);
 
                 // Draw background
                 if is_selected {
@@ -1324,7 +1321,12 @@ impl FontComboBox {
         }
     }
 
-    fn paint_scroll_indicator(&self, ctx: &mut PaintContext<'_>, popup_rect: Rect, item_count: usize) {
+    fn paint_scroll_indicator(
+        &self,
+        ctx: &mut PaintContext<'_>,
+        popup_rect: Rect,
+        item_count: usize,
+    ) {
         let indicator_width = 4.0;
         let track_height = popup_rect.size.height - 2.0;
         let thumb_height = (self.max_visible_items as f32 / item_count as f32) * track_height;
@@ -1349,8 +1351,10 @@ impl FontComboBox {
             thumb_height.max(10.0),
         );
 
-        ctx.renderer().fill_rect(track_rect, Color::from_rgb8(240, 240, 240));
-        ctx.renderer().fill_rect(thumb_rect, Color::from_rgb8(180, 180, 180));
+        ctx.renderer()
+            .fill_rect(track_rect, Color::from_rgb8(240, 240, 240));
+        ctx.renderer()
+            .fill_rect(thumb_rect, Color::from_rgb8(180, 180, 180));
     }
 }
 

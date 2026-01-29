@@ -26,10 +26,10 @@
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::{Rect, Size};
 
+use super::ContentMargins;
 use super::base::LayoutBase;
 use super::item::LayoutItem;
 use super::traits::Layout;
-use super::ContentMargins;
 use crate::widget::animation::{Easing, Transition, TransitionState, TransitionType};
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::geometry::{SizeHint, SizePolicy, SizePolicyPair};
@@ -354,7 +354,9 @@ impl Layout for StackLayout {
             } else if index < self.current_index {
                 self.current_index = self.current_index.saturating_sub(1);
             } else if index == self.current_index {
-                self.current_index = self.current_index.min(self.base.item_count().saturating_sub(1));
+                self.current_index = self
+                    .current_index
+                    .min(self.base.item_count().saturating_sub(1));
             }
         }
 
@@ -363,9 +365,11 @@ impl Layout for StackLayout {
 
     fn remove_widget(&mut self, widget: ObjectId) -> bool {
         // Find the index first
-        let index = self.base.items().iter().position(|item| {
-            matches!(item, LayoutItem::Widget(id) if *id == widget)
-        });
+        let index = self
+            .base
+            .items()
+            .iter()
+            .position(|item| matches!(item, LayoutItem::Widget(id) if *id == widget));
 
         if let Some(idx) = index {
             self.remove_item(idx).is_some()
@@ -507,7 +511,8 @@ impl Layout for StackLayout {
         // Cache the calculated size hint
         let size_hint = self.calculate_size_hint(storage);
         self.base.set_cached_size_hint(size_hint);
-        self.base.set_cached_minimum_size(size_hint.effective_minimum());
+        self.base
+            .set_cached_minimum_size(size_hint.effective_minimum());
 
         self.base.mark_valid();
 
@@ -562,7 +567,7 @@ mod tests {
     use super::*;
     use crate::widget::base::WidgetBase;
     use crate::widget::traits::{PaintContext, Widget};
-    use horizon_lattice_core::{init_global_registry, Object, ObjectId};
+    use horizon_lattice_core::{Object, ObjectId, init_global_registry};
     use std::collections::HashMap;
 
     /// Mock widget for testing.

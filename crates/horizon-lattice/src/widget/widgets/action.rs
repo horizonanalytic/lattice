@@ -58,14 +58,14 @@
 //! - `QuitRole`: "Quit" (application menu)
 //! - etc.
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use horizon_lattice_core::{Object, ObjectBase, ObjectId, Signal};
 use horizon_lattice_render::Icon;
 use parking_lot::RwLock;
 
-use crate::widget::shortcut::{parse_mnemonic, KeySequence, MnemonicText};
+use crate::widget::shortcut::{KeySequence, MnemonicText, parse_mnemonic};
 
 // ============================================================================
 // Shortcut Context
@@ -1303,16 +1303,10 @@ mod tests {
 
         action.set_text("New Text");
         assert!(action.generation() > initial_gen);
-        assert_eq!(
-            changed_count.load(std::sync::atomic::Ordering::SeqCst),
-            1
-        );
+        assert_eq!(changed_count.load(std::sync::atomic::Ordering::SeqCst), 1);
 
         action.set_enabled(false);
-        assert_eq!(
-            changed_count.load(std::sync::atomic::Ordering::SeqCst),
-            2
-        );
+        assert_eq!(changed_count.load(std::sync::atomic::Ordering::SeqCst), 2);
     }
 
     #[test]

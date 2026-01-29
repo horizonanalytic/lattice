@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use horizon_lattice_core::{init_global_registry, Object, ObjectId};
+    use horizon_lattice_core::{Object, ObjectId, init_global_registry};
     use horizon_lattice_render::{Color, Rect, Size};
 
     use crate::widget::{PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase};
@@ -180,7 +180,10 @@ mod tests {
         assert_eq!(policy.vertical, SizePolicy::Preferred);
 
         // Set a custom policy
-        widget.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Fixed));
+        widget.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Fixed,
+        ));
         let policy = widget.size_policy();
         assert_eq!(policy.horizontal, SizePolicy::Expanding);
         assert_eq!(policy.vertical, SizePolicy::Fixed);
@@ -593,10 +596,7 @@ mod tests {
         let child_id = child.object_id();
 
         // Set up parent-child relationship
-        child
-            .widget_base()
-            .set_parent(Some(parent_id))
-            .unwrap();
+        child.widget_base().set_parent(Some(parent_id)).unwrap();
 
         let mut storage = TestWidgetStorage::new();
         storage.add(parent);
@@ -634,10 +634,7 @@ mod tests {
         let parent_id = parent.object_id();
         let child_id = child.object_id();
 
-        child
-            .widget_base()
-            .set_parent(Some(parent_id))
-            .unwrap();
+        child.widget_base().set_parent(Some(parent_id)).unwrap();
 
         let mut storage = TestWidgetStorage::new();
         storage.add(parent);
@@ -671,9 +668,7 @@ mod tests {
         let target_id = target.object_id();
 
         // Install filter on target
-        target
-            .widget_base_mut()
-            .install_event_filter(filter_id);
+        target.widget_base_mut().install_event_filter(filter_id);
 
         let mut storage = TestWidgetStorage::new();
         storage.add(filter);
@@ -692,7 +687,10 @@ mod tests {
         // Filter blocked the event
         assert_eq!(result, DispatchResult::Filtered);
         // Only filter received (target never got the event)
-        assert_eq!(events.lock().unwrap().as_slice(), &["filter:filter:MousePress"]);
+        assert_eq!(
+            events.lock().unwrap().as_slice(),
+            &["filter:filter:MousePress"]
+        );
     }
 
     #[test]
@@ -708,9 +706,7 @@ mod tests {
         let target_id = target.object_id();
 
         // Install filter on target
-        target
-            .widget_base_mut()
-            .install_event_filter(filter_id);
+        target.widget_base_mut().install_event_filter(filter_id);
 
         let mut storage = TestWidgetStorage::new();
         storage.add(filter);
@@ -771,10 +767,7 @@ mod tests {
         let parent_id = parent.object_id();
         let child_id = child.object_id();
 
-        child
-            .widget_base()
-            .set_parent(Some(parent_id))
-            .unwrap();
+        child.widget_base().set_parent(Some(parent_id)).unwrap();
 
         let mut storage = TestWidgetStorage::new();
         storage.add(parent);
@@ -863,10 +856,7 @@ mod tests {
             .widget_base()
             .set_parent(Some(grandparent_id))
             .unwrap();
-        child
-            .widget_base()
-            .set_parent(Some(parent_id))
-            .unwrap();
+        child.widget_base().set_parent(Some(parent_id)).unwrap();
 
         let mut storage = TestWidgetStorage::new();
         storage.add(grandparent);
@@ -914,10 +904,7 @@ mod tests {
         child.set_geometry(Rect::new(20.0, 20.0, 50.0, 30.0));
         let child_id = child.object_id();
 
-        child
-            .widget_base()
-            .set_parent(Some(parent_id))
-            .unwrap();
+        child.widget_base().set_parent(Some(parent_id)).unwrap();
 
         let mut storage = TestWidgetStorage::new();
         storage.add(parent);
@@ -1227,7 +1214,8 @@ mod tests {
         setup();
 
         let events = Arc::new(Mutex::new(Vec::new()));
-        let mut widget = FocusTrackingWidget::new("button", events.clone(), FocusPolicy::StrongFocus);
+        let mut widget =
+            FocusTrackingWidget::new("button", events.clone(), FocusPolicy::StrongFocus);
         widget.set_enabled(false);
         let widget_id = widget.object_id();
 
@@ -1303,7 +1291,8 @@ mod tests {
         let root = FocusTrackingWidget::new("root", events.clone(), FocusPolicy::NoFocus);
         let child1 = FocusTrackingWidget::new("child1", events.clone(), FocusPolicy::StrongFocus);
         let child2 = FocusTrackingWidget::new("child2", events.clone(), FocusPolicy::NoFocus); // NoFocus!
-        let mut child3 = FocusTrackingWidget::new("child3", events.clone(), FocusPolicy::StrongFocus);
+        let mut child3 =
+            FocusTrackingWidget::new("child3", events.clone(), FocusPolicy::StrongFocus);
         child3.hide(); // Hidden!
         let child4 = FocusTrackingWidget::new("child4", events.clone(), FocusPolicy::StrongFocus);
 
@@ -1719,10 +1708,7 @@ mod tests {
 
         assert_eq!(result, DispatchResult::Accepted);
         // Child received first, then propagated to parent
-        assert_eq!(
-            received.lock().unwrap().as_slice(),
-            &["child", "parent"]
-        );
+        assert_eq!(received.lock().unwrap().as_slice(), &["child", "parent"]);
     }
 
     // =========================================================================
@@ -1855,7 +1841,10 @@ mod tests {
         let result = EventDispatcher::send_event(&mut storage, widget_id, &mut event);
 
         assert_eq!(result, DispatchResult::Accepted);
-        assert_eq!(received.lock().unwrap().as_slice(), &[ContextMenuReason::Mouse]);
+        assert_eq!(
+            received.lock().unwrap().as_slice(),
+            &[ContextMenuReason::Mouse]
+        );
     }
 
     #[test]
@@ -2074,7 +2063,10 @@ mod tests {
         let child_id = child.object_id();
 
         // Set up hierarchy
-        parent.widget_base().set_parent(Some(grandparent_id)).unwrap();
+        parent
+            .widget_base()
+            .set_parent(Some(grandparent_id))
+            .unwrap();
         child.widget_base().set_parent(Some(parent_id)).unwrap();
 
         // Only parent has cursor set

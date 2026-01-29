@@ -203,7 +203,11 @@ impl<T: Send + Sync + 'static> TableModel<T> {
 
         // Emit data changed for all columns in the row
         let first = ModelIndex::new(row_index, 0, ModelIndex::invalid());
-        let last = ModelIndex::new(row_index, self.column_count.saturating_sub(1), ModelIndex::invalid());
+        let last = ModelIndex::new(
+            row_index,
+            self.column_count.saturating_sub(1),
+            ModelIndex::invalid(),
+        );
         self.signals
             .data_changed
             .emit((first, last, vec![ItemRole::Display]));
@@ -315,9 +319,11 @@ impl SimpleTableModel {
     /// Sets the column headers.
     pub fn set_headers(&self, headers: Vec<String>) {
         *self.headers.write() = headers;
-        self.signals
-            .header_data_changed
-            .emit((Orientation::Horizontal, 0, self.column_count.saturating_sub(1)));
+        self.signals.header_data_changed.emit((
+            Orientation::Horizontal,
+            0,
+            self.column_count.saturating_sub(1),
+        ));
     }
 
     /// Sets a single header.
@@ -335,15 +341,14 @@ impl SimpleTableModel {
     /// Sets the data at the specified cell.
     pub fn set_cell(&self, row: usize, column: usize, value: ItemData) {
         let mut data = self.data.write();
-        if row < data.len() && column < self.column_count {
-            if column < data[row].len() {
+        if row < data.len() && column < self.column_count
+            && column < data[row].len() {
                 data[row][column] = value;
                 drop(data);
                 let index = ModelIndex::new(row, column, ModelIndex::invalid());
                 self.signals
                     .emit_data_changed_single(index, vec![ItemRole::Display]);
             }
-        }
     }
 
     /// Appends a row.
@@ -493,7 +498,10 @@ mod tests {
 
         let index = model.index(0, 0, &ModelIndex::invalid());
         assert!(index.is_valid());
-        assert_eq!(model.data(&index, ItemRole::Display).as_string(), Some("First"));
+        assert_eq!(
+            model.data(&index, ItemRole::Display).as_string(),
+            Some("First")
+        );
 
         let index = model.index(1, 1, &ModelIndex::invalid());
         assert_eq!(model.data(&index, ItemRole::Display).as_int(), Some(200));
@@ -536,11 +544,15 @@ mod tests {
         });
 
         assert_eq!(
-            model.header_data(0, Orientation::Horizontal, ItemRole::Display).as_string(),
+            model
+                .header_data(0, Orientation::Horizontal, ItemRole::Display)
+                .as_string(),
             Some("Name")
         );
         assert_eq!(
-            model.header_data(1, Orientation::Horizontal, ItemRole::Display).as_string(),
+            model
+                .header_data(1, Orientation::Horizontal, ItemRole::Display)
+                .as_string(),
             Some("Value")
         );
     }
@@ -565,10 +577,15 @@ mod tests {
         assert_eq!(model.column_count(&ModelIndex::invalid()), 3);
 
         let index = model.index(0, 1, &ModelIndex::invalid());
-        assert_eq!(model.data(&index, ItemRole::Display).as_string(), Some("b1"));
+        assert_eq!(
+            model.data(&index, ItemRole::Display).as_string(),
+            Some("b1")
+        );
 
         assert_eq!(
-            model.header_data(0, Orientation::Horizontal, ItemRole::Display).as_string(),
+            model
+                .header_data(0, Orientation::Horizontal, ItemRole::Display)
+                .as_string(),
             Some("A")
         );
     }
@@ -606,6 +623,9 @@ mod tests {
         assert_eq!(model.row_count_value(), 1);
 
         let index = model.index(0, 0, &ModelIndex::invalid());
-        assert_eq!(model.data(&index, ItemRole::Display).as_string(), Some("Second"));
+        assert_eq!(
+            model.data(&index, ItemRole::Display).as_string(),
+            Some("Second")
+        );
     }
 }

@@ -62,8 +62,8 @@ use std::sync::Arc;
 use horizon_lattice_core::{ObjectId, Signal};
 use horizon_lattice_render::Point;
 
-use crate::platform::file_uri;
 use crate::platform::ImageData;
+use crate::platform::file_uri;
 
 use super::events::EventBase;
 
@@ -327,7 +327,7 @@ impl DragData {
     ///
     /// This converts the stored paths to proper file URIs.
     pub fn file_uris(&self) -> Vec<String> {
-        self.urls.iter().map(|p| file_uri::path_to_uri(p)).collect()
+        self.urls.iter().map(file_uri::path_to_uri).collect()
     }
 
     /// Sets file URLs from `file://` URI strings.
@@ -434,9 +434,7 @@ impl DragData {
 
     /// Gets custom user data, if it matches the requested type.
     pub fn user_data<T: Send + Sync + 'static>(&self) -> Option<&T> {
-        self.user_data
-            .as_ref()
-            .and_then(|d| d.downcast_ref::<T>())
+        self.user_data.as_ref().and_then(|d| d.downcast_ref::<T>())
     }
 }
 
@@ -493,7 +491,6 @@ pub struct DragDropManager {
     // -------------------------------------------------------------------------
     // Signals
     // -------------------------------------------------------------------------
-
     /// Signal emitted when a drag operation begins.
     ///
     /// The parameter is the source widget ID (if internal drag) or `None`
@@ -699,7 +696,11 @@ impl DragDropManager {
     /// Updates the drag position and current target.
     ///
     /// Returns the previous target if it changed (for sending DragLeave).
-    pub fn update_position(&mut self, position: Point, new_target: Option<ObjectId>) -> Option<ObjectId> {
+    pub fn update_position(
+        &mut self,
+        position: Point,
+        new_target: Option<ObjectId>,
+    ) -> Option<ObjectId> {
         self.drag_position = position;
 
         let previous_target = self.current_target;
@@ -729,7 +730,9 @@ impl DragDropManager {
     /// or `None` if the drag was cancelled.
     pub fn end_drag(&mut self, dropped: bool) -> Option<(Arc<DragData>, DropAction)> {
         let result = if dropped && self.proposed_action != DropAction::NONE {
-            self.drag_data.take().map(|data| (data, self.proposed_action))
+            self.drag_data
+                .take()
+                .map(|data| (data, self.proposed_action))
         } else {
             None
         };
@@ -1125,15 +1128,14 @@ impl DropIndicatorState {
         }
 
         // After last item
-        if let Some((item_idx, rect)) = item_rects.last() {
-            if pos.y > rect.bottom() {
+        if let Some((item_idx, rect)) = item_rects.last()
+            && pos.y > rect.bottom() {
                 return Some(
                     DropIndicator::horizontal_line(rect.bottom(), rect.left(), list_width)
                         .with_item_index(*item_idx)
                         .with_position(DropPosition::BelowItem),
                 );
             }
-        }
 
         None
     }
@@ -1179,15 +1181,14 @@ impl DropIndicatorState {
         }
 
         // After last item
-        if let Some((item_idx, rect)) = item_rects.last() {
-            if pos.x > rect.right() {
+        if let Some((item_idx, rect)) = item_rects.last()
+            && pos.x > rect.right() {
                 return Some(
                     DropIndicator::vertical_line(rect.right(), rect.top(), list_height)
                         .with_item_index(*item_idx)
                         .with_position(DropPosition::BelowItem),
                 );
             }
-        }
 
         None
     }
@@ -1358,7 +1359,12 @@ pub struct DropEvent {
 
 impl DropEvent {
     /// Creates a new drop event.
-    pub fn new(data: Arc<DragData>, local_pos: Point, window_pos: Point, action: DropAction) -> Self {
+    pub fn new(
+        data: Arc<DragData>,
+        local_pos: Point,
+        window_pos: Point,
+        action: DropAction,
+    ) -> Self {
         Self {
             base: EventBase::new(),
             data,
@@ -1398,7 +1404,10 @@ mod tests {
         assert_eq!(DropAction::COPY.preferred(), DropAction::COPY);
         assert_eq!(DropAction::MOVE.preferred(), DropAction::MOVE);
         assert_eq!(DropAction::LINK.preferred(), DropAction::LINK);
-        assert_eq!((DropAction::MOVE | DropAction::LINK).preferred(), DropAction::MOVE);
+        assert_eq!(
+            (DropAction::MOVE | DropAction::LINK).preferred(),
+            DropAction::MOVE
+        );
     }
 
     #[test]
@@ -1423,7 +1432,10 @@ mod tests {
 
     #[test]
     fn test_drag_data_urls() {
-        let paths = vec![PathBuf::from("/tmp/file1.txt"), PathBuf::from("/tmp/file2.txt")];
+        let paths = vec![
+            PathBuf::from("/tmp/file1.txt"),
+            PathBuf::from("/tmp/file2.txt"),
+        ];
         let data = DragData::from_paths(paths.clone());
 
         assert!(data.has_urls());
@@ -1456,11 +1468,18 @@ mod tests {
 
         // Start a drag
         let data = DragData::from_text("test");
-        manager.start_drag(data, DropAction::COPY | DropAction::MOVE, Point::new(100.0, 100.0));
+        manager.start_drag(
+            data,
+            DropAction::COPY | DropAction::MOVE,
+            Point::new(100.0, 100.0),
+        );
 
         assert_eq!(manager.state(), DragState::Dragging);
         assert!(manager.is_dragging());
-        assert_eq!(manager.supported_actions(), DropAction::COPY | DropAction::MOVE);
+        assert_eq!(
+            manager.supported_actions(),
+            DropAction::COPY | DropAction::MOVE
+        );
         assert_eq!(manager.proposed_action(), DropAction::COPY);
 
         // End the drag
@@ -1634,10 +1653,22 @@ mod tests {
 
     #[test]
     fn test_drag_cursor_action_mapping() {
-        assert_eq!(DragCursor::cursor_for_action(DropAction::NONE), CursorShape::NoDrop);
-        assert_eq!(DragCursor::cursor_for_action(DropAction::COPY), CursorShape::Copy);
-        assert_eq!(DragCursor::cursor_for_action(DropAction::MOVE), CursorShape::Move);
-        assert_eq!(DragCursor::cursor_for_action(DropAction::LINK), CursorShape::Alias);
+        assert_eq!(
+            DragCursor::cursor_for_action(DropAction::NONE),
+            CursorShape::NoDrop
+        );
+        assert_eq!(
+            DragCursor::cursor_for_action(DropAction::COPY),
+            CursorShape::Copy
+        );
+        assert_eq!(
+            DragCursor::cursor_for_action(DropAction::MOVE),
+            CursorShape::Move
+        );
+        assert_eq!(
+            DragCursor::cursor_for_action(DropAction::LINK),
+            CursorShape::Alias
+        );
     }
 
     #[test]
@@ -1751,7 +1782,10 @@ mod tests {
         data.set_data("application/x-custom", custom_data.to_vec());
 
         assert!(data.has_format("application/x-custom"));
-        assert_eq!(data.get_data("application/x-custom"), Some(custom_data.as_slice()));
+        assert_eq!(
+            data.get_data("application/x-custom"),
+            Some(custom_data.as_slice())
+        );
 
         // Formats iterator should include our custom type
         let formats: Vec<&str> = data.formats().collect();

@@ -26,10 +26,14 @@
 //! ```
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
-use horizon_lattice_render::{Color, FillRule, Font, FontSystem, Path, Point, Rect, Renderer, Stroke, TextLayout};
+use horizon_lattice_render::{
+    Color, FillRule, Font, FontSystem, Path, Point, Rect, Renderer, Stroke, TextLayout,
+};
 
-use crate::widget::{PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent};
-use crate::widget::events::{MouseButton, Key};
+use crate::widget::events::{Key, MouseButton};
+use crate::widget::{
+    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+};
 
 /// Default header height for toolbox items.
 const DEFAULT_HEADER_HEIGHT: f32 = 28.0;
@@ -128,7 +132,10 @@ impl ToolBox {
     /// Create a new empty toolbox.
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
         base.set_focusable(true);
 
         Self {
@@ -176,12 +183,7 @@ impl ToolBox {
     /// Insert a widget at the specified index.
     ///
     /// Returns the actual index where the widget was inserted.
-    pub fn insert_item(
-        &mut self,
-        index: i32,
-        widget_id: ObjectId,
-        text: impl Into<String>,
-    ) -> i32 {
+    pub fn insert_item(&mut self, index: i32, widget_id: ObjectId, text: impl Into<String>) -> i32 {
         let insert_pos = if index < 0 {
             0
         } else {
@@ -286,7 +288,9 @@ impl ToolBox {
     /// Get the widget ID of the current item.
     pub fn current_widget(&self) -> Option<ObjectId> {
         if self.current_index >= 0 {
-            self.pages.get(self.current_index as usize).map(|p| p.widget_id)
+            self.pages
+                .get(self.current_index as usize)
+                .map(|p| p.widget_id)
         } else {
             None
         }
@@ -339,12 +343,11 @@ impl ToolBox {
 
     /// Set the text for an item.
     pub fn set_item_text(&mut self, index: i32, text: impl Into<String>) {
-        if index >= 0 {
-            if let Some(page) = self.pages.get_mut(index as usize) {
+        if index >= 0
+            && let Some(page) = self.pages.get_mut(index as usize) {
                 page.item.text = text.into();
                 self.base.update();
             }
-        }
     }
 
     /// Get the icon path for an item.
@@ -360,12 +363,11 @@ impl ToolBox {
 
     /// Set the icon path for an item.
     pub fn set_item_icon(&mut self, index: i32, icon_path: Option<String>) {
-        if index >= 0 {
-            if let Some(page) = self.pages.get_mut(index as usize) {
+        if index >= 0
+            && let Some(page) = self.pages.get_mut(index as usize) {
                 page.item.icon_path = icon_path;
                 self.base.update();
             }
-        }
     }
 
     /// Check if an item is enabled.
@@ -382,12 +384,11 @@ impl ToolBox {
 
     /// Set whether an item is enabled.
     pub fn set_item_enabled(&mut self, index: i32, enabled: bool) {
-        if index >= 0 {
-            if let Some(page) = self.pages.get_mut(index as usize) {
+        if index >= 0
+            && let Some(page) = self.pages.get_mut(index as usize) {
                 page.item.enabled = enabled;
                 self.base.update();
             }
-        }
     }
 
     /// Get the tooltip for an item.
@@ -403,11 +404,10 @@ impl ToolBox {
 
     /// Set the tooltip for an item.
     pub fn set_item_tool_tip(&mut self, index: i32, tool_tip: Option<String>) {
-        if index >= 0 {
-            if let Some(page) = self.pages.get_mut(index as usize) {
+        if index >= 0
+            && let Some(page) = self.pages.get_mut(index as usize) {
                 page.item.tool_tip = tool_tip;
             }
-        }
     }
 
     // =========================================================================
@@ -568,11 +568,10 @@ impl ToolBox {
     /// Find which header index contains a point.
     fn header_at(&self, pos: Point) -> i32 {
         for i in 0..self.pages.len() as i32 {
-            if let Some(rect) = self.header_rect(i) {
-                if rect.contains(pos) {
+            if let Some(rect) = self.header_rect(i)
+                && rect.contains(pos) {
                     return i;
                 }
-            }
         }
         -1
     }
@@ -643,7 +642,8 @@ impl Widget for ToolBox {
 
         // Background
         if self.content_background_color.a > 0.0 {
-            ctx.renderer().fill_rect(widget_rect, self.content_background_color);
+            ctx.renderer()
+                .fill_rect(widget_rect, self.content_background_color);
         }
 
         // Border
@@ -698,16 +698,23 @@ impl Widget for ToolBox {
                     // Down-pointing triangle (expanded)
                     indicator_path.move_to(Point::new(indicator_x, indicator_y));
                     indicator_path.line_to(Point::new(indicator_x + indicator_size, indicator_y));
-                    indicator_path.line_to(Point::new(indicator_x + indicator_size / 2.0, indicator_y + indicator_size));
+                    indicator_path.line_to(Point::new(
+                        indicator_x + indicator_size / 2.0,
+                        indicator_y + indicator_size,
+                    ));
                     indicator_path.close();
                 } else {
                     // Right-pointing triangle (collapsed)
                     indicator_path.move_to(Point::new(indicator_x, indicator_y));
                     indicator_path.line_to(Point::new(indicator_x, indicator_y + indicator_size));
-                    indicator_path.line_to(Point::new(indicator_x + indicator_size, indicator_y + indicator_size / 2.0));
+                    indicator_path.line_to(Point::new(
+                        indicator_x + indicator_size,
+                        indicator_y + indicator_size / 2.0,
+                    ));
                     indicator_path.close();
                 }
-                ctx.renderer().fill_path(&indicator_path, indicator_color, FillRule::NonZero);
+                ctx.renderer()
+                    .fill_path(&indicator_path, indicator_color, FillRule::NonZero);
 
                 // Draw text using TextLayout (text rendering infrastructure)
                 let _text_color = if i == self.current_index {
@@ -728,7 +735,8 @@ impl Widget for ToolBox {
                 // is deferred to the framework's text render pass integration.
                 if !page.item.text.is_empty() {
                     let mut font_system = FontSystem::new();
-                    let layout = TextLayout::new(&mut font_system, &page.item.text, &Font::default());
+                    let layout =
+                        TextLayout::new(&mut font_system, &page.item.text, &Font::default());
                     let _ = layout; // Layout prepared for text rendering
                 }
             }
@@ -738,7 +746,8 @@ impl Widget for ToolBox {
         if let Some(content_rect) = self.content_rect() {
             // The actual content widget would be painted by the parent/framework
             // Here we just draw the content area background
-            ctx.renderer().fill_rect(content_rect, self.content_background_color);
+            ctx.renderer()
+                .fill_rect(content_rect, self.content_background_color);
         }
     }
 
@@ -747,11 +756,10 @@ impl Widget for ToolBox {
             WidgetEvent::MousePress(e) => {
                 if e.button == MouseButton::Left {
                     let header_index = self.header_at(e.local_pos);
-                    if header_index >= 0 {
-                        if self.set_current_index(header_index) {
+                    if header_index >= 0
+                        && self.set_current_index(header_index) {
                             return true;
                         }
-                    }
                 }
                 false
             }
@@ -821,7 +829,7 @@ mod tests {
     use super::*;
     use crate::widget::base::WidgetBase;
     use crate::widget::traits::{PaintContext, Widget};
-    use horizon_lattice_core::{init_global_registry, Object};
+    use horizon_lattice_core::{Object, init_global_registry};
 
     /// Mock widget for testing.
     struct MockWidget {

@@ -570,7 +570,12 @@ impl ColorDialog {
     fn picker_rect(&self) -> Rect {
         let content = self.content_rect();
         let picker_height = 200.0;
-        Rect::new(content.left(), content.top(), content.width(), picker_height)
+        Rect::new(
+            content.left(),
+            content.top(),
+            content.width(),
+            picker_height,
+        )
     }
 
     /// Get the saturation/value square rectangle.
@@ -932,7 +937,8 @@ impl ColorDialog {
                 if !event.text.is_empty() && !event.modifiers.control && !event.modifiers.alt {
                     for c in event.text.chars() {
                         if c == '#' || c.is_ascii_hexdigit() {
-                            self.hex_text.insert(self.hex_cursor_pos, c.to_ascii_uppercase());
+                            self.hex_text
+                                .insert(self.hex_cursor_pos, c.to_ascii_uppercase());
                             self.hex_cursor_pos += 1;
                         }
                     }
@@ -979,8 +985,10 @@ impl ColorDialog {
                 let v = 1.0 - j as f32 / (v_steps - 1).max(1) as f32;
                 let y = sv_rect.top() + j as f32 * v_step_height;
                 let color = Color::from_hsv(self.hue, s, v);
-                ctx.renderer()
-                    .fill_rect(Rect::new(x, y, step_width + 0.5, v_step_height + 0.5), color);
+                ctx.renderer().fill_rect(
+                    Rect::new(x, y, step_width + 0.5, v_step_height + 0.5),
+                    color,
+                );
             }
         }
 
@@ -1109,10 +1117,17 @@ impl ColorDialog {
         let half_width = rect.width() / 2.0 - self.gap / 2.0;
 
         // "Current" color (left side)
-        let current_rect = Rect::new(rect.left(), rect.top() + 16.0, half_width, rect.height() - 16.0);
+        let current_rect = Rect::new(
+            rect.left(),
+            rect.top() + 16.0,
+            half_width,
+            rect.height() - 16.0,
+        );
         self.paint_checkerboard(ctx, current_rect);
-        ctx.renderer()
-            .fill_rounded_rect(RoundedRect::new(current_rect, self.border_radius), self.initial_color);
+        ctx.renderer().fill_rounded_rect(
+            RoundedRect::new(current_rect, self.border_radius),
+            self.initial_color,
+        );
         let stroke = Stroke::new(self.border_color, 1.0);
         ctx.renderer()
             .stroke_rounded_rect(RoundedRect::new(current_rect, self.border_radius), &stroke);

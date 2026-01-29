@@ -344,7 +344,9 @@ impl HtmlParser {
 
     fn current_format(&self) -> &FormatState {
         // Safe: format_stack is always initialized with at least one element
-        self.format_stack.last().expect("format_stack should never be empty")
+        self.format_stack
+            .last()
+            .expect("format_stack should never be empty")
     }
 
     fn flush_text(&mut self) {
@@ -451,7 +453,12 @@ impl HtmlParser {
         }
     }
 
-    fn handle_opening_tag(&mut self, tag_name: &str, attrs: &[(String, String)], is_self_closing: bool) {
+    fn handle_opening_tag(
+        &mut self,
+        tag_name: &str,
+        attrs: &[(String, String)],
+        is_self_closing: bool,
+    ) {
         match tag_name {
             "b" | "strong" => {
                 self.push_format(|f| f.bold = true);
@@ -533,18 +540,16 @@ fn decode_entity(entity: &str) -> String {
             if let Some(hex) = entity.strip_prefix('#') {
                 if let Some(hex_val) = hex.strip_prefix('x').or_else(|| hex.strip_prefix('X')) {
                     // Hex entity like &#x1F600;
-                    if let Ok(code_point) = u32::from_str_radix(hex_val, 16) {
-                        if let Some(c) = char::from_u32(code_point) {
+                    if let Ok(code_point) = u32::from_str_radix(hex_val, 16)
+                        && let Some(c) = char::from_u32(code_point) {
                             return c.to_string();
                         }
-                    }
                 } else {
                     // Decimal entity like &#128512;
-                    if let Ok(code_point) = hex.parse::<u32>() {
-                        if let Some(c) = char::from_u32(code_point) {
+                    if let Ok(code_point) = hex.parse::<u32>()
+                        && let Some(c) = char::from_u32(code_point) {
                             return c.to_string();
                         }
-                    }
                 }
             }
             // Unknown entity - return as-is with ampersand
@@ -562,7 +567,7 @@ fn parse_attributes(attrs_str: &str) -> Vec<(String, String)> {
 
     while chars.peek().is_some() {
         // Skip whitespace
-        while chars.peek().map_or(false, |c| c.is_whitespace()) {
+        while chars.peek().is_some_and(|c| c.is_whitespace()) {
             chars.next();
         }
 
@@ -580,7 +585,7 @@ fn parse_attributes(attrs_str: &str) -> Vec<(String, String)> {
         }
 
         // Skip whitespace before =
-        while chars.peek().map_or(false, |c| c.is_whitespace()) {
+        while chars.peek().is_some_and(|c| c.is_whitespace()) {
             chars.next();
         }
 
@@ -592,7 +597,7 @@ fn parse_attributes(attrs_str: &str) -> Vec<(String, String)> {
         chars.next(); // consume '='
 
         // Skip whitespace after =
-        while chars.peek().map_or(false, |c| c.is_whitespace()) {
+        while chars.peek().is_some_and(|c| c.is_whitespace()) {
             chars.next();
         }
 
@@ -603,7 +608,7 @@ fn parse_attributes(attrs_str: &str) -> Vec<(String, String)> {
         if quote_char == Some('"') || quote_char == Some('\'') {
             chars.next(); // consume opening quote
             let quote = quote_char.unwrap();
-            while let Some(c) = chars.next() {
+            for c in chars.by_ref() {
                 if c == quote {
                     break;
                 }
@@ -951,18 +956,16 @@ mod tests {
 
     #[test]
     fn test_complex_html() {
-        let rich = RichText::from_html(
-            "<b>Bold</b> normal <i>italic <b>bold italic</b></i> end"
-        );
+        let rich = RichText::from_html("<b>Bold</b> normal <i>italic <b>bold italic</b></i> end");
         assert_eq!(rich.plain_text(), "Bold normal italic bold italic end");
 
         // Check formatting
-        assert!(rich.spans()[0].bold);      // "Bold"
-        assert!(!rich.spans()[1].bold);     // " normal "
-        assert!(rich.spans()[2].italic);    // "italic "
-        assert!(rich.spans()[3].bold);      // "bold italic"
+        assert!(rich.spans()[0].bold); // "Bold"
+        assert!(!rich.spans()[1].bold); // " normal "
+        assert!(rich.spans()[2].italic); // "italic "
+        assert!(rich.spans()[3].bold); // "bold italic"
         assert!(rich.spans()[3].italic);
-        assert!(!rich.spans()[4].bold);     // " end"
+        assert!(!rich.spans()[4].bold); // " end"
         assert!(!rich.spans()[4].italic);
     }
 
@@ -999,7 +1002,8 @@ mod tests {
 
     #[test]
     fn test_rgba_function() {
-        let rich = RichText::from_html("<font color=\"rgba(255, 0, 0, 128)\">Semi-transparent</font>");
+        let rich =
+            RichText::from_html("<font color=\"rgba(255, 0, 0, 128)\">Semi-transparent</font>");
         assert_eq!(rich.spans()[0].color, Some([255, 0, 0, 128]));
     }
 
@@ -1071,7 +1075,8 @@ mod tests {
 
     #[test]
     fn test_link_links_method() {
-        let rich = RichText::from_html("A <a href=\"url1\">link1</a> and <a href=\"url2\">link2</a>.");
+        let rich =
+            RichText::from_html("A <a href=\"url1\">link1</a> and <a href=\"url2\">link2</a>.");
         assert_eq!(rich.plain_text(), "A link1 and link2.");
 
         let links = rich.links();
@@ -1123,7 +1128,7 @@ mod tests {
     #[test]
     fn test_multiple_links() {
         let rich = RichText::from_html(
-            "<a href=\"url1\">One</a> <a href=\"url2\">Two</a> <a href=\"url3\">Three</a>"
+            "<a href=\"url1\">One</a> <a href=\"url2\">Two</a> <a href=\"url3\">Three</a>",
         );
         let links = rich.links();
         assert_eq!(links.len(), 3);

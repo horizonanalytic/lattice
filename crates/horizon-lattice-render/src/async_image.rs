@@ -59,9 +59,9 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::{self, JoinHandle};
 
 use parking_lot::Mutex;
@@ -557,7 +557,8 @@ impl AsyncImageLoader {
                     self.pending_uploads.push((completed.handle, decoded));
                 }
                 Err(err) => {
-                    self.states.insert(completed.handle, LoadingState::Failed(err));
+                    self.states
+                        .insert(completed.handle, LoadingState::Failed(err));
                 }
             }
         }
@@ -598,9 +599,7 @@ impl AsyncImageLoader {
 
     /// Check if a handle is still loading.
     pub fn is_loading(&self, handle: &AsyncImageHandle) -> bool {
-        self.state(handle)
-            .map(|s| s.is_loading())
-            .unwrap_or(false)
+        self.state(handle).map(|s| s.is_loading()).unwrap_or(false)
     }
 
     /// Check if a handle is ready.

@@ -109,7 +109,7 @@ impl RecognizedGesture {
     /// Returns the gesture state if the gesture has one.
     pub fn state(&self) -> Option<GestureState> {
         match self {
-            Self::Tap(_) => None, // Tap is instantaneous
+            Self::Tap(_) => None,   // Tap is instantaneous
             Self::Swipe(_) => None, // Swipe is instantaneous
             Self::LongPress(e) => Some(e.state),
             Self::Pan(e) => Some(e.state),
@@ -186,13 +186,21 @@ impl SimultaneousGesturePolicy {
     /// Allows two gesture types to be recognized simultaneously.
     pub fn allow_simultaneous(&mut self, a: GestureType, b: GestureType) {
         // Store in canonical order to avoid duplicates
-        let pair = if (a as u8) <= (b as u8) { (a, b) } else { (b, a) };
+        let pair = if (a as u8) <= (b as u8) {
+            (a, b)
+        } else {
+            (b, a)
+        };
         self.allowed_pairs.insert(pair);
     }
 
     /// Disallows two gesture types from being recognized simultaneously.
     pub fn disallow_simultaneous(&mut self, a: GestureType, b: GestureType) {
-        let pair = if (a as u8) <= (b as u8) { (a, b) } else { (b, a) };
+        let pair = if (a as u8) <= (b as u8) {
+            (a, b)
+        } else {
+            (b, a)
+        };
         self.allowed_pairs.remove(&pair);
     }
 
@@ -201,7 +209,11 @@ impl SimultaneousGesturePolicy {
         if a == b {
             return true; // Same gesture type can always coexist with itself
         }
-        let pair = if (a as u8) <= (b as u8) { (a, b) } else { (b, a) };
+        let pair = if (a as u8) <= (b as u8) {
+            (a, b)
+        } else {
+            (b, a)
+        };
         self.allowed_pairs.contains(&pair)
     }
 }
@@ -327,10 +339,9 @@ impl GestureArena {
         // Check if this gesture is blocked by failure dependencies
         let is_blocked = self.failure_dependencies.iter().any(|dep| {
             dep.waiting == gesture_type
-                && self
-                    .entries
-                    .values()
-                    .any(|e| e.gesture_type == dep.must_fail && e.state != GestureArenaState::Rejected)
+                && self.entries.values().any(|e| {
+                    e.gesture_type == dep.must_fail && e.state != GestureArenaState::Rejected
+                })
         });
 
         let initial_state = if is_blocked {
@@ -417,23 +428,21 @@ impl GestureArena {
                 } else {
                     // Cancel lower or equal priority conflicting gestures
                     for &conflict_id in &conflicting {
-                        if let Some(conflict) = self.entries.get_mut(&conflict_id) {
-                            if conflict.priority <= priority {
+                        if let Some(conflict) = self.entries.get_mut(&conflict_id)
+                            && conflict.priority <= priority {
                                 conflict.state = GestureArenaState::Rejected;
                                 cancelled.push(conflict_id);
                             }
-                        }
                     }
                     true
                 }
             }
         };
 
-        if should_accept {
-            if let Some(entry) = self.entries.get_mut(&id) {
+        if should_accept
+            && let Some(entry) = self.entries.get_mut(&id) {
                 entry.state = GestureArenaState::Accepted;
             }
-        }
 
         // Check if any pending gestures can now become active
         self.promote_pending_gestures();
@@ -832,9 +841,8 @@ impl GestureRecognizer {
             let dx = point.window_pos.x - touch.start_pos.x;
             let dy = point.window_pos.y - touch.start_pos.y;
             let distance = (dx * dx + dy * dy).sqrt();
-            let duration_secs = duration.as_secs_f32();
-            let velocity_magnitude =
-                (velocity.x * velocity.x + velocity.y * velocity.y).sqrt();
+            let _duration_secs = duration.as_secs_f32();
+            let velocity_magnitude = (velocity.x * velocity.x + velocity.y * velocity.y).sqrt();
 
             if distance >= self.config.swipe_min_distance
                 && velocity_magnitude >= self.config.swipe_min_velocity
@@ -1240,7 +1248,11 @@ mod tests {
         let gestures = recognizer.process_touch(&event);
 
         // Should have pan end (possibly swipe too if velocity is high enough)
-        assert!(gestures.iter().any(|g| matches!(g, RecognizedGesture::Pan(e) if e.state == GestureState::Ended)));
+        assert!(
+            gestures
+                .iter()
+                .any(|g| matches!(g, RecognizedGesture::Pan(e) if e.state == GestureState::Ended))
+        );
     }
 
     #[test]
@@ -1258,9 +1270,9 @@ mod tests {
         let gestures = recognizer.process_touch(&event);
 
         // Check for swipe
-        let has_swipe = gestures.iter().any(|g| {
-            matches!(g, RecognizedGesture::Swipe(e) if e.direction == SwipeDirection::Right)
-        });
+        let _has_swipe = gestures.iter().any(
+            |g| matches!(g, RecognizedGesture::Swipe(e) if e.direction == SwipeDirection::Right),
+        );
 
         // Note: May not always trigger depending on velocity calculation
         // This test mainly verifies the code path works
@@ -1289,12 +1301,16 @@ mod tests {
         let gestures = recognizer.process_touch(&event);
 
         // Should have pinch and rotation gestures
-        assert!(gestures
-            .iter()
-            .any(|g| matches!(g, RecognizedGesture::Pinch(_))));
-        assert!(gestures
-            .iter()
-            .any(|g| matches!(g, RecognizedGesture::Rotation(_))));
+        assert!(
+            gestures
+                .iter()
+                .any(|g| matches!(g, RecognizedGesture::Pinch(_)))
+        );
+        assert!(
+            gestures
+                .iter()
+                .any(|g| matches!(g, RecognizedGesture::Rotation(_)))
+        );
     }
 
     #[test]
@@ -1366,7 +1382,11 @@ mod tests {
         let mut arena = GestureArena::new();
 
         // Register a gesture
-        let id = arena.register(GestureType::Pan, GesturePriority::Normal, GesturePolicy::Default);
+        let id = arena.register(
+            GestureType::Pan,
+            GesturePriority::Normal,
+            GesturePolicy::Default,
+        );
         assert!(id.is_some());
         let id = id.unwrap();
 
@@ -1386,10 +1406,18 @@ mod tests {
 
         // Register two conflicting gestures (pan and swipe are not simultaneous by default)
         let pan_id = arena
-            .register(GestureType::Pan, GesturePriority::Normal, GesturePolicy::Default)
+            .register(
+                GestureType::Pan,
+                GesturePriority::Normal,
+                GesturePolicy::Default,
+            )
             .unwrap();
         let swipe_id = arena
-            .register(GestureType::Swipe, GesturePriority::Normal, GesturePolicy::Default)
+            .register(
+                GestureType::Swipe,
+                GesturePriority::Normal,
+                GesturePolicy::Default,
+            )
             .unwrap();
 
         // Both should be active
@@ -1408,12 +1436,20 @@ mod tests {
 
         // Register low priority gesture first
         let low_id = arena
-            .register(GestureType::Pan, GesturePriority::Low, GesturePolicy::Default)
+            .register(
+                GestureType::Pan,
+                GesturePriority::Low,
+                GesturePolicy::Default,
+            )
             .unwrap();
 
         // Register high priority conflicting gesture
         let high_id = arena
-            .register(GestureType::Swipe, GesturePriority::High, GesturePolicy::Default)
+            .register(
+                GestureType::Swipe,
+                GesturePriority::High,
+                GesturePolicy::Default,
+            )
             .unwrap();
 
         // Try to accept low priority - should fail due to higher priority conflict
@@ -1433,15 +1469,27 @@ mod tests {
 
         // Register two gestures
         let g1 = arena
-            .register(GestureType::Pan, GesturePriority::Normal, GesturePolicy::Default)
+            .register(
+                GestureType::Pan,
+                GesturePriority::Normal,
+                GesturePolicy::Default,
+            )
             .unwrap();
         let g2 = arena
-            .register(GestureType::Swipe, GesturePriority::High, GesturePolicy::Default)
+            .register(
+                GestureType::Swipe,
+                GesturePriority::High,
+                GesturePolicy::Default,
+            )
             .unwrap();
 
         // Register exclusive gesture
         let exclusive = arena
-            .register(GestureType::LongPress, GesturePriority::Normal, GesturePolicy::Exclusive)
+            .register(
+                GestureType::LongPress,
+                GesturePriority::Normal,
+                GesturePolicy::Exclusive,
+            )
             .unwrap();
 
         // Accept exclusive - should cancel all conflicting regardless of priority
@@ -1456,10 +1504,18 @@ mod tests {
 
         // Register two conflicting gestures
         let g1 = arena
-            .register(GestureType::Pan, GesturePriority::Normal, GesturePolicy::Default)
+            .register(
+                GestureType::Pan,
+                GesturePriority::Normal,
+                GesturePolicy::Default,
+            )
             .unwrap();
         let coop = arena
-            .register(GestureType::Swipe, GesturePriority::Normal, GesturePolicy::Cooperative)
+            .register(
+                GestureType::Swipe,
+                GesturePriority::Normal,
+                GesturePolicy::Cooperative,
+            )
             .unwrap();
 
         // Accept cooperative - should not cancel others
@@ -1475,10 +1531,18 @@ mod tests {
 
         // Pinch and rotation are allowed simultaneously by default
         let pinch_id = arena
-            .register(GestureType::Pinch, GesturePriority::Normal, GesturePolicy::Default)
+            .register(
+                GestureType::Pinch,
+                GesturePriority::Normal,
+                GesturePolicy::Default,
+            )
             .unwrap();
         let rotation_id = arena
-            .register(GestureType::Rotation, GesturePriority::Normal, GesturePolicy::Default)
+            .register(
+                GestureType::Rotation,
+                GesturePriority::Normal,
+                GesturePolicy::Default,
+            )
             .unwrap();
 
         // Accept pinch - should NOT cancel rotation (they can coexist)
@@ -1501,12 +1565,20 @@ mod tests {
 
         // Register double-tap first
         let double_tap_id = arena
-            .register(GestureType::DoubleTap, GesturePriority::Normal, GesturePolicy::Default)
+            .register(
+                GestureType::DoubleTap,
+                GesturePriority::Normal,
+                GesturePolicy::Default,
+            )
             .unwrap();
 
         // Register tap - should be pending due to failure dependency
         let tap_id = arena
-            .register(GestureType::Tap, GesturePriority::Normal, GesturePolicy::Default)
+            .register(
+                GestureType::Tap,
+                GesturePriority::Normal,
+                GesturePolicy::Default,
+            )
             .unwrap();
         assert_eq!(arena.state(tap_id), Some(GestureArenaState::Pending));
 
@@ -1520,8 +1592,16 @@ mod tests {
     fn test_gesture_arena_clear() {
         let mut arena = GestureArena::new();
 
-        arena.register(GestureType::Pan, GesturePriority::Normal, GesturePolicy::Default);
-        arena.register(GestureType::Swipe, GesturePriority::Normal, GesturePolicy::Default);
+        arena.register(
+            GestureType::Pan,
+            GesturePriority::Normal,
+            GesturePolicy::Default,
+        );
+        arena.register(
+            GestureType::Swipe,
+            GesturePriority::Normal,
+            GesturePolicy::Default,
+        );
 
         assert!(!arena.active_gestures().is_empty());
 

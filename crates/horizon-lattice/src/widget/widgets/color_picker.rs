@@ -344,15 +344,14 @@ impl ColorPicker {
     fn validate_and_apply_hex(&mut self) {
         self.hex_validation_state = self.hex_validator.validate(&self.hex_text);
 
-        if self.hex_validation_state == ValidationState::Acceptable {
-            if let Some((r, g, b, a)) = HexColorValidator::parse_hex(&self.hex_text) {
+        if self.hex_validation_state == ValidationState::Acceptable
+            && let Some((r, g, b, a)) = HexColorValidator::parse_hex(&self.hex_text) {
                 let color = Color::from_rgba8(r, g, b, a);
                 self.updating_from_hex = true;
                 self.set_color(color);
                 self.updating_from_hex = false;
                 self.color_changed.emit(self.color());
             }
-        }
     }
 
     // =========================================================================
@@ -723,8 +722,10 @@ impl ColorPicker {
                 let v = 1.0 - j as f32 / (v_steps - 1).max(1) as f32;
                 let y = sv_rect.top() + j as f32 * v_step_height;
                 let color = Color::from_hsv(self.hue, s, v);
-                ctx.renderer()
-                    .fill_rect(Rect::new(x, y, step_width + 0.5, v_step_height + 0.5), color);
+                ctx.renderer().fill_rect(
+                    Rect::new(x, y, step_width + 0.5, v_step_height + 0.5),
+                    color,
+                );
             }
         }
 
@@ -801,16 +802,13 @@ impl ColorPicker {
         let radius = 6.0;
 
         // Outer circle (white)
-        ctx.renderer()
-            .fill_circle(pos, radius, Color::WHITE);
+        ctx.renderer().fill_circle(pos, radius, Color::WHITE);
 
         // Inner circle (black)
-        ctx.renderer()
-            .fill_circle(pos, radius - 2.0, Color::BLACK);
+        ctx.renderer().fill_circle(pos, radius - 2.0, Color::BLACK);
 
         // Current color circle
-        ctx.renderer()
-            .fill_circle(pos, radius - 3.0, self.color());
+        ctx.renderer().fill_circle(pos, radius - 3.0, self.color());
     }
 
     fn paint_bar_indicator(&self, ctx: &mut PaintContext<'_>, bar_rect: Rect, y: f32) {
@@ -919,12 +917,7 @@ impl ColorPicker {
 
         // Render text using TextRenderer
         if let Ok(mut text_renderer) = TextRenderer::new() {
-            let _ = text_renderer.prepare_layout(
-                &mut font_system,
-                &layout,
-                text_pos,
-                text_color,
-            );
+            let _ = text_renderer.prepare_layout(&mut font_system, &layout, text_pos, text_color);
             // Note: Actual glyph rendering requires integration with the
             // application's render pass system.
         }
@@ -932,7 +925,8 @@ impl ColorPicker {
         // Draw cursor if focused
         if self.hex_focused {
             // Calculate cursor position based on text layout
-            let cursor_x = text_x + layout.width() * (self.hex_cursor_pos as f32 / self.hex_text.len().max(1) as f32);
+            let cursor_x = text_x
+                + layout.width() * (self.hex_cursor_pos as f32 / self.hex_text.len().max(1) as f32);
             let cursor_y = hex_rect.top() + 4.0;
             let cursor_height = hex_rect.height() - 8.0;
 
@@ -1098,7 +1092,12 @@ mod tests {
         assert!(!picker.hex_format().uppercase);
         assert!(picker.hex_format().include_alpha);
         // Hex text should reflect the format
-        assert!(picker.hex_text().chars().all(|c| !c.is_ascii_uppercase() || c == '#'));
+        assert!(
+            picker
+                .hex_text()
+                .chars()
+                .all(|c| !c.is_ascii_uppercase() || c == '#')
+        );
     }
 
     #[test]

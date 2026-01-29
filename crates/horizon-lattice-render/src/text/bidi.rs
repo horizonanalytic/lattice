@@ -26,7 +26,7 @@
 //! let direction = TextDirection::RightToLeft;
 //! ```
 
-use unicode_bidi::{bidi_class, BidiClass};
+use unicode_bidi::{BidiClass, bidi_class};
 
 /// Text direction for layout and rendering.
 ///

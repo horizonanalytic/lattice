@@ -113,12 +113,20 @@ impl fmt::Display for MetaError {
         match self {
             Self::PropertyNotFound { name } => write!(f, "Property '{}' not found", name),
             Self::PropertyTypeMismatch { expected, got } => {
-                write!(f, "Property type mismatch: expected {}, got {}", expected, got)
+                write!(
+                    f,
+                    "Property type mismatch: expected {}, got {}",
+                    expected, got
+                )
             }
             Self::PropertyReadOnly { name } => write!(f, "Property '{}' is read-only", name),
             Self::MethodNotFound { name } => write!(f, "Method '{}' not found", name),
             Self::ArgumentCount { expected, got } => {
-                write!(f, "Wrong argument count: expected {}, got {}", expected, got)
+                write!(
+                    f,
+                    "Wrong argument count: expected {}, got {}",
+                    expected, got
+                )
             }
             Self::ArgumentTypeMismatch { index, expected } => {
                 write!(f, "Argument {} type mismatch: expected {}", index, expected)
@@ -289,7 +297,9 @@ impl MetaObject {
     pub fn get_property(&self, obj: &dyn Object, name: &str) -> MetaResult<Box<dyn Any>> {
         let prop = self
             .property(name)
-            .ok_or_else(|| MetaError::PropertyNotFound { name: name.to_string() })?;
+            .ok_or_else(|| MetaError::PropertyNotFound {
+                name: name.to_string(),
+            })?;
         Ok((prop.getter)(obj))
     }
 
@@ -302,10 +312,12 @@ impl MetaObject {
     ) -> MetaResult<()> {
         let prop = self
             .property(name)
-            .ok_or_else(|| MetaError::PropertyNotFound { name: name.to_string() })?;
-        let setter = prop
-            .setter
-            .ok_or_else(|| MetaError::PropertyReadOnly { name: name.to_string() })?;
+            .ok_or_else(|| MetaError::PropertyNotFound {
+                name: name.to_string(),
+            })?;
+        let setter = prop.setter.ok_or_else(|| MetaError::PropertyReadOnly {
+            name: name.to_string(),
+        })?;
         (setter)(obj, value)
     }
 
@@ -318,7 +330,9 @@ impl MetaObject {
     ) -> MetaResult<Box<dyn Any>> {
         let method = self
             .method(method_name)
-            .ok_or_else(|| MetaError::MethodNotFound { name: method_name.to_string() })?;
+            .ok_or_else(|| MetaError::MethodNotFound {
+                name: method_name.to_string(),
+            })?;
 
         if args.len() != method.param_types.len() {
             return Err(MetaError::ArgumentCount {
@@ -428,9 +442,9 @@ impl MetaProperty {
 
     /// Set the property value on an object.
     pub fn set(&self, obj: &mut dyn Object, value: Box<dyn Any>) -> MetaResult<()> {
-        let setter = self
-            .setter
-            .ok_or_else(|| MetaError::PropertyReadOnly { name: self.name.to_string() })?;
+        let setter = self.setter.ok_or_else(|| MetaError::PropertyReadOnly {
+            name: self.name.to_string(),
+        })?;
         (setter)(obj, value)
     }
 
@@ -484,7 +498,11 @@ pub struct SignalMeta {
 
 impl SignalMeta {
     /// Create a new SignalMeta (typically called by generated code).
-    pub const fn new(name: &'static str, param_types: &'static [&'static str], index: usize) -> Self {
+    pub const fn new(
+        name: &'static str,
+        param_types: &'static [&'static str],
+        index: usize,
+    ) -> Self {
         Self {
             name,
             param_types,
@@ -576,8 +594,8 @@ unsafe impl Sync for MethodMeta {}
 // Type Registry
 // ============================================================================
 
-use std::collections::HashMap;
 use parking_lot::RwLock;
+use std::collections::HashMap;
 
 /// Global registry of all [`Object`] types.
 ///
@@ -695,7 +713,9 @@ impl TypeRegistry {
     /// but need the full MetaObject.
     pub fn get_by_type_id(type_id: TypeId) -> Option<&'static MetaObject> {
         let guard = GLOBAL_TYPE_REGISTRY.read();
-        guard.as_ref().and_then(|r| r.by_type_id.get(&type_id).copied())
+        guard
+            .as_ref()
+            .and_then(|r| r.by_type_id.get(&type_id).copied())
     }
 
     /// Look up a type's MetaObject by the concrete type.
@@ -804,7 +824,7 @@ pub fn init_type_registry() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::object::{init_global_registry, ObjectBase, ObjectId};
+    use crate::object::{ObjectBase, ObjectId, init_global_registry};
 
     // Test object for meta-object system
     struct TestWidget {
@@ -862,10 +882,12 @@ mod tests {
     // Type-erased setter for text property
     fn test_widget_set_text(obj: &mut dyn Object, value: Box<dyn Any>) -> MetaResult<()> {
         let widget = crate::object_cast_mut::<TestWidget>(obj).unwrap();
-        let text = value.downcast::<String>().map_err(|_| MetaError::PropertyTypeMismatch {
-            expected: "String",
-            got: "unknown",
-        })?;
+        let text = value
+            .downcast::<String>()
+            .map_err(|_| MetaError::PropertyTypeMismatch {
+                expected: "String",
+                got: "unknown",
+            })?;
         widget.set_text(*text);
         Ok(())
     }
@@ -879,10 +901,12 @@ mod tests {
     // Type-erased setter for count property
     fn test_widget_set_count(obj: &mut dyn Object, value: Box<dyn Any>) -> MetaResult<()> {
         let widget = crate::object_cast_mut::<TestWidget>(obj).unwrap();
-        let count = value.downcast::<i32>().map_err(|_| MetaError::PropertyTypeMismatch {
-            expected: "i32",
-            got: "unknown",
-        })?;
+        let count = value
+            .downcast::<i32>()
+            .map_err(|_| MetaError::PropertyTypeMismatch {
+                expected: "i32",
+                got: "unknown",
+            })?;
         widget.set_count(*count);
         Ok(())
     }

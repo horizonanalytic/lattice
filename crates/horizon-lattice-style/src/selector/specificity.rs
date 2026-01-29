@@ -1,6 +1,6 @@
 //! CSS specificity calculation.
 
-use super::{Selector, SelectorPart, TypeSelector, PseudoClass};
+use super::{PseudoClass, Selector, SelectorPart, TypeSelector};
 
 /// CSS specificity as (a, b, c) tuple.
 ///
@@ -114,7 +114,7 @@ pub struct SpecificityWithOrder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::selector::{SelectorPart, PseudoClass};
+    use crate::selector::{PseudoClass, SelectorPart};
 
     #[test]
     fn specificity_calculation() {
@@ -139,7 +139,7 @@ mod tests {
             parts: vec![
                 SelectorPart::type_only("Button")
                     .with_class("primary")
-                    .with_pseudo(PseudoClass::Hover)
+                    .with_pseudo(PseudoClass::Hover),
             ],
             combinators: vec![],
         };
@@ -150,7 +150,7 @@ mod tests {
             parts: vec![
                 SelectorPart::id_only("submit")
                     .with_class("primary")
-                    .with_pseudo(PseudoClass::Hover)
+                    .with_pseudo(PseudoClass::Hover),
             ],
             combinators: vec![],
         };
@@ -186,11 +186,9 @@ mod tests {
     fn not_pseudo_class_specificity() {
         // :not(.primary) has specificity of .primary = (0,1,0)
         let sel = Selector {
-            parts: vec![
-                SelectorPart::new().with_pseudo(PseudoClass::Not(
-                    Box::new(SelectorPart::class_only("primary"))
-                ))
-            ],
+            parts: vec![SelectorPart::new().with_pseudo(PseudoClass::Not(Box::new(
+                SelectorPart::class_only("primary"),
+            )))],
             combinators: vec![],
         };
         assert_eq!(Specificity::of_selector(&sel), Specificity(0, 1, 0));

@@ -141,12 +141,13 @@ impl GraphQLRequest {
     ///     .variable("limit", 10);
     /// ```
     pub fn variable(mut self, name: impl Into<String>, value: impl Serialize) -> Self {
-        let variables = self.variables.get_or_insert_with(|| Value::Object(Default::default()));
-        if let Value::Object(map) = variables {
-            if let Ok(value) = serde_json::to_value(value) {
+        let variables = self
+            .variables
+            .get_or_insert_with(|| Value::Object(Default::default()));
+        if let Value::Object(map) = variables
+            && let Ok(value) = serde_json::to_value(value) {
                 map.insert(name.into(), value);
             }
-        }
         self
     }
 
@@ -343,8 +344,8 @@ mod tests {
 
     #[test]
     fn test_operation_name() {
-        let request = GraphQLRequest::query("query GetUser { user { id } }")
-            .operation_name("GetUser");
+        let request =
+            GraphQLRequest::query("query GetUser { user { id } }").operation_name("GetUser");
         assert_eq!(request.operation_name, Some("GetUser".to_string()));
     }
 

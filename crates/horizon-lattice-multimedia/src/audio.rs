@@ -29,8 +29,8 @@
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use parking_lot::Mutex;
@@ -55,6 +55,7 @@ pub enum PlaybackState {
 
 /// Metadata about a loaded audio file.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct AudioMetadata {
     /// Duration of the audio in seconds, if known.
     pub duration: Option<Duration>,
@@ -64,15 +65,6 @@ pub struct AudioMetadata {
     pub channels: Option<u16>,
 }
 
-impl Default for AudioMetadata {
-    fn default() -> Self {
-        Self {
-            duration: None,
-            sample_rate: None,
-            channels: None,
-        }
-    }
-}
 
 /// Internal state shared between the player and the monitoring thread.
 struct PlayerState {
@@ -416,14 +408,13 @@ impl AudioPlayer {
             // Restart from beginning if stopped or finished
             if let Some(ref data) = state.source_data {
                 let cursor = Cursor::new(data.clone());
-                if let Ok(source) = Decoder::new(cursor) {
-                    if let Ok(new_sink) = Sink::try_new(&self.stream_handle) {
+                if let Ok(source) = Decoder::new(cursor)
+                    && let Ok(new_sink) = Sink::try_new(&self.stream_handle) {
                         new_sink.append(source);
                         new_sink.play();
                         state.sink = new_sink;
                         state.state = PlaybackState::Playing;
                     }
-                }
             }
         } else if state.state == PlaybackState::Paused {
             state.sink.play();
@@ -475,9 +466,7 @@ impl AudioPlayer {
 
         match current_state {
             PlaybackState::Playing => self.pause(),
-            PlaybackState::Paused | PlaybackState::Stopped | PlaybackState::Finished => {
-                self.play()
-            }
+            PlaybackState::Paused | PlaybackState::Stopped | PlaybackState::Finished => self.play(),
         }
     }
 

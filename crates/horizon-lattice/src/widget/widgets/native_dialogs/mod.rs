@@ -430,8 +430,7 @@ mod tests {
 
     #[test]
     fn test_file_dialog_options_default_name() {
-        let options = NativeFileDialogOptions::with_title("Save")
-            .default_name("document.txt");
+        let options = NativeFileDialogOptions::with_title("Save").default_name("document.txt");
 
         assert_eq!(options.default_name, Some("document.txt".to_string()));
     }
@@ -477,9 +476,7 @@ mod tests {
 
     #[test]
     fn test_font_desc_creation() {
-        let font = NativeFontDesc::new("Arial", 14.0)
-            .bold(true)
-            .italic(false);
+        let font = NativeFontDesc::new("Arial", 14.0).bold(true).italic(false);
 
         assert_eq!(font.family, "Arial");
         assert!((font.size - 14.0).abs() < 0.01);

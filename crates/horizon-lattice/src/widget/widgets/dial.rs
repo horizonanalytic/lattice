@@ -116,7 +116,10 @@ impl Dial {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Preferred,
+        ));
 
         Self {
             base,
@@ -523,7 +526,9 @@ impl Dial {
                 // With wrapping, wrap around the range
                 let raw_value = self.value as f32 + value_delta;
                 let range_size = self.maximum - self.minimum + 1;
-                let mut wrapped = ((raw_value - self.minimum as f32).rem_euclid(range_size as f32)) as i32 + self.minimum;
+                let mut wrapped = ((raw_value - self.minimum as f32).rem_euclid(range_size as f32))
+                    as i32
+                    + self.minimum;
                 if wrapped > self.maximum {
                     wrapped = self.minimum + (wrapped - self.maximum - 1);
                 }
@@ -531,7 +536,8 @@ impl Dial {
             } else {
                 // Without wrapping, clamp to range
                 (self.value as f32 + value_delta).round() as i32
-            }.clamp(self.minimum, self.maximum);
+            }
+            .clamp(self.minimum, self.maximum);
 
             if new_value != self.value {
                 self.value = new_value;
@@ -582,7 +588,13 @@ impl Dial {
 
         match event.key {
             Key::ArrowLeft | Key::ArrowDown => {
-                let new_value = step_value(self.value, -self.single_step, self.wrapping, self.minimum, self.maximum);
+                let new_value = step_value(
+                    self.value,
+                    -self.single_step,
+                    self.wrapping,
+                    self.minimum,
+                    self.maximum,
+                );
                 if new_value != self.value {
                     self.value = new_value;
                     self.base.update();
@@ -591,7 +603,13 @@ impl Dial {
                 true
             }
             Key::ArrowRight | Key::ArrowUp => {
-                let new_value = step_value(self.value, self.single_step, self.wrapping, self.minimum, self.maximum);
+                let new_value = step_value(
+                    self.value,
+                    self.single_step,
+                    self.wrapping,
+                    self.minimum,
+                    self.maximum,
+                );
                 if new_value != self.value {
                     self.value = new_value;
                     self.base.update();
@@ -600,7 +618,13 @@ impl Dial {
                 true
             }
             Key::PageUp => {
-                let new_value = step_value(self.value, self.page_step, self.wrapping, self.minimum, self.maximum);
+                let new_value = step_value(
+                    self.value,
+                    self.page_step,
+                    self.wrapping,
+                    self.minimum,
+                    self.maximum,
+                );
                 if new_value != self.value {
                     self.value = new_value;
                     self.base.update();
@@ -609,7 +633,13 @@ impl Dial {
                 true
             }
             Key::PageDown => {
-                let new_value = step_value(self.value, -self.page_step, self.wrapping, self.minimum, self.maximum);
+                let new_value = step_value(
+                    self.value,
+                    -self.page_step,
+                    self.wrapping,
+                    self.minimum,
+                    self.maximum,
+                );
                 if new_value != self.value {
                     self.value = new_value;
                     self.base.update();
@@ -686,7 +716,8 @@ impl Dial {
         // Draw subtle border
         let border_color = Color::from_rgb8(80, 80, 80);
         let border_stroke = Stroke::new(border_color, 1.0);
-        ctx.renderer().stroke_rounded_rect(dial_rrect, &border_stroke);
+        ctx.renderer()
+            .stroke_rounded_rect(dial_rrect, &border_stroke);
     }
 
     fn paint_notches(&self, ctx: &mut PaintContext<'_>) {
@@ -767,7 +798,8 @@ impl Dial {
             dot_radius * 2.0,
         );
         let dot_rrect = RoundedRect::new(dot_rect, dot_radius);
-        ctx.renderer().fill_rounded_rect(dot_rrect, self.indicator_color);
+        ctx.renderer()
+            .fill_rounded_rect(dot_rrect, self.indicator_color);
     }
 
     fn paint_center_cap(&self, ctx: &mut PaintContext<'_>) {
@@ -803,7 +835,8 @@ impl Dial {
         let focus_rrect = RoundedRect::new(focus_rect, radius);
         let focus_color = Color::from_rgba8(66, 133, 244, 100);
         let focus_stroke = Stroke::new(focus_color, 2.0);
-        ctx.renderer().stroke_rounded_rect(focus_rrect, &focus_stroke);
+        ctx.renderer()
+            .stroke_rounded_rect(focus_rrect, &focus_stroke);
     }
 }
 
@@ -830,8 +863,7 @@ impl Widget for Dial {
 
     fn size_hint(&self) -> SizeHint {
         // Dial is square, prefer 80x80 default size
-        SizeHint::from_dimensions(80.0, 80.0)
-            .with_minimum_dimensions(40.0, 40.0)
+        SizeHint::from_dimensions(80.0, 80.0).with_minimum_dimensions(40.0, 40.0)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
@@ -891,8 +923,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicI32, Ordering},
         Arc,
+        atomic::{AtomicI32, Ordering},
     };
 
     fn setup() {
@@ -985,9 +1017,7 @@ mod tests {
     #[test]
     fn test_range_change_clamps_value() {
         setup();
-        let mut dial = Dial::new()
-            .with_range(0, 100)
-            .with_value(50);
+        let mut dial = Dial::new().with_range(0, 100).with_value(50);
 
         dial.set_range(0, 25);
         assert_eq!(dial.value(), 25); // Clamped to new max
@@ -1014,7 +1044,10 @@ mod tests {
         assert_eq!(interval, 10);
 
         // With notch_target = 0, should use single_step
-        let dial = Dial::new().with_range(0, 100).with_notch_target(0).with_single_step(5);
+        let dial = Dial::new()
+            .with_range(0, 100)
+            .with_notch_target(0)
+            .with_single_step(5);
         assert_eq!(dial.notch_interval(), 5);
     }
 

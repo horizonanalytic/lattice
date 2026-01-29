@@ -42,8 +42,8 @@
 //! - View-specific settings (alternating row colors, etc.)
 
 use horizon_lattice_render::{
-    Color, Font, FontFamily, FontSystem, GpuRenderer, HorizontalAlign, Icon, Point, Rect,
-    Renderer, Size, TextLayout, TextLayoutOptions, TextRenderer, VerticalAlign,
+    Color, Font, FontFamily, FontSystem, GpuRenderer, HorizontalAlign, Icon, Point, Rect, Renderer,
+    Size, TextLayout, TextLayoutOptions, TextRenderer, VerticalAlign,
 };
 
 use super::index::ModelIndex;
@@ -787,23 +787,19 @@ impl DefaultItemDelegate {
         // Prepare glyphs for rendering
         // Note: In a full implementation, these glyphs would be submitted to a TextRenderPass.
         // The view that owns this delegate should handle the actual glyph rendering.
-        if let Ok(mut text_renderer) = TextRenderer::new() {
-            if let Ok(_prepared_glyphs) =
+        if let Ok(mut text_renderer) = TextRenderer::new()
+            && let Ok(_prepared_glyphs) =
                 text_renderer.prepare_layout(&mut font_system, &layout, position, text_color)
             {
                 // The prepared glyphs would be rendered by the view's text render pass.
                 // For now, this is a placeholder showing the pattern.
             }
-        }
     }
 
     /// Returns layout information for text at the given index.
     ///
     /// This can be used by views to get text metrics for layout calculations.
-    pub fn text_layout(
-        &self,
-        option: &StyleOptionViewItem,
-    ) -> Option<(TextLayout, Point, Color)> {
+    pub fn text_layout(&self, option: &StyleOptionViewItem) -> Option<(TextLayout, Point, Color)> {
         let text = option.text.as_ref()?;
         if text.is_empty() {
             return None;
@@ -944,9 +940,10 @@ mod tests {
 
     #[test]
     fn test_style_option_builder() {
-        let option = StyleOptionViewItem::new(Rect::new(0.0, 0.0, 100.0, 24.0), ModelIndex::invalid())
-            .with_text("Hello")
-            .with_state(ViewItemState::new().with_selected(true));
+        let option =
+            StyleOptionViewItem::new(Rect::new(0.0, 0.0, 100.0, 24.0), ModelIndex::invalid())
+                .with_text("Hello")
+                .with_state(ViewItemState::new().with_selected(true));
 
         assert_eq!(option.rect.width(), 100.0);
         assert_eq!(option.text.as_deref(), Some("Hello"));

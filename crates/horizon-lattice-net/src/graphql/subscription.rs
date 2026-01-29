@@ -4,8 +4,8 @@
 //! See: https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use futures_util::stream::{SplitSink, SplitStream};
@@ -47,11 +47,20 @@ enum WsMessage {
         payload: Option<Value>,
     },
     /// Client -> Server: Subscribe to operation
-    Subscribe { id: String, payload: SubscribePayload },
+    Subscribe {
+        id: String,
+        payload: SubscribePayload,
+    },
     /// Server -> Client: Operation result
-    Next { id: String, payload: GraphQLResponse },
+    Next {
+        id: String,
+        payload: GraphQLResponse,
+    },
     /// Server -> Client: Operation error
-    Error { id: String, payload: Vec<ErrorPayload> },
+    Error {
+        id: String,
+        payload: Vec<ErrorPayload>,
+    },
     /// Server -> Client: Operation complete
     Complete { id: String },
 }
@@ -219,7 +228,12 @@ impl SubscriptionConnection {
 
         // Spawn write task
         let state = self.state.clone();
-        tokio::spawn(Self::write_task(write, write_rx, complete_rx, state.clone()));
+        tokio::spawn(Self::write_task(
+            write,
+            write_rx,
+            complete_rx,
+            state.clone(),
+        ));
 
         // Spawn read task
         let state = self.state.clone();
@@ -313,11 +327,10 @@ impl SubscriptionConnection {
                 msg = write_rx.recv() => {
                     match msg {
                         Some(ws_msg) => {
-                            if let Ok(json) = serde_json::to_string(&ws_msg) {
-                                if write.send(Message::Text(json.into())).await.is_err() {
+                            if let Ok(json) = serde_json::to_string(&ws_msg)
+                                && write.send(Message::Text(json.into())).await.is_err() {
                                     break;
                                 }
-                            }
                         }
                         None => break,
                     }

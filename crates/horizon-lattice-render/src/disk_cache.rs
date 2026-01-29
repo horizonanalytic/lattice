@@ -171,8 +171,8 @@ impl DiskImageCache {
 
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_file() {
-                if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+            if path.is_file()
+                && let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
                     // The filename is the hash, we need to read the URL from metadata
                     // For simplicity, we just track the file by its hash
                     if let Ok(metadata) = entry.metadata() {
@@ -193,13 +193,13 @@ impl DiskImageCache {
                         self.current_size += size;
                     }
                 }
-            }
         }
 
         Ok(())
     }
 
     /// Get the path for a cached URL.
+    #[allow(dead_code)] // Reserved for future cache retrieval API
     fn cache_path(&self, url: &str) -> PathBuf {
         let hash = Self::hash_url(url);
         self.config.cache_dir.join(hash)
@@ -248,13 +248,11 @@ impl DiskImageCache {
         let hash = Self::hash_url(url);
         if let Some(meta) = self.entries.get(&hash) {
             // Check TTL
-            if let Some(ttl) = self.config.ttl {
-                if let Ok(age) = meta.created.elapsed() {
-                    if age > ttl {
+            if let Some(ttl) = self.config.ttl
+                && let Ok(age) = meta.created.elapsed()
+                    && age > ttl {
                         return false;
                     }
-                }
-            }
             true
         } else {
             false
@@ -270,15 +268,13 @@ impl DiskImageCache {
         // Check if entry exists
         if let Some(meta) = self.entries.get(&hash) {
             // Check TTL
-            if let Some(ttl) = self.config.ttl {
-                if let Ok(age) = meta.created.elapsed() {
-                    if age > ttl {
+            if let Some(ttl) = self.config.ttl
+                && let Ok(age) = meta.created.elapsed()
+                    && age > ttl {
                         // Entry has expired, remove it
                         self.remove(url)?;
                         return Ok(None);
                     }
-                }
-            }
 
             // Read the file
             let path = self.config.cache_dir.join(&hash);
@@ -379,8 +375,8 @@ impl DiskImageCache {
             .min_by_key(|(_, meta)| meta.last_accessed)
             .map(|(hash, _)| hash.clone());
 
-        if let Some(hash) = oldest {
-            if let Some(meta) = self.entries.remove(&hash) {
+        if let Some(hash) = oldest
+            && let Some(meta) = self.entries.remove(&hash) {
                 self.current_size -= meta.size;
 
                 // Delete the file
@@ -389,7 +385,6 @@ impl DiskImageCache {
                     let _ = fs::remove_file(&path);
                 }
             }
-        }
 
         Ok(())
     }
@@ -420,11 +415,10 @@ impl DiskImageCache {
         let mut expired = Vec::new();
 
         for (hash, meta) in &self.entries {
-            if let Ok(age) = meta.created.elapsed() {
-                if age > ttl {
+            if let Ok(age) = meta.created.elapsed()
+                && age > ttl {
                     expired.push(hash.clone());
                 }
-            }
         }
 
         let count = expired.len();
@@ -519,7 +513,10 @@ mod tests {
             .as_nanos() as u64;
         let counter = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
         let pid = std::process::id();
-        std::env::temp_dir().join(format!("horizon-test-cache-{}-{}-{}", pid, timestamp, counter))
+        std::env::temp_dir().join(format!(
+            "horizon-test-cache-{}-{}-{}",
+            pid, timestamp, counter
+        ))
     }
 
     #[test]
@@ -649,7 +646,9 @@ mod tests {
             .with_max_size_mb(10);
         let mut cache = DiskImageCache::new(config).unwrap();
 
-        cache.insert("https://example.com/test.png", b"test data").unwrap();
+        cache
+            .insert("https://example.com/test.png", b"test data")
+            .unwrap();
 
         let stats = cache.stats();
         assert_eq!(stats.entries, 1);
@@ -670,7 +669,9 @@ mod tests {
         let mut cache = DiskImageCache::new(config).unwrap();
 
         // Try to insert 100 bytes - should not be inserted
-        cache.insert("https://example.com/big.png", &[0u8; 100]).unwrap();
+        cache
+            .insert("https://example.com/big.png", &[0u8; 100])
+            .unwrap();
 
         assert_eq!(cache.len(), 0);
 

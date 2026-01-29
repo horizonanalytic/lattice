@@ -75,6 +75,7 @@ impl Image {
     }
 
     /// Get the atlas texture view for binding.
+    #[allow(dead_code)] // API for future render batching
     pub(crate) fn texture_view(&self) -> &wgpu::TextureView {
         self.atlas.texture_view()
     }
@@ -85,6 +86,7 @@ impl Image {
     }
 
     /// Get the atlas ID for batching purposes.
+    #[allow(dead_code)] // API for future render batching
     pub(crate) fn atlas_id(&self) -> usize {
         self.atlas.id()
     }
@@ -270,7 +272,12 @@ impl NinePatch {
                 img_w - self.left - self.right,
                 self.bottom,
             ),
-            Rect::new(img_w - self.right, img_h - self.bottom, self.right, self.bottom),
+            Rect::new(
+                img_w - self.right,
+                img_h - self.bottom,
+                self.right,
+                self.bottom,
+            ),
         ];
 
         // Calculate destination sizes

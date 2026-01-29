@@ -24,8 +24,8 @@ pub use crate::Application;
 // Signal/Slot and Property System
 // ============================================================================
 
-pub use crate::signal::{ConnectionId, ConnectionType, Signal};
 pub use crate::property::{Binding, Property, ReadOnlyProperty};
+pub use crate::signal::{ConnectionId, ConnectionType, Signal};
 
 // ============================================================================
 // Object System
@@ -69,21 +69,21 @@ pub use crate::widget::ProgressBar;
 // Container Widgets
 // ============================================================================
 
+pub use crate::widget::ScrollArea;
 pub use crate::widget::widgets::{
     ContainerWidget, Dialog, Frame, GroupBox, MainWindow, Popup, StackedWidget, TabWidget, Window,
 };
 pub use crate::widget::widgets::{Separator, Spacer};
-pub use crate::widget::ScrollArea;
 
 // ============================================================================
 // Layout System
 // ============================================================================
 
+pub use crate::widget::layout::{Alignment, Orientation};
 pub use crate::widget::layout::{
     AnchorLayout, BoxLayout, FlowLayout, FormLayout, GridLayout, HBoxLayout, LayoutKind,
     StackLayout, VBoxLayout,
 };
-pub use crate::widget::layout::{Alignment, Orientation};
 pub use crate::widget::{ContentMargins, Layout, LayoutBase, LayoutItem, SpacerItem};
 
 // ============================================================================

@@ -33,19 +33,19 @@ use std::time::Instant;
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{Color, Point, Rect, Renderer, Size, Stroke};
 
+use crate::model::selection::{SelectionFlags, SelectionMode, SelectionModel};
 use crate::model::{
     DefaultItemDelegate, DelegatePaintContext, ItemDelegate, ItemModel, ItemRole, ModelIndex,
     StyleOptionViewItem, ViewItemFeatures, ViewItemState,
 };
-use crate::model::selection::{SelectionFlags, SelectionMode, SelectionModel};
+use crate::widget::drag_drop::{
+    DragData, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DropAction, DropEvent,
+    DropIndicatorState, DropPosition,
+};
 use crate::widget::{
     ContextMenuEvent, FocusPolicy, Key, KeyPressEvent, MouseButton, MouseMoveEvent,
     MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair,
     WheelEvent, Widget, WidgetBase, WidgetEvent,
-};
-use crate::widget::drag_drop::{
-    DragData, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DropAction, DropEvent,
-    DropIndicatorState, DropPosition,
 };
 
 use super::scroll_area::ScrollBarPolicy;
@@ -194,7 +194,10 @@ impl TreeView {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         Self {
             base,
@@ -564,7 +567,9 @@ impl TreeView {
             // Configure whether we accept drops based on the mode
             let accepts_drops = matches!(
                 mode,
-                TreeDragDropMode::DropOnly | TreeDragDropMode::DragDrop | TreeDragDropMode::InternalMove
+                TreeDragDropMode::DropOnly
+                    | TreeDragDropMode::DragDrop
+                    | TreeDragDropMode::InternalMove
             );
             self.base.set_accepts_drops(accepts_drops);
         }
@@ -574,7 +579,9 @@ impl TreeView {
     pub fn drag_enabled(&self) -> bool {
         matches!(
             self.drag_drop_mode,
-            TreeDragDropMode::DragOnly | TreeDragDropMode::DragDrop | TreeDragDropMode::InternalMove
+            TreeDragDropMode::DragOnly
+                | TreeDragDropMode::DragDrop
+                | TreeDragDropMode::InternalMove
         )
     }
 
@@ -582,7 +589,9 @@ impl TreeView {
     pub fn drop_enabled(&self) -> bool {
         matches!(
             self.drag_drop_mode,
-            TreeDragDropMode::DropOnly | TreeDragDropMode::DragDrop | TreeDragDropMode::InternalMove
+            TreeDragDropMode::DropOnly
+                | TreeDragDropMode::DragDrop
+                | TreeDragDropMode::InternalMove
         )
     }
 
@@ -599,29 +608,28 @@ impl TreeView {
             let texts: Vec<String> = indices
                 .iter()
                 .filter_map(|index| {
-                    model.data(index, ItemRole::Display).as_string().map(String::from)
+                    model
+                        .data(index, ItemRole::Display)
+                        .as_string()
+                        .map(String::from)
                 })
                 .collect();
 
             if !texts.is_empty() {
-                data.set_text(&texts.join("\n"));
+                data.set_text(texts.join("\n"));
             }
         }
 
-        if data.is_empty() {
-            None
-        } else {
-            Some(data)
-        }
+        if data.is_empty() { None } else { Some(data) }
     }
 
     /// Returns the drop position for the given point.
     ///
     /// This determines where items will be inserted when dropped.
     fn drop_position_for_point(&self, point: Point) -> (Option<usize>, DropPosition) {
-        if let Some(index) = self.index_at(point) {
-            if let Some(row_idx) = self.find_flattened_row(&index) {
-                if let Some(row) = self.flattened_rows.get(row_idx) {
+        if let Some(index) = self.index_at(point)
+            && let Some(row_idx) = self.find_flattened_row(&index)
+                && let Some(row) = self.flattened_rows.get(row_idx) {
                     // Determine if in upper or lower half (for row-based drop)
                     let viewport = self.viewport_rect();
                     let visual_y = row.rect.origin.y - self.scroll_y as f32 + viewport.origin.y;
@@ -632,8 +640,6 @@ impl TreeView {
                         return (Some(row_idx), DropPosition::BelowItem);
                     }
                 }
-            }
-        }
 
         // After last row
         if !self.flattened_rows.is_empty() {
@@ -669,7 +675,8 @@ impl TreeView {
         let viewport = self.viewport_rect();
         if viewport.contains(event.local_pos) {
             // Calculate visible row rects for drop indicator
-            let item_rects: Vec<(usize, Rect)> = self.flattened_rows
+            let item_rects: Vec<(usize, Rect)> = self
+                .flattened_rows
                 .iter()
                 .enumerate()
                 .filter_map(|(idx, row)| {
@@ -783,7 +790,8 @@ impl TreeView {
 
         // Find the row for this index and extract needed data
         let target_id = index.internal_id();
-        let row_data = self.flattened_rows
+        let row_data = self
+            .flattened_rows
             .iter()
             .find(|r| r.index.internal_id() == target_id)
             .map(|r| (r.rect.origin.y, r.rect.height()));
@@ -1081,7 +1089,8 @@ impl TreeView {
         let indent = if row.depth == 0 && self.root_decorated {
             0.0
         } else {
-            (row.depth.saturating_sub(if self.root_decorated { 0 } else { 1 })) as f32
+            (row.depth
+                .saturating_sub(if self.root_decorated { 0 } else { 1 })) as f32
                 * self.indentation
         };
 
@@ -1092,7 +1101,8 @@ impl TreeView {
             row.rect.height(),
         );
 
-        let indicator_y = visual_rect.origin.y + (visual_rect.height() - self.expand_indicator_size) / 2.0;
+        let indicator_y =
+            visual_rect.origin.y + (visual_rect.height() - self.expand_indicator_size) / 2.0;
 
         Some(Rect::new(
             indent,
@@ -1167,16 +1177,14 @@ impl TreeView {
         }
 
         // Check scrollbar clicks
-        if let Some(rect) = self.vertical_scrollbar_rect() {
-            if rect.contains(event.local_pos) {
+        if let Some(rect) = self.vertical_scrollbar_rect()
+            && rect.contains(event.local_pos) {
                 return self.handle_scrollbar_click(event.local_pos, false);
             }
-        }
-        if let Some(rect) = self.horizontal_scrollbar_rect() {
-            if rect.contains(event.local_pos) {
+        if let Some(rect) = self.horizontal_scrollbar_rect()
+            && rect.contains(event.local_pos) {
                 return self.handle_scrollbar_click(event.local_pos, true);
             }
-        }
 
         // Check item click
         self.ensure_layout();
@@ -1203,7 +1211,9 @@ impl TreeView {
             let mode = self.selection_model.selection_mode();
             let flags = match mode {
                 SelectionMode::NoSelection => SelectionFlags::NONE,
-                SelectionMode::SingleSelection => SelectionFlags::CLEAR_SELECT_CURRENT.with_anchor(),
+                SelectionMode::SingleSelection => {
+                    SelectionFlags::CLEAR_SELECT_CURRENT.with_anchor()
+                }
                 SelectionMode::MultiSelection => {
                     if event.modifiers.control {
                         SelectionFlags::TOGGLE.with_current()
@@ -1265,8 +1275,8 @@ impl TreeView {
             let content_y = event.local_pos.y + self.scroll_y as f32;
             if let Some(click_row) = self.flattened_rows.iter().position(|r| {
                 content_y >= r.rect.origin.y && content_y < r.rect.origin.y + r.rect.height()
-            }) {
-                if click_row == row_idx {
+            })
+                && click_row == row_idx {
                     let index = self.flattened_rows[row_idx].index.clone();
                     self.clicked.emit(index.clone());
 
@@ -1274,8 +1284,7 @@ impl TreeView {
                     let now = Instant::now();
                     if let (Some(last_time), Some(last_row)) =
                         (self.last_click_time, self.last_click_row)
-                    {
-                        if last_row == row_idx && now.duration_since(last_time).as_millis() < 500 {
+                        && last_row == row_idx && now.duration_since(last_time).as_millis() < 500 {
                             self.double_clicked.emit(index.clone());
 
                             // Expand on double-click if enabled
@@ -1292,12 +1301,10 @@ impl TreeView {
                             self.last_click_row = None;
                             return true;
                         }
-                    }
 
                     self.last_click_time = Some(now);
                     self.last_click_row = Some(row_idx);
                 }
-            }
         }
 
         true
@@ -1355,9 +1362,7 @@ impl TreeView {
                 true
             }
             Key::ArrowDown => {
-                let new_row = current_row
-                    .map(|r| (r + 1).min(row_count - 1))
-                    .unwrap_or(0);
+                let new_row = current_row.map(|r| (r + 1).min(row_count - 1)).unwrap_or(0);
                 self.move_to_row(new_row, &event.modifiers);
                 true
             }
@@ -1372,11 +1377,10 @@ impl TreeView {
                         // Move to parent
                         if let Some(model) = &self.model {
                             let parent = model.parent(&row.index);
-                            if parent.is_valid() {
-                                if let Some(parent_row) = self.find_flattened_row(&parent) {
+                            if parent.is_valid()
+                                && let Some(parent_row) = self.find_flattened_row(&parent) {
                                     self.move_to_row(parent_row, &event.modifiers);
                                 }
-                            }
                         }
                     }
                 }
@@ -1806,7 +1810,9 @@ impl TreeView {
         self.ensure_layout();
 
         // Find the index at the context menu position
-        let index = self.index_at(event.local_pos).unwrap_or_else(ModelIndex::invalid);
+        let index = self
+            .index_at(event.local_pos)
+            .unwrap_or_else(ModelIndex::invalid);
 
         // Emit the context_menu_requested signal with the index and position
         self.context_menu_requested.emit((index, event.local_pos));
@@ -2044,9 +2050,9 @@ mod tests {
 
     #[test]
     fn test_context_menu_signal() {
-        use std::sync::atomic::{AtomicBool, Ordering};
-        use std::sync::Arc;
         use horizon_lattice_render::Point;
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
         setup();
 
         let view = TreeView::new();
@@ -2059,7 +2065,8 @@ mod tests {
         });
 
         // Emit a test signal (simulating what handle_context_menu does)
-        view.context_menu_requested.emit((ModelIndex::invalid(), Point::new(10.0, 10.0)));
+        view.context_menu_requested
+            .emit((ModelIndex::invalid(), Point::new(10.0, 10.0)));
 
         assert!(signal_received.load(Ordering::SeqCst));
     }

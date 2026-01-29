@@ -58,7 +58,7 @@ pub use download::{DownloadEvent, DownloadId, DownloadManager, DownloadState, Re
 pub use request::{HttpMethod, HttpRequest, HttpRequestBuilder, MultipartForm, RequestBody};
 pub use response::{HttpResponse, ResponseBody, TransferProgress};
 pub use rest_api::{
-    ApiAuth, RateLimitInfo, RateLimiter, RequestInterceptor, ResponseInterceptor,
-    ErrorTransformer, RestApiClient, RestApiClientBuilder, RestApiRequestBuilder,
+    ApiAuth, ErrorTransformer, RateLimitInfo, RateLimiter, RequestInterceptor, ResponseInterceptor,
+    RestApiClient, RestApiClientBuilder, RestApiRequestBuilder,
 };
 pub use upload::{UploadConfig, UploadEvent, UploadId, UploadManager, UploadState};

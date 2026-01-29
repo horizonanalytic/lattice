@@ -117,7 +117,8 @@ pub struct TextRenderPass {
     uniform_buffer: wgpu::Buffer,
     /// Bind group for uniforms.
     uniform_bind_group: wgpu::BindGroup,
-    /// Texture bind group layout (for atlas).
+    /// Texture bind group layout (for atlas) - kept for creating new bind groups.
+    #[allow(dead_code)]
     texture_bind_group_layout: wgpu::BindGroupLayout,
     /// Current glyph vertex data.
     vertices: Vec<TextVertex>,
@@ -247,11 +248,12 @@ impl TextRenderPass {
         });
 
         // Create solid pipeline layout (uses same uniform bind group, no texture)
-        let solid_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("solid_pipeline_layout"),
-            bind_group_layouts: &[&uniform_bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let solid_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("solid_pipeline_layout"),
+                bind_group_layouts: &[&uniform_bind_group_layout],
+                push_constant_ranges: &[],
+            });
 
         // Create solid pipeline
         let solid_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -416,10 +418,14 @@ impl TextRenderPass {
         let base_index = self.background_vertices.len() as u32;
 
         // Add four vertices for the quad
-        self.background_vertices.push(SolidVertex::new([x, y], color));
-        self.background_vertices.push(SolidVertex::new([x + width, y], color));
-        self.background_vertices.push(SolidVertex::new([x + width, y + height], color));
-        self.background_vertices.push(SolidVertex::new([x, y + height], color));
+        self.background_vertices
+            .push(SolidVertex::new([x, y], color));
+        self.background_vertices
+            .push(SolidVertex::new([x + width, y], color));
+        self.background_vertices
+            .push(SolidVertex::new([x + width, y + height], color));
+        self.background_vertices
+            .push(SolidVertex::new([x, y + height], color));
 
         // Add indices for two triangles
         self.background_indices.extend_from_slice(&[
@@ -463,10 +469,14 @@ impl TextRenderPass {
         let half_thick = thickness / 2.0;
         let base_index = self.decoration_vertices.len() as u32;
 
-        self.decoration_vertices.push(SolidVertex::new([x_start, y - half_thick], color));
-        self.decoration_vertices.push(SolidVertex::new([x_end, y - half_thick], color));
-        self.decoration_vertices.push(SolidVertex::new([x_end, y + half_thick], color));
-        self.decoration_vertices.push(SolidVertex::new([x_start, y + half_thick], color));
+        self.decoration_vertices
+            .push(SolidVertex::new([x_start, y - half_thick], color));
+        self.decoration_vertices
+            .push(SolidVertex::new([x_end, y - half_thick], color));
+        self.decoration_vertices
+            .push(SolidVertex::new([x_end, y + half_thick], color));
+        self.decoration_vertices
+            .push(SolidVertex::new([x_start, y + half_thick], color));
 
         self.decoration_indices.extend_from_slice(&[
             base_index,
@@ -496,10 +506,14 @@ impl TextRenderPass {
             let half = dot_size / 2.0;
             let base_index = self.decoration_vertices.len() as u32;
 
-            self.decoration_vertices.push(SolidVertex::new([cx - half, y - half], color));
-            self.decoration_vertices.push(SolidVertex::new([cx + half, y - half], color));
-            self.decoration_vertices.push(SolidVertex::new([cx + half, y + half], color));
-            self.decoration_vertices.push(SolidVertex::new([cx - half, y + half], color));
+            self.decoration_vertices
+                .push(SolidVertex::new([cx - half, y - half], color));
+            self.decoration_vertices
+                .push(SolidVertex::new([cx + half, y - half], color));
+            self.decoration_vertices
+                .push(SolidVertex::new([cx + half, y + half], color));
+            self.decoration_vertices
+                .push(SolidVertex::new([cx - half, y + half], color));
 
             self.decoration_indices.extend_from_slice(&[
                 base_index,
@@ -525,10 +539,14 @@ impl TextRenderPass {
             let dash_end = (x + dash_length).min(x_end);
             let base_index = self.decoration_vertices.len() as u32;
 
-            self.decoration_vertices.push(SolidVertex::new([x, y - half_thick], color));
-            self.decoration_vertices.push(SolidVertex::new([dash_end, y - half_thick], color));
-            self.decoration_vertices.push(SolidVertex::new([dash_end, y + half_thick], color));
-            self.decoration_vertices.push(SolidVertex::new([x, y + half_thick], color));
+            self.decoration_vertices
+                .push(SolidVertex::new([x, y - half_thick], color));
+            self.decoration_vertices
+                .push(SolidVertex::new([dash_end, y - half_thick], color));
+            self.decoration_vertices
+                .push(SolidVertex::new([dash_end, y + half_thick], color));
+            self.decoration_vertices
+                .push(SolidVertex::new([x, y + half_thick], color));
 
             self.decoration_indices.extend_from_slice(&[
                 base_index,
@@ -569,8 +587,10 @@ impl TextRenderPass {
             let base_index = self.decoration_vertices.len() as u32;
 
             // Top and bottom of the line at this x position
-            self.decoration_vertices.push(SolidVertex::new([x, wave_y - half_thick], color));
-            self.decoration_vertices.push(SolidVertex::new([x, wave_y + half_thick], color));
+            self.decoration_vertices
+                .push(SolidVertex::new([x, wave_y - half_thick], color));
+            self.decoration_vertices
+                .push(SolidVertex::new([x, wave_y + half_thick], color));
 
             // Add triangles connecting to previous segment
             if i > 0 {
@@ -628,22 +648,22 @@ impl TextRenderPass {
 
         // Upload glyph vertex data
         if has_glyphs {
-            queue.write_buffer(
-                &self.vertex_buffer,
-                0,
-                bytemuck::cast_slice(&self.vertices),
-            );
+            queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
             queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.indices));
         }
 
         // Upload solid vertex data (backgrounds + decorations)
-        let solid_vertices: Vec<SolidVertex> = self.background_vertices.iter()
+        let solid_vertices: Vec<SolidVertex> = self
+            .background_vertices
+            .iter()
             .chain(self.decoration_vertices.iter())
             .cloned()
             .collect();
 
         let bg_index_offset = self.background_vertices.len() as u32;
-        let solid_indices: Vec<u32> = self.background_indices.iter()
+        let solid_indices: Vec<u32> = self
+            .background_indices
+            .iter()
             .cloned()
             .chain(self.decoration_indices.iter().map(|i| i + bg_index_offset))
             .collect();
@@ -654,7 +674,11 @@ impl TextRenderPass {
                 0,
                 bytemuck::cast_slice(&solid_vertices),
             );
-            queue.write_buffer(&self.solid_index_buffer, 0, bytemuck::cast_slice(&solid_indices));
+            queue.write_buffer(
+                &self.solid_index_buffer,
+                0,
+                bytemuck::cast_slice(&solid_indices),
+            );
         }
 
         // Create command encoder
@@ -684,7 +708,8 @@ impl TextRenderPass {
                 render_pass.set_pipeline(&self.solid_pipeline);
                 render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
                 render_pass.set_vertex_buffer(0, self.solid_vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.solid_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass
+                    .set_index_buffer(self.solid_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.background_indices.len() as u32, 0, 0..1);
             }
 
@@ -694,7 +719,8 @@ impl TextRenderPass {
                 render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
                 render_pass.set_bind_group(1, atlas.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass
+                    .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
             }
 
@@ -703,7 +729,8 @@ impl TextRenderPass {
                 render_pass.set_pipeline(&self.solid_pipeline);
                 render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
                 render_pass.set_vertex_buffer(0, self.solid_vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.solid_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass
+                    .set_index_buffer(self.solid_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 let start = self.background_indices.len() as u32;
                 let end = solid_indices.len() as u32;
                 render_pass.draw_indexed(start..end, 0, 0..1);

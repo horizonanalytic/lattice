@@ -153,9 +153,7 @@ impl ScrollBar {
             Orientation::Horizontal => {
                 SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Fixed)
             }
-            Orientation::Vertical => {
-                SizePolicyPair::new(SizePolicy::Fixed, SizePolicy::Expanding)
-            }
+            Orientation::Vertical => SizePolicyPair::new(SizePolicy::Fixed, SizePolicy::Expanding),
         };
         base.set_size_policy(policy);
 
@@ -460,25 +458,39 @@ impl ScrollBar {
         match self.orientation {
             Orientation::Horizontal => {
                 let track_width = track.width();
-                let thumb_width = (track_width * thumb_ratio).max(self.min_thumb_size).min(track_width);
+                let thumb_width = (track_width * thumb_ratio)
+                    .max(self.min_thumb_size)
+                    .min(track_width);
                 let available_travel = track_width - thumb_width;
                 let position = if range > 0.0 {
                     (self.value - self.minimum) as f32 / range * available_travel
                 } else {
                     0.0
                 };
-                Rect::new(track.origin.x + position, track.origin.y, thumb_width, track.height())
+                Rect::new(
+                    track.origin.x + position,
+                    track.origin.y,
+                    thumb_width,
+                    track.height(),
+                )
             }
             Orientation::Vertical => {
                 let track_height = track.height();
-                let thumb_height = (track_height * thumb_ratio).max(self.min_thumb_size).min(track_height);
+                let thumb_height = (track_height * thumb_ratio)
+                    .max(self.min_thumb_size)
+                    .min(track_height);
                 let available_travel = track_height - thumb_height;
                 let position = if range > 0.0 {
                     (self.value - self.minimum) as f32 / range * available_travel
                 } else {
                     0.0
                 };
-                Rect::new(track.origin.x, track.origin.y + position, track.width(), thumb_height)
+                Rect::new(
+                    track.origin.x,
+                    track.origin.y + position,
+                    track.width(),
+                    thumb_height,
+                )
             }
         }
     }
@@ -490,12 +502,8 @@ impl ScrollBar {
         }
         let rect = self.base.rect();
         Some(match self.orientation {
-            Orientation::Horizontal => {
-                Rect::new(0.0, 0.0, self.step_button_size, rect.height())
-            }
-            Orientation::Vertical => {
-                Rect::new(0.0, 0.0, rect.width(), self.step_button_size)
-            }
+            Orientation::Horizontal => Rect::new(0.0, 0.0, self.step_button_size, rect.height()),
+            Orientation::Vertical => Rect::new(0.0, 0.0, rect.width(), self.step_button_size),
         })
     }
 
@@ -506,38 +514,32 @@ impl ScrollBar {
         }
         let rect = self.base.rect();
         Some(match self.orientation {
-            Orientation::Horizontal => {
-                Rect::new(
-                    rect.width() - self.step_button_size,
-                    0.0,
-                    self.step_button_size,
-                    rect.height(),
-                )
-            }
-            Orientation::Vertical => {
-                Rect::new(
-                    0.0,
-                    rect.height() - self.step_button_size,
-                    rect.width(),
-                    self.step_button_size,
-                )
-            }
+            Orientation::Horizontal => Rect::new(
+                rect.width() - self.step_button_size,
+                0.0,
+                self.step_button_size,
+                rect.height(),
+            ),
+            Orientation::Vertical => Rect::new(
+                0.0,
+                rect.height() - self.step_button_size,
+                rect.width(),
+                self.step_button_size,
+            ),
         })
     }
 
     /// Hit test to determine which part of the scrollbar is at a point.
     fn hit_test(&self, pos: Point) -> ScrollBarPart {
         // Check step buttons first
-        if let Some(rect) = self.decrease_button_rect() {
-            if rect.contains(pos) {
+        if let Some(rect) = self.decrease_button_rect()
+            && rect.contains(pos) {
                 return ScrollBarPart::StepButtonDecrease;
             }
-        }
-        if let Some(rect) = self.increase_button_rect() {
-            if rect.contains(pos) {
+        if let Some(rect) = self.increase_button_rect()
+            && rect.contains(pos) {
                 return ScrollBarPart::StepButtonIncrease;
             }
-        }
 
         // Check thumb
         let thumb = self.thumb_rect();
@@ -685,7 +687,8 @@ impl ScrollBar {
             if available_travel > 0.0 && range > 0.0 {
                 let delta_pos = current_pos - self.drag_start_pos;
                 let delta_value = (delta_pos / available_travel * range).round() as i32;
-                let new_value = (self.drag_start_value + delta_value).clamp(self.minimum, self.maximum);
+                let new_value =
+                    (self.drag_start_value + delta_value).clamp(self.minimum, self.maximum);
                 self.set_value(new_value);
             }
             return true;
@@ -713,10 +716,11 @@ impl ScrollBar {
     }
 
     fn handle_key_press(&mut self, event: &KeyPressEvent) -> bool {
-        let (decrease_key, increase_key, page_decrease_key, page_increase_key) = match self.orientation {
-            Orientation::Horizontal => (Key::ArrowLeft, Key::ArrowRight, Key::Home, Key::End),
-            Orientation::Vertical => (Key::ArrowUp, Key::ArrowDown, Key::PageUp, Key::PageDown),
-        };
+        let (decrease_key, increase_key, page_decrease_key, page_increase_key) =
+            match self.orientation {
+                Orientation::Horizontal => (Key::ArrowLeft, Key::ArrowRight, Key::Home, Key::End),
+                Orientation::Vertical => (Key::ArrowUp, Key::ArrowDown, Key::PageUp, Key::PageDown),
+            };
 
         match event.key {
             key if key == decrease_key => {
@@ -762,7 +766,8 @@ impl ScrollBar {
     fn paint_track(&self, ctx: &mut PaintContext<'_>) {
         let track = self.track_rect();
         let track_rrect = RoundedRect::new(track, self.border_radius);
-        ctx.renderer().fill_rounded_rect(track_rrect, self.track_color);
+        ctx.renderer()
+            .fill_rounded_rect(track_rrect, self.track_color);
     }
 
     fn paint_thumb(&self, ctx: &mut PaintContext<'_>) {
@@ -900,14 +905,10 @@ impl Widget for ScrollBar {
         let length = 100.0;
 
         match self.orientation {
-            Orientation::Horizontal => {
-                SizeHint::from_dimensions(length, thickness)
-                    .with_minimum_dimensions(40.0, thickness)
-            }
-            Orientation::Vertical => {
-                SizeHint::from_dimensions(thickness, length)
-                    .with_minimum_dimensions(thickness, 40.0)
-            }
+            Orientation::Horizontal => SizeHint::from_dimensions(length, thickness)
+                .with_minimum_dimensions(40.0, thickness),
+            Orientation::Vertical => SizeHint::from_dimensions(thickness, length)
+                .with_minimum_dimensions(thickness, 40.0),
         }
     }
 
@@ -966,8 +967,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicI32, Ordering},
         Arc,
+        atomic::{AtomicI32, Ordering},
     };
 
     fn setup() {

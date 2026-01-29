@@ -27,7 +27,9 @@ use horizon_lattice_render::{Color, Rect, Renderer, Size};
 
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::layout::{ContentMargins, LayoutItem, LayoutKind};
-use crate::widget::{PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent};
+use crate::widget::{
+    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+};
 
 /// A generic container widget that can hold child widgets.
 ///
@@ -92,7 +94,10 @@ impl ContainerWidget {
     /// Create a new container widget with default settings.
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         Self {
             base,
@@ -419,10 +424,7 @@ impl Widget for ContainerWidget {
         // The actual size hint would need to be calculated externally or cached.
 
         // Default preferred size
-        let preferred = Size::new(
-            min_width.max(100.0),
-            min_height.max(100.0),
-        );
+        let preferred = Size::new(min_width.max(100.0), min_height.max(100.0));
 
         SizeHint::new(preferred).with_minimum(Size::new(min_width, min_height))
     }
@@ -553,10 +555,11 @@ mod tests {
     #[test]
     fn test_content_margins() {
         setup();
-        let mut container = ContainerWidget::new()
-            .with_content_margin(10.0);
+        let mut container = ContainerWidget::new().with_content_margin(10.0);
 
-        container.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 100.0, 100.0));
+        container
+            .widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 100.0, 100.0));
 
         let content = container.contents_rect();
         assert_eq!(content.origin.x, 10.0);
@@ -568,10 +571,12 @@ mod tests {
     #[test]
     fn test_contents_rect_with_asymmetric_margins() {
         setup();
-        let mut container = ContainerWidget::new()
-            .with_content_margins(ContentMargins::new(5.0, 10.0, 15.0, 20.0));
+        let mut container =
+            ContainerWidget::new().with_content_margins(ContentMargins::new(5.0, 10.0, 15.0, 20.0));
 
-        container.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 100.0, 100.0));
+        container
+            .widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 100.0, 100.0));
 
         let content = container.contents_rect();
         // left=5, top=10, right=15, bottom=20
@@ -615,8 +620,7 @@ mod tests {
     #[test]
     fn test_size_hint() {
         setup();
-        let container = ContainerWidget::new()
-            .with_content_margin(20.0);
+        let container = ContainerWidget::new().with_content_margin(20.0);
 
         let hint = container.size_hint();
 

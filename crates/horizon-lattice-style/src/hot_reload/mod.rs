@@ -4,4 +4,4 @@
 
 mod watcher;
 
-pub use watcher::{StylesheetWatcher, StylesheetChangeEvent, ChangeKind};
+pub use watcher::{ChangeKind, StylesheetChangeEvent, StylesheetWatcher};

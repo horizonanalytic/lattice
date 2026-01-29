@@ -301,6 +301,9 @@ mod tests {
     fn test_graphics_config_default() {
         let config = GraphicsConfig::default();
         assert_eq!(config.backends, wgpu::Backends::PRIMARY);
-        assert_eq!(config.power_preference, wgpu::PowerPreference::HighPerformance);
+        assert_eq!(
+            config.power_preference,
+            wgpu::PowerPreference::HighPerformance
+        );
     }
 }

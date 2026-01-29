@@ -290,7 +290,10 @@ impl MainWindow {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::NoFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         let mut dock_areas = HashMap::new();
         for area in DockArea::all() {
@@ -697,8 +700,15 @@ impl MainWindow {
         Rect::new(
             self.content_margins.left + left_toolbar_width,
             self.content_margins.top + menu_height + top_toolbar_height,
-            rect.width() - self.content_margins.horizontal() - left_toolbar_width - right_toolbar_width,
-            rect.height() - self.content_margins.vertical() - menu_height - top_toolbar_height - bottom_toolbar_height,
+            rect.width()
+                - self.content_margins.horizontal()
+                - left_toolbar_width
+                - right_toolbar_width,
+            rect.height()
+                - self.content_margins.vertical()
+                - menu_height
+                - top_toolbar_height
+                - bottom_toolbar_height,
         )
     }
 
@@ -742,11 +752,24 @@ impl MainWindow {
                 }
                 Rect::new(
                     content.origin.x,
-                    content.origin.y + if has_top { top_size + self.handle_width } else { 0.0 },
+                    content.origin.y
+                        + if has_top {
+                            top_size + self.handle_width
+                        } else {
+                            0.0
+                        },
                     left_size,
                     content.height()
-                        - if has_top { top_size + self.handle_width } else { 0.0 }
-                        - if has_bottom { bottom_size + self.handle_width } else { 0.0 },
+                        - if has_top {
+                            top_size + self.handle_width
+                        } else {
+                            0.0
+                        }
+                        - if has_bottom {
+                            bottom_size + self.handle_width
+                        } else {
+                            0.0
+                        },
                 )
             }
             DockArea::Right => {
@@ -755,11 +778,24 @@ impl MainWindow {
                 }
                 Rect::new(
                     content.origin.x + content.width() - right_size,
-                    content.origin.y + if has_top { top_size + self.handle_width } else { 0.0 },
+                    content.origin.y
+                        + if has_top {
+                            top_size + self.handle_width
+                        } else {
+                            0.0
+                        },
                     right_size,
                     content.height()
-                        - if has_top { top_size + self.handle_width } else { 0.0 }
-                        - if has_bottom { bottom_size + self.handle_width } else { 0.0 },
+                        - if has_top {
+                            top_size + self.handle_width
+                        } else {
+                            0.0
+                        }
+                        - if has_bottom {
+                            bottom_size + self.handle_width
+                        } else {
+                            0.0
+                        },
                 )
             }
             DockArea::Top => {
@@ -800,14 +836,40 @@ impl MainWindow {
         let has_top = top_size > 0.0;
         let has_bottom = bottom_size > 0.0;
 
-        let x = content.origin.x + if has_left { left_size + self.handle_width } else { 0.0 };
-        let y = content.origin.y + if has_top { top_size + self.handle_width } else { 0.0 };
+        let x = content.origin.x
+            + if has_left {
+                left_size + self.handle_width
+            } else {
+                0.0
+            };
+        let y = content.origin.y
+            + if has_top {
+                top_size + self.handle_width
+            } else {
+                0.0
+            };
         let width = content.width()
-            - if has_left { left_size + self.handle_width } else { 0.0 }
-            - if has_right { right_size + self.handle_width } else { 0.0 };
+            - if has_left {
+                left_size + self.handle_width
+            } else {
+                0.0
+            }
+            - if has_right {
+                right_size + self.handle_width
+            } else {
+                0.0
+            };
         let height = content.height()
-            - if has_top { top_size + self.handle_width } else { 0.0 }
-            - if has_bottom { bottom_size + self.handle_width } else { 0.0 };
+            - if has_top {
+                top_size + self.handle_width
+            } else {
+                0.0
+            }
+            - if has_bottom {
+                bottom_size + self.handle_width
+            } else {
+                0.0
+            };
 
         Rect::new(x, y, width.max(0.0), height.max(0.0))
     }
@@ -947,11 +1009,7 @@ impl MainWindow {
 
         // Handle splitter drag
         if let Some(area) = self.dragging_splitter {
-            let current = if area.is_horizontal() {
-                pos.x
-            } else {
-                pos.y
-            };
+            let current = if area.is_horizontal() { pos.x } else { pos.y };
             let delta = current - self.drag_start;
 
             let new_size = match area {
@@ -1010,7 +1068,8 @@ impl MainWindow {
             let rect = self.dock_area_rect(area);
             if rect.width() > 0.0 && rect.height() > 0.0 {
                 // Slightly different background for dock areas
-                ctx.renderer().fill_rect(rect, Color::from_rgb8(250, 250, 250));
+                ctx.renderer()
+                    .fill_rect(rect, Color::from_rgb8(250, 250, 250));
             }
         }
     }
@@ -1070,7 +1129,8 @@ impl MainWindow {
             };
 
             // Semi-transparent preview
-            ctx.renderer().fill_rect(preview_rect, Color::from_rgba8(100, 150, 255, 100));
+            ctx.renderer()
+                .fill_rect(preview_rect, Color::from_rgba8(100, 150, 255, 100));
             let stroke = Stroke::new(Color::from_rgb8(60, 100, 200), 2.0);
             ctx.renderer().stroke_rect(preview_rect, &stroke);
         }
@@ -1206,7 +1266,7 @@ mod tests {
 
     #[test]
     fn test_dock_area_container() {
-        let mut container = DockAreaContainer::new(DockArea::Left);
+        let container = DockAreaContainer::new(DockArea::Left);
         assert!(container.is_empty());
         // Note: Adding widgets requires real ObjectIds from the registry.
         // See splitter.rs for mock widget patterns.

@@ -144,20 +144,12 @@ pub fn compress_gzip(data: &[u8]) -> FileResult<Vec<u8>> {
 /// Compresses data using Gzip with custom options.
 pub fn compress_gzip_with_options(data: &[u8], options: &GzipOptions) -> FileResult<Vec<u8>> {
     let mut encoder = flate2::write::GzEncoder::new(Vec::new(), options.level.to_flate2());
-    encoder.write_all(data).map_err(|e| {
-        FileError::new(
-            FileErrorKind::Other,
-            None,
-            Some(e),
-        )
-    })?;
-    encoder.finish().map_err(|e| {
-        FileError::new(
-            FileErrorKind::Other,
-            None,
-            Some(e),
-        )
-    })
+    encoder
+        .write_all(data)
+        .map_err(|e| FileError::new(FileErrorKind::Other, None, Some(e)))?;
+    encoder
+        .finish()
+        .map_err(|e| FileError::new(FileErrorKind::Other, None, Some(e)))
 }
 
 /// Decompresses Gzip data.
@@ -170,13 +162,9 @@ pub fn compress_gzip_with_options(data: &[u8], options: &GzipOptions) -> FileRes
 pub fn decompress_gzip(data: &[u8]) -> FileResult<Vec<u8>> {
     let mut decoder = flate2::read::GzDecoder::new(data);
     let mut result = Vec::new();
-    decoder.read_to_end(&mut result).map_err(|e| {
-        FileError::new(
-            FileErrorKind::InvalidData,
-            None,
-            Some(e),
-        )
-    })?;
+    decoder
+        .read_to_end(&mut result)
+        .map_err(|e| FileError::new(FileErrorKind::InvalidData, None, Some(e)))?;
     Ok(result)
 }
 
@@ -232,11 +220,7 @@ pub fn read_gzip(path: impl AsRef<Path>) -> FileResult<Vec<u8>> {
     let data = read_bytes(&path)?;
     decompress_gzip(&data).map_err(|e| {
         // Add path context to the error
-        FileError::new(
-            e.kind(),
-            Some(path.as_ref().to_path_buf()),
-            None,
-        )
+        FileError::new(e.kind(), Some(path.as_ref().to_path_buf()), None)
     })
 }
 
@@ -343,8 +327,7 @@ where
     S: AsRef<Path>,
 {
     let output_path = output_path.as_ref();
-    let file = fs::File::create(output_path)
-        .map_err(|e| FileError::from_io(e, output_path))?;
+    let file = fs::File::create(output_path).map_err(|e| FileError::from_io(e, output_path))?;
 
     let mut zip = zip::ZipWriter::new(file);
     let compression = match options.level {
@@ -352,19 +335,24 @@ where
         _ => zip::CompressionMethod::Deflated,
     };
 
-    let zip_options = zip::write::SimpleFileOptions::default()
-        .compression_method(compression);
+    let zip_options = zip::write::SimpleFileOptions::default().compression_method(compression);
 
     for path in paths {
         let path = path.as_ref();
-        add_path_to_zip(&mut zip, path, path, &zip_options, options.preserve_permissions)?;
+        add_path_to_zip(
+            &mut zip,
+            path,
+            path,
+            &zip_options,
+            options.preserve_permissions,
+        )?;
     }
 
     zip.finish().map_err(|e| {
         FileError::new(
             FileErrorKind::Other,
             Some(output_path.to_path_buf()),
-            Some(io::Error::new(io::ErrorKind::Other, e.to_string())),
+            Some(io::Error::other(e.to_string())),
         )
     })?;
 
@@ -387,22 +375,31 @@ fn add_path_to_zip<W: Write + io::Seek>(
 
     if path.is_dir() {
         // Add directory entry
-        let dir_name = if name.ends_with('/') { name } else { format!("{}/", name) };
+        let dir_name = if name.ends_with('/') {
+            name
+        } else {
+            format!("{}/", name)
+        };
         zip.add_directory(&dir_name, *options).map_err(|e| {
             FileError::new(
                 FileErrorKind::Other,
                 Some(path.to_path_buf()),
-                Some(io::Error::new(io::ErrorKind::Other, e.to_string())),
+                Some(io::Error::other(e.to_string())),
             )
         })?;
 
         // Recursively add contents
-        let entries = fs::read_dir(path)
-            .map_err(|e| FileError::from_io(e, path))?;
+        let entries = fs::read_dir(path).map_err(|e| FileError::from_io(e, path))?;
 
         for entry in entries {
             let entry = entry.map_err(|e| FileError::from_io(e, path))?;
-            add_path_to_zip(zip, &entry.path(), base_path, options, _preserve_permissions)?;
+            add_path_to_zip(
+                zip,
+                &entry.path(),
+                base_path,
+                options,
+                _preserve_permissions,
+            )?;
         }
     } else {
         // Add file
@@ -410,19 +407,13 @@ fn add_path_to_zip<W: Write + io::Seek>(
             FileError::new(
                 FileErrorKind::Other,
                 Some(path.to_path_buf()),
-                Some(io::Error::new(io::ErrorKind::Other, e.to_string())),
+                Some(io::Error::other(e.to_string())),
             )
         })?;
 
-        let data = fs::read(path)
-            .map_err(|e| FileError::from_io(e, path))?;
-        zip.write_all(&data).map_err(|e| {
-            FileError::new(
-                FileErrorKind::Other,
-                Some(path.to_path_buf()),
-                Some(e),
-            )
-        })?;
+        let data = fs::read(path).map_err(|e| FileError::from_io(e, path))?;
+        zip.write_all(&data)
+            .map_err(|e| FileError::new(FileErrorKind::Other, Some(path.to_path_buf()), Some(e)))?;
     }
 
     Ok(())
@@ -435,10 +426,7 @@ fn add_path_to_zip<W: Write + io::Seek>(
 /// ```ignore
 /// extract_zip("archive.zip", "output_dir")?;
 /// ```
-pub fn extract_zip(
-    archive_path: impl AsRef<Path>,
-    output_dir: impl AsRef<Path>,
-) -> FileResult<()> {
+pub fn extract_zip(archive_path: impl AsRef<Path>, output_dir: impl AsRef<Path>) -> FileResult<()> {
     extract_zip_with_options(archive_path, output_dir, &ZipOptions::default())
 }
 
@@ -451,8 +439,7 @@ pub fn extract_zip_with_options(
     let archive_path = archive_path.as_ref();
     let output_dir = output_dir.as_ref();
 
-    let file = fs::File::open(archive_path)
-        .map_err(|e| FileError::from_io(e, archive_path))?;
+    let file = fs::File::open(archive_path).map_err(|e| FileError::from_io(e, archive_path))?;
 
     let mut archive = zip::ZipArchive::new(BufReader::new(file)).map_err(|e| {
         FileError::new(
@@ -463,8 +450,7 @@ pub fn extract_zip_with_options(
     })?;
 
     // Create output directory if it doesn't exist
-    fs::create_dir_all(output_dir)
-        .map_err(|e| FileError::from_io(e, output_dir))?;
+    fs::create_dir_all(output_dir).map_err(|e| FileError::from_io(e, output_dir))?;
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(|e| {
@@ -476,30 +462,25 @@ pub fn extract_zip_with_options(
         })?;
 
         // Sanitize the file name to prevent path traversal
-        let name = file.enclosed_name()
+        let name = file
+            .enclosed_name()
             .ok_or_else(|| FileError::invalid_data("Invalid file name in ZIP archive"))?;
 
         let out_path = output_dir.join(name);
 
         if file.is_dir() {
-            fs::create_dir_all(&out_path)
-                .map_err(|e| FileError::from_io(e, &out_path))?;
+            fs::create_dir_all(&out_path).map_err(|e| FileError::from_io(e, &out_path))?;
         } else {
             // Create parent directories if needed
             if let Some(parent) = out_path.parent() {
-                fs::create_dir_all(parent)
-                    .map_err(|e| FileError::from_io(e, parent))?;
+                fs::create_dir_all(parent).map_err(|e| FileError::from_io(e, parent))?;
             }
 
-            let mut out_file = fs::File::create(&out_path)
-                .map_err(|e| FileError::from_io(e, &out_path))?;
+            let mut out_file =
+                fs::File::create(&out_path).map_err(|e| FileError::from_io(e, &out_path))?;
 
             io::copy(&mut file, &mut out_file).map_err(|e| {
-                FileError::new(
-                    FileErrorKind::Other,
-                    Some(out_path.clone()),
-                    Some(e),
-                )
+                FileError::new(FileErrorKind::Other, Some(out_path.clone()), Some(e))
             })?;
         }
 
@@ -528,8 +509,7 @@ pub fn extract_zip_with_options(
 /// ```
 pub fn list_zip(archive_path: impl AsRef<Path>) -> FileResult<Vec<ZipEntry>> {
     let archive_path = archive_path.as_ref();
-    let file = fs::File::open(archive_path)
-        .map_err(|e| FileError::from_io(e, archive_path))?;
+    let file = fs::File::open(archive_path).map_err(|e| FileError::from_io(e, archive_path))?;
 
     let mut archive = zip::ZipArchive::new(BufReader::new(file)).map_err(|e| {
         FileError::new(
@@ -642,33 +622,25 @@ where
     S: AsRef<Path>,
 {
     let output_path = output_path.as_ref();
-    let file = fs::File::create(output_path)
-        .map_err(|e| FileError::from_io(e, output_path))?;
+    let file = fs::File::create(output_path).map_err(|e| FileError::from_io(e, output_path))?;
 
     let mut builder = tar::Builder::new(file);
     builder.follow_symlinks(options.follow_symlinks);
 
     for path in paths {
         let path = path.as_ref();
-        let name = path.file_name()
+        let name = path
+            .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.to_string_lossy().into_owned());
 
         if path.is_dir() {
             builder.append_dir_all(&name, path).map_err(|e| {
-                FileError::new(
-                    FileErrorKind::Other,
-                    Some(path.to_path_buf()),
-                    Some(e),
-                )
+                FileError::new(FileErrorKind::Other, Some(path.to_path_buf()), Some(e))
             })?;
         } else {
             builder.append_path_with_name(path, &name).map_err(|e| {
-                FileError::new(
-                    FileErrorKind::Other,
-                    Some(path.to_path_buf()),
-                    Some(e),
-                )
+                FileError::new(FileErrorKind::Other, Some(path.to_path_buf()), Some(e))
             })?;
         }
     }
@@ -691,10 +663,7 @@ where
 /// ```ignore
 /// extract_tar("archive.tar", "output_dir")?;
 /// ```
-pub fn extract_tar(
-    archive_path: impl AsRef<Path>,
-    output_dir: impl AsRef<Path>,
-) -> FileResult<()> {
+pub fn extract_tar(archive_path: impl AsRef<Path>, output_dir: impl AsRef<Path>) -> FileResult<()> {
     extract_tar_with_options(archive_path, output_dir, &TarOptions::default())
 }
 
@@ -707,8 +676,7 @@ pub fn extract_tar_with_options(
     let archive_path = archive_path.as_ref();
     let output_dir = output_dir.as_ref();
 
-    let file = fs::File::open(archive_path)
-        .map_err(|e| FileError::from_io(e, archive_path))?;
+    let file = fs::File::open(archive_path).map_err(|e| FileError::from_io(e, archive_path))?;
 
     let mut archive = tar::Archive::new(BufReader::new(file));
     archive.set_preserve_permissions(options.preserve_permissions);
@@ -736,8 +704,7 @@ pub fn extract_tar_with_options(
 /// ```
 pub fn list_tar(archive_path: impl AsRef<Path>) -> FileResult<Vec<TarEntry>> {
     let archive_path = archive_path.as_ref();
-    let file = fs::File::open(archive_path)
-        .map_err(|e| FileError::from_io(e, archive_path))?;
+    let file = fs::File::open(archive_path).map_err(|e| FileError::from_io(e, archive_path))?;
 
     let mut archive = tar::Archive::new(BufReader::new(file));
     let mut entries = Vec::new();
@@ -759,7 +726,8 @@ pub fn list_tar(archive_path: impl AsRef<Path>) -> FileResult<Vec<TarEntry>> {
 
         let header = entry.header();
         entries.push(TarEntry {
-            name: entry.path()
+            name: entry
+                .path()
                 .map(|p| p.to_string_lossy().into_owned())
                 .unwrap_or_default(),
             size: header.size().unwrap_or(0),
@@ -788,7 +756,12 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<Path>,
 {
-    create_tar_gz_with_options(output_path, paths, &TarOptions::default(), &GzipOptions::default())
+    create_tar_gz_with_options(
+        output_path,
+        paths,
+        &TarOptions::default(),
+        &GzipOptions::default(),
+    )
 }
 
 /// Creates a gzipped TAR archive with custom options.
@@ -804,8 +777,7 @@ where
     S: AsRef<Path>,
 {
     let output_path = output_path.as_ref();
-    let file = fs::File::create(output_path)
-        .map_err(|e| FileError::from_io(e, output_path))?;
+    let file = fs::File::create(output_path).map_err(|e| FileError::from_io(e, output_path))?;
 
     let encoder = flate2::write::GzEncoder::new(file, gzip_options.level.to_flate2());
     let mut builder = tar::Builder::new(encoder);
@@ -813,25 +785,18 @@ where
 
     for path in paths {
         let path = path.as_ref();
-        let name = path.file_name()
+        let name = path
+            .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.to_string_lossy().into_owned());
 
         if path.is_dir() {
             builder.append_dir_all(&name, path).map_err(|e| {
-                FileError::new(
-                    FileErrorKind::Other,
-                    Some(path.to_path_buf()),
-                    Some(e),
-                )
+                FileError::new(FileErrorKind::Other, Some(path.to_path_buf()), Some(e))
             })?;
         } else {
             builder.append_path_with_name(path, &name).map_err(|e| {
-                FileError::new(
-                    FileErrorKind::Other,
-                    Some(path.to_path_buf()),
-                    Some(e),
-                )
+                FileError::new(FileErrorKind::Other, Some(path.to_path_buf()), Some(e))
             })?;
         }
     }
@@ -878,8 +843,7 @@ pub fn extract_tar_gz_with_options(
     let archive_path = archive_path.as_ref();
     let output_dir = output_dir.as_ref();
 
-    let file = fs::File::open(archive_path)
-        .map_err(|e| FileError::from_io(e, archive_path))?;
+    let file = fs::File::open(archive_path).map_err(|e| FileError::from_io(e, archive_path))?;
 
     let decoder = flate2::read::GzDecoder::new(BufReader::new(file));
     let mut archive = tar::Archive::new(decoder);
@@ -905,8 +869,7 @@ pub fn extract_tar_gz_with_options(
 /// ```
 pub fn list_tar_gz(archive_path: impl AsRef<Path>) -> FileResult<Vec<TarEntry>> {
     let archive_path = archive_path.as_ref();
-    let file = fs::File::open(archive_path)
-        .map_err(|e| FileError::from_io(e, archive_path))?;
+    let file = fs::File::open(archive_path).map_err(|e| FileError::from_io(e, archive_path))?;
 
     let decoder = flate2::read::GzDecoder::new(BufReader::new(file));
     let mut archive = tar::Archive::new(decoder);
@@ -929,7 +892,8 @@ pub fn list_tar_gz(archive_path: impl AsRef<Path>) -> FileResult<Vec<TarEntry>> 
 
         let header = entry.header();
         entries.push(TarEntry {
-            name: entry.path()
+            name: entry
+                .path()
                 .map(|p| p.to_string_lossy().into_owned())
                 .unwrap_or_default(),
             size: header.size().unwrap_or(0),
@@ -982,9 +946,15 @@ mod tests {
     fn test_gzip_compression_levels() {
         let data = b"Hello, world! ".repeat(100);
 
-        let none = compress_gzip_with_options(&data, &GzipOptions::new().level(CompressionLevel::None)).unwrap();
-        let fast = compress_gzip_with_options(&data, &GzipOptions::new().level(CompressionLevel::Fast)).unwrap();
-        let best = compress_gzip_with_options(&data, &GzipOptions::new().level(CompressionLevel::Best)).unwrap();
+        let none =
+            compress_gzip_with_options(&data, &GzipOptions::new().level(CompressionLevel::None))
+                .unwrap();
+        let fast =
+            compress_gzip_with_options(&data, &GzipOptions::new().level(CompressionLevel::Fast))
+                .unwrap();
+        let best =
+            compress_gzip_with_options(&data, &GzipOptions::new().level(CompressionLevel::Best))
+                .unwrap();
 
         // Best compression should produce smallest output
         assert!(best.len() <= fast.len());
@@ -1080,8 +1050,10 @@ mod tests {
 
         // Verify contents
         let dir_name = test_dir.file_name().unwrap().to_string_lossy();
-        let file1_content = fs::read_to_string(extract_dir.join(&*dir_name).join("file1.txt")).unwrap();
-        let file2_content = fs::read_to_string(extract_dir.join(&*dir_name).join("file2.txt")).unwrap();
+        let file1_content =
+            fs::read_to_string(extract_dir.join(&*dir_name).join("file1.txt")).unwrap();
+        let file2_content =
+            fs::read_to_string(extract_dir.join(&*dir_name).join("file2.txt")).unwrap();
         assert_eq!(file1_content, "Content 1");
         assert_eq!(file2_content, "Content 2");
 
@@ -1110,7 +1082,9 @@ mod tests {
 
         // Should have directory and file entries
         let has_dir = entries.iter().any(|e| e.is_dir);
-        let has_file = entries.iter().any(|e| !e.is_dir && e.name.ends_with("file.txt"));
+        let has_file = entries
+            .iter()
+            .any(|e| !e.is_dir && e.name.ends_with("file.txt"));
         assert!(has_dir || has_file);
 
         cleanup(&test_dir);
@@ -1169,8 +1143,10 @@ mod tests {
 
         // Verify contents
         let dir_name = test_dir.file_name().unwrap().to_string_lossy();
-        let file1_content = fs::read_to_string(extract_dir.join(&*dir_name).join("file1.txt")).unwrap();
-        let file2_content = fs::read_to_string(extract_dir.join(&*dir_name).join("file2.txt")).unwrap();
+        let file1_content =
+            fs::read_to_string(extract_dir.join(&*dir_name).join("file1.txt")).unwrap();
+        let file2_content =
+            fs::read_to_string(extract_dir.join(&*dir_name).join("file2.txt")).unwrap();
         assert_eq!(file1_content, "TAR Content 1");
         assert_eq!(file2_content, "TAR Content 2");
 
@@ -1227,10 +1203,15 @@ mod tests {
 
         // Verify contents
         let dir_name = test_dir.file_name().unwrap().to_string_lossy();
-        let file1_content = fs::read_to_string(extract_dir.join(&*dir_name).join("file1.txt")).unwrap();
+        let file1_content =
+            fs::read_to_string(extract_dir.join(&*dir_name).join("file1.txt")).unwrap();
         let nested_content = fs::read_to_string(
-            extract_dir.join(&*dir_name).join("subdir").join("nested.txt")
-        ).unwrap();
+            extract_dir
+                .join(&*dir_name)
+                .join("subdir")
+                .join("nested.txt"),
+        )
+        .unwrap();
         assert_eq!(file1_content, "TAR.GZ Content 1");
         assert_eq!(nested_content, "Nested content");
 
@@ -1252,7 +1233,11 @@ mod tests {
 
         let entries = list_tar_gz(&archive_path).unwrap();
         assert!(!entries.is_empty());
-        assert!(entries.iter().any(|e| e.name.contains("tar_gz_list_file.txt")));
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.name.contains("tar_gz_list_file.txt"))
+        );
 
         cleanup(&file_path);
         cleanup(&archive_path);
@@ -1291,8 +1276,7 @@ mod tests {
 
     #[test]
     fn test_gzip_options_builder() {
-        let options = GzipOptions::new()
-            .level(CompressionLevel::Best);
+        let options = GzipOptions::new().level(CompressionLevel::Best);
 
         assert_eq!(options.level, CompressionLevel::Best);
     }

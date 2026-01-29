@@ -7,8 +7,8 @@ use std::path::PathBuf;
 use horizon_lattice_render::Color;
 use objc2::MainThreadMarker;
 use objc2_app_kit::{
-    NSAlert, NSAlertFirstButtonReturn, NSAlertSecondButtonReturn, NSAlertStyle,
-    NSModalResponseOK, NSOpenPanel, NSSavePanel,
+    NSAlert, NSAlertFirstButtonReturn, NSAlertSecondButtonReturn, NSAlertStyle, NSModalResponseOK,
+    NSOpenPanel, NSSavePanel,
 };
 use objc2_foundation::NSString;
 
@@ -78,22 +78,20 @@ pub fn open_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
         panel.setTitle(Some(&ns_title));
     }
 
-    if let Some(dir) = &options.directory {
-        if let Some(dir_str) = dir.to_str() {
+    if let Some(dir) = &options.directory
+        && let Some(dir_str) = dir.to_str() {
             let ns_path = NSString::from_str(dir_str);
             let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
             panel.setDirectoryURL(Some(&url));
         }
-    }
 
     setup_file_types(&panel, &options.filters);
 
     let response = panel.runModal();
     if response == NSModalResponseOK {
-        panel.URL().and_then(|url| {
-            url.path()
-                .map(|p| PathBuf::from(p.to_string()))
-        })
+        panel
+            .URL()
+            .and_then(|url| url.path().map(|p| PathBuf::from(p.to_string())))
     } else {
         None
     }
@@ -114,13 +112,12 @@ pub fn open_files(options: NativeFileDialogOptions) -> Option<Vec<PathBuf>> {
         panel.setTitle(Some(&ns_title));
     }
 
-    if let Some(dir) = &options.directory {
-        if let Some(dir_str) = dir.to_str() {
+    if let Some(dir) = &options.directory
+        && let Some(dir_str) = dir.to_str() {
             let ns_path = NSString::from_str(dir_str);
             let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
             panel.setDirectoryURL(Some(&url));
         }
-    }
 
     setup_file_types(&panel, &options.filters);
 
@@ -133,11 +130,7 @@ pub fn open_files(options: NativeFileDialogOptions) -> Option<Vec<PathBuf>> {
                 paths.push(PathBuf::from(path.to_string()));
             }
         }
-        if paths.is_empty() {
-            None
-        } else {
-            Some(paths)
-        }
+        if paths.is_empty() { None } else { Some(paths) }
     } else {
         None
     }
@@ -154,13 +147,12 @@ pub fn save_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
         panel.setTitle(Some(&ns_title));
     }
 
-    if let Some(dir) = &options.directory {
-        if let Some(dir_str) = dir.to_str() {
+    if let Some(dir) = &options.directory
+        && let Some(dir_str) = dir.to_str() {
             let ns_path = NSString::from_str(dir_str);
             let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
             panel.setDirectoryURL(Some(&url));
         }
-    }
 
     if let Some(name) = &options.default_name {
         let ns_name = NSString::from_str(name);
@@ -171,10 +163,9 @@ pub fn save_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
 
     let response = panel.runModal();
     if response == NSModalResponseOK {
-        panel.URL().and_then(|url| {
-            url.path()
-                .map(|p| PathBuf::from(p.to_string()))
-        })
+        panel
+            .URL()
+            .and_then(|url| url.path().map(|p| PathBuf::from(p.to_string())))
     } else {
         None
     }
@@ -195,20 +186,18 @@ pub fn select_directory(options: NativeFileDialogOptions) -> Option<PathBuf> {
         panel.setTitle(Some(&ns_title));
     }
 
-    if let Some(dir) = &options.directory {
-        if let Some(dir_str) = dir.to_str() {
+    if let Some(dir) = &options.directory
+        && let Some(dir_str) = dir.to_str() {
             let ns_path = NSString::from_str(dir_str);
             let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
             panel.setDirectoryURL(Some(&url));
         }
-    }
 
     let response = panel.runModal();
     if response == NSModalResponseOK {
-        panel.URL().and_then(|url| {
-            url.path()
-                .map(|p| PathBuf::from(p.to_string()))
-        })
+        panel
+            .URL()
+            .and_then(|url| url.path().map(|p| PathBuf::from(p.to_string())))
     } else {
         None
     }

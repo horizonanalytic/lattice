@@ -533,8 +533,7 @@ impl Completer {
         }
 
         let page_size = self.popup_state.max_visible_items as i32;
-        self.popup_state.selected_index =
-            (self.popup_state.selected_index - page_size).max(0);
+        self.popup_state.selected_index = (self.popup_state.selected_index - page_size).max(0);
 
         self.popup_state.ensure_selected_visible();
         self.emit_highlighted();
@@ -581,7 +580,8 @@ impl Completer {
         if self.popup_state.selected_index >= 0 {
             let idx = self.popup_state.selected_index as usize;
             if idx < self.popup_state.completions.len() {
-                self.highlighted.emit(self.popup_state.completions[idx].clone());
+                self.highlighted
+                    .emit(self.popup_state.completions[idx].clone());
             }
         }
     }
@@ -844,10 +844,7 @@ mod tests {
 
     #[test]
     fn test_string_list_model_case_insensitive() {
-        let model = StringListModel::new(vec![
-            "Apple".to_string(),
-            "Application".to_string(),
-        ]);
+        let model = StringListModel::new(vec!["Apple".to_string(), "Application".to_string()]);
 
         let completions = model.completions("app", CaseSensitivity::CaseInsensitive);
         assert_eq!(completions.len(), 2);
@@ -888,10 +885,7 @@ mod tests {
 
     #[test]
     fn test_completer_complete() {
-        let model = StringListModel::new(vec![
-            "apple".to_string(),
-            "apricot".to_string(),
-        ]);
+        let model = StringListModel::new(vec!["apple".to_string(), "apricot".to_string()]);
         let mut completer = Completer::new(Box::new(model));
 
         let anchor = Rect::new(0.0, 0.0, 100.0, 30.0);
@@ -905,10 +899,7 @@ mod tests {
 
     #[test]
     fn test_completer_min_chars() {
-        let model = StringListModel::new(vec![
-            "apple".to_string(),
-            "apricot".to_string(),
-        ]);
+        let model = StringListModel::new(vec!["apple".to_string(), "apricot".to_string()]);
         let mut completer = Completer::new(Box::new(model));
         completer.set_min_chars(2);
 

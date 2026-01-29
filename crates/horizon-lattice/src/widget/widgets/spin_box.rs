@@ -192,7 +192,10 @@ impl SpinBox {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -647,11 +650,10 @@ impl SpinBox {
 
     /// Get the display text for the current value.
     fn display_text(&self) -> String {
-        if self.value == self.minimum {
-            if let Some(ref special) = self.special_value_text {
+        if self.value == self.minimum
+            && let Some(ref special) = self.special_value_text {
                 return special.clone();
             }
-        }
         format!("{}{}{}", self.prefix, self.value, self.suffix)
     }
 
@@ -982,17 +984,15 @@ impl SpinBox {
             }
             _ => {
                 // Start editing if a digit or minus is pressed
-                if !self.read_only {
-                    if let Some(ch) = event.text.chars().next() {
-                        if ch.is_ascii_digit() || ch == '-' || ch == '+' {
+                if !self.read_only
+                    && let Some(ch) = event.text.chars().next()
+                        && (ch.is_ascii_digit() || ch == '-' || ch == '+') {
                             self.start_editing();
                             self.edit_text.clear();
                             self.cursor_pos = 0;
                             self.selection_start = None;
                             return self.handle_edit_key(event);
                         }
-                    }
-                }
             }
         }
         false
@@ -1118,7 +1118,9 @@ impl SpinBox {
                 if !event.text.is_empty() {
                     let ch = event.text.chars().next().unwrap();
                     // Only allow digits and minus sign
-                    if ch.is_ascii_digit() || (ch == '-' && self.cursor_pos == 0 && self.minimum < 0) {
+                    if ch.is_ascii_digit()
+                        || (ch == '-' && self.cursor_pos == 0 && self.minimum < 0)
+                    {
                         self.insert_text(&event.text);
                         self.base.update();
                         return true;
@@ -1151,7 +1153,8 @@ impl SpinBox {
 
         // Draw main background
         let bg_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(bg_rrect, self.background_color);
+        ctx.renderer()
+            .fill_rounded_rect(bg_rrect, self.background_color);
 
         // Draw border
         let border_stroke = Stroke::new(self.border_color, 1.0);
@@ -1187,8 +1190,8 @@ impl SpinBox {
         let text_pos = Point::new(text_x, text_y);
 
         // Draw selection background if editing with selection
-        if self.editing {
-            if let Some(sel_start) = self.selection_start {
+        if self.editing
+            && let Some(sel_start) = self.selection_start {
                 let (start, end) = if sel_start < self.cursor_pos {
                     (sel_start, self.cursor_pos)
                 } else {
@@ -1198,24 +1201,14 @@ impl SpinBox {
                     // Draw selection highlight
                     let selection_color = Color::from_rgba8(66, 133, 244, 100);
                     // Approximate selection rect (simplified)
-                    let sel_rect = Rect::new(
-                        text_x,
-                        text_y,
-                        layout.width(),
-                        layout.height(),
-                    );
+                    let sel_rect = Rect::new(text_x, text_y, layout.width(), layout.height());
                     ctx.renderer().fill_rect(sel_rect, selection_color);
                 }
             }
-        }
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
-            let _ = text_renderer.prepare_layout(
-                &mut font_system,
-                &layout,
-                text_pos,
-                self.text_color,
-            );
+            let _ =
+                text_renderer.prepare_layout(&mut font_system, &layout, text_pos, self.text_color);
         }
 
         // Draw cursor if editing
@@ -1309,7 +1302,8 @@ impl SpinBox {
         let focus_color = Color::from_rgba8(66, 133, 244, 180);
         let focus_stroke = Stroke::new(focus_color, 2.0);
         let focus_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().stroke_rounded_rect(focus_rrect, &focus_stroke);
+        ctx.renderer()
+            .stroke_rounded_rect(focus_rrect, &focus_stroke);
     }
 }
 
@@ -1336,17 +1330,20 @@ impl Widget for SpinBox {
 
     fn size_hint(&self) -> SizeHint {
         // Calculate based on max value digits + prefix + suffix
-        let max_digits = self.maximum.abs().to_string().len().max(
-            self.minimum.abs().to_string().len()
-        );
+        let max_digits = self
+            .maximum
+            .abs()
+            .to_string()
+            .len()
+            .max(self.minimum.abs().to_string().len());
         let sign_width = if self.minimum < 0 { 1 } else { 0 };
-        let text_width = (max_digits + sign_width + self.prefix.len() + self.suffix.len()) as f32 * 10.0;
+        let text_width =
+            (max_digits + sign_width + self.prefix.len() + self.suffix.len()) as f32 * 10.0;
 
         let width = (text_width + self.button_width + 16.0).max(80.0);
         let height = 28.0;
 
-        SizeHint::from_dimensions(width, height)
-            .with_minimum_dimensions(60.0, 22.0)
+        SizeHint::from_dimensions(width, height).with_minimum_dimensions(60.0, 22.0)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
@@ -1414,8 +1411,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicI32, Ordering},
         Arc,
+        atomic::{AtomicI32, Ordering},
     };
 
     fn setup() {
@@ -1468,9 +1465,7 @@ mod tests {
     #[test]
     fn test_value_wrapping() {
         setup();
-        let mut spinbox = SpinBox::new()
-            .with_range(0, 10)
-            .with_wrapping(true);
+        let mut spinbox = SpinBox::new().with_range(0, 10).with_wrapping(true);
 
         spinbox.set_value(11);
         assert_eq!(spinbox.value(), 0);
@@ -1533,9 +1528,7 @@ mod tests {
     #[test]
     fn test_range_change_clamps_value() {
         setup();
-        let mut spinbox = SpinBox::new()
-            .with_range(0, 100)
-            .with_value(75);
+        let mut spinbox = SpinBox::new().with_range(0, 100).with_value(75);
 
         spinbox.set_range(0, 50);
         assert_eq!(spinbox.value(), 50);

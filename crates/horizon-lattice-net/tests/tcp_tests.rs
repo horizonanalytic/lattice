@@ -1,7 +1,7 @@
 //! Tests for TCP client and server functionality.
 
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use horizon_lattice_net::tcp::{
@@ -138,7 +138,9 @@ async fn test_client_server_echo() {
     assert!(server.is_listening());
 
     // Get the port the server bound to
-    let local_addr = server.local_addr().expect("Server should have local address");
+    let local_addr = server
+        .local_addr()
+        .expect("Server should have local address");
     let port = local_addr.port();
 
     // Create client
@@ -214,7 +216,9 @@ async fn test_multiple_clients() {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 
-    let local_addr = server.local_addr().expect("Server should have local address");
+    let local_addr = server
+        .local_addr()
+        .expect("Server should have local address");
     let port = local_addr.port();
 
     // Create multiple clients
@@ -260,14 +264,14 @@ async fn test_broadcast() {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 
-    let local_addr = server.local_addr().expect("Server should have local address");
+    let local_addr = server
+        .local_addr()
+        .expect("Server should have local address");
     let port = local_addr.port();
 
     // Create two clients with their own receive buffers
-    let received1: Arc<parking_lot::Mutex<Vec<u8>>> =
-        Arc::new(parking_lot::Mutex::new(Vec::new()));
-    let received2: Arc<parking_lot::Mutex<Vec<u8>>> =
-        Arc::new(parking_lot::Mutex::new(Vec::new()));
+    let received1: Arc<parking_lot::Mutex<Vec<u8>>> = Arc::new(parking_lot::Mutex::new(Vec::new()));
+    let received2: Arc<parking_lot::Mutex<Vec<u8>>> = Arc::new(parking_lot::Mutex::new(Vec::new()));
 
     let client1_config = TcpClientConfig::new("127.0.0.1", port);
     let client1 = TcpClient::new(client1_config);
@@ -337,7 +341,9 @@ async fn test_graceful_disconnect() {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 
-    let local_addr = server.local_addr().expect("Server should have local address");
+    let local_addr = server
+        .local_addr()
+        .expect("Server should have local address");
     let port = local_addr.port();
 
     let client_config = TcpClientConfig::new("127.0.0.1", port);

@@ -259,7 +259,8 @@ impl<S: ItemModel + 'static> ProxyModel<S> {
 
         // For hierarchical models, we'd need to map the parent as well
         // For now, we assume flat models
-        self.source.index(source_row, proxy_index.column(), &ModelIndex::invalid())
+        self.source
+            .index(source_row, proxy_index.column(), &ModelIndex::invalid())
     }
 
     /// Maps a source index to a proxy index.
@@ -314,11 +315,7 @@ impl<S: ItemModel + 'static> ProxyModel<S> {
                 let data_b = self.source.data(&index_b, ItemRole::Display);
 
                 let cmp = compare_item_data(&data_a, &data_b);
-                if descending {
-                    cmp.reverse()
-                } else {
-                    cmp
-                }
+                if descending { cmp.reverse() } else { cmp }
             });
         }
 
@@ -335,9 +332,7 @@ fn compare_item_data(a: &ItemData, b: &ItemData) -> Ordering {
     match (a, b) {
         (ItemData::String(sa), ItemData::String(sb)) => sa.cmp(sb),
         (ItemData::Int(ia), ItemData::Int(ib)) => ia.cmp(ib),
-        (ItemData::Float(fa), ItemData::Float(fb)) => {
-            fa.partial_cmp(fb).unwrap_or(Ordering::Equal)
-        }
+        (ItemData::Float(fa), ItemData::Float(fb)) => fa.partial_cmp(fb).unwrap_or(Ordering::Equal),
         (ItemData::Bool(ba), ItemData::Bool(bb)) => ba.cmp(bb),
         // For other types, consider them equal or compare by debug string
         _ => Ordering::Equal,
@@ -470,10 +465,22 @@ mod tests {
 
     fn create_test_model() -> Arc<ListModel<Person>> {
         Arc::new(ListModel::new(vec![
-            Person { name: "Charlie".into(), age: 35 },
-            Person { name: "Alice".into(), age: 30 },
-            Person { name: "Bob".into(), age: 25 },
-            Person { name: "David".into(), age: 20 },
+            Person {
+                name: "Charlie".into(),
+                age: 35,
+            },
+            Person {
+                name: "Alice".into(),
+                age: 30,
+            },
+            Person {
+                name: "Bob".into(),
+                age: 25,
+            },
+            Person {
+                name: "David".into(),
+                age: 20,
+            },
         ]))
     }
 
@@ -485,7 +492,10 @@ mod tests {
         assert_eq!(proxy.row_count(&ModelIndex::invalid()), 4);
 
         let index = proxy.index(0, 0, &ModelIndex::invalid());
-        assert_eq!(proxy.data(&index, ItemRole::Display).as_string(), Some("Charlie"));
+        assert_eq!(
+            proxy.data(&index, ItemRole::Display).as_string(),
+            Some("Charlie")
+        );
     }
 
     #[test]
@@ -518,8 +528,14 @@ mod tests {
             .sort(|model, row_a, row_b, parent| {
                 let index_a = model.index(row_a, 0, parent);
                 let index_b = model.index(row_b, 0, parent);
-                let name_a = model.data(&index_a, ItemRole::Display).into_string().unwrap_or_default();
-                let name_b = model.data(&index_b, ItemRole::Display).into_string().unwrap_or_default();
+                let name_a = model
+                    .data(&index_a, ItemRole::Display)
+                    .into_string()
+                    .unwrap_or_default();
+                let name_b = model
+                    .data(&index_b, ItemRole::Display)
+                    .into_string()
+                    .unwrap_or_default();
                 name_a.cmp(&name_b)
             })
             .build();
@@ -551,8 +567,14 @@ mod tests {
             .sort(|model, row_a, row_b, parent| {
                 let index_a = model.index(row_a, 0, parent);
                 let index_b = model.index(row_b, 0, parent);
-                let name_a = model.data(&index_a, ItemRole::Display).into_string().unwrap_or_default();
-                let name_b = model.data(&index_b, ItemRole::Display).into_string().unwrap_or_default();
+                let name_a = model
+                    .data(&index_a, ItemRole::Display)
+                    .into_string()
+                    .unwrap_or_default();
+                let name_b = model
+                    .data(&index_b, ItemRole::Display)
+                    .into_string()
+                    .unwrap_or_default();
                 name_a.cmp(&name_b)
             })
             .build();
@@ -579,8 +601,14 @@ mod tests {
             .sort(|model, row_a, row_b, parent| {
                 let index_a = model.index(row_a, 0, parent);
                 let index_b = model.index(row_b, 0, parent);
-                let name_a = model.data(&index_a, ItemRole::Display).into_string().unwrap_or_default();
-                let name_b = model.data(&index_b, ItemRole::Display).into_string().unwrap_or_default();
+                let name_a = model
+                    .data(&index_a, ItemRole::Display)
+                    .into_string()
+                    .unwrap_or_default();
+                let name_b = model
+                    .data(&index_b, ItemRole::Display)
+                    .into_string()
+                    .unwrap_or_default();
                 name_a.cmp(&name_b)
             })
             .build();
@@ -590,7 +618,10 @@ mod tests {
         let source_index = proxy.map_to_source(&proxy_index);
 
         assert!(source_index.is_valid());
-        assert_eq!(source.data(&source_index, ItemRole::Display).as_string(), Some("Alice"));
+        assert_eq!(
+            source.data(&source_index, ItemRole::Display).as_string(),
+            Some("Alice")
+        );
     }
 
     #[test]
@@ -690,8 +721,14 @@ mod tests {
         proxy.set_sort(|model, row_a, row_b, parent| {
             let index_a = model.index(row_a, 0, parent);
             let index_b = model.index(row_b, 0, parent);
-            let name_a = model.data(&index_a, ItemRole::Display).into_string().unwrap_or_default();
-            let name_b = model.data(&index_b, ItemRole::Display).into_string().unwrap_or_default();
+            let name_a = model
+                .data(&index_a, ItemRole::Display)
+                .into_string()
+                .unwrap_or_default();
+            let name_b = model
+                .data(&index_b, ItemRole::Display)
+                .into_string()
+                .unwrap_or_default();
             name_a.cmp(&name_b)
         });
 
@@ -708,8 +745,14 @@ mod tests {
         proxy.set_sort(|model, row_a, row_b, parent| {
             let index_a = model.index(row_a, 0, parent);
             let index_b = model.index(row_b, 0, parent);
-            let name_a = model.data(&index_a, ItemRole::Display).into_string().unwrap_or_default();
-            let name_b = model.data(&index_b, ItemRole::Display).into_string().unwrap_or_default();
+            let name_a = model
+                .data(&index_a, ItemRole::Display)
+                .into_string()
+                .unwrap_or_default();
+            let name_b = model
+                .data(&index_b, ItemRole::Display)
+                .into_string()
+                .unwrap_or_default();
             name_b.cmp(&name_a) // Reversed
         });
 

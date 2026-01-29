@@ -64,8 +64,8 @@ use std::fmt;
 use std::ops::Index;
 use std::path::Path;
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use super::error::{FileError, FileErrorKind, FileResult};
 use super::operations::{atomic_write, read_text};
@@ -384,10 +384,9 @@ impl TomlValue {
     pub fn entries(&self) -> impl Iterator<Item = (&str, &TomlValue)> {
         self.0.as_table().into_iter().flat_map(|table| {
             table.iter().map(|(k, v)| {
-                (
-                    k.as_str(),
-                    unsafe { &*(v as *const toml::Value as *const TomlValue) },
-                )
+                (k.as_str(), unsafe {
+                    &*(v as *const toml::Value as *const TomlValue)
+                })
             })
         })
     }
@@ -769,7 +768,7 @@ mod tests {
     fn test_toml_value_construction() {
         assert!(TomlValue::bool(true).is_bool());
         assert!(TomlValue::int(42).is_integer());
-        assert!(TomlValue::float(3.14).is_float());
+        assert!(TomlValue::float(2.5).is_float());
         assert!(TomlValue::string("hello").is_string());
         assert!(TomlValue::array().is_array());
         assert!(TomlValue::table().is_table());

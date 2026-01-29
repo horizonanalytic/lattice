@@ -298,11 +298,10 @@ impl ButtonGroup {
             }
 
             self.checked_button = Some(object_id);
-        } else if !checked {
-            if self.checked_button == Some(object_id) {
+        } else if !checked
+            && self.checked_button == Some(object_id) {
                 self.checked_button = None;
             }
-        }
 
         buttons_to_uncheck
     }
@@ -339,8 +338,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use slotmap::SlotMap;
-    use std::sync::atomic::{AtomicI32, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicI32, Ordering};
 
     fn setup() {
         init_global_registry();

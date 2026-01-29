@@ -279,11 +279,10 @@ pub fn get_timezone_abbreviation(tz: Tz) -> String {
 /// Returns `None` if the timezone cannot be determined.
 pub fn local_timezone() -> Option<Tz> {
     // Try to get from environment variable
-    if let Ok(tz_name) = std::env::var("TZ") {
-        if let Ok(tz) = tz_name.parse::<Tz>() {
+    if let Ok(tz_name) = std::env::var("TZ")
+        && let Ok(tz) = tz_name.parse::<Tz>() {
             return Some(tz);
         }
-    }
 
     // Try to read from /etc/localtime symlink on Unix
     #[cfg(unix)]
@@ -339,7 +338,10 @@ mod tests {
         let model = TimezoneComboModel::new();
         let idx = model.find_timezone(chrono_tz::America::New_York);
         assert!(idx.is_some());
-        assert_eq!(model.timezone(idx.unwrap()), Some(chrono_tz::America::New_York));
+        assert_eq!(
+            model.timezone(idx.unwrap()),
+            Some(chrono_tz::America::New_York)
+        );
     }
 
     #[test]

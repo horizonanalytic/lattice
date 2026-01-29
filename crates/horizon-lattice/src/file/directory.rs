@@ -479,8 +479,7 @@ impl WalkEntry {
     pub fn metadata(&mut self) -> FileResult<&fs::Metadata> {
         if self.metadata.is_none() {
             self.metadata = Some(
-                fs::symlink_metadata(&self.path)
-                    .map_err(|e| FileError::from_io(e, &self.path))?,
+                fs::symlink_metadata(&self.path).map_err(|e| FileError::from_io(e, &self.path))?,
             );
         }
         Ok(self.metadata.as_ref().unwrap())
@@ -589,11 +588,10 @@ impl WalkDir {
         }
 
         // Check glob pattern
-        if let Some(ref regex) = self.glob_regex {
-            if !regex.is_match(&entry.name()) {
+        if let Some(ref regex) = self.glob_regex
+            && !regex.is_match(&entry.name()) {
                 return false;
             }
-        }
 
         true
     }
@@ -601,11 +599,10 @@ impl WalkDir {
     /// Returns true if a directory should be descended into.
     fn should_descend(&self, entry: &WalkEntry, depth: usize) -> bool {
         // Check depth limit
-        if let Some(max_depth) = self.options.max_depth {
-            if depth >= max_depth {
+        if let Some(max_depth) = self.options.max_depth
+            && depth >= max_depth {
                 return false;
             }
-        }
 
         // Check if it's a directory
         if !entry.is_dir() {
@@ -977,11 +974,10 @@ pub fn dir_size(path: impl AsRef<Path>) -> FileResult<u64> {
     let mut total = 0u64;
 
     for entry in WalkDir::with_options(&path, WalkDirOptions::new().files_only())? {
-        if let Ok(mut entry) = entry {
-            if let Ok(size) = entry.size() {
+        if let Ok(mut entry) = entry
+            && let Ok(size) = entry.size() {
                 total += size;
             }
-        }
     }
 
     Ok(total)
@@ -1059,7 +1055,10 @@ mod tests {
     fn test_read_dir() {
         let (_temp_dir, test_dir) = setup_test_dir();
 
-        let entries: Vec<_> = read_dir(&test_dir).unwrap().filter_map(Result::ok).collect();
+        let entries: Vec<_> = read_dir(&test_dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .collect();
 
         // Should have: file1.txt, file2.rs, subdir1, subdir2, .hidden
         assert_eq!(entries.len(), 5);
@@ -1126,11 +1125,10 @@ mod tests {
     fn test_walk_dir_files_only() {
         let (_temp_dir, test_dir) = setup_test_dir();
 
-        let files: Vec<_> =
-            WalkDir::with_options(&test_dir, WalkDirOptions::new().files_only())
-                .unwrap()
-                .filter_map(Result::ok)
-                .collect();
+        let files: Vec<_> = WalkDir::with_options(&test_dir, WalkDirOptions::new().files_only())
+            .unwrap()
+            .filter_map(Result::ok)
+            .collect();
 
         // All entries should be files
         assert!(files.iter().all(|e| e.is_file()));
@@ -1143,11 +1141,10 @@ mod tests {
     fn test_walk_dir_max_depth() {
         let (_temp_dir, test_dir) = setup_test_dir();
 
-        let entries: Vec<_> =
-            WalkDir::with_options(&test_dir, WalkDirOptions::new().max_depth(1))
-                .unwrap()
-                .filter_map(Result::ok)
-                .collect();
+        let entries: Vec<_> = WalkDir::with_options(&test_dir, WalkDirOptions::new().max_depth(1))
+            .unwrap()
+            .filter_map(Result::ok)
+            .collect();
 
         // Should not include deep nested files
         let paths: Vec<_> = entries.iter().map(|e| e.path().to_path_buf()).collect();
@@ -1290,7 +1287,10 @@ mod tests {
     fn test_dir_entry_metadata() {
         let (_temp_dir, test_dir) = setup_test_dir();
 
-        let entries: Vec<_> = read_dir(&test_dir).unwrap().filter_map(Result::ok).collect();
+        let entries: Vec<_> = read_dir(&test_dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .collect();
 
         for entry in entries {
             // Should be able to get file type

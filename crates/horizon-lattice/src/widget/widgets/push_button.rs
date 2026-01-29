@@ -26,8 +26,8 @@
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    icon_tint_for_state, Color, Font, FontSystem, Icon, IconMode, IconPosition, ImageScaleMode,
-    Point, Rect, Renderer, RoundedRect, Stroke, TextLayout, TextRenderer,
+    Color, Font, FontSystem, Icon, IconMode, IconPosition, ImageScaleMode, Point, Rect, Renderer,
+    RoundedRect, Stroke, TextLayout, TextRenderer, icon_tint_for_state,
 };
 
 use super::abstract_button::{AbstractButton, ButtonVariant};
@@ -715,8 +715,8 @@ impl Widget for PushButton {
         };
 
         // Draw icon if present and loaded
-        if shows_icon {
-            if let Some(icon) = self.inner.icon() {
+        if shows_icon
+            && let Some(icon) = self.inner.icon() {
                 // Get the appropriate image based on state
                 let image = if is_disabled {
                     icon.disabled_image()
@@ -725,12 +725,8 @@ impl Widget for PushButton {
                 };
 
                 if let Some(img) = image {
-                    let icon_rect = Rect::new(
-                        icon_pos.x,
-                        icon_pos.y,
-                        icon_size.width,
-                        icon_size.height,
-                    );
+                    let icon_rect =
+                        Rect::new(icon_pos.x, icon_pos.y, icon_size.width, icon_size.height);
 
                     // Apply tint for state feedback (only if not using dedicated disabled image)
                     let _tint = icon_tint_for_state(
@@ -741,10 +737,10 @@ impl Widget for PushButton {
                     );
 
                     // Draw the icon image
-                    ctx.renderer().draw_image(img, icon_rect, ImageScaleMode::Fit);
+                    ctx.renderer()
+                        .draw_image(img, icon_rect, ImageScaleMode::Fit);
                 }
             }
-        }
 
         // Draw text if present
         if shows_text && !self.inner.display_text().is_empty() {
@@ -759,7 +755,9 @@ impl Widget for PushButton {
                 rect.origin.x + (rect.width() - layout.width()) / 2.0
             };
             let text_area_y = if shows_icon {
-                content_y + text_offset.y + (content_size.height - text_offset.y - layout.height()) / 2.0
+                content_y
+                    + text_offset.y
+                    + (content_size.height - text_offset.y - layout.height()) / 2.0
             } else {
                 rect.origin.y + (rect.height() - layout.height()) / 2.0
             };
@@ -769,12 +767,8 @@ impl Widget for PushButton {
 
             // Render text
             if let Ok(mut text_renderer) = TextRenderer::new() {
-                let _ = text_renderer.prepare_layout(
-                    &mut font_system,
-                    &layout,
-                    text_pos,
-                    text_color,
-                );
+                let _ =
+                    text_renderer.prepare_layout(&mut font_system, &layout, text_pos, text_color);
             }
 
             // Draw mnemonic underline if there's a mnemonic character
@@ -812,17 +806,15 @@ impl Widget for PushButton {
                     let underline_end =
                         Point::new(text_pos.x + before_width + mnemonic_width, underline_y);
                     let stroke = Stroke::new(text_color, 1.0);
-                    ctx.renderer().draw_line(underline_start, underline_end, &stroke);
+                    ctx.renderer()
+                        .draw_line(underline_start, underline_end, &stroke);
                 }
             }
         }
 
         // Draw default button indicator (prominent ring)
         if self.inner.is_default() {
-            let default_rect = RoundedRect::new(
-                rect.inflate(2.0),
-                self.border_radius + 2.0,
-            );
+            let default_rect = RoundedRect::new(rect.inflate(2.0), self.border_radius + 2.0);
             // Primary blue color for default button ring
             let default_color = Color::from_rgb8(0, 122, 255);
             let stroke = Stroke::new(default_color, 2.0);
@@ -831,10 +823,7 @@ impl Widget for PushButton {
 
         // Draw focus indicator when focused (stacks on top of default indicator)
         if self.widget_base().has_focus() {
-            let focus_rect = RoundedRect::new(
-                rect.inflate(4.0),
-                self.border_radius + 4.0,
-            );
+            let focus_rect = RoundedRect::new(rect.inflate(4.0), self.border_radius + 4.0);
             let focus_color = Color::from_rgba8(66, 133, 244, 128);
             ctx.renderer().fill_rounded_rect(focus_rect, focus_color);
         }
@@ -908,7 +897,9 @@ impl crate::widget::accessibility::Accessible for PushButton {
     }
 
     fn accessible_description(&self) -> Option<String> {
-        self.widget_base().accessible_description().map(String::from)
+        self.widget_base()
+            .accessible_description()
+            .map(String::from)
     }
 
     fn is_accessible_checked(&self) -> Option<bool> {
@@ -934,8 +925,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
         Arc,
+        atomic::{AtomicBool, AtomicU32, Ordering},
     };
 
     fn setup() {
@@ -1034,8 +1025,7 @@ mod tests {
     #[test]
     fn test_icon_position_builder() {
         setup();
-        let button = PushButton::new("Test")
-            .with_icon_position(IconPosition::Right);
+        let button = PushButton::new("Test").with_icon_position(IconPosition::Right);
         assert_eq!(button.icon_position(), IconPosition::Right);
     }
 
@@ -1049,8 +1039,7 @@ mod tests {
     #[test]
     fn test_icon_mode_builder() {
         setup();
-        let button = PushButton::new("Test")
-            .with_icon_mode(IconMode::IconOnly);
+        let button = PushButton::new("Test").with_icon_mode(IconMode::IconOnly);
         assert_eq!(button.icon_mode(), IconMode::IconOnly);
     }
 
@@ -1064,8 +1053,7 @@ mod tests {
     #[test]
     fn test_icon_spacing_builder() {
         setup();
-        let button = PushButton::new("Test")
-            .with_icon_spacing(12.0);
+        let button = PushButton::new("Test").with_icon_spacing(12.0);
         assert_eq!(button.icon_spacing(), 12.0);
     }
 
@@ -1098,8 +1086,7 @@ mod tests {
     #[test]
     fn test_variant_builder() {
         setup();
-        let button = PushButton::new("Delete")
-            .with_variant(ButtonVariant::Danger);
+        let button = PushButton::new("Delete").with_variant(ButtonVariant::Danger);
         assert_eq!(button.variant(), ButtonVariant::Danger);
     }
 

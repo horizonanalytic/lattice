@@ -209,7 +209,7 @@ impl GradientAtlas {
         }
 
         // Sort stops by offset
-        let mut sorted_stops: Vec<_> = stops.iter().cloned().collect();
+        let mut sorted_stops: Vec<_> = stops.to_vec();
         sorted_stops.sort_by(|a, b| a.offset.partial_cmp(&b.offset).unwrap());
 
         // Rasterize each pixel

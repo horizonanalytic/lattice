@@ -29,23 +29,20 @@ struct WindowState {
 }
 
 impl WindowState {
-    fn new(
-        event_loop: &ActiveEventLoop,
-        title: &str,
-        x: i32,
-        y: i32,
-        accent_color: Color,
-    ) -> Self {
+    fn new(event_loop: &ActiveEventLoop, title: &str, x: i32, y: i32, accent_color: Color) -> Self {
         let attrs = Window::default_attributes()
             .with_title(title)
             .with_inner_size(winit::dpi::LogicalSize::new(400, 300))
             .with_position(winit::dpi::LogicalPosition::new(x, y));
 
-        let window = Arc::new(event_loop.create_window(attrs).expect("Failed to create window"));
+        let window = Arc::new(
+            event_loop
+                .create_window(attrs)
+                .expect("Failed to create window"),
+        );
 
-        let surface =
-            RenderSurface::new(Arc::clone(&window), SurfaceConfig::default())
-                .expect("Failed to create surface");
+        let surface = RenderSurface::new(Arc::clone(&window), SurfaceConfig::default())
+            .expect("Failed to create surface");
 
         let renderer = GpuRenderer::new(&surface).expect("Failed to create renderer");
 
@@ -160,12 +157,20 @@ impl ApplicationHandler for MultiWindowApp {
 
         self.initialized = true;
 
-        println!("Created {} windows with independent render state", self.windows.len());
+        println!(
+            "Created {} windows with independent render state",
+            self.windows.len()
+        );
         println!("Each window has its own RenderSurface and GpuRenderer");
         println!("The GraphicsContext (GPU device/queue) is shared between all windows");
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
         let Some(window_state) = self.windows.get_mut(&window_id) else {
             return;
         };

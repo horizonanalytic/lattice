@@ -61,8 +61,10 @@ use std::fmt;
 
 /// Case conversion mode for alphabetic characters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum CaseMode {
     /// No case conversion.
+    #[default]
     None,
     /// Convert to uppercase.
     Upper,
@@ -70,11 +72,6 @@ pub enum CaseMode {
     Lower,
 }
 
-impl Default for CaseMode {
-    fn default() -> Self {
-        CaseMode::None
-    }
-}
 
 /// Represents a single element in a parsed input mask.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -112,9 +109,7 @@ impl MaskElement {
     pub fn accepts(&self, ch: char) -> bool {
         match self {
             MaskElement::Literal(lit) => ch == *lit,
-            MaskElement::Required(class, _) | MaskElement::Optional(class, _) => {
-                class.accepts(ch)
-            }
+            MaskElement::Required(class, _) | MaskElement::Optional(class, _) => class.accepts(ch),
         }
     }
 
@@ -234,7 +229,11 @@ impl InputMask {
                 // Found blank specifier
                 let blank = chars[i + 1];
                 // Return pattern up to semicolon and the blank char
-                let byte_pos = pattern.char_indices().nth(i).map(|(pos, _)| pos).unwrap_or(pattern.len());
+                let byte_pos = pattern
+                    .char_indices()
+                    .nth(i)
+                    .map(|(pos, _)| pos)
+                    .unwrap_or(pattern.len());
                 return (&pattern[..byte_pos], blank);
             }
             i += 1;
@@ -331,12 +330,7 @@ impl InputMask {
 
     /// Find the next editable position at or after the given position.
     pub fn next_editable_pos(&self, from: usize) -> Option<usize> {
-        for i in from..self.elements.len() {
-            if self.elements[i].is_editable() {
-                return Some(i);
-            }
-        }
-        None
+        (from..self.elements.len()).find(|&i| self.elements[i].is_editable())
     }
 
     /// Find the previous editable position before the given position.
@@ -344,12 +338,7 @@ impl InputMask {
         if from == 0 {
             return None;
         }
-        for i in (0..from).rev() {
-            if self.elements[i].is_editable() {
-                return Some(i);
-            }
-        }
-        None
+        (0..from).rev().find(|&i| self.elements[i].is_editable())
     }
 
     /// Find the first editable position.
@@ -359,12 +348,7 @@ impl InputMask {
 
     /// Find the last editable position.
     pub fn last_editable_pos(&self) -> Option<usize> {
-        for i in (0..self.elements.len()).rev() {
-            if self.elements[i].is_editable() {
-                return Some(i);
-            }
-        }
-        None
+        (0..self.elements.len()).rev().find(|&i| self.elements[i].is_editable())
     }
 
     /// Check if a character can be placed at the given mask position.
@@ -617,10 +601,10 @@ mod tests {
         let mask = InputMask::new("99-990").unwrap();
         assert!(!mask.is_complete(""));
         assert!(!mask.is_complete("1"));
-        assert!(!mask.is_complete("12"));    // Only fills first 2 positions
-        assert!(!mask.is_complete("123"));   // Fills 2 + 1 on second side
-        assert!(mask.is_complete("1234"));   // Fills 2 + 2, all required done
-        assert!(mask.is_complete("12345"));  // All filled including optional
+        assert!(!mask.is_complete("12")); // Only fills first 2 positions
+        assert!(!mask.is_complete("123")); // Fills 2 + 1 on second side
+        assert!(mask.is_complete("1234")); // Fills 2 + 2, all required done
+        assert!(mask.is_complete("12345")); // All filled including optional
 
         // All-optional mask is always complete
         let mask2 = InputMask::new("000").unwrap();
@@ -633,7 +617,7 @@ mod tests {
     fn test_editable_positions() {
         let mask = InputMask::new("(999) 999-9999").unwrap();
 
-        assert_eq!(mask.first_editable_pos(), Some(1));  // After '('
+        assert_eq!(mask.first_editable_pos(), Some(1)); // After '('
         assert_eq!(mask.next_editable_pos(0), Some(1));
         assert_eq!(mask.next_editable_pos(4), Some(6)); // After ') '
         assert_eq!(mask.prev_editable_pos(6), Some(3)); // Before ') '

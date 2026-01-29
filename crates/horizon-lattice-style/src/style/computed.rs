@@ -1,10 +1,10 @@
 //! Computed style with all values resolved.
 
+use crate::types::{BorderStyle, Cursor, TextAlign};
 use horizon_lattice_render::{
-    Color, Paint, BoxShadow, CornerRadii, Rect,
-    text::{FontFamily, FontWeight, FontStyle, FontStretch, TextDecoration},
+    BoxShadow, Color, CornerRadii, Paint, Rect,
+    text::{FontFamily, FontStretch, FontStyle, FontWeight, TextDecoration},
 };
-use crate::types::{BorderStyle, TextAlign, Cursor};
 
 /// Fully resolved style with concrete values.
 ///
@@ -254,7 +254,7 @@ impl ComputedStyle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use horizon_lattice_render::Point;
+    
 
     #[test]
     fn computed_style_default() {

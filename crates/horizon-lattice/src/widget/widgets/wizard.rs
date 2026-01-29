@@ -632,7 +632,10 @@ impl Wizard {
     pub fn new(title: impl Into<String>) -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Preferred,
+        ));
         base.hide();
 
         Self {
@@ -693,7 +696,8 @@ impl Wizard {
     /// Set the wizard size using builder pattern.
     pub fn with_size(mut self, width: f32, height: f32) -> Self {
         self.size = (width, height);
-        self.base.set_size(horizon_lattice_render::Size::new(width, height));
+        self.base
+            .set_size(horizon_lattice_render::Size::new(width, height));
         self
     }
 
@@ -899,14 +903,18 @@ impl Wizard {
     /// Get the index of the next visible page.
     fn next_visible_page(&self) -> Option<usize> {
         let visible = self.visible_pages();
-        let current_pos = visible.iter().position(|&i| i == self.current_page as usize)?;
+        let current_pos = visible
+            .iter()
+            .position(|&i| i == self.current_page as usize)?;
         visible.get(current_pos + 1).copied()
     }
 
     /// Get the index of the previous visible page.
     fn prev_visible_page(&self) -> Option<usize> {
         let visible = self.visible_pages();
-        let current_pos = visible.iter().position(|&i| i == self.current_page as usize)?;
+        let current_pos = visible
+            .iter()
+            .position(|&i| i == self.current_page as usize)?;
         if current_pos > 0 {
             visible.get(current_pos - 1).copied()
         } else {
@@ -922,11 +930,10 @@ impl Wizard {
     /// Check if we can navigate to the previous page.
     pub fn can_go_back(&self) -> bool {
         // Can't go back past a commit point
-        if let Some(commit_idx) = self.first_commit_reached {
-            if self.current_page as usize <= commit_idx {
+        if let Some(commit_idx) = self.first_commit_reached
+            && self.current_page as usize <= commit_idx {
                 return false;
             }
-        }
         self.prev_visible_page().is_some()
     }
 
@@ -1248,13 +1255,16 @@ impl Wizard {
 
         // Going back: check for commit points
         if target_idx < current {
-            if let Some(commit_idx) = self.first_commit_reached {
-                if target_idx < commit_idx {
+            if let Some(commit_idx) = self.first_commit_reached
+                && target_idx < commit_idx {
                     return false;
                 }
-            }
             // Can only go back to completed pages
-            return self.pages.get(target_idx).map(|p| p.is_completed()).unwrap_or(false);
+            return self
+                .pages
+                .get(target_idx)
+                .map(|p| p.is_completed())
+                .unwrap_or(false);
         }
 
         // Going forward: can only go to next page (must use Next button)
@@ -1564,7 +1574,8 @@ impl Wizard {
         if is_completed && !is_current {
             // Draw checkmark
             let font = Font::new(FontFamily::SansSerif, 14.0);
-            let layout = TextLayout::with_options(&mut font_system, "✓", &font, TextLayoutOptions::new());
+            let layout =
+                TextLayout::with_options(&mut font_system, "✓", &font, TextLayoutOptions::new());
             let text_x = circle_x - layout.width() / 2.0;
             let text_y = circle_y - layout.height() / 2.0;
             if let Ok(mut text_renderer) = TextRenderer::new() {
@@ -1579,7 +1590,12 @@ impl Wizard {
             // Draw number
             let num_str = format!("{}", vis_idx + 1);
             let font = Font::new(FontFamily::SansSerif, 12.0);
-            let layout = TextLayout::with_options(&mut font_system, &num_str, &font, TextLayoutOptions::new());
+            let layout = TextLayout::with_options(
+                &mut font_system,
+                &num_str,
+                &font,
+                TextLayoutOptions::new(),
+            );
             let text_x = circle_x - layout.width() / 2.0;
             let text_y = circle_y - layout.height() / 2.0;
             let text_color = if is_current || is_completed {
@@ -1608,7 +1624,12 @@ impl Wizard {
         };
 
         let font = Font::new(FontFamily::SansSerif, 13.0);
-        let layout = TextLayout::with_options(&mut font_system, page.title(), &font, TextLayoutOptions::new());
+        let layout = TextLayout::with_options(
+            &mut font_system,
+            page.title(),
+            &font,
+            TextLayoutOptions::new(),
+        );
         let title_y = circle_y - layout.height() / 2.0;
         if let Ok(mut text_renderer) = TextRenderer::new() {
             let _ = text_renderer.prepare_layout(
@@ -1634,7 +1655,8 @@ impl Wizard {
             self.size.0 - content_left,
             self.size.1 - self.title_bar_height - NAV_BUTTON_HEIGHT,
         );
-        ctx.renderer().fill_rect(content_bg_rect, self.background_color);
+        ctx.renderer()
+            .fill_rect(content_bg_rect, self.background_color);
 
         // Draw page title and subtitle
         if let Some(page) = self.current_page() {
@@ -1670,10 +1692,8 @@ impl Wizard {
                     &subtitle_font,
                     TextLayoutOptions::new(),
                 );
-                let subtitle_pos = Point::new(
-                    title_pos.x,
-                    title_pos.y + title_layout.height() + 4.0,
-                );
+                let subtitle_pos =
+                    Point::new(title_pos.x, title_pos.y + title_layout.height() + 4.0);
                 if let Ok(mut text_renderer) = TextRenderer::new() {
                     let _ = text_renderer.prepare_layout(
                         &mut font_system,
@@ -1686,8 +1706,8 @@ impl Wizard {
 
             // Validation errors
             let validation = page.last_validation();
-            if !validation.is_valid() {
-                if let Some(error_msg) = validation.first_error_message() {
+            if !validation.is_valid()
+                && let Some(error_msg) = validation.first_error_message() {
                     let error_font = Font::new(FontFamily::SansSerif, 12.0);
                     let error_layout = TextLayout::with_options(
                         &mut font_system,
@@ -1695,7 +1715,8 @@ impl Wizard {
                         &error_font,
                         TextLayoutOptions::new(),
                     );
-                    let error_y = self.size.1 - NAV_BUTTON_HEIGHT - CONTENT_PADDING - error_layout.height();
+                    let error_y =
+                        self.size.1 - NAV_BUTTON_HEIGHT - CONTENT_PADDING - error_layout.height();
                     let error_pos = Point::new(content_left + CONTENT_PADDING, error_y);
                     if let Ok(mut text_renderer) = TextRenderer::new() {
                         let _ = text_renderer.prepare_layout(
@@ -1706,7 +1727,6 @@ impl Wizard {
                         );
                     }
                 }
-            }
         }
     }
 
@@ -1726,23 +1746,47 @@ impl Wizard {
 
         // Back button
         if self.can_go_back() {
-            self.paint_button(ctx, self.back_button_rect(), "Back", false, HitPart::BackButton);
+            self.paint_button(
+                ctx,
+                self.back_button_rect(),
+                "Back",
+                false,
+                HitPart::BackButton,
+            );
         } else {
             self.paint_button_disabled(ctx, self.back_button_rect(), "Back");
         }
 
         // Next button
         if self.can_go_next() {
-            self.paint_button(ctx, self.next_button_rect(), "Next", true, HitPart::NextButton);
+            self.paint_button(
+                ctx,
+                self.next_button_rect(),
+                "Next",
+                true,
+                HitPart::NextButton,
+            );
         }
 
         // Finish button
         if self.is_last_page() {
-            self.paint_button(ctx, self.finish_button_rect(), "Finish", true, HitPart::FinishButton);
+            self.paint_button(
+                ctx,
+                self.finish_button_rect(),
+                "Finish",
+                true,
+                HitPart::FinishButton,
+            );
         }
 
         // Cancel button
-        self.paint_button(ctx, self.cancel_button_rect(), "Cancel", false, HitPart::CancelButton);
+        self.paint_button(
+            ctx,
+            self.cancel_button_rect(),
+            "Cancel",
+            false,
+            HitPart::CancelButton,
+        );
     }
 
     fn paint_button(
@@ -1785,17 +1829,17 @@ impl Wizard {
         // Label
         let mut font_system = FontSystem::new();
         let font = Font::new(FontFamily::SansSerif, 13.0);
-        let layout = TextLayout::with_options(
-            &mut font_system,
-            label,
-            &font,
-            TextLayoutOptions::new(),
-        );
+        let layout =
+            TextLayout::with_options(&mut font_system, label, &font, TextLayoutOptions::new());
 
         let text_x = rect.origin.x + (rect.width() - layout.width()) / 2.0;
         let text_y = rect.origin.y + (rect.height() - layout.height()) / 2.0;
 
-        let text_color = if primary { Color::WHITE } else { self.text_color };
+        let text_color = if primary {
+            Color::WHITE
+        } else {
+            self.text_color
+        };
         if let Ok(mut text_renderer) = TextRenderer::new() {
             let _ = text_renderer.prepare_layout(
                 &mut font_system,
@@ -1809,17 +1853,14 @@ impl Wizard {
     fn paint_button_disabled(&self, ctx: &mut PaintContext<'_>, rect: Rect, label: &str) {
         // Background
         let rounded = RoundedRect::new(rect, 4.0);
-        ctx.renderer().fill_rounded_rect(rounded, self.button_disabled_color);
+        ctx.renderer()
+            .fill_rounded_rect(rounded, self.button_disabled_color);
 
         // Label
         let mut font_system = FontSystem::new();
         let font = Font::new(FontFamily::SansSerif, 13.0);
-        let layout = TextLayout::with_options(
-            &mut font_system,
-            label,
-            &font,
-            TextLayoutOptions::new(),
-        );
+        let layout =
+            TextLayout::with_options(&mut font_system, label, &font, TextLayoutOptions::new());
 
         let text_x = rect.origin.x + (rect.width() - layout.width()) / 2.0;
         let text_y = rect.origin.y + (rect.height() - layout.height()) / 2.0;
@@ -1856,8 +1897,7 @@ impl Widget for Wizard {
     }
 
     fn size_hint(&self) -> SizeHint {
-        SizeHint::from_dimensions(self.size.0, self.size.1)
-            .with_minimum_dimensions(400.0, 300.0)
+        SizeHint::from_dimensions(self.size.0, self.size.1).with_minimum_dimensions(400.0, 300.0)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
@@ -1913,8 +1953,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, AtomicI32, Ordering},
         Arc,
+        atomic::{AtomicBool, AtomicI32, Ordering},
     };
 
     fn setup() {
@@ -1953,8 +1993,8 @@ mod tests {
     #[test]
     fn test_wizard_page_validation() {
         setup();
-        let mut page = WizardPage::new("Test")
-            .with_validator(|_| ValidationResult::invalid("Always fails"));
+        let mut page =
+            WizardPage::new("Test").with_validator(|_| ValidationResult::invalid("Always fails"));
 
         let result = page.validate();
         assert!(!result.is_valid());
@@ -2082,7 +2122,8 @@ mod tests {
         setup();
         let mut wizard = Wizard::new("Test");
         wizard.add_page(
-            WizardPage::new("Page 1").with_validator(|_| ValidationResult::invalid("Validation failed")),
+            WizardPage::new("Page 1")
+                .with_validator(|_| ValidationResult::invalid("Validation failed")),
         );
         wizard.add_page(WizardPage::new("Page 2"));
 
@@ -2109,9 +2150,10 @@ mod tests {
 
         let mut wizard = Wizard::new("Test");
         wizard.add_page(WizardPage::new("Page 1"));
-        wizard.add_page(WizardPage::new("Page 2").with_condition(move |_| {
-            show_page2_clone.load(Ordering::SeqCst)
-        }));
+        wizard.add_page(
+            WizardPage::new("Page 2")
+                .with_condition(move |_| show_page2_clone.load(Ordering::SeqCst)),
+        );
         wizard.add_page(WizardPage::new("Page 3"));
 
         wizard.open();

@@ -210,7 +210,10 @@ impl ScalableImage {
         }
 
         // Should never happen since we always have at least one variant
-        self.variants.values().next().expect("ScalableImage has no variants")
+        self.variants
+            .values()
+            .next()
+            .expect("ScalableImage has no variants")
     }
 
     /// Get a specific scale variant if it exists.
@@ -275,7 +278,10 @@ impl ScalableImage {
 impl std::fmt::Debug for ScalableImage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ScalableImage")
-            .field("logical_size", &format!("{}x{}", self.base_width, self.base_height))
+            .field(
+                "logical_size",
+                &format!("{}x{}", self.base_width, self.base_height),
+            )
             .field("variants", &self.available_scales())
             .finish()
     }

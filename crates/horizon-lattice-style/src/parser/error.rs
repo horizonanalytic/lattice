@@ -24,7 +24,11 @@ impl ParseError {
 
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "CSS parse error at {}:{}: {}", self.line, self.column, self.message)
+        write!(
+            f,
+            "CSS parse error at {}:{}: {}",
+            self.line, self.column, self.message
+        )
     }
 }
 

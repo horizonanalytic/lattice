@@ -36,6 +36,7 @@ use std::sync::Arc;
 
 /// The result of validating input text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub enum ValidationState {
     /// The input is clearly invalid and cannot be made valid by further editing.
     Invalid,
@@ -43,14 +44,10 @@ pub enum ValidationState {
     /// This is the state for partially-typed numbers, incomplete patterns, etc.
     Intermediate,
     /// The input is valid and acceptable as a final result.
+    #[default]
     Acceptable,
 }
 
-impl Default for ValidationState {
-    fn default() -> Self {
-        ValidationState::Acceptable
-    }
-}
 
 impl fmt::Display for ValidationState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -413,7 +410,10 @@ impl Validator for DoubleValidator {
         if let Some(dot_pos) = trimmed.find('.') {
             let decimal_part = &trimmed[dot_pos + 1..];
             // Only count actual digits, not trailing characters
-            let digit_count: usize = decimal_part.chars().take_while(|c| c.is_ascii_digit()).count();
+            let digit_count: usize = decimal_part
+                .chars()
+                .take_while(|c| c.is_ascii_digit())
+                .count();
             if digit_count > self.decimals as usize {
                 return ValidationState::Invalid;
             }
@@ -434,11 +434,7 @@ impl Validator for DoubleValidator {
                         has_dot = true;
                         true
                     }
-                } else if i == 0 && (c == '-' || c == '+') {
-                    true
-                } else {
-                    false
-                }
+                } else { i == 0 && (c == '-' || c == '+') }
             }) && (has_digit || has_dot)
         };
 
@@ -484,8 +480,8 @@ impl Validator for DoubleValidator {
         // Remove trailing decimal point for parsing
         let normalized = trimmed.trim_end_matches('.');
 
-        if let Ok(value) = normalized.parse::<f64>() {
-            if value.is_finite() {
+        if let Ok(value) = normalized.parse::<f64>()
+            && value.is_finite() {
                 let clamped = value.clamp(self.minimum, self.maximum);
                 let was_clamped = (clamped - value).abs() > f64::EPSILON;
 
@@ -494,7 +490,6 @@ impl Validator for DoubleValidator {
                     return Some(format!("{:.prec$}", clamped, prec = self.decimals as usize));
                 }
             }
-        }
 
         None
     }
@@ -832,9 +827,7 @@ impl HexColorValidator {
                 let chars: Vec<char> = hex.chars().collect();
                 Some(format!(
                     "#{}{}{}{}{}{}",
-                    chars[0], chars[0],
-                    chars[1], chars[1],
-                    chars[2], chars[2]
+                    chars[0], chars[0], chars[1], chars[1], chars[2], chars[2]
                 ))
             }
             4 => {
@@ -842,10 +835,7 @@ impl HexColorValidator {
                 let chars: Vec<char> = hex.chars().collect();
                 Some(format!(
                     "#{}{}{}{}{}{}{}{}",
-                    chars[0], chars[0],
-                    chars[1], chars[1],
-                    chars[2], chars[2],
-                    chars[3], chars[3]
+                    chars[0], chars[0], chars[1], chars[1], chars[2], chars[2], chars[3], chars[3]
                 ))
             }
             _ => None,
@@ -1099,11 +1089,8 @@ mod tests {
 
     #[test]
     fn test_regex_validator_with_intermediate_pattern() {
-        let validator = RegexValidator::with_intermediate(
-            r"^\d{3}-\d{4}$",
-            r"^\d{0,3}(-\d{0,4})?$",
-        )
-        .unwrap();
+        let validator =
+            RegexValidator::with_intermediate(r"^\d{3}-\d{4}$", r"^\d{0,3}(-\d{0,4})?$").unwrap();
         assert_eq!(validator.validate("123-4567"), ValidationState::Acceptable);
         assert_eq!(validator.validate("12"), ValidationState::Intermediate);
         assert_eq!(validator.validate("123-"), ValidationState::Intermediate);
@@ -1171,7 +1158,10 @@ mod tests {
         assert_eq!(validator.validate("#FF0"), ValidationState::Intermediate);
         assert_eq!(validator.validate("#FF00"), ValidationState::Intermediate);
         assert_eq!(validator.validate("#FF000"), ValidationState::Intermediate);
-        assert_eq!(validator.validate("#FF00000"), ValidationState::Intermediate);
+        assert_eq!(
+            validator.validate("#FF00000"),
+            ValidationState::Intermediate
+        );
     }
 
     #[test]
@@ -1219,10 +1209,7 @@ mod tests {
             HexColorValidator::parse_hex("#00FF0080"),
             Some((0, 255, 0, 128))
         );
-        assert_eq!(
-            HexColorValidator::parse_hex("#F00"),
-            Some((255, 0, 0, 255))
-        );
+        assert_eq!(HexColorValidator::parse_hex("#F00"), Some((255, 0, 0, 255)));
         assert_eq!(
             HexColorValidator::parse_hex("FF0000"),
             Some((255, 0, 0, 255))

@@ -859,16 +859,21 @@ mod windows_impl {
     use super::*;
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
-    use windows::core::PCWSTR;
     use windows::Win32::Foundation::HWND;
-    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_APARTMENTTHREADED};
-    use windows::Win32::UI::Shell::{
-        ITaskbarList3, SHAddToRecentDocs, TaskbarList, SHARD_PATHW, TBPFLAG,
-        TBPF_ERROR, TBPF_INDETERMINATE, TBPF_NOPROGRESS, TBPF_NORMAL, TBPF_PAUSED,
+    use windows::Win32::System::Com::{
+        CLSCTX_ALL, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
     };
+    use windows::Win32::UI::Shell::{
+        ITaskbarList3, SHARD_PATHW, SHAddToRecentDocs, TBPF_ERROR, TBPF_INDETERMINATE,
+        TBPF_NOPROGRESS, TBPF_NORMAL, TBPF_PAUSED, TBPFLAG, TaskbarList,
+    };
+    use windows::core::PCWSTR;
 
     fn to_wide(s: &str) -> Vec<u16> {
-        OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
+        OsStr::new(s)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
     }
 
     fn get_taskbar_list() -> Result<ITaskbarList3, DesktopIntegrationError> {
@@ -891,7 +896,9 @@ mod windows_impl {
         }
     }
 
-    pub fn windows_add_recent_document(doc: &RecentDocument) -> Result<(), DesktopIntegrationError> {
+    pub fn windows_add_recent_document(
+        doc: &RecentDocument,
+    ) -> Result<(), DesktopIntegrationError> {
         let path_wide = to_wide(&doc.path.to_string_lossy());
 
         unsafe {
@@ -944,7 +951,7 @@ mod windows_impl {
         icon_path: &Path,
         description: &str,
     ) -> Result<(), DesktopIntegrationError> {
-        use windows::Win32::UI::WindowsAndMessaging::{LoadImageW, IMAGE_ICON, LR_LOADFROMFILE};
+        use windows::Win32::UI::WindowsAndMessaging::{IMAGE_ICON, LR_LOADFROMFILE, LoadImageW};
 
         let taskbar = get_taskbar_list()?;
         let hwnd = get_foreground_window();
@@ -1037,9 +1044,8 @@ mod macos_impl {
         let url_str = format!("file://{}", path_str);
 
         let ns_url_string = NSString::from_str(&url_str);
-        let url = NSURL::URLWithString(&ns_url_string).ok_or_else(|| {
-            DesktopIntegrationError::recent_documents("invalid file path")
-        })?;
+        let url = NSURL::URLWithString(&ns_url_string)
+            .ok_or_else(|| DesktopIntegrationError::recent_documents("invalid file path"))?;
 
         let app = NSApplication::sharedApplication(mtm);
         // NSDocumentController is not directly available, use NSApp
@@ -1124,9 +1130,8 @@ mod linux_impl {
             return Ok(PathBuf::from(xdg_data_home));
         }
 
-        let home = env::var("HOME").map_err(|_| {
-            DesktopIntegrationError::io("HOME environment variable not set")
-        })?;
+        let home = env::var("HOME")
+            .map_err(|_| DesktopIntegrationError::io("HOME environment variable not set"))?;
 
         Ok(PathBuf::from(home).join(".local/share"))
     }
@@ -1160,7 +1165,10 @@ mod linux_impl {
             .unwrap_or(0);
 
         let file_uri = format!("file://{}", doc.path.to_string_lossy());
-        let mime_type = doc.mime_type.as_deref().unwrap_or("application/octet-stream");
+        let mime_type = doc
+            .mime_type
+            .as_deref()
+            .unwrap_or("application/octet-stream");
         let app_name = doc.app_name.as_deref().unwrap_or("horizon-lattice");
 
         // Create bookmark entry

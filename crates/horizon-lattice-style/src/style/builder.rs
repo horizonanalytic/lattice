@@ -1,11 +1,11 @@
 //! Type-safe style builder DSL.
 
-use horizon_lattice_render::{
-    Color, Paint, BoxShadow, CornerRadii,
-    text::{FontFamily, FontWeight, FontStyle, FontStretch, TextDecoration},
-};
-use crate::types::{StyleValue, LengthValue, EdgeValues, BorderStyle, TextAlign, Cursor};
 use super::StyleProperties;
+use crate::types::{BorderStyle, Cursor, EdgeValues, LengthValue, StyleValue, TextAlign};
+use horizon_lattice_render::{
+    BoxShadow, Color, CornerRadii, Paint,
+    text::{FontFamily, FontStretch, FontStyle, FontWeight, TextDecoration},
+};
 
 /// Builder for creating style properties with a fluent API.
 ///

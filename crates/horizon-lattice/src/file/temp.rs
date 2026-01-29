@@ -96,7 +96,8 @@ impl TempFile {
     ///
     /// Returns an error if the temp file cannot be created.
     pub fn new() -> FileResult<Self> {
-        let inner = tempfile::NamedTempFile::new().map_err(|e| FileError::from(io::Error::from(e)))?;
+        let inner =
+            tempfile::NamedTempFile::new().map_err(|e| FileError::from(e))?;
         Ok(Self { inner })
     }
 
@@ -107,7 +108,7 @@ impl TempFile {
     /// Returns an error if the temp file cannot be created.
     pub fn new_in(dir: impl AsRef<Path>) -> FileResult<Self> {
         let inner = tempfile::NamedTempFile::new_in(dir.as_ref())
-            .map_err(|e| FileError::from_io(io::Error::from(e), dir.as_ref()))?;
+            .map_err(|e| FileError::from_io(e, dir.as_ref()))?;
         Ok(Self { inner })
     }
 
@@ -290,11 +291,11 @@ impl TempFileBuilder {
         let inner = if let Some(dir) = &self.dir {
             builder
                 .tempfile_in(dir)
-                .map_err(|e| FileError::from_io(io::Error::from(e), dir))?
+                .map_err(|e| FileError::from_io(e, dir))?
         } else {
             builder
                 .tempfile()
-                .map_err(|e| FileError::from(io::Error::from(e)))?
+                .map_err(|e| FileError::from(e))?
         };
 
         Ok(TempFile { inner })
@@ -336,8 +337,7 @@ impl TempDirectory {
     ///
     /// Returns an error if the temp directory cannot be created.
     pub fn new() -> FileResult<Self> {
-        let inner =
-            tempfile::TempDir::new().map_err(|e| FileError::from(io::Error::from(e)))?;
+        let inner = tempfile::TempDir::new().map_err(|e| FileError::from(e))?;
         Ok(Self { inner })
     }
 
@@ -348,7 +348,7 @@ impl TempDirectory {
     /// Returns an error if the temp directory cannot be created.
     pub fn new_in(dir: impl AsRef<Path>) -> FileResult<Self> {
         let inner = tempfile::TempDir::new_in(dir.as_ref())
-            .map_err(|e| FileError::from_io(io::Error::from(e), dir.as_ref()))?;
+            .map_err(|e| FileError::from_io(e, dir.as_ref()))?;
         Ok(Self { inner })
     }
 
@@ -488,11 +488,11 @@ impl TempDirectoryBuilder {
         let inner = if let Some(dir) = &self.dir {
             builder
                 .tempdir_in(dir)
-                .map_err(|e| FileError::from_io(io::Error::from(e), dir))?
+                .map_err(|e| FileError::from_io(e, dir))?
         } else {
             builder
                 .tempdir()
-                .map_err(|e| FileError::from(io::Error::from(e)))?
+                .map_err(|e| FileError::from(e))?
         };
 
         Ok(TempDirectory { inner })

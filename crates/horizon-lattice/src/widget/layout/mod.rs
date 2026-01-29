@@ -68,27 +68,27 @@
 //! For a comprehensive guide on the layout system, see the
 //! [Layout Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/layouts.html).
 
-mod item;
-mod traits;
-mod base;
-mod invalidation;
-mod box_layout;
-mod grid_layout;
-mod form_layout;
-mod stack_layout;
-mod flow_layout;
 mod anchor_layout;
+mod base;
+mod box_layout;
+mod flow_layout;
+mod form_layout;
+mod grid_layout;
+mod invalidation;
+mod item;
+mod stack_layout;
+mod traits;
 
-pub use item::{LayoutItem, SpacerItem, SpacerType};
-pub use traits::Layout;
+pub use anchor_layout::{Anchor, AnchorLayout, AnchorLine, AnchorTarget};
 pub use base::LayoutBase;
-pub use invalidation::{LayoutInvalidator, InvalidationScope};
-pub use box_layout::{BoxLayout, HBoxLayout, VBoxLayout, Orientation, Alignment};
-pub use grid_layout::{GridLayout, CellAlignment};
-pub use form_layout::{FormLayout, FormRow, FormItemRole, RowWrapPolicy, FieldGrowthPolicy};
-pub use stack_layout::{StackLayout, StackSizeMode};
+pub use box_layout::{Alignment, BoxLayout, HBoxLayout, Orientation, VBoxLayout};
 pub use flow_layout::FlowLayout;
-pub use anchor_layout::{AnchorLayout, AnchorLine, AnchorTarget, Anchor};
+pub use form_layout::{FieldGrowthPolicy, FormItemRole, FormLayout, FormRow, RowWrapPolicy};
+pub use grid_layout::{CellAlignment, GridLayout};
+pub use invalidation::{InvalidationScope, LayoutInvalidator};
+pub use item::{LayoutItem, SpacerItem, SpacerType};
+pub use stack_layout::{StackLayout, StackSizeMode};
+pub use traits::Layout;
 
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::geometry::{SizeHint, SizePolicyPair};

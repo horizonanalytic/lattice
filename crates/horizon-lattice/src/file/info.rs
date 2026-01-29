@@ -81,11 +81,7 @@ impl Permissions {
     /// On non-Unix systems, this returns a default value (0o644 for files, 0o755 for directories).
     #[cfg(not(unix))]
     pub fn mode(&self) -> u32 {
-        if self.readonly {
-            0o444
-        } else {
-            0o644
-        }
+        if self.readonly { 0o444 } else { 0o644 }
     }
 
     /// Returns true if the owner can read the file (Unix).
@@ -267,7 +263,7 @@ impl FileInfo {
     pub fn is_writable(&self) -> bool {
         // Try to open for writing (append mode to avoid truncating)
         fs::OpenOptions::new()
-            .write(true)
+            
             .append(true)
             .open(&self.path)
             .is_ok()

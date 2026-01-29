@@ -4,4 +4,4 @@ mod rule;
 mod stylesheet;
 
 pub use rule::StyleRule;
-pub use stylesheet::{StyleSheet, StylePriority};
+pub use stylesheet::{StylePriority, StyleSheet};

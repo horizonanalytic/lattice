@@ -74,7 +74,10 @@ impl SizePolicy {
     /// Returns true if the widget actively wants more space.
     #[inline]
     pub fn wants_to_grow(self) -> bool {
-        matches!(self, Self::Expanding | Self::MinimumExpanding | Self::Ignored)
+        matches!(
+            self,
+            Self::Expanding | Self::MinimumExpanding | Self::Ignored
+        )
     }
 }
 
@@ -437,10 +440,7 @@ mod tests {
         );
 
         // Below minimum
-        assert_eq!(
-            hint.constrain(Size::new(25.0, 25.0)),
-            Size::new(50.0, 50.0)
-        );
+        assert_eq!(hint.constrain(Size::new(25.0, 25.0)), Size::new(50.0, 50.0));
 
         // Above maximum
         assert_eq!(
@@ -459,10 +459,8 @@ mod tests {
 
     #[test]
     fn test_size_hint_expanded_to() {
-        let hint1 = SizeHint::new(Size::new(100.0, 50.0))
-            .with_minimum(Size::new(50.0, 25.0));
-        let hint2 = SizeHint::new(Size::new(80.0, 100.0))
-            .with_maximum(Size::new(200.0, 200.0));
+        let hint1 = SizeHint::new(Size::new(100.0, 50.0)).with_minimum(Size::new(50.0, 25.0));
+        let hint2 = SizeHint::new(Size::new(80.0, 100.0)).with_maximum(Size::new(200.0, 200.0));
 
         let expanded = hint1.expanded_to(&hint2);
         assert_eq!(expanded.preferred, Size::new(100.0, 100.0));

@@ -109,7 +109,10 @@ impl Splitter {
     pub fn new(orientation: Orientation) -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::NoFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         Self {
             base,
@@ -184,7 +187,8 @@ impl Splitter {
 
         self.children.insert(insert_pos, widget_id);
         self.sizes.insert(insert_pos, 0);
-        self.minimum_sizes.insert(insert_pos, self.default_minimum_size);
+        self.minimum_sizes
+            .insert(insert_pos, self.default_minimum_size);
         self.collapsible.insert(insert_pos, false);
         self.collapsed_sizes.insert(insert_pos, None);
 
@@ -348,7 +352,10 @@ impl Splitter {
 
     /// Get the minimum size of a pane.
     pub fn minimum_size(&self, index: usize) -> i32 {
-        self.minimum_sizes.get(index).copied().unwrap_or(self.default_minimum_size)
+        self.minimum_sizes
+            .get(index)
+            .copied()
+            .unwrap_or(self.default_minimum_size)
     }
 
     /// Set the minimum size of a pane.
@@ -900,7 +907,7 @@ mod tests {
     use super::*;
     use crate::widget::base::WidgetBase;
     use crate::widget::traits::{PaintContext, Widget};
-    use horizon_lattice_core::{init_global_registry, Object};
+    use horizon_lattice_core::{Object, init_global_registry};
 
     /// Mock widget for testing.
     struct MockWidget {

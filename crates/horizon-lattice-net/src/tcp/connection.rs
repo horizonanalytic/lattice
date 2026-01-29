@@ -1,8 +1,8 @@
 //! TCP connection type for server-accepted connections.
 
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use horizon_lattice_core::Signal;
 use parking_lot::Mutex;

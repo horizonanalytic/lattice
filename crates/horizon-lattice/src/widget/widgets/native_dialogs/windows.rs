@@ -14,13 +14,8 @@ use super::{
 
 #[cfg(target_os = "windows")]
 use windows::{
-    core::*,
-    Win32::Foundation::*,
-    Win32::Graphics::Gdi::*,
-    Win32::System::Com::*,
-    Win32::UI::Controls::Dialogs::*,
-    Win32::UI::Shell::Common::*,
-    Win32::UI::Shell::*,
+    Win32::Foundation::*, Win32::Graphics::Gdi::*, Win32::System::Com::*,
+    Win32::UI::Controls::Dialogs::*, Win32::UI::Shell::Common::*, Win32::UI::Shell::*, core::*,
 };
 
 /// Check if native dialogs are available.
@@ -84,9 +79,7 @@ pub fn open_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
         if let Some(dir) = &options.directory {
             if let Some(dir_str) = dir.to_str() {
                 let wide: Vec<u16> = dir_str.encode_utf16().chain(std::iter::once(0)).collect();
-                if let Ok(folder) =
-                    SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None)
-                {
+                if let Ok(folder) = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None) {
                     let _ = dialog.SetFolder(&folder);
                 }
             }
@@ -160,9 +153,7 @@ pub fn open_files(options: NativeFileDialogOptions) -> Option<Vec<PathBuf>> {
         if let Some(dir) = &options.directory {
             if let Some(dir_str) = dir.to_str() {
                 let wide: Vec<u16> = dir_str.encode_utf16().chain(std::iter::once(0)).collect();
-                if let Ok(folder) =
-                    SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None)
-                {
+                if let Ok(folder) = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None) {
                     let _ = dialog.SetFolder(&folder);
                 }
             }
@@ -212,9 +203,7 @@ pub fn save_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
         if let Some(dir) = &options.directory {
             if let Some(dir_str) = dir.to_str() {
                 let wide: Vec<u16> = dir_str.encode_utf16().chain(std::iter::once(0)).collect();
-                if let Ok(folder) =
-                    SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None)
-                {
+                if let Ok(folder) = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None) {
                     let _ = dialog.SetFolder(&folder);
                 }
             }
@@ -259,9 +248,7 @@ pub fn select_directory(options: NativeFileDialogOptions) -> Option<PathBuf> {
         if let Some(dir) = &options.directory {
             if let Some(dir_str) = dir.to_str() {
                 let wide: Vec<u16> = dir_str.encode_utf16().chain(std::iter::once(0)).collect();
-                if let Ok(folder) =
-                    SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None)
-                {
+                if let Ok(folder) = SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None) {
                     let _ = dialog.SetFolder(&folder);
                 }
             }

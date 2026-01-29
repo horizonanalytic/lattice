@@ -161,7 +161,9 @@ impl File {
 
     /// Returns the current position in the file.
     pub fn position(&mut self) -> FileResult<u64> {
-        self.seek(SeekFrom::Current(0))
+        self.inner
+            .stream_position()
+            .map_err(|e| FileError::from_io(e, &self.path))
     }
 }
 

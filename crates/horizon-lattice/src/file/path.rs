@@ -944,14 +944,12 @@ impl AppPaths {
 
     /// Creates the configuration directory if it doesn't exist.
     pub fn ensure_config(&self) -> FileResult<()> {
-        std::fs::create_dir_all(&self.config)
-            .map_err(|e| FileError::from_io(e, &self.config))
+        std::fs::create_dir_all(&self.config).map_err(|e| FileError::from_io(e, &self.config))
     }
 
     /// Creates the data directory if it doesn't exist.
     pub fn ensure_data(&self) -> FileResult<()> {
-        std::fs::create_dir_all(&self.data)
-            .map_err(|e| FileError::from_io(e, &self.data))
+        std::fs::create_dir_all(&self.data).map_err(|e| FileError::from_io(e, &self.data))
     }
 
     /// Creates the local data directory if it doesn't exist.
@@ -962,14 +960,12 @@ impl AppPaths {
 
     /// Creates the cache directory if it doesn't exist.
     pub fn ensure_cache(&self) -> FileResult<()> {
-        std::fs::create_dir_all(&self.cache)
-            .map_err(|e| FileError::from_io(e, &self.cache))
+        std::fs::create_dir_all(&self.cache).map_err(|e| FileError::from_io(e, &self.cache))
     }
 
     /// Creates the logs directory if it doesn't exist.
     pub fn ensure_logs(&self) -> FileResult<()> {
-        std::fs::create_dir_all(&self.logs)
-            .map_err(|e| FileError::from_io(e, &self.logs))
+        std::fs::create_dir_all(&self.logs).map_err(|e| FileError::from_io(e, &self.logs))
     }
 
     /// Creates all application directories if they don't exist.
@@ -1061,9 +1057,8 @@ impl PathBuilder {
 
     /// Creates a new `PathBuilder` starting from the current directory.
     pub fn current_dir() -> FileResult<Self> {
-        let cwd = std::env::current_dir().map_err(|e| {
-            FileError::new(FileErrorKind::Other, None, Some(e))
-        })?;
+        let cwd = std::env::current_dir()
+            .map_err(|e| FileError::new(FileErrorKind::Other, None, Some(e)))?;
         Ok(Self::new(cwd))
     }
 
@@ -1152,21 +1147,33 @@ mod tests {
 
     #[test]
     fn test_file_name() {
-        assert_eq!(file_name("/home/user/file.txt"), Some("file.txt".to_string()));
+        assert_eq!(
+            file_name("/home/user/file.txt"),
+            Some("file.txt".to_string())
+        );
         assert_eq!(file_name("/home/user/"), Some("user".to_string()));
     }
 
     #[test]
     fn test_file_stem() {
         assert_eq!(file_stem("/home/user/file.txt"), Some("file".to_string()));
-        assert_eq!(file_stem("/home/user/archive.tar.gz"), Some("archive.tar".to_string()));
-        assert_eq!(file_stem("/home/user/.gitignore"), Some(".gitignore".to_string()));
+        assert_eq!(
+            file_stem("/home/user/archive.tar.gz"),
+            Some("archive.tar".to_string())
+        );
+        assert_eq!(
+            file_stem("/home/user/.gitignore"),
+            Some(".gitignore".to_string())
+        );
     }
 
     #[test]
     fn test_extension() {
         assert_eq!(extension("/home/user/file.txt"), Some("txt".to_string()));
-        assert_eq!(extension("/home/user/archive.tar.gz"), Some("gz".to_string()));
+        assert_eq!(
+            extension("/home/user/archive.tar.gz"),
+            Some("gz".to_string())
+        );
         assert_eq!(extension("/home/user/.gitignore"), None);
     }
 
@@ -1195,10 +1202,7 @@ mod tests {
 
     #[test]
     fn test_normalize_path() {
-        assert_eq!(
-            normalize_path("./foo/bar/../baz"),
-            PathBuf::from("foo/baz")
-        );
+        assert_eq!(normalize_path("./foo/bar/../baz"), PathBuf::from("foo/baz"));
         assert_eq!(
             normalize_path("/foo/./bar/./baz"),
             PathBuf::from("/foo/bar/baz")
@@ -1358,7 +1362,10 @@ mod tests {
             .push("report.txt")
             .build();
 
-        assert_eq!(path, PathBuf::from("/home/user/documents/project/report.txt"));
+        assert_eq!(
+            path,
+            PathBuf::from("/home/user/documents/project/report.txt")
+        );
 
         // with_file replaces the last component
         let path = PathBuilder::new("/home/user/documents/old.txt")

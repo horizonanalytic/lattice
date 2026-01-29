@@ -8,7 +8,10 @@ use horizon_lattice_net::network_info::{
 fn test_list_interfaces() {
     let interfaces = NetworkInterface::list();
     // Should have at least loopback interface on any system
-    assert!(!interfaces.is_empty(), "Should have at least one network interface");
+    assert!(
+        !interfaces.is_empty(),
+        "Should have at least one network interface"
+    );
 
     // Should have a loopback interface
     let has_loopback = interfaces.iter().any(|iface| iface.is_loopback());
@@ -63,7 +66,10 @@ fn test_network_monitor_creation() {
     assert!(monitor.is_ok(), "Should be able to create network monitor");
 
     let monitor = monitor.unwrap();
-    assert!(!monitor.is_running(), "Monitor should not be running initially");
+    assert!(
+        !monitor.is_running(),
+        "Monitor should not be running initially"
+    );
 }
 
 #[test]
@@ -80,7 +86,10 @@ fn test_network_monitor_start_stop() {
     // Start monitoring
     let result = monitor.start();
     assert!(result.is_ok(), "Should be able to start monitoring");
-    assert!(monitor.is_running(), "Monitor should be running after start");
+    assert!(
+        monitor.is_running(),
+        "Monitor should be running after start"
+    );
 
     // Starting again should be a no-op
     let result = monitor.start();
@@ -88,7 +97,10 @@ fn test_network_monitor_start_stop() {
 
     // Stop monitoring
     monitor.stop();
-    assert!(!monitor.is_running(), "Monitor should not be running after stop");
+    assert!(
+        !monitor.is_running(),
+        "Monitor should not be running after stop"
+    );
 }
 
 #[test]

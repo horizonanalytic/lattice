@@ -25,7 +25,9 @@
 //! });
 //! ```
 
-use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike, Utc};
+use chrono::{
+    DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike, Utc,
+};
 use chrono_tz::Tz;
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
@@ -43,7 +45,7 @@ use super::calendar::CalendarWidget;
 use super::combo_box::ComboBox;
 use super::date_edit::DateFormat;
 use super::time_edit::TimeFormat;
-use super::timezone::{get_timezone_abbreviation, TimezoneComboModel};
+use super::timezone::{TimezoneComboModel, get_timezone_abbreviation};
 
 /// How to display the timezone in the DateTimeEdit widget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -107,7 +109,10 @@ enum EditSection {
 
 impl EditSection {
     fn is_date_section(&self) -> bool {
-        matches!(self, EditSection::Month | EditSection::Day | EditSection::Year)
+        matches!(
+            self,
+            EditSection::Month | EditSection::Day | EditSection::Year
+        )
     }
 
     fn is_time_section(&self) -> bool {
@@ -221,7 +226,10 @@ impl DateTimeEdit {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Fixed,
+        ));
 
         let now = Local::now().naive_local();
 
@@ -459,7 +467,8 @@ impl DateTimeEdit {
 
     /// Check if seconds are shown.
     pub fn seconds_shown(&self) -> bool {
-        self.show_seconds.unwrap_or_else(|| self.time_format.shows_seconds())
+        self.show_seconds
+            .unwrap_or_else(|| self.time_format.shows_seconds())
     }
 
     /// Set whether to show seconds.
@@ -621,11 +630,10 @@ impl DateTimeEdit {
         if self.timezone != tz {
             self.timezone = tz;
             // Sync combo selection
-            if let Some(tz) = tz {
-                if let Some(idx) = self.timezone_combo.find_text(tz.name()) {
+            if let Some(tz) = tz
+                && let Some(idx) = self.timezone_combo.find_text(tz.name()) {
                     self.timezone_combo.set_current_index(idx as i32);
                 }
-            }
             self.base.update();
             self.timezone_changed.emit(tz);
         }
@@ -665,7 +673,8 @@ impl DateTimeEdit {
     ///
     /// Returns `None` if no timezone is set.
     pub fn datetime_utc(&self) -> Option<DateTime<Utc>> {
-        self.datetime_with_timezone().map(|dt| dt.with_timezone(&Utc))
+        self.datetime_with_timezone()
+            .map(|dt| dt.with_timezone(&Utc))
     }
 
     /// Set datetime from a timezone-aware value.
@@ -846,7 +855,11 @@ impl DateTimeEdit {
             EditSection::Day => {
                 let date = self.datetime.date();
                 let max_day = days_in_month(date.year(), date.month());
-                let new_day = if date.day() >= max_day { 1 } else { date.day() + 1 };
+                let new_day = if date.day() >= max_day {
+                    1
+                } else {
+                    date.day() + 1
+                };
                 NaiveDate::from_ymd_opt(date.year(), date.month(), new_day)
                     .map(|d| NaiveDateTime::new(d, self.datetime.time()))
             }
@@ -861,23 +874,39 @@ impl DateTimeEdit {
             // Time sections
             EditSection::Hour => {
                 let new_hour = (self.datetime.time().hour() + 1) % 24;
-                NaiveTime::from_hms_opt(new_hour, self.datetime.time().minute(), self.datetime.time().second())
-                    .map(|t| NaiveDateTime::new(self.datetime.date(), t))
+                NaiveTime::from_hms_opt(
+                    new_hour,
+                    self.datetime.time().minute(),
+                    self.datetime.time().second(),
+                )
+                .map(|t| NaiveDateTime::new(self.datetime.date(), t))
             }
             EditSection::Minute => {
                 let new_minute = (self.datetime.time().minute() + 1) % 60;
-                NaiveTime::from_hms_opt(self.datetime.time().hour(), new_minute, self.datetime.time().second())
-                    .map(|t| NaiveDateTime::new(self.datetime.date(), t))
+                NaiveTime::from_hms_opt(
+                    self.datetime.time().hour(),
+                    new_minute,
+                    self.datetime.time().second(),
+                )
+                .map(|t| NaiveDateTime::new(self.datetime.date(), t))
             }
             EditSection::Second => {
                 let new_second = (self.datetime.time().second() + 1) % 60;
-                NaiveTime::from_hms_opt(self.datetime.time().hour(), self.datetime.time().minute(), new_second)
-                    .map(|t| NaiveDateTime::new(self.datetime.date(), t))
+                NaiveTime::from_hms_opt(
+                    self.datetime.time().hour(),
+                    self.datetime.time().minute(),
+                    new_second,
+                )
+                .map(|t| NaiveDateTime::new(self.datetime.date(), t))
             }
             EditSection::AmPm => {
                 let new_hour = (self.datetime.time().hour() + 12) % 24;
-                NaiveTime::from_hms_opt(new_hour, self.datetime.time().minute(), self.datetime.time().second())
-                    .map(|t| NaiveDateTime::new(self.datetime.date(), t))
+                NaiveTime::from_hms_opt(
+                    new_hour,
+                    self.datetime.time().minute(),
+                    self.datetime.time().second(),
+                )
+                .map(|t| NaiveDateTime::new(self.datetime.date(), t))
             }
             EditSection::Timezone => {
                 // Open the timezone picker instead of stepping
@@ -914,7 +943,11 @@ impl DateTimeEdit {
             EditSection::Day => {
                 let date = self.datetime.date();
                 let max_day = days_in_month(date.year(), date.month());
-                let new_day = if date.day() == 1 { max_day } else { date.day() - 1 };
+                let new_day = if date.day() == 1 {
+                    max_day
+                } else {
+                    date.day() - 1
+                };
                 NaiveDate::from_ymd_opt(date.year(), date.month(), new_day)
                     .map(|d| NaiveDateTime::new(d, self.datetime.time()))
             }
@@ -930,25 +963,41 @@ impl DateTimeEdit {
             EditSection::Hour => {
                 let hour = self.datetime.time().hour();
                 let new_hour = if hour == 0 { 23 } else { hour - 1 };
-                NaiveTime::from_hms_opt(new_hour, self.datetime.time().minute(), self.datetime.time().second())
-                    .map(|t| NaiveDateTime::new(self.datetime.date(), t))
+                NaiveTime::from_hms_opt(
+                    new_hour,
+                    self.datetime.time().minute(),
+                    self.datetime.time().second(),
+                )
+                .map(|t| NaiveDateTime::new(self.datetime.date(), t))
             }
             EditSection::Minute => {
                 let minute = self.datetime.time().minute();
                 let new_minute = if minute == 0 { 59 } else { minute - 1 };
-                NaiveTime::from_hms_opt(self.datetime.time().hour(), new_minute, self.datetime.time().second())
-                    .map(|t| NaiveDateTime::new(self.datetime.date(), t))
+                NaiveTime::from_hms_opt(
+                    self.datetime.time().hour(),
+                    new_minute,
+                    self.datetime.time().second(),
+                )
+                .map(|t| NaiveDateTime::new(self.datetime.date(), t))
             }
             EditSection::Second => {
                 let second = self.datetime.time().second();
                 let new_second = if second == 0 { 59 } else { second - 1 };
-                NaiveTime::from_hms_opt(self.datetime.time().hour(), self.datetime.time().minute(), new_second)
-                    .map(|t| NaiveDateTime::new(self.datetime.date(), t))
+                NaiveTime::from_hms_opt(
+                    self.datetime.time().hour(),
+                    self.datetime.time().minute(),
+                    new_second,
+                )
+                .map(|t| NaiveDateTime::new(self.datetime.date(), t))
             }
             EditSection::AmPm => {
                 let new_hour = (self.datetime.time().hour() + 12) % 24;
-                NaiveTime::from_hms_opt(new_hour, self.datetime.time().minute(), self.datetime.time().second())
-                    .map(|t| NaiveDateTime::new(self.datetime.date(), t))
+                NaiveTime::from_hms_opt(
+                    new_hour,
+                    self.datetime.time().minute(),
+                    self.datetime.time().second(),
+                )
+                .map(|t| NaiveDateTime::new(self.datetime.date(), t))
             }
             EditSection::Timezone => {
                 // Open the timezone picker instead of stepping
@@ -976,8 +1025,18 @@ impl DateTimeEdit {
             ),
             DateFormat::Long => {
                 let month_names = [
-                    "January", "February", "March", "April", "May", "June",
-                    "July", "August", "September", "October", "November", "December",
+                    "January",
+                    "February",
+                    "March",
+                    "April",
+                    "May",
+                    "June",
+                    "July",
+                    "August",
+                    "September",
+                    "October",
+                    "November",
+                    "December",
                 ];
                 format!(
                     "{} {:02}, {:04}",
@@ -997,7 +1056,13 @@ impl DateTimeEdit {
         let show_seconds = self.seconds_shown();
         let time_str = if self.is_12_hour() {
             let hour = self.datetime.time().hour();
-            let display_hour = if hour == 0 { 12 } else if hour > 12 { hour - 12 } else { hour };
+            let display_hour = if hour == 0 {
+                12
+            } else if hour > 12 {
+                hour - 12
+            } else {
+                hour
+            };
             let am_pm = if hour < 12 { "AM" } else { "PM" };
 
             if show_seconds {
@@ -1016,21 +1081,19 @@ impl DateTimeEdit {
                     am_pm
                 )
             }
+        } else if show_seconds {
+            format!(
+                "{:02}:{:02}:{:02}",
+                self.datetime.time().hour(),
+                self.datetime.time().minute(),
+                self.datetime.time().second()
+            )
         } else {
-            if show_seconds {
-                format!(
-                    "{:02}:{:02}:{:02}",
-                    self.datetime.time().hour(),
-                    self.datetime.time().minute(),
-                    self.datetime.time().second()
-                )
-            } else {
-                format!(
-                    "{:02}:{:02}",
-                    self.datetime.time().hour(),
-                    self.datetime.time().minute()
-                )
-            }
+            format!(
+                "{:02}:{:02}",
+                self.datetime.time().hour(),
+                self.datetime.time().minute()
+            )
         };
 
         // Format timezone if display is not hidden
@@ -1106,12 +1169,7 @@ impl DateTimeEdit {
         let rect = self.base.rect();
         // Calendar button is positioned before timezone button (if present)
         let x = rect.width() - self.right_buttons_width();
-        Some(Rect::new(
-            x,
-            0.0,
-            self.calendar_button_width,
-            rect.height(),
-        ))
+        Some(Rect::new(x, 0.0, self.calendar_button_width, rect.height()))
     }
 
     fn timezone_button_rect(&self) -> Option<Rect> {
@@ -1121,12 +1179,7 @@ impl DateTimeEdit {
         let rect = self.base.rect();
         // Timezone button is between calendar button and up/down buttons
         let x = rect.width() - self.button_width - self.timezone_button_width;
-        Some(Rect::new(
-            x,
-            0.0,
-            self.timezone_button_width,
-            rect.height(),
-        ))
+        Some(Rect::new(x, 0.0, self.timezone_button_width, rect.height()))
     }
 
     fn up_button_rect(&self) -> Rect {
@@ -1152,7 +1205,12 @@ impl DateTimeEdit {
     fn popup_rect(&self) -> Rect {
         let rect = self.base.rect();
         let cal_hint = self.calendar.size_hint();
-        Rect::new(0.0, rect.height(), cal_hint.preferred.width, cal_hint.preferred.height)
+        Rect::new(
+            0.0,
+            rect.height(),
+            cal_hint.preferred.width,
+            cal_hint.preferred.height,
+        )
     }
 
     fn hit_test(&self, pos: Point) -> DateTimeEditPart {
@@ -1169,16 +1227,14 @@ impl DateTimeEdit {
         if self.down_button_rect().contains(pos) {
             return DateTimeEditPart::DownButton;
         }
-        if let Some(cal_rect) = self.calendar_button_rect() {
-            if cal_rect.contains(pos) {
+        if let Some(cal_rect) = self.calendar_button_rect()
+            && cal_rect.contains(pos) {
                 return DateTimeEditPart::CalendarButton;
             }
-        }
-        if let Some(tz_rect) = self.timezone_button_rect() {
-            if tz_rect.contains(pos) {
+        if let Some(tz_rect) = self.timezone_button_rect()
+            && tz_rect.contains(pos) {
                 return DateTimeEditPart::TimezoneButton;
             }
-        }
 
         let text_rect = self.text_field_rect();
         if text_rect.contains(pos) {
@@ -1430,8 +1486,8 @@ impl DateTimeEdit {
             }
             _ => {
                 // Handle A/P for AM/PM toggle
-                if self.is_12_hour() && self.current_section == EditSection::AmPm {
-                    if let Some(ch) = event.text.chars().next() {
+                if self.is_12_hour() && self.current_section == EditSection::AmPm
+                    && let Some(ch) = event.text.chars().next() {
                         let ch_lower = ch.to_ascii_lowercase();
                         let hour = self.datetime.time().hour();
                         if ch_lower == 'a' && hour >= 12 {
@@ -1454,7 +1510,6 @@ impl DateTimeEdit {
                             return true;
                         }
                     }
-                }
             }
         }
         false
@@ -1483,7 +1538,8 @@ impl DateTimeEdit {
     fn paint_background(&self, ctx: &mut PaintContext<'_>) {
         let rect = ctx.rect();
         let bg_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(bg_rrect, self.background_color);
+        ctx.renderer()
+            .fill_rounded_rect(bg_rrect, self.background_color);
 
         let border_stroke = Stroke::new(self.border_color, 1.0);
         ctx.renderer().stroke_rounded_rect(bg_rrect, &border_stroke);
@@ -1509,7 +1565,8 @@ impl DateTimeEdit {
 
         if self.current_section != EditSection::None && self.widget_base().has_focus() {
             let highlight_rect = Rect::new(text_x, text_y, layout.width(), layout.height());
-            ctx.renderer().fill_rect(highlight_rect, self.section_highlight_color);
+            ctx.renderer()
+                .fill_rect(highlight_rect, self.section_highlight_color);
         }
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
@@ -1648,7 +1705,8 @@ impl DateTimeEdit {
         let focus_color = Color::from_rgba8(66, 133, 244, 180);
         let focus_stroke = Stroke::new(focus_color, 2.0);
         let focus_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().stroke_rounded_rect(focus_rrect, &focus_stroke);
+        ctx.renderer()
+            .stroke_rounded_rect(focus_rrect, &focus_stroke);
     }
 }
 
@@ -1693,14 +1751,11 @@ impl Widget for DateTimeEdit {
         let date_width = 85.0;
         let time_width = if self.is_12_hour() {
             if self.seconds_shown() { 100.0 } else { 80.0 }
-        } else {
-            if self.seconds_shown() { 75.0 } else { 55.0 }
-        };
+        } else if self.seconds_shown() { 75.0 } else { 55.0 };
         let width = date_width + time_width + self.right_buttons_width() + 20.0;
         let height = 28.0;
 
-        SizeHint::from_dimensions(width.max(180.0), height)
-            .with_minimum_dimensions(150.0, 22.0)
+        SizeHint::from_dimensions(width.max(180.0), height).with_minimum_dimensions(150.0, 22.0)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
@@ -1763,8 +1818,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
 
     fn setup() {

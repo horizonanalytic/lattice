@@ -57,6 +57,7 @@ struct Shelf {
 
 /// An allocation within a shelf.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Fields tracked for future cache eviction/debugging
 struct ShelfAllocation {
     /// X position in the shelf.
     x: u32,
@@ -163,7 +164,8 @@ pub struct GlyphAtlas {
     texture: wgpu::Texture,
     /// Texture view for rendering.
     texture_view: wgpu::TextureView,
-    /// Texture sampler.
+    /// Texture sampler - kept alive for bind_group to reference.
+    #[allow(dead_code)]
     sampler: wgpu::Sampler,
     /// Bind group for this atlas.
     bind_group: wgpu::BindGroup,

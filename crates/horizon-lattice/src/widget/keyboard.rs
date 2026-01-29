@@ -22,7 +22,7 @@
 use winit::event::{ElementState, Modifiers};
 use winit::keyboard::{Key as WinitKey, KeyCode, NamedKey, PhysicalKey};
 
-use super::events::{Key, KeyboardModifiers, KeyPressEvent, KeyReleaseEvent};
+use super::events::{Key, KeyPressEvent, KeyReleaseEvent, KeyboardModifiers};
 
 /// A scan code representing the physical key on the keyboard.
 ///
@@ -577,14 +577,12 @@ impl KeyboardInputHandler {
         is_repeat: bool,
     ) -> KeyboardEvent {
         match state {
-            ElementState::Pressed => {
-                KeyboardEvent::Press(self.create_key_press_event(
-                    logical_key,
-                    physical_key,
-                    text,
-                    is_repeat,
-                ))
-            }
+            ElementState::Pressed => KeyboardEvent::Press(self.create_key_press_event(
+                logical_key,
+                physical_key,
+                text,
+                is_repeat,
+            )),
             ElementState::Released => {
                 KeyboardEvent::Release(self.create_key_release_event(logical_key, physical_key))
             }

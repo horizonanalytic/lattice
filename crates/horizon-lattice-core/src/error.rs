@@ -39,7 +39,10 @@ impl fmt::Display for LatticeError {
                 write!(f, "Application has already been initialized")
             }
             Self::ApplicationNotInitialized => {
-                write!(f, "Application has not been initialized. Call Application::new() first")
+                write!(
+                    f,
+                    "Application has not been initialized. Call Application::new() first"
+                )
             }
             Self::EventLoopCreation(msg) => {
                 write!(f, "Failed to create event loop: {msg}")
@@ -214,7 +217,10 @@ impl fmt::Display for ThreadError {
                 write!(f, ")")
             }
             Self::AffinityViolation { object } => {
-                write!(f, "'{object}' accessed from wrong thread (thread affinity violation)")
+                write!(
+                    f,
+                    "'{object}' accessed from wrong thread (thread affinity violation)"
+                )
             }
         }
     }

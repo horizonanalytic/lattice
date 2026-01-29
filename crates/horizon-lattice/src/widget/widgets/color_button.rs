@@ -32,8 +32,8 @@ use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{Color, Point, Rect, Renderer, RoundedRect, Stroke};
 
 use crate::widget::{
-    FocusPolicy, Key, KeyPressEvent, MouseButton, MousePressEvent, MouseReleaseEvent,
-    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+    FocusPolicy, Key, KeyPressEvent, MouseButton, MousePressEvent, MouseReleaseEvent, PaintContext,
+    SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
 };
 
 // ============================================================================
@@ -584,8 +584,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     };
 
     fn setup() {

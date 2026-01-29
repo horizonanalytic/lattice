@@ -27,10 +27,10 @@
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::{Rect, Size};
 
+use super::ContentMargins;
 use super::base::LayoutBase;
 use super::item::{LayoutItem, SpacerItem, SpacerType};
 use super::traits::Layout;
-use super::ContentMargins;
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::geometry::{SizeHint, SizePolicy, SizePolicyPair};
 
@@ -169,16 +169,12 @@ impl BoxLayout {
     /// control, set stretch values on widgets via their size policy.
     pub fn add_stretch(&mut self, _stretch: u8) {
         let spacer = match self.orientation {
-            Orientation::Horizontal => SpacerItem::new(
-                Size::ZERO,
-                SpacerType::Expanding,
-                SpacerType::Fixed,
-            ),
-            Orientation::Vertical => SpacerItem::new(
-                Size::ZERO,
-                SpacerType::Fixed,
-                SpacerType::Expanding,
-            ),
+            Orientation::Horizontal => {
+                SpacerItem::new(Size::ZERO, SpacerType::Expanding, SpacerType::Fixed)
+            }
+            Orientation::Vertical => {
+                SpacerItem::new(Size::ZERO, SpacerType::Fixed, SpacerType::Expanding)
+            }
         };
         self.base.add_item(LayoutItem::Spacer(spacer));
     }
@@ -395,14 +391,12 @@ impl Layout for BoxLayout {
     fn size_policy(&self) -> SizePolicyPair {
         // Box layouts are generally expanding in their main direction
         match self.orientation {
-            Orientation::Horizontal => SizePolicyPair::new(
-                SizePolicy::Preferred,
-                SizePolicy::Preferred,
-            ),
-            Orientation::Vertical => SizePolicyPair::new(
-                SizePolicy::Preferred,
-                SizePolicy::Preferred,
-            ),
+            Orientation::Horizontal => {
+                SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred)
+            }
+            Orientation::Vertical => {
+                SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred)
+            }
         }
     }
 
@@ -562,7 +556,8 @@ impl Layout for BoxLayout {
         // Cache the calculated size hint
         let size_hint = self.calculate_size_hint(storage);
         self.base.set_cached_size_hint(size_hint);
-        self.base.set_cached_minimum_size(size_hint.effective_minimum());
+        self.base
+            .set_cached_minimum_size(size_hint.effective_minimum());
 
         self.base.mark_valid();
         available
@@ -646,7 +641,7 @@ mod tests {
     use crate::widget::base::WidgetBase;
     use crate::widget::geometry::SizeHint;
     use crate::widget::traits::{PaintContext, Widget};
-    use horizon_lattice_core::{init_global_registry, Object, ObjectId};
+    use horizon_lattice_core::{Object, ObjectId, init_global_registry};
     use std::collections::HashMap;
 
     /// Mock widget for testing layouts.

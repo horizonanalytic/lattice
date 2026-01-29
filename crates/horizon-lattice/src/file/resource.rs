@@ -174,8 +174,12 @@ impl EmbeddedDir {
             d.entries()
                 .iter()
                 .map(|e| match e {
-                    DirEntry::Dir(d) => ResourceEntry::Directory(d.path().to_string_lossy().into_owned()),
-                    DirEntry::File(f) => ResourceEntry::File(f.path().to_string_lossy().into_owned()),
+                    DirEntry::Dir(d) => {
+                        ResourceEntry::Directory(d.path().to_string_lossy().into_owned())
+                    }
+                    DirEntry::File(f) => {
+                        ResourceEntry::File(f.path().to_string_lossy().into_owned())
+                    }
                 })
                 .collect()
         })
@@ -360,7 +364,9 @@ impl ResourceManager {
     /// // Now "data:/config.json" maps to "/app/data/config.json"
     /// ```
     pub fn register_filesystem_root(&self, prefix: &str, root: impl Into<PathBuf>) {
-        self.filesystem_roots.write().insert(prefix.to_string(), root.into());
+        self.filesystem_roots
+            .write()
+            .insert(prefix.to_string(), root.into());
     }
 
     /// Unregisters a filesystem root.
@@ -529,23 +535,20 @@ impl ResourceManager {
         // First check embedded
         if parsed.is_embedded {
             let embedded = self.embedded.read();
-            if let Some(dir) = embedded.get(parsed.prefix.as_ref()) {
-                if let Some(data) = dir.get_file(&parsed.path) {
+            if let Some(dir) = embedded.get(parsed.prefix.as_ref())
+                && let Some(data) = dir.get_file(&parsed.path) {
                     return Ok(data.to_vec());
                 }
-            }
             // Fall through to filesystem roots
             let roots = self.filesystem_roots.read();
             if let Some(root) = roots.get(parsed.prefix.as_ref()) {
                 let full_path = root.join(&*parsed.path);
-                return std::fs::read(&full_path)
-                    .map_err(|e| FileError::from_io(e, full_path));
+                return std::fs::read(&full_path).map_err(|e| FileError::from_io(e, full_path));
             }
             return Err(FileError::not_found(path));
         }
 
-        std::fs::read(&*parsed.path)
-            .map_err(|e| FileError::from_io(e, &*parsed.path))
+        std::fs::read(&*parsed.path).map_err(|e| FileError::from_io(e, &*parsed.path))
     }
 
     /// Loads a text resource synchronously from the filesystem.
@@ -555,11 +558,10 @@ impl ResourceManager {
         // First check embedded
         if parsed.is_embedded {
             let embedded = self.embedded.read();
-            if let Some(dir) = embedded.get(parsed.prefix.as_ref()) {
-                if let Some(text) = dir.get_text(&parsed.path) {
+            if let Some(dir) = embedded.get(parsed.prefix.as_ref())
+                && let Some(text) = dir.get_text(&parsed.path) {
                     return Ok(text.to_string());
                 }
-            }
             // Fall through to filesystem roots
             let roots = self.filesystem_roots.read();
             if let Some(root) = roots.get(parsed.prefix.as_ref()) {
@@ -570,8 +572,7 @@ impl ResourceManager {
             return Err(FileError::not_found(path));
         }
 
-        std::fs::read_to_string(&*parsed.path)
-            .map_err(|e| FileError::from_io(e, &*parsed.path))
+        std::fs::read_to_string(&*parsed.path).map_err(|e| FileError::from_io(e, &*parsed.path))
     }
 
     /// Returns the number of registered embedded prefixes.
@@ -601,7 +602,10 @@ impl std::fmt::Debug for ResourceManager {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ResourceManager")
             .field("embedded_prefixes", &self.embedded_prefixes())
-            .field("filesystem_roots", &self.filesystem_roots.read().keys().collect::<Vec<_>>())
+            .field(
+                "filesystem_roots",
+                &self.filesystem_roots.read().keys().collect::<Vec<_>>(),
+            )
             .finish()
     }
 }
@@ -647,9 +651,9 @@ impl LazyResource {
     ///
     /// Returns `None` if the resource doesn't exist.
     pub fn get(&self) -> Option<&'static [u8]> {
-        *self.data.get_or_init(|| {
-            ResourceManager::global().get(&self.path)
-        })
+        *self
+            .data
+            .get_or_init(|| ResourceManager::global().get(&self.path))
     }
 
     /// Gets the resource as UTF-8 text.

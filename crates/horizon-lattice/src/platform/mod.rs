@@ -178,22 +178,18 @@ mod system_theme;
 
 pub use clipboard::{Clipboard, ClipboardData, ClipboardError, ClipboardWatcher, ImageData};
 pub use desktop_integration::{
-    DesktopEntry, DesktopIntegrationError, JumpList, JumpListCategory, JumpListItem,
-    ProgressState, RecentDocument, RecentDocuments, TaskbarBadge, TaskbarProgress,
+    DesktopEntry, DesktopIntegrationError, JumpList, JumpListCategory, JumpListItem, ProgressState,
+    RecentDocument, RecentDocuments, TaskbarBadge, TaskbarProgress,
 };
 pub use file_associations::{
-    FileAssociationError, FileTypeInfo, FileTypeRegistration, LaunchArgs, Opener,
-    UrlSchemeInfo, UrlSchemeRegistration,
+    FileAssociationError, FileTypeInfo, FileTypeRegistration, LaunchArgs, Opener, UrlSchemeInfo,
+    UrlSchemeRegistration,
 };
 pub use hardware::{HardwareError, Screen, ScreenId, ScreenRect, ScreenWatcher, Screens};
 pub use high_contrast::HighContrast;
 pub use localization::{
-    CurrencyCode, CurrencyFormatter, DateLength, DateTimeFormatter, LocaleInfo,
-    LocaleWatcher, LocalizationError, NumberFormatter, SystemLocale, TextDirection, TimeLength,
-};
-pub use system_theme::{
-    AccentColor, ColorScheme, SystemTheme, SystemThemeError, ThemeAutoUpdater, ThemeInfo,
-    ThemeWatcher,
+    CurrencyCode, CurrencyFormatter, DateLength, DateTimeFormatter, LocaleInfo, LocaleWatcher,
+    LocalizationError, NumberFormatter, SystemLocale, TextDirection, TimeLength,
 };
 pub use power_management::{
     BatteryInfo, BatteryState, PowerEventReason, PowerEventWatcher, PowerManagementError,
@@ -202,6 +198,10 @@ pub use power_management::{
 pub use session_management::{
     ApplicationState, SessionEndReason, SessionEventWatcher, SessionInhibitOptions,
     SessionInhibitor, SessionInhibitorGuard, SessionManagementError, StateLocation,
+};
+pub use system_theme::{
+    AccentColor, ColorScheme, SystemTheme, SystemThemeError, ThemeAutoUpdater, ThemeInfo,
+    ThemeWatcher,
 };
 
 // Notification exports

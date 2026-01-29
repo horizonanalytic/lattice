@@ -42,7 +42,9 @@ use std::sync::Arc;
 
 use horizon_lattice_render::Point;
 
-use super::drag_drop::{DragData, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DropAction, DropEvent};
+use super::drag_drop::{
+    DragData, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DropAction, DropEvent,
+};
 
 /// Handler for file drop operations from external sources.
 ///
@@ -80,7 +82,11 @@ impl FileDropHandler {
     /// either dropped or the hover is cancelled.
     ///
     /// Returns `Some(DragEnterEvent)` on the first file of a new hover operation.
-    pub fn handle_hovered_file(&mut self, path: PathBuf, position: Point) -> Option<DragEnterEvent> {
+    pub fn handle_hovered_file(
+        &mut self,
+        path: PathBuf,
+        position: Point,
+    ) -> Option<DragEnterEvent> {
         let is_first = !self.is_hovering;
         self.hovered_files.push(path);
         self.is_hovering = true;
@@ -134,12 +140,7 @@ impl FileDropHandler {
 
         // Generate the drop event with all collected files
         let data = self.create_drag_data();
-        let event = DropEvent::new(
-            Arc::new(data),
-            position,
-            position,
-            DropAction::COPY,
-        );
+        let event = DropEvent::new(Arc::new(data), position, position, DropAction::COPY);
 
         // Reset state
         self.reset();
@@ -182,18 +183,14 @@ mod tests {
         let mut handler = FileDropHandler::new();
 
         // First file generates DragEnter
-        let event = handler.handle_hovered_file(
-            PathBuf::from("/tmp/file1.txt"),
-            Point::new(100.0, 100.0),
-        );
+        let event =
+            handler.handle_hovered_file(PathBuf::from("/tmp/file1.txt"), Point::new(100.0, 100.0));
         assert!(event.is_some());
         assert!(handler.is_hovering());
 
         // Second file doesn't generate new DragEnter
-        let event = handler.handle_hovered_file(
-            PathBuf::from("/tmp/file2.txt"),
-            Point::new(100.0, 100.0),
-        );
+        let event =
+            handler.handle_hovered_file(PathBuf::from("/tmp/file2.txt"), Point::new(100.0, 100.0));
         assert!(event.is_none());
         assert_eq!(handler.hovered_files().len(), 2);
     }
@@ -203,16 +200,11 @@ mod tests {
         let mut handler = FileDropHandler::new();
 
         // Hover first
-        handler.handle_hovered_file(
-            PathBuf::from("/tmp/file1.txt"),
-            Point::new(100.0, 100.0),
-        );
+        handler.handle_hovered_file(PathBuf::from("/tmp/file1.txt"), Point::new(100.0, 100.0));
 
         // Drop generates DropEvent
-        let event = handler.handle_dropped_file(
-            PathBuf::from("/tmp/file1.txt"),
-            Point::new(150.0, 150.0),
-        );
+        let event =
+            handler.handle_dropped_file(PathBuf::from("/tmp/file1.txt"), Point::new(150.0, 150.0));
         assert!(event.is_some());
         let event = event.unwrap();
         assert!(event.data().has_urls());
@@ -227,10 +219,7 @@ mod tests {
         let mut handler = FileDropHandler::new();
 
         // Start hover
-        handler.handle_hovered_file(
-            PathBuf::from("/tmp/file.txt"),
-            Point::new(100.0, 100.0),
-        );
+        handler.handle_hovered_file(PathBuf::from("/tmp/file.txt"), Point::new(100.0, 100.0));
         assert!(handler.is_hovering());
 
         // Cancel generates DragLeave
@@ -248,10 +237,7 @@ mod tests {
         assert!(event.is_none());
 
         // Start hover
-        handler.handle_hovered_file(
-            PathBuf::from("/tmp/file.txt"),
-            Point::new(100.0, 100.0),
-        );
+        handler.handle_hovered_file(PathBuf::from("/tmp/file.txt"), Point::new(100.0, 100.0));
 
         // Position update generates DragMove
         let event = handler.update_position(Point::new(150.0, 150.0));

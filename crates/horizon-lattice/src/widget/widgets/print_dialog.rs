@@ -177,15 +177,15 @@ impl PaperSize {
     /// Returns the size in points (1 point = 1/72 inch).
     pub fn size_in_points(&self) -> (f32, f32) {
         match self {
-            PaperSize::Letter => (612.0, 792.0),       // 8.5 x 11 inches
-            PaperSize::Legal => (612.0, 1008.0),      // 8.5 x 14 inches
-            PaperSize::A4 => (595.0, 842.0),          // 210 x 297 mm
-            PaperSize::A3 => (842.0, 1191.0),         // 297 x 420 mm
-            PaperSize::A5 => (420.0, 595.0),          // 148 x 210 mm
-            PaperSize::B5 => (499.0, 709.0),          // 176 x 250 mm
-            PaperSize::Tabloid => (792.0, 1224.0),    // 11 x 17 inches
-            PaperSize::Executive => (522.0, 756.0),   // 7.25 x 10.5 inches
-            PaperSize::Custom => (612.0, 792.0),      // Default to letter
+            PaperSize::Letter => (612.0, 792.0),    // 8.5 x 11 inches
+            PaperSize::Legal => (612.0, 1008.0),    // 8.5 x 14 inches
+            PaperSize::A4 => (595.0, 842.0),        // 210 x 297 mm
+            PaperSize::A3 => (842.0, 1191.0),       // 297 x 420 mm
+            PaperSize::A5 => (420.0, 595.0),        // 148 x 210 mm
+            PaperSize::B5 => (499.0, 709.0),        // 176 x 250 mm
+            PaperSize::Tabloid => (792.0, 1224.0),  // 11 x 17 inches
+            PaperSize::Executive => (522.0, 756.0), // 7.25 x 10.5 inches
+            PaperSize::Custom => (612.0, 792.0),    // Default to letter
         }
     }
 }
@@ -369,8 +369,7 @@ impl PrinterInfo {
 
 impl Default for PrinterInfo {
     fn default() -> Self {
-        Self::new("default", "Default Printer")
-            .with_default(true)
+        Self::new("default", "Default Printer").with_default(true)
     }
 }
 
@@ -706,9 +705,7 @@ impl PrintDialog {
     /// Set the available printers using builder pattern.
     pub fn with_printers(mut self, printers: Vec<PrinterInfo>) -> Self {
         self.printers = printers;
-        self.selected_printer = self.printers.iter()
-            .position(|p| p.is_default)
-            .unwrap_or(0);
+        self.selected_printer = self.printers.iter().position(|p| p.is_default).unwrap_or(0);
         self
     }
 
@@ -722,7 +719,11 @@ impl PrintDialog {
     pub fn with_settings(mut self, settings: PrintSettings) -> Self {
         self.settings = settings;
         // Find the printer index
-        if let Some(idx) = self.printers.iter().position(|p| p.id == self.settings.printer_id) {
+        if let Some(idx) = self
+            .printers
+            .iter()
+            .position(|p| p.id == self.settings.printer_id)
+        {
             self.selected_printer = idx;
         }
         self
@@ -884,7 +885,8 @@ impl PrintDialog {
     /// Accept the dialog and emit print request.
     fn accept(&mut self) {
         // Update settings from UI state
-        self.settings.printer_id = self.printers
+        self.settings.printer_id = self
+            .printers
             .get(self.selected_printer)
             .map(|p| p.id.clone())
             .unwrap_or_default();
@@ -1021,7 +1023,11 @@ impl PrintDialog {
         y += self.row_height;
 
         // Collate checkbox (if copies > 1)
-        if self.settings.copies > 1 && self.options.contains(PrintDialogOptions::PRINT_COLLATE_COPIES) {
+        if self.settings.copies > 1
+            && self
+                .options
+                .contains(PrintDialogOptions::PRINT_COLLATE_COPIES)
+        {
             let collate_row = Rect::new(content.origin.x, y, content.width(), self.row_height);
             if collate_row.contains(pos) {
                 self.settings.collate = !self.settings.collate;
@@ -1045,7 +1051,11 @@ impl PrintDialog {
             y += self.row_height;
 
             // "Current Page" option
-            if self.options.contains(PrintDialogOptions::PRINT_CURRENT_PAGE) && self.current_page.is_some() {
+            if self
+                .options
+                .contains(PrintDialogOptions::PRINT_CURRENT_PAGE)
+                && self.current_page.is_some()
+            {
                 let current_row = Rect::new(content.origin.x, y, content.width(), self.row_height);
                 if current_row.contains(pos) {
                     self.settings.page_range = PageRange::CurrentPage;
@@ -1057,7 +1067,8 @@ impl PrintDialog {
 
             // "Selection" option
             if self.options.contains(PrintDialogOptions::PRINT_SELECTION) && self.has_selection {
-                let selection_row = Rect::new(content.origin.x, y, content.width(), self.row_height);
+                let selection_row =
+                    Rect::new(content.origin.x, y, content.width(), self.row_height);
                 if selection_row.contains(pos) {
                     self.settings.page_range = PageRange::Selection;
                     self.dialog.widget_base_mut().update();
@@ -1141,7 +1152,8 @@ impl PrintDialog {
         let list_rect = self.printer_list_rect();
         if list_rect.contains(event.local_pos) {
             let delta = event.delta_y * 3.0;
-            let max_scroll = ((self.printers.len() as f32 * self.row_height) - list_rect.height()).max(0.0);
+            let max_scroll =
+                ((self.printers.len() as f32 * self.row_height) - list_rect.height()).max(0.0);
             self.printer_scroll = (self.printer_scroll - delta).clamp(0.0, max_scroll);
             self.dialog.widget_base_mut().update();
             return true;
@@ -1192,7 +1204,11 @@ impl PrintDialog {
         y += self.row_height;
 
         // Collate checkbox
-        if self.settings.copies > 1 && self.options.contains(PrintDialogOptions::PRINT_COLLATE_COPIES) {
+        if self.settings.copies > 1
+            && self
+                .options
+                .contains(PrintDialogOptions::PRINT_COLLATE_COPIES)
+        {
             self.paint_checkbox(
                 ctx,
                 content.origin.x + 20.0,
@@ -1221,7 +1237,11 @@ impl PrintDialog {
             y += self.row_height;
 
             // Radio: Current Page
-            if self.options.contains(PrintDialogOptions::PRINT_CURRENT_PAGE) && self.current_page.is_some() {
+            if self
+                .options
+                .contains(PrintDialogOptions::PRINT_CURRENT_PAGE)
+                && self.current_page.is_some()
+            {
                 let label = format!("Current page ({})", self.current_page.unwrap());
                 self.paint_radio(
                     ctx,
@@ -1246,7 +1266,10 @@ impl PrintDialog {
             }
 
             // Radio: Pages with input
-            let is_pages = matches!(self.settings.page_range, PageRange::Pages(_) | PageRange::Range { .. });
+            let is_pages = matches!(
+                self.settings.page_range,
+                PageRange::Pages(_) | PageRange::Range { .. }
+            );
             self.paint_radio(ctx, content.origin.x + 20.0, y, "Pages:", is_pages);
 
             // Page range input field
@@ -1256,10 +1279,8 @@ impl PrintDialog {
                 content.width() - 120.0,
                 self.row_height - 4.0,
             );
-            ctx.renderer().fill_rounded_rect(
-                RoundedRect::new(input_rect, 3.0),
-                self.input_background,
-            );
+            ctx.renderer()
+                .fill_rounded_rect(RoundedRect::new(input_rect, 3.0), self.input_background);
             ctx.renderer().stroke_rounded_rect(
                 RoundedRect::new(input_rect, 3.0),
                 &Stroke::new(self.border_color, 1.0),
@@ -1346,10 +1367,8 @@ impl PrintDialog {
         let list_rect = self.printer_list_rect();
 
         // Background
-        ctx.renderer().fill_rounded_rect(
-            RoundedRect::new(list_rect, 3.0),
-            self.section_color,
-        );
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(list_rect, 3.0), self.section_color);
         ctx.renderer().stroke_rounded_rect(
             RoundedRect::new(list_rect, 3.0),
             &Stroke::new(self.border_color, 1.0),
@@ -1369,15 +1388,11 @@ impl PrintDialog {
 
             // Selection/hover background
             if i == self.selected_printer {
-                ctx.renderer().fill_rounded_rect(
-                    RoundedRect::new(item_rect, 2.0),
-                    self.selection_color,
-                );
+                ctx.renderer()
+                    .fill_rounded_rect(RoundedRect::new(item_rect, 2.0), self.selection_color);
             } else if self.hovered_printer == Some(i) {
-                ctx.renderer().fill_rounded_rect(
-                    RoundedRect::new(item_rect, 2.0),
-                    self.hover_color,
-                );
+                ctx.renderer()
+                    .fill_rounded_rect(RoundedRect::new(item_rect, 2.0), self.hover_color);
             }
 
             // Printer icon
@@ -1404,17 +1419,13 @@ impl PrintDialog {
     fn paint_printer_icon(&self, ctx: &mut PaintContext<'_>, pos: Point, size: f32) {
         // Simple printer icon
         let body_rect = Rect::new(pos.x + 2.0, pos.y + size * 0.3, size - 4.0, size * 0.5);
-        ctx.renderer().fill_rounded_rect(
-            RoundedRect::new(body_rect, 2.0),
-            self.secondary_text_color,
-        );
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(body_rect, 2.0), self.secondary_text_color);
 
         // Paper tray
         let tray_rect = Rect::new(pos.x + 4.0, pos.y + size * 0.1, size - 8.0, size * 0.25);
-        ctx.renderer().fill_rounded_rect(
-            RoundedRect::new(tray_rect, 1.0),
-            self.input_background,
-        );
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(tray_rect, 1.0), self.input_background);
     }
 
     fn paint_default_indicator(&self, ctx: &mut PaintContext<'_>, pos: Point) {
@@ -1436,10 +1447,8 @@ impl PrintDialog {
         let rect = Rect::new(x, y + 2.0, width, self.row_height - 4.0);
 
         // Background
-        ctx.renderer().fill_rounded_rect(
-            RoundedRect::new(rect, 3.0),
-            self.input_background,
-        );
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(rect, 3.0), self.input_background);
         ctx.renderer().stroke_rounded_rect(
             RoundedRect::new(rect, 3.0),
             &Stroke::new(self.border_color, 1.0),
@@ -1450,8 +1459,14 @@ impl PrintDialog {
         ctx.renderer().fill_rect(dec_rect, self.section_color);
         let stroke = Stroke::new(self.text_color, 1.5);
         ctx.renderer().draw_line(
-            Point::new(dec_rect.origin.x + 4.0, dec_rect.origin.y + dec_rect.height() / 2.0),
-            Point::new(dec_rect.origin.x + 12.0, dec_rect.origin.y + dec_rect.height() / 2.0),
+            Point::new(
+                dec_rect.origin.x + 4.0,
+                dec_rect.origin.y + dec_rect.height() / 2.0,
+            ),
+            Point::new(
+                dec_rect.origin.x + 12.0,
+                dec_rect.origin.y + dec_rect.height() / 2.0,
+            ),
             &stroke,
         );
 
@@ -1459,13 +1474,22 @@ impl PrintDialog {
         let inc_rect = Rect::new(x + width - 18.0, y + 4.0, 16.0, self.row_height - 8.0);
         ctx.renderer().fill_rect(inc_rect, self.section_color);
         ctx.renderer().draw_line(
-            Point::new(inc_rect.origin.x + 4.0, inc_rect.origin.y + inc_rect.height() / 2.0),
-            Point::new(inc_rect.origin.x + 12.0, inc_rect.origin.y + inc_rect.height() / 2.0),
+            Point::new(
+                inc_rect.origin.x + 4.0,
+                inc_rect.origin.y + inc_rect.height() / 2.0,
+            ),
+            Point::new(
+                inc_rect.origin.x + 12.0,
+                inc_rect.origin.y + inc_rect.height() / 2.0,
+            ),
             &stroke,
         );
         ctx.renderer().draw_line(
             Point::new(inc_rect.origin.x + 8.0, inc_rect.origin.y + 4.0),
-            Point::new(inc_rect.origin.x + 8.0, inc_rect.origin.y + inc_rect.height() - 4.0),
+            Point::new(
+                inc_rect.origin.x + 8.0,
+                inc_rect.origin.y + inc_rect.height() - 4.0,
+            ),
             &stroke,
         );
 
@@ -1473,15 +1497,25 @@ impl PrintDialog {
         let _ = value;
     }
 
-    fn paint_checkbox(&self, ctx: &mut PaintContext<'_>, x: f32, y: f32, _label: &str, checked: bool) {
+    fn paint_checkbox(
+        &self,
+        ctx: &mut PaintContext<'_>,
+        x: f32,
+        y: f32,
+        _label: &str,
+        checked: bool,
+    ) {
         let box_size = 14.0;
-        let box_rect = Rect::new(x, y + (self.row_height - box_size) / 2.0, box_size, box_size);
+        let box_rect = Rect::new(
+            x,
+            y + (self.row_height - box_size) / 2.0,
+            box_size,
+            box_size,
+        );
 
         // Box background
-        ctx.renderer().fill_rounded_rect(
-            RoundedRect::new(box_rect, 2.0),
-            self.input_background,
-        );
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(box_rect, 2.0), self.input_background);
         ctx.renderer().stroke_rounded_rect(
             RoundedRect::new(box_rect, 2.0),
             &Stroke::new(self.border_color, 1.0),
@@ -1505,7 +1539,14 @@ impl PrintDialog {
         // Label text would be rendered here
     }
 
-    fn paint_radio(&self, ctx: &mut PaintContext<'_>, x: f32, y: f32, _label: &str, selected: bool) {
+    fn paint_radio(
+        &self,
+        ctx: &mut PaintContext<'_>,
+        x: f32,
+        y: f32,
+        _label: &str,
+        selected: bool,
+    ) {
         let circle_size = 14.0;
         let center_x = x + circle_size / 2.0;
         let center_y = y + self.row_height / 2.0;
@@ -1529,21 +1570,12 @@ impl PrintDialog {
         // Label text would be rendered here
     }
 
-    fn paint_dropdown(
-        &self,
-        ctx: &mut PaintContext<'_>,
-        x: f32,
-        y: f32,
-        width: f32,
-        _value: &str,
-    ) {
+    fn paint_dropdown(&self, ctx: &mut PaintContext<'_>, x: f32, y: f32, width: f32, _value: &str) {
         let rect = Rect::new(x, y + 2.0, width, self.row_height - 4.0);
 
         // Background
-        ctx.renderer().fill_rounded_rect(
-            RoundedRect::new(rect, 3.0),
-            self.input_background,
-        );
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(rect, 3.0), self.input_background);
         ctx.renderer().stroke_rounded_rect(
             RoundedRect::new(rect, 3.0),
             &Stroke::new(self.border_color, 1.0),
@@ -1960,7 +1992,12 @@ impl PrintPreviewDialog {
     /// Get the toolbar rectangle.
     fn toolbar_rect(&self) -> Rect {
         let rect = self.dialog.widget_base().rect();
-        Rect::new(0.0, self.title_bar_height(), rect.width(), self.toolbar_height)
+        Rect::new(
+            0.0,
+            self.title_bar_height(),
+            rect.width(),
+            self.toolbar_height,
+        )
     }
 
     /// Get the preview area rectangle.
@@ -1970,7 +2007,10 @@ impl PrintPreviewDialog {
             0.0,
             self.title_bar_height() + self.toolbar_height,
             rect.width(),
-            rect.height() - self.title_bar_height() - self.toolbar_height - self.button_box_height(),
+            rect.height()
+                - self.title_bar_height()
+                - self.toolbar_height
+                - self.button_box_height(),
         )
     }
 
@@ -2182,7 +2222,10 @@ impl PrintPreviewDialog {
         // Bottom border
         ctx.renderer().draw_line(
             Point::new(toolbar.origin.x, toolbar.origin.y + toolbar.height()),
-            Point::new(toolbar.origin.x + toolbar.width(), toolbar.origin.y + toolbar.height()),
+            Point::new(
+                toolbar.origin.x + toolbar.width(),
+                toolbar.origin.y + toolbar.height(),
+            ),
             &Stroke::new(self.border_color, 1.0),
         );
 
@@ -2201,10 +2244,24 @@ impl PrintPreviewDialog {
         // Page indicator space (would render text)
         x += 60.0 + spacing;
 
-        self.paint_nav_button(ctx, x, button_y, button_size, ">", self.current_page < self.total_pages);
+        self.paint_nav_button(
+            ctx,
+            x,
+            button_y,
+            button_size,
+            ">",
+            self.current_page < self.total_pages,
+        );
         x += button_size + spacing;
 
-        self.paint_nav_button(ctx, x, button_y, button_size, ">|", self.current_page < self.total_pages);
+        self.paint_nav_button(
+            ctx,
+            x,
+            button_y,
+            button_size,
+            ">|",
+            self.current_page < self.total_pages,
+        );
         x += button_size + spacing * 2.0;
 
         // Separator
@@ -2225,7 +2282,15 @@ impl PrintPreviewDialog {
         self.paint_nav_button(ctx, x, button_y, button_size, "+", self.zoom < 4.0);
     }
 
-    fn paint_nav_button(&self, ctx: &mut PaintContext<'_>, x: f32, y: f32, size: f32, _icon: &str, enabled: bool) {
+    fn paint_nav_button(
+        &self,
+        ctx: &mut PaintContext<'_>,
+        x: f32,
+        y: f32,
+        size: f32,
+        _icon: &str,
+        enabled: bool,
+    ) {
         let rect = Rect::new(x, y, size, size);
         let color = if enabled {
             self.text_color
@@ -2233,10 +2298,8 @@ impl PrintPreviewDialog {
             Color::from_rgb8(180, 180, 180)
         };
 
-        ctx.renderer().fill_rounded_rect(
-            RoundedRect::new(rect, 4.0),
-            Color::from_rgba8(0, 0, 0, 10),
-        );
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(rect, 4.0), Color::from_rgba8(0, 0, 0, 10));
 
         // Icon text would be rendered here
         let _ = color;
@@ -2259,11 +2322,13 @@ impl PrintPreviewDialog {
             page.width(),
             page.height(),
         );
-        ctx.renderer().fill_rect(shadow_rect, self.page_shadow_color);
+        ctx.renderer()
+            .fill_rect(shadow_rect, self.page_shadow_color);
 
         // Page
         ctx.renderer().fill_rect(page, self.page_color);
-        ctx.renderer().stroke_rect(page, &Stroke::new(self.border_color, 1.0));
+        ctx.renderer()
+            .stroke_rect(page, &Stroke::new(self.border_color, 1.0));
 
         // Page content would be rendered by the paint_requested signal handler
     }
@@ -2362,10 +2427,7 @@ mod tests {
     #[test]
     fn test_page_range_from_string() {
         // Single page
-        assert_eq!(
-            PageRange::from_string("5"),
-            Some(PageRange::Pages(vec![5]))
-        );
+        assert_eq!(PageRange::from_string("5"), Some(PageRange::Pages(vec![5])));
 
         // Range
         assert_eq!(
@@ -2396,10 +2458,7 @@ mod tests {
         assert_eq!(PageRange::All.display_string(), "All");
         assert_eq!(PageRange::CurrentPage.display_string(), "Current Page");
         assert_eq!(PageRange::Selection.display_string(), "Selection");
-        assert_eq!(
-            PageRange::Range { from: 1, to: 5 }.display_string(),
-            "1-5"
-        );
+        assert_eq!(PageRange::Range { from: 1, to: 5 }.display_string(), "1-5");
         assert_eq!(
             PageRange::Pages(vec![1, 2, 3, 5, 7, 8, 9]).display_string(),
             "1-3, 5, 7-9"
@@ -2561,8 +2620,7 @@ mod tests {
     #[test]
     fn test_print_preview_navigation() {
         setup();
-        let mut preview = PrintPreviewDialog::new(PrintSettings::default())
-            .with_total_pages(10);
+        let mut preview = PrintPreviewDialog::new(PrintSettings::default()).with_total_pages(10);
 
         assert_eq!(preview.current_page(), 1);
 

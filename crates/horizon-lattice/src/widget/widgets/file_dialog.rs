@@ -140,7 +140,10 @@ impl FileFilter {
 
     /// Create a filter for image files.
     pub fn image_files() -> Self {
-        Self::new("Images", &["*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"])
+        Self::new(
+            "Images",
+            &["*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"],
+        )
     }
 
     /// Check if a filename matches this filter.
@@ -153,11 +156,10 @@ impl FileFilter {
             }
 
             // Handle simple extension patterns like "*.rs"
-            if let Some(ext_pattern) = pattern.strip_prefix("*.") {
-                if filename_lower.ends_with(&format!(".{}", ext_pattern.to_lowercase())) {
+            if let Some(ext_pattern) = pattern.strip_prefix("*.")
+                && filename_lower.ends_with(&format!(".{}", ext_pattern.to_lowercase())) {
                     return true;
                 }
-            }
         }
 
         false
@@ -619,9 +621,8 @@ impl FileDialog {
             .with_size(800.0, 500.0)
             .with_standard_buttons(StandardButton::OPEN | StandardButton::CANCEL);
 
-        let current_dir = std::env::current_dir().unwrap_or_else(|_| {
-            dirs_path::home_dir().unwrap_or_else(|| PathBuf::from("/"))
-        });
+        let current_dir = std::env::current_dir()
+            .unwrap_or_else(|_| dirs_path::home_dir().unwrap_or_else(|| PathBuf::from("/")));
 
         let mut file_dialog = Self {
             dialog,
@@ -708,7 +709,9 @@ impl FileDialog {
         let mut dialog = Self::new()
             .with_mode(FileDialogMode::SaveFile)
             .with_title("Save File");
-        dialog.dialog.set_standard_buttons(StandardButton::SAVE | StandardButton::CANCEL);
+        dialog
+            .dialog
+            .set_standard_buttons(StandardButton::SAVE | StandardButton::CANCEL);
         dialog
     }
 
@@ -965,7 +968,9 @@ impl FileDialog {
         directory: impl AsRef<Path>,
         filters: &[FileFilter],
     ) -> FileDialog {
-        let mut dialog = Self::for_open_multiple().with_title(title).with_directory(directory);
+        let mut dialog = Self::for_open_multiple()
+            .with_title(title)
+            .with_directory(directory);
 
         for filter in filters {
             dialog = dialog.with_filter(filter.clone());
@@ -994,7 +999,9 @@ impl FileDialog {
         title: impl Into<String>,
         directory: impl AsRef<Path>,
     ) -> FileDialog {
-        Self::for_directory().with_title(title).with_directory(directory)
+        Self::for_directory()
+            .with_title(title)
+            .with_directory(directory)
     }
 
     // =========================================================================
@@ -1014,30 +1021,32 @@ impl FileDialog {
 
             match self.mode {
                 FileDialogMode::OpenFile => {
-                    if let Some(path) = native::open_file_dialog(&title, dir, filters) {
+                    if let Some(path) = native::open_file_dialog(title, dir, filters) {
                         self.file_selected.emit(path.clone());
                         self.add_recent_location(path.parent().unwrap_or(dir).to_path_buf());
                         return;
                     }
                 }
                 FileDialogMode::OpenFiles => {
-                    if let Some(paths) = native::open_files_dialog(&title, dir, filters) {
+                    if let Some(paths) = native::open_files_dialog(title, dir, filters) {
                         if let Some(first_path) = paths.first() {
-                            self.add_recent_location(first_path.parent().unwrap_or(dir).to_path_buf());
+                            self.add_recent_location(
+                                first_path.parent().unwrap_or(dir).to_path_buf(),
+                            );
                         }
                         self.files_selected.emit(paths);
                         return;
                     }
                 }
                 FileDialogMode::SaveFile => {
-                    if let Some(path) = native::save_file_dialog(&title, dir, filters) {
+                    if let Some(path) = native::save_file_dialog(title, dir, filters) {
                         self.file_selected.emit(path.clone());
                         self.add_recent_location(path.parent().unwrap_or(dir).to_path_buf());
                         return;
                     }
                 }
                 FileDialogMode::Directory => {
-                    if let Some(path) = native::directory_dialog(&title, dir) {
+                    if let Some(path) = native::directory_dialog(title, dir) {
                         self.directory_selected.emit(path.clone());
                         self.add_recent_location(path);
                         return;
@@ -1130,8 +1139,8 @@ impl FileDialog {
 
     /// Navigate up to the parent directory.
     pub fn navigate_up(&mut self) {
-        if let Some(parent) = self.current_dir.parent() {
-            self.navigate_to(&parent.to_path_buf());
+        if let Some(parent) = self.current_dir.parent().map(|p| p.to_path_buf()) {
+            self.navigate_to(&parent);
         }
     }
 
@@ -1168,26 +1177,22 @@ impl FileDialog {
         if let Some(home) = BookmarkEntry::home() {
             self.system_bookmarks.push(home);
         }
-        if let Some(desktop) = BookmarkEntry::desktop() {
-            if desktop.path.exists() {
+        if let Some(desktop) = BookmarkEntry::desktop()
+            && desktop.path.exists() {
                 self.system_bookmarks.push(desktop);
             }
-        }
-        if let Some(docs) = BookmarkEntry::documents() {
-            if docs.path.exists() {
+        if let Some(docs) = BookmarkEntry::documents()
+            && docs.path.exists() {
                 self.system_bookmarks.push(docs);
             }
-        }
-        if let Some(downloads) = BookmarkEntry::downloads() {
-            if downloads.path.exists() {
+        if let Some(downloads) = BookmarkEntry::downloads()
+            && downloads.path.exists() {
                 self.system_bookmarks.push(downloads);
             }
-        }
-        if let Some(pictures) = BookmarkEntry::pictures() {
-            if pictures.path.exists() {
+        if let Some(pictures) = BookmarkEntry::pictures()
+            && pictures.path.exists() {
                 self.system_bookmarks.push(pictures);
             }
-        }
 
         // Add root filesystem
         #[cfg(not(target_os = "windows"))]
@@ -1341,7 +1346,7 @@ impl FileDialog {
             // Parse multiple files from filename field (space or semicolon separated)
             return self
                 .filename_text
-                .split(|c| c == ';' || c == '\n')
+                .split([';', '\n'])
                 .filter(|s| !s.trim().is_empty())
                 .map(|s| {
                     let s = s.trim();
@@ -1444,7 +1449,8 @@ impl FileDialog {
                 Rect::new(list_rect.origin.x, y, list_rect.width(), self.row_height)
             }
             FileViewMode::Icons => {
-                let cols = (list_rect.width() / (self.icon_size + self.content_padding * 2.0)).max(1.0) as usize;
+                let cols = (list_rect.width() / (self.icon_size + self.content_padding * 2.0))
+                    .max(1.0) as usize;
                 let row = index / cols;
                 let col = index % cols;
                 let cell_width = list_rect.width() / cols as f32;
@@ -1493,11 +1499,10 @@ impl FileDialog {
         self.selected_indices.insert(index);
 
         // Update filename text
-        if let Some(entry) = self.entries.get(index) {
-            if !entry.is_dir || self.mode.is_directory_mode() {
+        if let Some(entry) = self.entries.get(index)
+            && (!entry.is_dir || self.mode.is_directory_mode()) {
                 self.filename_text = entry.name.clone();
             }
-        }
 
         self.dialog.widget_base_mut().update();
     }
@@ -1551,7 +1556,7 @@ impl FileDialog {
         let pos = event.local_pos;
 
         // Check path bar clicks
-        for (_i, segment) in self.path_segments.iter().enumerate() {
+        for segment in self.path_segments.iter() {
             if segment.rect.contains(pos) {
                 let path = segment.path.clone();
                 self.navigate_to(&path);
@@ -1644,7 +1649,8 @@ impl FileDialog {
         let list_rect = self.file_list_rect();
         if list_rect.contains(event.local_pos) {
             let delta = event.delta_y * 3.0;
-            let max_scroll = (self.entries.len() as f32 * self.row_height - list_rect.height()).max(0.0);
+            let max_scroll =
+                (self.entries.len() as f32 * self.row_height - list_rect.height()).max(0.0);
             self.scroll_y = (self.scroll_y - delta).clamp(0.0, max_scroll);
             self.dialog.widget_base_mut().update();
             return true;
@@ -1714,8 +1720,8 @@ impl FileDialog {
         }
 
         // Handle typing to filter/search
-        if let Some(ch) = event.key.to_ascii_char() {
-            if ch.is_alphanumeric() {
+        if let Some(ch) = event.key.to_ascii_char()
+            && ch.is_alphanumeric() {
                 // Find first entry starting with this character
                 let ch_lower = ch.to_ascii_lowercase();
                 for (i, entry) in self.entries.iter().enumerate() {
@@ -1726,7 +1732,6 @@ impl FileDialog {
                 }
                 return true;
             }
-        }
 
         false
     }
@@ -1812,12 +1817,7 @@ impl FileDialog {
 
         // Draw system bookmarks
         for bookmark in &self.system_bookmarks {
-            let item_rect = Rect::new(
-                rect.origin.x,
-                y,
-                rect.width(),
-                self.tree_item_height,
-            );
+            let item_rect = Rect::new(rect.origin.x, y, rect.width(), self.tree_item_height);
 
             // Highlight if this is the current directory
             if bookmark.path == self.current_dir {
@@ -1842,7 +1842,6 @@ impl FileDialog {
             Point::new(rect.origin.x + rect.width() - self.content_padding, y),
             &Stroke::new(self.border_color, 1.0),
         );
-        y += self.content_padding;
 
         // User bookmarks section
         // (Similar to system bookmarks)
@@ -1921,10 +1920,8 @@ impl FileDialog {
                     entry_rect.width() - 8.0,
                     entry_rect.height() - 8.0,
                 );
-                ctx.renderer().fill_rounded_rect(
-                    RoundedRect::new(sel_rect, 4.0),
-                    self.selection_color,
-                );
+                ctx.renderer()
+                    .fill_rounded_rect(RoundedRect::new(sel_rect, 4.0), self.selection_color);
             } else if self.hovered_entry == Some(i) {
                 let hover_rect = Rect::new(
                     entry_rect.origin.x + 4.0,
@@ -1932,10 +1929,8 @@ impl FileDialog {
                     entry_rect.width() - 8.0,
                     entry_rect.height() - 8.0,
                 );
-                ctx.renderer().fill_rounded_rect(
-                    RoundedRect::new(hover_rect, 4.0),
-                    self.hover_color,
-                );
+                ctx.renderer()
+                    .fill_rounded_rect(RoundedRect::new(hover_rect, 4.0), self.hover_color);
             }
 
             // Icon (centered)
@@ -1979,17 +1974,13 @@ impl FileDialog {
 
         // Folder tab
         let tab_rect = Rect::new(pos.x, pos.y, tab_w, tab_h);
-        ctx.renderer().fill_rounded_rect(
-            RoundedRect::new(tab_rect, 2.0),
-            self.folder_icon_color,
-        );
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(tab_rect, 2.0), self.folder_icon_color);
 
         // Folder body
         let body_rect = Rect::new(pos.x, pos.y + tab_h - 1.0, w, h - tab_h + 1.0);
-        ctx.renderer().fill_rounded_rect(
-            RoundedRect::new(body_rect, 2.0),
-            self.folder_icon_color,
-        );
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(body_rect, 2.0), self.folder_icon_color);
     }
 
     fn draw_file_icon(&self, ctx: &mut PaintContext<'_>, pos: Point, size: f32) {
@@ -2000,10 +1991,8 @@ impl FileDialog {
 
         // Main body
         let body_rect = Rect::new(pos.x, pos.y, w, h);
-        ctx.renderer().fill_rounded_rect(
-            RoundedRect::new(body_rect, 1.0),
-            Color::WHITE,
-        );
+        ctx.renderer()
+            .fill_rounded_rect(RoundedRect::new(body_rect, 1.0), Color::WHITE);
         ctx.renderer().stroke_rounded_rect(
             RoundedRect::new(body_rect, 1.0),
             &Stroke::new(self.file_icon_color, 1.0),
@@ -2131,8 +2120,7 @@ mod native {
 
     /// Open a native file dialog for a single file.
     pub fn open_file_dialog(title: &str, dir: &Path, filters: &[FileFilter]) -> Option<PathBuf> {
-        let options = NativeFileDialogOptions::with_title(title)
-            .directory(dir.to_path_buf());
+        let options = NativeFileDialogOptions::with_title(title).directory(dir.to_path_buf());
 
         let mut options = options;
         for filter in convert_filters(filters) {
@@ -2143,7 +2131,11 @@ mod native {
     }
 
     /// Open a native file dialog for multiple files.
-    pub fn open_files_dialog(title: &str, dir: &Path, filters: &[FileFilter]) -> Option<Vec<PathBuf>> {
+    pub fn open_files_dialog(
+        title: &str,
+        dir: &Path,
+        filters: &[FileFilter],
+    ) -> Option<Vec<PathBuf>> {
         let options = NativeFileDialogOptions::with_title(title)
             .directory(dir.to_path_buf())
             .multiple(true);
@@ -2158,8 +2150,7 @@ mod native {
 
     /// Open a native save dialog.
     pub fn save_file_dialog(title: &str, dir: &Path, filters: &[FileFilter]) -> Option<PathBuf> {
-        let options = NativeFileDialogOptions::with_title(title)
-            .directory(dir.to_path_buf());
+        let options = NativeFileDialogOptions::with_title(title).directory(dir.to_path_buf());
 
         let mut options = options;
         for filter in convert_filters(filters) {
@@ -2171,8 +2162,7 @@ mod native {
 
     /// Open a native directory dialog.
     pub fn directory_dialog(title: &str, dir: &Path) -> Option<PathBuf> {
-        let options = NativeFileDialogOptions::with_title(title)
-            .directory(dir.to_path_buf());
+        let options = NativeFileDialogOptions::with_title(title).directory(dir.to_path_buf());
 
         native_dialogs::select_directory(options)
     }
@@ -2328,25 +2318,14 @@ mod tests {
     fn test_file_dialog_static_helpers() {
         setup();
 
-        let dialog = FileDialog::get_open_file_name(
-            "Open",
-            "/tmp",
-            &[FileFilter::text_files()],
-        );
+        let dialog = FileDialog::get_open_file_name("Open", "/tmp", &[FileFilter::text_files()]);
         assert_eq!(dialog.mode(), FileDialogMode::OpenFile);
 
-        let dialog = FileDialog::get_open_file_names(
-            "Open Multiple",
-            "/tmp",
-            &[FileFilter::all_files()],
-        );
+        let dialog =
+            FileDialog::get_open_file_names("Open Multiple", "/tmp", &[FileFilter::all_files()]);
         assert_eq!(dialog.mode(), FileDialogMode::OpenFiles);
 
-        let dialog = FileDialog::get_save_file_name(
-            "Save",
-            "/tmp",
-            &[FileFilter::text_files()],
-        );
+        let dialog = FileDialog::get_save_file_name("Save", "/tmp", &[FileFilter::text_files()]);
         assert_eq!(dialog.mode(), FileDialogMode::SaveFile);
 
         let dialog = FileDialog::get_existing_directory("Select Folder", "/tmp");

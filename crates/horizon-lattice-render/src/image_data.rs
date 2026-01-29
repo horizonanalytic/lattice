@@ -272,11 +272,10 @@ impl ImageMetadata {
     /// Get the corrected dimensions based on EXIF orientation.
     /// Returns (width, height) after applying orientation correction.
     pub fn corrected_dimensions(&self) -> (u32, u32) {
-        if let Some(ref exif) = self.exif {
-            if exif.orientation.swaps_dimensions() {
+        if let Some(ref exif) = self.exif
+            && exif.orientation.swaps_dimensions() {
                 return (self.height, self.width);
             }
-        }
         (self.width, self.height)
     }
 }
@@ -471,14 +470,22 @@ fn parse_exif(bytes: &[u8]) -> Option<ExifData> {
     data.focal_length = get_rational(exif::Tag::FocalLength);
 
     // Dimensions from EXIF
-    data.exif_width = get_u32(exif::Tag::ImageWidth)
-        .or_else(|| get_u32(exif::Tag::PixelXDimension));
-    data.exif_height = get_u32(exif::Tag::ImageLength)
-        .or_else(|| get_u32(exif::Tag::PixelYDimension));
+    data.exif_width =
+        get_u32(exif::Tag::ImageWidth).or_else(|| get_u32(exif::Tag::PixelXDimension));
+    data.exif_height =
+        get_u32(exif::Tag::ImageLength).or_else(|| get_u32(exif::Tag::PixelYDimension));
 
     // GPS coordinates
-    data.gps_latitude = parse_gps_coordinate(&exif_data, exif::Tag::GPSLatitude, exif::Tag::GPSLatitudeRef);
-    data.gps_longitude = parse_gps_coordinate(&exif_data, exif::Tag::GPSLongitude, exif::Tag::GPSLongitudeRef);
+    data.gps_latitude = parse_gps_coordinate(
+        &exif_data,
+        exif::Tag::GPSLatitude,
+        exif::Tag::GPSLatitudeRef,
+    );
+    data.gps_longitude = parse_gps_coordinate(
+        &exif_data,
+        exif::Tag::GPSLongitude,
+        exif::Tag::GPSLongitudeRef,
+    );
     data.gps_altitude = get_rational(exif::Tag::GPSAltitude);
 
     Some(data)
@@ -498,8 +505,8 @@ fn parse_gps_coordinate(
     let is_negative = ref_str.starts_with('S') || ref_str.starts_with('W');
 
     // Parse degrees, minutes, seconds
-    if let exif::Value::Rational(ref rationals) = coord_field.value {
-        if rationals.len() >= 3 {
+    if let exif::Value::Rational(ref rationals) = coord_field.value
+        && rationals.len() >= 3 {
             let degrees = rationals[0].num as f64 / rationals[0].denom as f64;
             let minutes = rationals[1].num as f64 / rationals[1].denom as f64;
             let seconds = rationals[2].num as f64 / rationals[2].denom as f64;
@@ -507,7 +514,6 @@ fn parse_gps_coordinate(
             let decimal = degrees + minutes / 60.0 + seconds / 3600.0;
             return Some(if is_negative { -decimal } else { decimal });
         }
-    }
 
     None
 }

@@ -1109,7 +1109,11 @@ impl Path {
 
     /// Draw a cubic bezier curve.
     pub fn cubic_to(&mut self, control1: Point, control2: Point, end: Point) -> &mut Self {
-        self.commands.push(PathCommand::CubicTo { control1, control2, end });
+        self.commands.push(PathCommand::CubicTo {
+            control1,
+            control2,
+            end,
+        });
         self.bounds = None;
         self
     }
@@ -1123,7 +1127,14 @@ impl Path {
     /// * `large_arc` - If true, use the larger of the two possible arcs
     /// * `sweep` - If true, sweep in the positive angle direction
     /// * `end` - The endpoint of the arc
-    pub fn arc_to(&mut self, radii: Point, x_rotation: f32, large_arc: bool, sweep: bool, end: Point) -> &mut Self {
+    pub fn arc_to(
+        &mut self,
+        radii: Point,
+        x_rotation: f32,
+        large_arc: bool,
+        sweep: bool,
+        end: Point,
+    ) -> &mut Self {
         self.commands.push(PathCommand::ArcTo {
             radii,
             x_rotation,
@@ -1188,7 +1199,11 @@ impl Path {
                     extend_bounds(*control);
                     extend_bounds(*end);
                 }
-                PathCommand::CubicTo { control1, control2, end } => {
+                PathCommand::CubicTo {
+                    control1,
+                    control2,
+                    end,
+                } => {
                     extend_bounds(*control1);
                     extend_bounds(*control2);
                     extend_bounds(*end);
@@ -1236,7 +1251,7 @@ impl Path {
     pub fn ellipse(center: Point, radius_x: f32, radius_y: f32) -> Self {
         // Approximation constant for bezier control points
         // https://spencermortensen.com/articles/bezier-circle/
-        const C: f32 = 0.5519150244935105707435627;
+        const C: f32 = 0.551_915_05;
 
         let mut path = Self::with_capacity(6);
 
@@ -1390,7 +1405,11 @@ impl Path {
         let start_angle = -std::f32::consts::FRAC_PI_2; // Start at top
 
         for i in 0..points * 2 {
-            let radius = if i % 2 == 0 { outer_radius } else { inner_radius };
+            let radius = if i % 2 == 0 {
+                outer_radius
+            } else {
+                inner_radius
+            };
             let angle = start_angle + i as f32 * angle_step;
             let p = Point::new(
                 center.x + radius * angle.cos(),
@@ -1419,7 +1438,11 @@ impl Path {
                     *control = transform.transform_point(*control);
                     *end = transform.transform_point(*end);
                 }
-                PathCommand::CubicTo { control1, control2, end } => {
+                PathCommand::CubicTo {
+                    control1,
+                    control2,
+                    end,
+                } => {
                     *control1 = transform.transform_point(*control1);
                     *control2 = transform.transform_point(*control2);
                     *end = transform.transform_point(*end);

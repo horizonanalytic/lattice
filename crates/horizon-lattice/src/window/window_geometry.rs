@@ -104,17 +104,16 @@ impl WindowGeometry {
         let target_screen = self.find_target_screen(&screens);
 
         // Validate and adjust position/size for this screen
-        self.adjust_for_screen(&target_screen)
+        self.adjust_for_screen(target_screen)
     }
 
     /// Find the appropriate screen to restore the window to.
     fn find_target_screen<'a>(&self, screens: &'a [Screen]) -> &'a Screen {
         // Try to find by name first
-        if let Some(ref name) = self.screen_name {
-            if let Some(screen) = screens.iter().find(|s| s.name() == name) {
+        if let Some(ref name) = self.screen_name
+            && let Some(screen) = screens.iter().find(|s| s.name() == name) {
                 return screen;
             }
-        }
 
         // Try to find the screen containing the saved position
         if let Some(screen) = screens.iter().find(|s| {
@@ -138,14 +137,8 @@ impl WindowGeometry {
 
         // Clamp size to work area (with some minimum size)
         const MIN_SIZE: u32 = 100;
-        adjusted.width = adjusted
-            .width
-            .max(MIN_SIZE)
-            .min(work_area.width);
-        adjusted.height = adjusted
-            .height
-            .max(MIN_SIZE)
-            .min(work_area.height);
+        adjusted.width = adjusted.width.max(MIN_SIZE).min(work_area.width);
+        adjusted.height = adjusted.height.max(MIN_SIZE).min(work_area.height);
 
         // Ensure window is at least partially visible
         // We require at least 50 pixels of the title bar to be visible
@@ -184,10 +177,7 @@ impl WindowGeometry {
         let rect_right = rect.x + rect.width as i32;
         let rect_bottom = rect.y + rect.height as i32;
 
-        self.x < rect_right
-            && self_right > rect.x
-            && self.y < rect_bottom
-            && self_bottom > rect.y
+        self.x < rect_right && self_right > rect.x && self.y < rect_bottom && self_bottom > rect.y
     }
 }
 

@@ -3,6 +3,8 @@
 //! This crate provides the foundational components of the Horizon Lattice GUI framework:
 
 #![warn(missing_docs)]
+// Allow complex types in the meta-object system - these are intentional for type-safe signal/slot
+#![allow(clippy::type_complexity)]
 //!
 //! - **Event Loop**: The main application event loop built on winit
 //! - **Application**: Global application state and lifecycle management
@@ -113,28 +115,32 @@ mod timer;
 pub mod worker;
 
 pub use application::{Application, WindowEventHandler};
-pub use error::{LatticeError, Result, SchedulerError, SignalError, ThreadError, ThreadPoolError, TimerError};
+pub use error::{
+    LatticeError, Result, SchedulerError, SignalError, ThreadError, ThreadPoolError, TimerError,
+};
 pub use event::{EventPriority, LatticeEvent};
 pub use logging::{ObjectTreeDebug, PerfSpan, TreeFormatOptions, TreeStyle};
 pub use meta::{
-    init_type_registry, MetaError, MetaObject, MetaProperty, MetaResult, MethodMeta, SignalMeta,
-    TypeRegistry,
+    MetaError, MetaObject, MetaProperty, MetaResult, MethodMeta, SignalMeta, TypeRegistry,
+    init_type_registry,
 };
 pub use object::{
-    global_registry, init_global_registry, object_cast, object_cast_mut, Object, ObjectBase,
-    ObjectError, ObjectId, ObjectRegistry, ObjectResult, SharedObjectRegistry, WidgetState,
+    Object, ObjectBase, ObjectError, ObjectId, ObjectRegistry, ObjectResult, SharedObjectRegistry,
+    WidgetState, global_registry, init_global_registry, object_cast, object_cast_mut,
 };
-pub use property::{Binding, IntoProperty, Property, PropertyError, PropertyMeta, ReadOnlyProperty};
-pub use signal::{ConnectionGuard, ConnectionId, ConnectionType, Signal, SignalEmitter};
+pub use progress::{AggregateProgress, ProgressReporter, ProgressUpdate};
+pub use property::{
+    Binding, IntoProperty, Property, PropertyError, PropertyMeta, ReadOnlyProperty,
+};
 pub use scheduler::{ScheduledTaskId, ScheduledTaskKind};
+pub use signal::{ConnectionGuard, ConnectionId, ConnectionType, Signal, SignalEmitter};
 pub use task::TaskId;
+pub use thread_check::{
+    ThreadAffinity, are_thread_checks_enabled, is_main_thread, main_thread_id,
+    set_thread_checks_enabled,
+};
 pub use timer::TimerId;
 pub use worker::{Worker, WorkerBuilder, WorkerConfig};
-pub use progress::{AggregateProgress, ProgressReporter, ProgressUpdate};
-pub use thread_check::{
-    are_thread_checks_enabled, is_main_thread, main_thread_id, set_thread_checks_enabled,
-    ThreadAffinity,
-};
 
 // Re-export winit types that users may need
 pub use winit::event::Modifiers;

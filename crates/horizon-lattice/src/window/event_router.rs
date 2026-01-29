@@ -121,7 +121,9 @@ fn handle_window_event(window_id: WindowId, event: &WindowEvent) -> bool {
 ///
 /// Application::instance().set_window_event_handler(handler);
 /// ```
-pub fn create_window_event_handler<F>(custom_handler: F) -> impl Fn(WindowId, &WindowEvent) -> bool + Send + Sync + 'static
+pub fn create_window_event_handler<F>(
+    custom_handler: F,
+) -> impl Fn(WindowId, &WindowEvent) -> bool + Send + Sync + 'static
 where
     F: Fn(WindowId, &WindowEvent) -> bool + Send + Sync + 'static,
 {

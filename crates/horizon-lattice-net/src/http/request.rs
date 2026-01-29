@@ -6,9 +6,9 @@ use std::time::Duration;
 use bytes::Bytes;
 use serde::Serialize;
 
-use crate::error::Result;
 use super::client::{Authentication, HttpClient};
 use super::response::HttpResponse;
+use crate::error::Result;
 
 /// HTTP request methods.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -60,8 +60,10 @@ impl std::fmt::Display for HttpMethod {
 
 /// The body of an HTTP request.
 #[derive(Clone, Debug)]
+#[derive(Default)]
 pub enum RequestBody {
     /// No body.
+    #[default]
     None,
     /// Plain text body.
     Text(String),
@@ -73,11 +75,6 @@ pub enum RequestBody {
     Bytes(Bytes),
 }
 
-impl Default for RequestBody {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 /// A built HTTP request ready to be sent.
 #[derive(Debug)]
@@ -312,8 +309,8 @@ impl MultipartForm {
     ) -> Self {
         let bytes_vec: Vec<u8> = bytes.into();
         let filename_str: String = filename.into();
-        let part = reqwest::multipart::Part::bytes(bytes_vec.clone())
-            .file_name(filename_str.clone());
+        let part =
+            reqwest::multipart::Part::bytes(bytes_vec.clone()).file_name(filename_str.clone());
         // Apply mime type if provided (mime_str consumes self and returns Result<Part>)
         let part = match mime_type {
             Some(mime) => part.mime_str(mime).unwrap_or_else(|e| {

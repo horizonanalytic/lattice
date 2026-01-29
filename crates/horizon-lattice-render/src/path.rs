@@ -48,12 +48,12 @@
 //! ```
 
 use lyon::math::point as lyon_point;
-use lyon::path::builder::SvgPathBuilder;
 use lyon::path::Path as LyonPath;
+use lyon::path::builder::SvgPathBuilder;
 use lyon::tessellation::{
-    BuffersBuilder, FillOptions, FillRule as LyonFillRule, FillTessellator,
-    FillVertex, FillVertexConstructor, LineCap as LyonLineCap, LineJoin as LyonLineJoin,
-    StrokeOptions, StrokeTessellator, StrokeVertex, StrokeVertexConstructor, VertexBuffers,
+    BuffersBuilder, FillOptions, FillRule as LyonFillRule, FillTessellator, FillVertex,
+    FillVertexConstructor, LineCap as LyonLineCap, LineJoin as LyonLineJoin, StrokeOptions,
+    StrokeTessellator, StrokeVertex, StrokeVertexConstructor, VertexBuffers,
 };
 
 use crate::paint::{FillRule, LineCap, LineJoin, Stroke};
@@ -132,14 +132,24 @@ pub fn to_lyon_path(path: &Path) -> LyonPath {
                     lyon_point(end.x, end.y),
                 );
             }
-            PathCommand::CubicTo { control1, control2, end } => {
+            PathCommand::CubicTo {
+                control1,
+                control2,
+                end,
+            } => {
                 builder.cubic_bezier_to(
                     lyon_point(control1.x, control1.y),
                     lyon_point(control2.x, control2.y),
                     lyon_point(end.x, end.y),
                 );
             }
-            PathCommand::ArcTo { radii, x_rotation, large_arc, sweep, end } => {
+            PathCommand::ArcTo {
+                radii,
+                x_rotation,
+                large_arc,
+                sweep,
+                end,
+            } => {
                 // Convert our arc to lyon's SVG arc format
                 let arc_flags = lyon::path::ArcFlags {
                     large_arc: *large_arc,
@@ -369,8 +379,7 @@ mod tests {
         path.move_to(Point::new(0.0, 0.0))
             .line_to(Point::new(100.0, 0.0));
 
-        let stroke = Stroke::new(Color::BLACK, 10.0)
-            .with_cap(LineCap::Round);
+        let stroke = Stroke::new(Color::BLACK, 10.0).with_cap(LineCap::Round);
         let result = tessellate_stroke(&path, &stroke, DEFAULT_TOLERANCE);
 
         // Round caps should produce more vertices than butt caps
@@ -384,8 +393,7 @@ mod tests {
             .line_to(Point::new(50.0, 50.0))
             .line_to(Point::new(100.0, 0.0));
 
-        let stroke = Stroke::new(Color::BLACK, 10.0)
-            .with_join(LineJoin::Round);
+        let stroke = Stroke::new(Color::BLACK, 10.0).with_join(LineJoin::Round);
         let result = tessellate_stroke(&path, &stroke, DEFAULT_TOLERANCE);
 
         assert!(!result.is_empty());
@@ -431,6 +439,6 @@ mod tests {
 
         let lyon_path = to_lyon_path(&path);
         // The path should be valid and not panic
-        assert!(!lyon_path.iter().next().is_none());
+        assert!(lyon_path.iter().next().is_some());
     }
 }

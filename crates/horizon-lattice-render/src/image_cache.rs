@@ -252,7 +252,8 @@ impl ImageCache {
         }
 
         // Evict entries if necessary to make room
-        while self.current_size + entry_size > self.config.max_size_bytes && !self.entries.is_empty()
+        while self.current_size + entry_size > self.config.max_size_bytes
+            && !self.entries.is_empty()
         {
             if let Some(tail_key) = self.lru_tail.clone() {
                 self.remove(&tail_key);
@@ -407,11 +408,10 @@ impl ImageCache {
         };
 
         // Update old head's prev pointer
-        if let Some(old_head) = &self.lru_head {
-            if let Some(old_node) = self.lru_nodes.get_mut(old_head) {
+        if let Some(old_head) = &self.lru_head
+            && let Some(old_node) = self.lru_nodes.get_mut(old_head) {
                 old_node.prev = Some(key.clone());
             }
-        }
 
         // Update tail if this is the first entry
         if self.lru_tail.is_none() {
@@ -473,7 +473,10 @@ impl std::fmt::Debug for ImageCache {
         f.debug_struct("ImageCache")
             .field("entries", &self.entries.len())
             .field("size_mb", &(self.current_size as f64 / 1024.0 / 1024.0))
-            .field("max_size_mb", &(self.config.max_size_bytes as f64 / 1024.0 / 1024.0))
+            .field(
+                "max_size_mb",
+                &(self.config.max_size_bytes as f64 / 1024.0 / 1024.0),
+            )
             .field("hit_rate", &format!("{:.1}%", self.hit_rate() * 100.0))
             .finish()
     }

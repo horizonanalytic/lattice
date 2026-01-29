@@ -87,8 +87,8 @@
 //! timer.start()?;
 //! ```
 
-mod error;
 pub mod audio;
+mod error;
 pub mod sound_effects;
 
 #[cfg(feature = "high-precision-timers")]
@@ -103,6 +103,6 @@ pub use sound_effects::SoundPool;
 // Re-export timer types when feature is enabled
 #[cfg(feature = "high-precision-timers")]
 pub use timers::{
-    HighPrecisionTimer, PreciseSleeper, SpinStrategyConfig, TimerConfig, TimerEvent,
-    precise_sleep, precise_sleep_ns, precise_sleep_s,
+    HighPrecisionTimer, PreciseSleeper, SpinStrategyConfig, TimerConfig, TimerEvent, precise_sleep,
+    precise_sleep_ns, precise_sleep_s,
 };

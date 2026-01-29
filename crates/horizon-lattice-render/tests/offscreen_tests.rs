@@ -6,8 +6,8 @@
 //! ```
 
 use horizon_lattice_render::{
-    capture::BufferDimensions, Color, GpuRenderer, GraphicsConfig, GraphicsContext,
-    OffscreenConfig, OffscreenSurface, Rect, Renderer, Size,
+    Color, GpuRenderer, GraphicsConfig, GraphicsContext, OffscreenConfig, OffscreenSurface, Rect,
+    Renderer, Size, capture::BufferDimensions,
 };
 
 #[test]
@@ -88,7 +88,9 @@ fn test_offscreen_resize() {
     assert_eq!(surface.size(), (200, 150));
 
     // Test that same-size resize is a no-op
-    surface.resize(200, 150).expect("Same-size resize should succeed");
+    surface
+        .resize(200, 150)
+        .expect("Same-size resize should succeed");
     assert_eq!(surface.size(), (200, 150));
 
     // Test that zero-size resize fails
@@ -131,7 +133,10 @@ fn test_offscreen_render_and_read() {
     assert!(pixels[2] < 50, "Blue channel should be low");
     assert_eq!(pixels[3], 255, "Alpha should be fully opaque");
 
-    println!("First pixel RGBA: {}, {}, {}, {}", pixels[0], pixels[1], pixels[2], pixels[3]);
+    println!(
+        "First pixel RGBA: {}, {}, {}, {}",
+        pixels[0], pixels[1], pixels[2], pixels[3]
+    );
     println!("Offscreen render and read test passed");
 }
 
@@ -149,10 +154,8 @@ fn test_multiple_offscreen_surfaces() {
         OffscreenSurface::new(OffscreenConfig::new(200, 200)).expect("Failed to create surface 2");
 
     // Create renderers for both
-    let mut renderer1 =
-        GpuRenderer::new_offscreen(&surface1).expect("Failed to create renderer 1");
-    let mut renderer2 =
-        GpuRenderer::new_offscreen(&surface2).expect("Failed to create renderer 2");
+    let mut renderer1 = GpuRenderer::new_offscreen(&surface1).expect("Failed to create renderer 1");
+    let mut renderer2 = GpuRenderer::new_offscreen(&surface2).expect("Failed to create renderer 2");
 
     // Render different content to each
     renderer1.begin_frame(Color::RED, Size::new(100.0, 100.0));
@@ -205,8 +208,7 @@ fn test_gpu_memory_churn() {
             let size = 64 + (i * 32) as u32; // Varying sizes
             let surface = OffscreenSurface::new(OffscreenConfig::new(size, size))
                 .expect("Failed to create surface");
-            let renderer =
-                GpuRenderer::new_offscreen(&surface).expect("Failed to create renderer");
+            let renderer = GpuRenderer::new_offscreen(&surface).expect("Failed to create renderer");
             surfaces.push(surface);
             renderers.push(renderer);
         }
@@ -240,7 +242,11 @@ fn test_gpu_memory_churn() {
         // Surfaces and renderers are dropped here, releasing GPU resources
 
         if iter % 10 == 0 {
-            println!("GPU memory churn test: iteration {}/{}", iter + 1, ITERATIONS);
+            println!(
+                "GPU memory churn test: iteration {}/{}",
+                iter + 1,
+                ITERATIONS
+            );
         }
     }
 
@@ -257,7 +263,9 @@ fn test_gpu_memory_churn() {
         .render_to_offscreen(&final_surface)
         .expect("Final render should succeed");
 
-    let final_pixels = final_surface.read_pixels().expect("Final read should succeed");
+    let final_pixels = final_surface
+        .read_pixels()
+        .expect("Final read should succeed");
     assert_eq!(final_pixels.len(), 128 * 128 * 4);
 
     println!(

@@ -297,7 +297,10 @@ impl WindowManager {
     /// Get the winit window for a given ID.
     ///
     /// This is useful for surface creation and other winit-specific operations.
-    pub fn get_winit_window(&self, id: NativeWindowId) -> Option<std::sync::Arc<winit::window::Window>> {
+    pub fn get_winit_window(
+        &self,
+        id: NativeWindowId,
+    ) -> Option<std::sync::Arc<winit::window::Window>> {
         self.windows.read().get(&id).map(|w| w.winit_window_arc())
     }
 
@@ -347,11 +350,10 @@ impl WindowManager {
     /// * `parent` - The parent window, or `None` to remove the parent relationship
     pub fn set_parent(&self, child: NativeWindowId, parent: Option<NativeWindowId>) {
         // First, remove any existing parent relationship
-        if let Some(old_parent) = self.parent_map.write().remove(&child) {
-            if let Some(siblings) = self.children_map.write().get_mut(&old_parent) {
+        if let Some(old_parent) = self.parent_map.write().remove(&child)
+            && let Some(siblings) = self.children_map.write().get_mut(&old_parent) {
                 siblings.retain(|&id| id != child);
             }
-        }
 
         // Set up new parent relationship
         if let Some(parent_id) = parent {
@@ -579,7 +581,13 @@ impl WindowManager {
     /// Tile windows horizontally.
     ///
     /// Arranges windows side by side, each taking an equal portion of the available width.
-    pub fn tile_windows_horizontal(&self, bounds_x: i32, bounds_y: i32, bounds_width: u32, bounds_height: u32) {
+    pub fn tile_windows_horizontal(
+        &self,
+        bounds_x: i32,
+        bounds_y: i32,
+        bounds_width: u32,
+        bounds_height: u32,
+    ) {
         let guard = self.windows.read();
         let count = guard.len();
         if count == 0 {
@@ -597,7 +605,13 @@ impl WindowManager {
     /// Tile windows vertically.
     ///
     /// Arranges windows stacked vertically, each taking an equal portion of the available height.
-    pub fn tile_windows_vertical(&self, bounds_x: i32, bounds_y: i32, bounds_width: u32, bounds_height: u32) {
+    pub fn tile_windows_vertical(
+        &self,
+        bounds_x: i32,
+        bounds_y: i32,
+        bounds_width: u32,
+        bounds_height: u32,
+    ) {
         let guard = self.windows.read();
         let count = guard.len();
         if count == 0 {

@@ -440,11 +440,10 @@ impl SvgCache {
         };
 
         // Update old head's prev pointer
-        if let Some(old_head) = &self.lru_head {
-            if let Some(old_node) = self.lru_nodes.get_mut(old_head) {
+        if let Some(old_head) = &self.lru_head
+            && let Some(old_node) = self.lru_nodes.get_mut(old_head) {
                 old_node.prev = Some(key.clone());
             }
-        }
 
         // Update tail if this is the first entry
         if self.lru_tail.is_none() {
@@ -713,9 +712,18 @@ mod tests {
         let mut cache = SvgCache::with_defaults();
 
         // Same SVG at different sizes should be cached separately
-        cache.insert(SvgCacheKey::file("icon.svg", 24, 24), vec![0u8; 24 * 24 * 4]);
-        cache.insert(SvgCacheKey::file("icon.svg", 48, 48), vec![0u8; 48 * 48 * 4]);
-        cache.insert(SvgCacheKey::file("icon.svg", 96, 96), vec![0u8; 96 * 96 * 4]);
+        cache.insert(
+            SvgCacheKey::file("icon.svg", 24, 24),
+            vec![0u8; 24 * 24 * 4],
+        );
+        cache.insert(
+            SvgCacheKey::file("icon.svg", 48, 48),
+            vec![0u8; 48 * 48 * 4],
+        );
+        cache.insert(
+            SvgCacheKey::file("icon.svg", 96, 96),
+            vec![0u8; 96 * 96 * 4],
+        );
 
         assert_eq!(cache.len(), 3);
         assert!(cache.contains(&SvgCacheKey::file("icon.svg", 24, 24)));
@@ -728,7 +736,10 @@ mod tests {
         let config = SvgCacheConfig::default().with_max_size_mb(10);
         let mut cache = SvgCache::new(config);
 
-        cache.insert(SvgCacheKey::file("test.svg", 48, 48), vec![0u8; 48 * 48 * 4]);
+        cache.insert(
+            SvgCacheKey::file("test.svg", 48, 48),
+            vec![0u8; 48 * 48 * 4],
+        );
         let _ = cache.get(&SvgCacheKey::file("test.svg", 48, 48));
         let _ = cache.get(&SvgCacheKey::file("missing.svg", 48, 48));
 

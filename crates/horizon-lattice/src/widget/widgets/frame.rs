@@ -322,8 +322,16 @@ impl Frame {
         Rect::new(
             frame_width + self.content_margins.left,
             frame_width + self.content_margins.top,
-            (rect.width() - 2.0 * frame_width - self.content_margins.left - self.content_margins.right).max(0.0),
-            (rect.height() - 2.0 * frame_width - self.content_margins.top - self.content_margins.bottom).max(0.0),
+            (rect.width()
+                - 2.0 * frame_width
+                - self.content_margins.left
+                - self.content_margins.right)
+                .max(0.0),
+            (rect.height()
+                - 2.0 * frame_width
+                - self.content_margins.top
+                - self.content_margins.bottom)
+                .max(0.0),
         )
     }
 
@@ -352,12 +360,7 @@ impl Frame {
             (base.b * 1.3).min(1.0),
             base.a,
         );
-        let dark = Color::from_rgba(
-            base.r * 0.6,
-            base.g * 0.6,
-            base.b * 0.6,
-            base.a,
-        );
+        let dark = Color::from_rgba(base.r * 0.6, base.g * 0.6, base.b * 0.6, base.a);
 
         (light, dark)
     }
@@ -433,14 +436,20 @@ impl Frame {
         let stroke_br = Stroke::new(bottom_right_color, lw);
         ctx.renderer().draw_line(
             Point::new(rect.origin.x, rect.origin.y + rect.height() - lw / 2.0),
-            Point::new(rect.origin.x + rect.width(), rect.origin.y + rect.height() - lw / 2.0),
+            Point::new(
+                rect.origin.x + rect.width(),
+                rect.origin.y + rect.height() - lw / 2.0,
+            ),
             &stroke_br,
         );
 
         // Right edge
         ctx.renderer().draw_line(
             Point::new(rect.origin.x + rect.width() - lw / 2.0, rect.origin.y),
-            Point::new(rect.origin.x + rect.width() - lw / 2.0, rect.origin.y + rect.height()),
+            Point::new(
+                rect.origin.x + rect.width() - lw / 2.0,
+                rect.origin.y + rect.height(),
+            ),
             &stroke_br,
         );
     }
@@ -473,29 +482,47 @@ impl Frame {
             let stroke_tl = Stroke::new(top_left_color, lw);
             ctx.renderer().draw_line(
                 Point::new(inner_rect.origin.x, inner_rect.origin.y + lw / 2.0),
-                Point::new(inner_rect.origin.x + inner_rect.width(), inner_rect.origin.y + lw / 2.0),
+                Point::new(
+                    inner_rect.origin.x + inner_rect.width(),
+                    inner_rect.origin.y + lw / 2.0,
+                ),
                 &stroke_tl,
             );
 
             // Inner left edge
             ctx.renderer().draw_line(
                 Point::new(inner_rect.origin.x + lw / 2.0, inner_rect.origin.y),
-                Point::new(inner_rect.origin.x + lw / 2.0, inner_rect.origin.y + inner_rect.height()),
+                Point::new(
+                    inner_rect.origin.x + lw / 2.0,
+                    inner_rect.origin.y + inner_rect.height(),
+                ),
                 &stroke_tl,
             );
 
             // Inner bottom edge
             let stroke_br = Stroke::new(bottom_right_color, lw);
             ctx.renderer().draw_line(
-                Point::new(inner_rect.origin.x, inner_rect.origin.y + inner_rect.height() - lw / 2.0),
-                Point::new(inner_rect.origin.x + inner_rect.width(), inner_rect.origin.y + inner_rect.height() - lw / 2.0),
+                Point::new(
+                    inner_rect.origin.x,
+                    inner_rect.origin.y + inner_rect.height() - lw / 2.0,
+                ),
+                Point::new(
+                    inner_rect.origin.x + inner_rect.width(),
+                    inner_rect.origin.y + inner_rect.height() - lw / 2.0,
+                ),
                 &stroke_br,
             );
 
             // Inner right edge
             ctx.renderer().draw_line(
-                Point::new(inner_rect.origin.x + inner_rect.width() - lw / 2.0, inner_rect.origin.y),
-                Point::new(inner_rect.origin.x + inner_rect.width() - lw / 2.0, inner_rect.origin.y + inner_rect.height()),
+                Point::new(
+                    inner_rect.origin.x + inner_rect.width() - lw / 2.0,
+                    inner_rect.origin.y,
+                ),
+                Point::new(
+                    inner_rect.origin.x + inner_rect.width() - lw / 2.0,
+                    inner_rect.origin.y + inner_rect.height(),
+                ),
                 &stroke_br,
             );
         }
@@ -530,10 +557,7 @@ impl Widget for Frame {
         let min_height = 2.0 * frame_width + self.content_margins.top + self.content_margins.bottom;
 
         // Default preferred size
-        let preferred = Size::new(
-            min_width.max(100.0),
-            min_height.max(100.0),
-        );
+        let preferred = Size::new(min_width.max(100.0), min_height.max(100.0));
 
         SizeHint::new(preferred).with_minimum(Size::new(min_width, min_height))
     }
@@ -631,7 +655,9 @@ mod tests {
             .with_content_margin(4.0);
 
         // Set geometry
-        frame.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 100.0, 100.0));
+        frame
+            .widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 100.0, 100.0));
 
         let content = frame.contents_rect();
         // Content should be inset by frame_width (2) + margin (4) = 6 on each side

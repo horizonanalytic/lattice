@@ -416,7 +416,11 @@ impl fmt::Display for PropertyError {
         match self {
             Self::NotFound { name } => write!(f, "Property '{}' not found", name),
             Self::TypeMismatch { expected, got } => {
-                write!(f, "Property type mismatch: expected {}, got {}", expected, got)
+                write!(
+                    f,
+                    "Property type mismatch: expected {}, got {}",
+                    expected, got
+                )
             }
             Self::ReadOnly { name } => write!(f, "Property '{}' is read-only", name),
         }

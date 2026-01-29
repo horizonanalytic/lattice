@@ -150,9 +150,7 @@ impl Slider {
             Orientation::Horizontal => {
                 SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Fixed)
             }
-            Orientation::Vertical => {
-                SizePolicyPair::new(SizePolicy::Fixed, SizePolicy::Expanding)
-            }
+            Orientation::Vertical => SizePolicyPair::new(SizePolicy::Fixed, SizePolicy::Expanding),
         };
         base.set_size_policy(policy);
 
@@ -673,7 +671,8 @@ impl Slider {
             if track_length > 0.0 && range > 0.0 {
                 let delta_pos = current_pos - self.drag_start_pos;
                 let delta_value = (delta_pos / track_length * range).round() as i32;
-                let new_value = (self.drag_start_value + delta_value).clamp(self.minimum, self.maximum);
+                let new_value =
+                    (self.drag_start_value + delta_value).clamp(self.minimum, self.maximum);
 
                 if new_value != self.value {
                     self.value = new_value;
@@ -761,7 +760,8 @@ impl Slider {
 
         // Paint background track
         let track_rrect = RoundedRect::new(track, self.border_radius);
-        ctx.renderer().fill_rounded_rect(track_rrect, self.track_color);
+        ctx.renderer()
+            .fill_rounded_rect(track_rrect, self.track_color);
 
         // Paint filled portion (before thumb)
         let ratio = self.value_ratio();
@@ -781,7 +781,8 @@ impl Slider {
                 ),
             };
             let fill_rrect = RoundedRect::new(fill_rect, self.border_radius);
-            ctx.renderer().fill_rounded_rect(fill_rrect, self.track_fill_color);
+            ctx.renderer()
+                .fill_rounded_rect(fill_rrect, self.track_fill_color);
         }
     }
 
@@ -815,25 +816,25 @@ impl Slider {
                     let center_y = track.origin.y + track.height() / 2.0;
 
                     // Above ticks
-                    if matches!(self.tick_position, TickPosition::TicksAbove | TickPosition::TicksBothSides) {
+                    if matches!(
+                        self.tick_position,
+                        TickPosition::TicksAbove | TickPosition::TicksBothSides
+                    ) {
                         let y1 = center_y - tick_offset;
                         let y2 = y1 - tick_length;
-                        ctx.renderer().draw_line(
-                            Point::new(x, y1),
-                            Point::new(x, y2),
-                            &stroke,
-                        );
+                        ctx.renderer()
+                            .draw_line(Point::new(x, y1), Point::new(x, y2), &stroke);
                     }
 
                     // Below ticks
-                    if matches!(self.tick_position, TickPosition::TicksBelow | TickPosition::TicksBothSides) {
+                    if matches!(
+                        self.tick_position,
+                        TickPosition::TicksBelow | TickPosition::TicksBothSides
+                    ) {
                         let y1 = center_y + tick_offset;
                         let y2 = y1 + tick_length;
-                        ctx.renderer().draw_line(
-                            Point::new(x, y1),
-                            Point::new(x, y2),
-                            &stroke,
-                        );
+                        ctx.renderer()
+                            .draw_line(Point::new(x, y1), Point::new(x, y2), &stroke);
                     }
                 }
                 Orientation::Vertical => {
@@ -841,25 +842,25 @@ impl Slider {
                     let center_x = track.origin.x + track.width() / 2.0;
 
                     // Left ticks (above in vertical orientation)
-                    if matches!(self.tick_position, TickPosition::TicksAbove | TickPosition::TicksBothSides) {
+                    if matches!(
+                        self.tick_position,
+                        TickPosition::TicksAbove | TickPosition::TicksBothSides
+                    ) {
                         let x1 = center_x - tick_offset;
                         let x2 = x1 - tick_length;
-                        ctx.renderer().draw_line(
-                            Point::new(x1, y),
-                            Point::new(x2, y),
-                            &stroke,
-                        );
+                        ctx.renderer()
+                            .draw_line(Point::new(x1, y), Point::new(x2, y), &stroke);
                     }
 
                     // Right ticks (below in vertical orientation)
-                    if matches!(self.tick_position, TickPosition::TicksBelow | TickPosition::TicksBothSides) {
+                    if matches!(
+                        self.tick_position,
+                        TickPosition::TicksBelow | TickPosition::TicksBothSides
+                    ) {
                         let x1 = center_x + tick_offset;
                         let x2 = x1 + tick_length;
-                        ctx.renderer().draw_line(
-                            Point::new(x1, y),
-                            Point::new(x2, y),
-                            &stroke,
-                        );
+                        ctx.renderer()
+                            .draw_line(Point::new(x1, y), Point::new(x2, y), &stroke);
                     }
                 }
             }
@@ -905,7 +906,8 @@ impl Slider {
         // Draw thumb border
         let border_color = Color::from_rgb8(180, 180, 180);
         let border_stroke = Stroke::new(border_color, 1.0);
-        ctx.renderer().stroke_rounded_rect(thumb_rrect, &border_stroke);
+        ctx.renderer()
+            .stroke_rounded_rect(thumb_rrect, &border_stroke);
     }
 
     fn paint_focus_indicator(&self, ctx: &mut PaintContext<'_>) {
@@ -925,7 +927,8 @@ impl Slider {
         let focus_rrect = RoundedRect::new(focus_rect, radius);
         let focus_color = Color::from_rgba8(66, 133, 244, 100);
         let focus_stroke = Stroke::new(focus_color, 2.0);
-        ctx.renderer().stroke_rounded_rect(focus_rrect, &focus_stroke);
+        ctx.renderer()
+            .stroke_rounded_rect(focus_rrect, &focus_stroke);
     }
 }
 
@@ -963,14 +966,10 @@ impl Widget for Slider {
         let total_height = base_height + tick_height;
 
         match self.orientation {
-            Orientation::Horizontal => {
-                SizeHint::from_dimensions(100.0, total_height)
-                    .with_minimum_dimensions(40.0, total_height)
-            }
-            Orientation::Vertical => {
-                SizeHint::from_dimensions(total_height, 100.0)
-                    .with_minimum_dimensions(total_height, 40.0)
-            }
+            Orientation::Horizontal => SizeHint::from_dimensions(100.0, total_height)
+                .with_minimum_dimensions(40.0, total_height),
+            Orientation::Vertical => SizeHint::from_dimensions(total_height, 100.0)
+                .with_minimum_dimensions(total_height, 40.0),
         }
     }
 
@@ -1030,8 +1029,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicI32, Ordering},
         Arc,
+        atomic::{AtomicI32, Ordering},
     };
 
     fn setup() {

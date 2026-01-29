@@ -163,7 +163,9 @@ impl fmt::Display for FileErrorKind {
 
 impl std::error::Error for FileError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_ref().map(|e| e as &(dyn std::error::Error + 'static))
+        self.source
+            .as_ref()
+            .map(|e| e as &(dyn std::error::Error + 'static))
     }
 }
 

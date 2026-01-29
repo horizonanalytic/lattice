@@ -363,7 +363,8 @@ impl InputDialog {
         } else {
             text_str.lines().map(String::from).collect()
         };
-        dialog.dialog = std::mem::take(&mut dialog.dialog).with_size(DEFAULT_WIDTH, MULTILINE_HEIGHT);
+        dialog.dialog =
+            std::mem::take(&mut dialog.dialog).with_size(DEFAULT_WIDTH, MULTILINE_HEIGHT);
         dialog
     }
 
@@ -700,7 +701,8 @@ impl InputDialog {
             InputMode::Item => {
                 let text = if self.editable {
                     self.text_value.clone()
-                } else if self.selected_item >= 0 && (self.selected_item as usize) < self.items.len()
+                } else if self.selected_item >= 0
+                    && (self.selected_item as usize) < self.items.len()
                 {
                     self.items[self.selected_item as usize].clone()
                 } else {
@@ -760,9 +762,7 @@ impl InputDialog {
         let content = self.content_rect();
 
         let height = match self.mode {
-            InputMode::MultilineText => {
-                content.bottom() - label.bottom() - self.padding
-            }
+            InputMode::MultilineText => content.bottom() - label.bottom() - self.padding,
             _ => INPUT_HEIGHT,
         };
 
@@ -1113,8 +1113,8 @@ impl InputDialog {
 
     fn handle_key_press(&mut self, event: &KeyPressEvent) -> bool {
         // Handle Enter for accept
-        if event.key == Key::Enter && !event.is_repeat {
-            if self.mode != InputMode::MultilineText || event.modifiers.control {
+        if event.key == Key::Enter && !event.is_repeat
+            && (self.mode != InputMode::MultilineText || event.modifiers.control) {
                 if self.dropdown_open {
                     if self.selected_item >= 0 {
                         self.select_dropdown_item(self.selected_item as usize);
@@ -1126,7 +1126,6 @@ impl InputDialog {
                 }
                 return true;
             }
-        }
 
         // Handle Escape
         if event.key == Key::Escape {
@@ -1432,8 +1431,12 @@ impl InputDialog {
         let rect = self.label_rect();
         let mut font_system = FontSystem::new();
         let font = Font::new(FontFamily::SansSerif, 13.0);
-        let layout =
-            TextLayout::with_options(&mut font_system, &self.label_text, &font, TextLayoutOptions::new());
+        let layout = TextLayout::with_options(
+            &mut font_system,
+            &self.label_text,
+            &font,
+            TextLayoutOptions::new(),
+        );
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
             let _ = text_renderer.prepare_layout(
@@ -1447,7 +1450,8 @@ impl InputDialog {
 
     fn paint_input_background(&self, ctx: &mut PaintContext<'_>, rect: Rect) {
         let rounded = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(rounded, self.input_background);
+        ctx.renderer()
+            .fill_rounded_rect(rounded, self.input_background);
 
         let border_color = if self.input_focused {
             self.focus_color
@@ -1471,8 +1475,12 @@ impl InputDialog {
             InputEchoMode::Password => "●".repeat(self.text_value.chars().count()),
         };
 
-        let layout =
-            TextLayout::with_options(&mut font_system, &display_text, &font, TextLayoutOptions::new());
+        let layout = TextLayout::with_options(
+            &mut font_system,
+            &display_text,
+            &font,
+            TextLayoutOptions::new(),
+        );
 
         let text_x = rect.left() + 8.0;
         let text_y = rect.top() + (rect.height() - layout.height()) / 2.0;
@@ -1490,8 +1498,12 @@ impl InputDialog {
         if self.input_focused {
             // Approximate cursor position
             let cursor_text = &display_text[..self.text_cursor.min(display_text.len())];
-            let cursor_layout =
-                TextLayout::with_options(&mut font_system, cursor_text, &font, TextLayoutOptions::new());
+            let cursor_layout = TextLayout::with_options(
+                &mut font_system,
+                cursor_text,
+                &font,
+                TextLayoutOptions::new(),
+            );
             let cursor_x = text_x + cursor_layout.width();
 
             ctx.renderer().fill_rect(
@@ -1535,8 +1547,12 @@ impl InputDialog {
             // Draw cursor if this is the current line
             if self.input_focused && line_idx == self.current_line {
                 let cursor_text = &line[..self.text_cursor.min(line.len())];
-                let cursor_layout =
-                    TextLayout::with_options(&mut font_system, cursor_text, &font, TextLayoutOptions::new());
+                let cursor_layout = TextLayout::with_options(
+                    &mut font_system,
+                    cursor_text,
+                    &font,
+                    TextLayoutOptions::new(),
+                );
                 let cursor_x = text_x + cursor_layout.width();
 
                 ctx.renderer().fill_rect(
@@ -1557,8 +1573,12 @@ impl InputDialog {
         let mut font_system = FontSystem::new();
         let font = Font::new(FontFamily::SansSerif, 14.0);
         let value_text = self.int_value.to_string();
-        let layout =
-            TextLayout::with_options(&mut font_system, &value_text, &font, TextLayoutOptions::new());
+        let layout = TextLayout::with_options(
+            &mut font_system,
+            &value_text,
+            &font,
+            TextLayoutOptions::new(),
+        );
 
         let text_x = rect.left() + 8.0;
         let text_y = rect.top() + (rect.height() - layout.height()) / 2.0;
@@ -1584,9 +1604,17 @@ impl InputDialog {
         // Draw value
         let mut font_system = FontSystem::new();
         let font = Font::new(FontFamily::SansSerif, 14.0);
-        let value_text = format!("{:.prec$}", self.double_value, prec = self.decimals as usize);
-        let layout =
-            TextLayout::with_options(&mut font_system, &value_text, &font, TextLayoutOptions::new());
+        let value_text = format!(
+            "{:.prec$}",
+            self.double_value,
+            prec = self.decimals as usize
+        );
+        let layout = TextLayout::with_options(
+            &mut font_system,
+            &value_text,
+            &font,
+            TextLayoutOptions::new(),
+        );
 
         let text_x = rect.left() + 8.0;
         let text_y = rect.top() + (rect.height() - layout.height()) / 2.0;
@@ -1606,7 +1634,11 @@ impl InputDialog {
     }
 
     fn paint_spinbox_button(&self, ctx: &mut PaintContext<'_>, rect: Rect, is_up: bool) {
-        let part = if is_up { HitPart::SpinUp } else { HitPart::SpinDown };
+        let part = if is_up {
+            HitPart::SpinUp
+        } else {
+            HitPart::SpinDown
+        };
         let is_hovered = self.hover_part == part;
         let is_pressed = self.pressed_part == part;
 
@@ -1672,8 +1704,12 @@ impl InputDialog {
             &self.text_value
         };
 
-        let layout =
-            TextLayout::with_options(&mut font_system, display_text, &font, TextLayoutOptions::new());
+        let layout = TextLayout::with_options(
+            &mut font_system,
+            display_text,
+            &font,
+            TextLayoutOptions::new(),
+        );
 
         let text_x = rect.left() + 8.0;
         let text_y = rect.top() + (rect.height() - layout.height()) / 2.0;
@@ -1690,8 +1726,12 @@ impl InputDialog {
         // Draw cursor if editable and focused
         if self.editable && self.input_focused && !self.dropdown_open {
             let cursor_text = &display_text[..self.text_cursor.min(display_text.len())];
-            let cursor_layout =
-                TextLayout::with_options(&mut font_system, cursor_text, &font, TextLayoutOptions::new());
+            let cursor_layout = TextLayout::with_options(
+                &mut font_system,
+                cursor_text,
+                &font,
+                TextLayoutOptions::new(),
+            );
             let cursor_x = text_x + cursor_layout.width();
 
             ctx.renderer().fill_rect(
@@ -1751,9 +1791,16 @@ impl InputDialog {
         let rect = self.dropdown_list_rect();
 
         // Background with shadow
-        let shadow_rect = Rect::new(rect.left() + 2.0, rect.top() + 2.0, rect.width(), rect.height());
-        ctx.renderer()
-            .fill_rounded_rect(RoundedRect::new(shadow_rect, 4.0), Color::from_rgba8(0, 0, 0, 30));
+        let shadow_rect = Rect::new(
+            rect.left() + 2.0,
+            rect.top() + 2.0,
+            rect.width(),
+            rect.height(),
+        );
+        ctx.renderer().fill_rounded_rect(
+            RoundedRect::new(shadow_rect, 4.0),
+            Color::from_rgba8(0, 0, 0, 30),
+        );
 
         let rounded = RoundedRect::new(rect, 4.0);
         ctx.renderer().fill_rounded_rect(rounded, Color::WHITE);

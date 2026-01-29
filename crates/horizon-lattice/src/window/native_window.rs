@@ -417,7 +417,8 @@ impl NativeWindow {
 
     /// Enter borderless fullscreen mode.
     pub fn enter_fullscreen(&self) {
-        self.window.set_fullscreen(Some(Fullscreen::Borderless(None)));
+        self.window
+            .set_fullscreen(Some(Fullscreen::Borderless(None)));
     }
 
     /// Exit fullscreen mode.

@@ -169,15 +169,12 @@ impl RadioButton {
             self.handle_exclusive_check();
         } else if !checked {
             // In exclusive mode, unchecking might be prevented
-            if let Some(group_weak) = &self.group {
-                if let Some(group) = group_weak.upgrade() {
-                    if let Ok(group_guard) = group.read() {
-                        if group_guard.should_prevent_uncheck(self.object_id()) {
+            if let Some(group_weak) = &self.group
+                && let Some(group) = group_weak.upgrade()
+                    && let Ok(group_guard) = group.read()
+                        && group_guard.should_prevent_uncheck(self.object_id()) {
                             return;
                         }
-                    }
-                }
-            }
             self.inner.set_checked(false);
         }
     }
@@ -203,20 +200,17 @@ impl RadioButton {
     /// radio button from its current group.
     pub fn set_group(&mut self, group: Option<Arc<RwLock<ButtonGroup>>>) {
         // Remove from old group
-        if let Some(old_weak) = &self.group {
-            if let Some(old_group) = old_weak.upgrade() {
-                if let Ok(mut old_guard) = old_group.write() {
+        if let Some(old_weak) = &self.group
+            && let Some(old_group) = old_weak.upgrade()
+                && let Ok(mut old_guard) = old_group.write() {
                     old_guard.remove_button(self.object_id());
                 }
-            }
-        }
 
         // Add to new group
-        if let Some(new_group) = &group {
-            if let Ok(mut new_guard) = new_group.write() {
+        if let Some(new_group) = &group
+            && let Ok(mut new_guard) = new_group.write() {
                 new_guard.add_button(self.object_id());
             }
-        }
 
         self.group = group.map(|g| Arc::downgrade(&g));
     }
@@ -337,8 +331,8 @@ impl RadioButton {
 
         // If in a group, notify the group
         if let Some(group_weak) = &self.group {
-            if let Some(group) = group_weak.upgrade() {
-                if let Ok(mut group_guard) = group.write() {
+            if let Some(group) = group_weak.upgrade()
+                && let Ok(mut group_guard) = group.write() {
                     let buttons_to_uncheck = group_guard.button_toggled(my_id, true);
                     // Note: The actual unchecking of other buttons needs to be handled
                     // by the application or a parent coordinator, since we don't have
@@ -351,7 +345,6 @@ impl RadioButton {
                         self.exclusive_toggle.emit(my_id);
                     }
                 }
-            }
         } else if self.auto_exclusive {
             // Auto-exclusive: emit signal for siblings to uncheck
             self.exclusive_toggle.emit(my_id);
@@ -370,17 +363,14 @@ impl RadioButton {
         // (unless in non-exclusive mode)
         if self.inner.is_checked() {
             // Check if unchecking is prevented
-            if let Some(group_weak) = &self.group {
-                if let Some(group) = group_weak.upgrade() {
-                    if let Ok(group_guard) = group.read() {
-                        if group_guard.should_prevent_uncheck(self.object_id()) {
+            if let Some(group_weak) = &self.group
+                && let Some(group) = group_weak.upgrade()
+                    && let Ok(group_guard) = group.read()
+                        && group_guard.should_prevent_uncheck(self.object_id()) {
                             // Just emit clicked, don't change state
                             self.inner.clicked.emit(true);
                             return;
                         }
-                    }
-                }
-            }
         }
 
         // Toggle state (usually check, since radio buttons are rarely unchecked directly)
@@ -513,7 +503,8 @@ impl RadioButton {
             };
 
             // Fill the outer circle
-            ctx.renderer().fill_circle(center, radius - 1.0, inner_color);
+            ctx.renderer()
+                .fill_circle(center, radius - 1.0, inner_color);
 
             // Draw white inner circle (or filled dot style)
             let inner_radius = radius * 0.4;
@@ -591,12 +582,8 @@ impl Widget for RadioButton {
             let text_color = self.effective_text_color();
 
             if let Ok(mut text_renderer) = TextRenderer::new() {
-                let _ = text_renderer.prepare_layout(
-                    &mut font_system,
-                    &layout,
-                    text_pos,
-                    text_color,
-                );
+                let _ =
+                    text_renderer.prepare_layout(&mut font_system, &layout, text_pos, text_color);
             }
         }
 
@@ -700,8 +687,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
         Arc,
+        atomic::{AtomicBool, AtomicU32, Ordering},
     };
 
     fn setup() {

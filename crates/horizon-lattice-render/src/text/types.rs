@@ -209,12 +209,14 @@ impl FontStretch {
 
 /// Font family specification.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub enum FontFamily {
     /// A specific font family by name.
     Name(String),
     /// Generic serif family.
     Serif,
     /// Generic sans-serif family.
+    #[default]
     SansSerif,
     /// Generic monospace family.
     Monospace,
@@ -255,11 +257,6 @@ impl FontFamily {
     }
 }
 
-impl Default for FontFamily {
-    fn default() -> Self {
-        Self::SansSerif
-    }
-}
 
 impl fmt::Display for FontFamily {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -565,7 +562,10 @@ mod tests {
         assert!(underline.color.is_none());
 
         let strikethrough = TextDecoration::strikethrough();
-        assert_eq!(strikethrough.decoration_type, TextDecorationType::Strikethrough);
+        assert_eq!(
+            strikethrough.decoration_type,
+            TextDecorationType::Strikethrough
+        );
 
         let overline = TextDecoration::overline();
         assert_eq!(overline.decoration_type, TextDecorationType::Overline);

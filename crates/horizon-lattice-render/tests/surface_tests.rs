@@ -132,9 +132,11 @@ fn run_surface_tests(surface: &mut RenderSurface) {
         .get_current_frame()
         .expect("Should get current frame")
     {
-        let mut encoder = ctx.device().create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("test_encoder"),
-        });
+        let mut encoder = ctx
+            .device()
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("test_encoder"),
+            });
 
         {
             let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -165,10 +167,7 @@ fn run_surface_tests(surface: &mut RenderSurface) {
 
     // Test 6: Verify adapter info is available
     let info = ctx.adapter_info();
-    println!(
-        "Test 6 PASSED: Adapter: {} ({:?})",
-        info.name, info.backend
-    );
+    println!("Test 6 PASSED: Adapter: {} ({:?})", info.name, info.backend);
 
     println!("\n=== All surface tests PASSED ===");
 }

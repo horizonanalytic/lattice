@@ -163,7 +163,10 @@ impl DateEdit {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Fixed,
+        ));
 
         let today = Local::now().date_naive();
 
@@ -633,7 +636,12 @@ impl DateEdit {
     fn popup_rect(&self) -> Rect {
         let rect = self.base.rect();
         let cal_hint = self.calendar.size_hint();
-        Rect::new(0.0, rect.height(), cal_hint.preferred.width, cal_hint.preferred.height)
+        Rect::new(
+            0.0,
+            rect.height(),
+            cal_hint.preferred.width,
+            cal_hint.preferred.height,
+        )
     }
 
     fn section_from_position(&self, _pos: Point) -> EditSection {
@@ -665,11 +673,10 @@ impl DateEdit {
         if self.down_button_rect().contains(pos) {
             return DateEditPart::DownButton;
         }
-        if let Some(cal_rect) = self.calendar_button_rect() {
-            if cal_rect.contains(pos) {
+        if let Some(cal_rect) = self.calendar_button_rect()
+            && cal_rect.contains(pos) {
                 return DateEditPart::CalendarButton;
             }
-        }
 
         let text_rect = self.text_field_rect();
         if text_rect.contains(pos) {
@@ -735,11 +742,10 @@ impl DateEdit {
             DateEditPart::PopupCalendar => {
                 // For simplicity, clicking in the popup area selects the date and closes popup
                 // A full implementation would do proper hit-testing within the calendar
-                if let Some(selected) = self.calendar.selected_date() {
-                    if selected != self.date {
+                if let Some(selected) = self.calendar.selected_date()
+                    && selected != self.date {
                         self.set_date(selected);
                     }
-                }
                 self.hide_popup();
                 self.base.update();
                 true
@@ -867,11 +873,7 @@ impl DateEdit {
             Key::PageUp => {
                 // Go to previous month
                 let new_date = if self.date.month() == 1 {
-                    NaiveDate::from_ymd_opt(
-                        self.date.year() - 1,
-                        12,
-                        self.date.day().min(31),
-                    )
+                    NaiveDate::from_ymd_opt(self.date.year() - 1, 12, self.date.day().min(31))
                 } else {
                     let new_month = self.date.month() - 1;
                     let max_day = days_in_month(self.date.year(), new_month);
@@ -889,11 +891,7 @@ impl DateEdit {
             Key::PageDown => {
                 // Go to next month
                 let new_date = if self.date.month() == 12 {
-                    NaiveDate::from_ymd_opt(
-                        self.date.year() + 1,
-                        1,
-                        self.date.day().min(31),
-                    )
+                    NaiveDate::from_ymd_opt(self.date.year() + 1, 1, self.date.day().min(31))
                 } else {
                     let new_month = self.date.month() + 1;
                     let max_day = days_in_month(self.date.year(), new_month);
@@ -936,7 +934,8 @@ impl DateEdit {
     fn paint_background(&self, ctx: &mut PaintContext<'_>) {
         let rect = ctx.rect();
         let bg_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(bg_rrect, self.background_color);
+        ctx.renderer()
+            .fill_rounded_rect(bg_rrect, self.background_color);
 
         let border_stroke = Stroke::new(self.border_color, 1.0);
         ctx.renderer().stroke_rounded_rect(bg_rrect, &border_stroke);
@@ -963,13 +962,9 @@ impl DateEdit {
         // Highlight current section
         if self.current_section != EditSection::None && self.widget_base().has_focus() {
             // Calculate section bounds (simplified - highlights whole text)
-            let highlight_rect = Rect::new(
-                text_x,
-                text_y,
-                layout.width(),
-                layout.height(),
-            );
-            ctx.renderer().fill_rect(highlight_rect, self.section_highlight_color);
+            let highlight_rect = Rect::new(text_x, text_y, layout.width(), layout.height());
+            ctx.renderer()
+                .fill_rect(highlight_rect, self.section_highlight_color);
         }
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
@@ -1117,7 +1112,8 @@ impl DateEdit {
         let focus_color = Color::from_rgba8(66, 133, 244, 180);
         let focus_stroke = Stroke::new(focus_color, 2.0);
         let focus_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().stroke_rounded_rect(focus_rrect, &focus_stroke);
+        ctx.renderer()
+            .stroke_rounded_rect(focus_rrect, &focus_stroke);
     }
 }
 
@@ -1168,8 +1164,7 @@ impl Widget for DateEdit {
         let width = text_width + self.right_buttons_width() + 16.0;
         let height = 28.0;
 
-        SizeHint::from_dimensions(width.max(120.0), height)
-            .with_minimum_dimensions(80.0, 22.0)
+        SizeHint::from_dimensions(width.max(120.0), height).with_minimum_dimensions(80.0, 22.0)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
@@ -1232,8 +1227,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
 
     fn setup() {
@@ -1265,9 +1260,7 @@ mod tests {
         let max = NaiveDate::from_ymd_opt(2025, 12, 31).unwrap();
         let date = NaiveDate::from_ymd_opt(2025, 6, 15).unwrap();
 
-        let date_edit = DateEdit::new()
-            .with_date_range(min, max)
-            .with_date(date);
+        let date_edit = DateEdit::new().with_date_range(min, max).with_date(date);
 
         assert_eq!(date_edit.minimum_date(), min);
         assert_eq!(date_edit.maximum_date(), max);

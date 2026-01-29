@@ -1,10 +1,10 @@
 //! Style caching for performance.
 
+use crate::selector::WidgetState;
+use crate::style::ComputedStyle;
+use horizon_lattice_core::ObjectId;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use horizon_lattice_core::ObjectId;
-use crate::style::ComputedStyle;
-use crate::selector::WidgetState;
 
 /// Cache key for computed styles.
 ///
@@ -85,6 +85,7 @@ impl StyleCache {
     }
 
     /// Check if the cache is empty.
+    #[allow(dead_code)] // Standard collection API, used by consumers
     pub fn is_empty(&self) -> bool {
         self.cache.is_empty()
     }
@@ -132,8 +133,14 @@ mod tests {
         let mut cache = StyleCache::new();
         let widget_id = make_widget_id();
 
-        let state1 = WidgetState { hovered: false, ..Default::default() };
-        let state2 = WidgetState { hovered: true, ..Default::default() };
+        let state1 = WidgetState {
+            hovered: false,
+            ..Default::default()
+        };
+        let state2 = WidgetState {
+            hovered: true,
+            ..Default::default()
+        };
 
         let key1 = StyleCacheKey::new(widget_id, &state1);
         let key2 = StyleCacheKey::new(widget_id, &state2);

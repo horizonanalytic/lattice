@@ -30,11 +30,13 @@
 //! ```
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
-use horizon_lattice_render::{Color, Font, FontSystem, Point, Rect, Renderer, Size, Stroke, TextLayout, TextRenderer};
+use horizon_lattice_render::{
+    Color, Font, FontSystem, Point, Rect, Renderer, Size, Stroke, TextLayout, TextRenderer,
+};
 
 use crate::widget::{
-    FocusPolicy, Key, KeyPressEvent, MouseButton, MousePressEvent, MouseReleaseEvent,
-    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+    FocusPolicy, Key, KeyPressEvent, MouseButton, MousePressEvent, MouseReleaseEvent, PaintContext,
+    SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
 };
 
 // ============================================================================
@@ -275,8 +277,8 @@ impl ColorPalettePopup {
     // =========================================================================
 
     fn calculate_size(&self) -> Size {
-        let grid_width = self.columns as f32 * self.swatch_size
-            + (self.columns - 1).max(0) as f32 * SWATCH_GAP;
+        let grid_width =
+            self.columns as f32 * self.swatch_size + (self.columns - 1).max(0) as f32 * SWATCH_GAP;
         let grid_height = self.grid_height();
 
         let action_height = if self.show_more_colors_action {
@@ -300,7 +302,7 @@ impl ColorPalettePopup {
         if self.colors.is_empty() {
             return 1; // At least one row for empty state
         }
-        (self.colors.len() + self.columns - 1) / self.columns
+        self.colors.len().div_ceil(self.columns)
     }
 
     fn grid_height(&self) -> f32 {
@@ -327,8 +329,8 @@ impl ColorPalettePopup {
             return None;
         }
 
-        let grid_width = self.columns as f32 * self.swatch_size
-            + (self.columns - 1).max(0) as f32 * SWATCH_GAP;
+        let grid_width =
+            self.columns as f32 * self.swatch_size + (self.columns - 1).max(0) as f32 * SWATCH_GAP;
         let y = PADDING + self.grid_height() + SWATCH_GAP;
 
         Some(Rect::new(PADDING, y, grid_width, ACTION_HEIGHT))
@@ -336,11 +338,10 @@ impl ColorPalettePopup {
 
     fn swatch_at_point(&self, point: Point) -> Option<usize> {
         for i in 0..self.colors.len() {
-            if let Some(rect) = self.swatch_rect(i) {
-                if rect.contains(point) {
+            if let Some(rect) = self.swatch_rect(i)
+                && rect.contains(point) {
                     return Some(i);
                 }
-            }
         }
         None
     }
@@ -372,11 +373,10 @@ impl ColorPalettePopup {
         }
 
         // Check action click
-        if let Some(action_rect) = self.action_rect() {
-            if action_rect.contains(pos) {
+        if let Some(action_rect) = self.action_rect()
+            && action_rect.contains(pos) {
                 return true;
             }
-        }
 
         false
     }
@@ -389,22 +389,20 @@ impl ColorPalettePopup {
         let pos = event.local_pos;
 
         // Check swatch release
-        if let Some(index) = self.swatch_at_point(pos) {
-            if let Some(&color) = self.colors.get(index) {
+        if let Some(index) = self.swatch_at_point(pos)
+            && let Some(&color) = self.colors.get(index) {
                 self.color_selected.emit(color);
                 self.close();
                 return true;
             }
-        }
 
         // Check action release
-        if let Some(action_rect) = self.action_rect() {
-            if action_rect.contains(pos) {
+        if let Some(action_rect) = self.action_rect()
+            && action_rect.contains(pos) {
                 self.more_colors_requested.emit(());
                 self.close();
                 return true;
             }
-        }
 
         false
     }
@@ -416,13 +414,12 @@ impl ColorPalettePopup {
                 true
             }
             Key::Enter | Key::Space => {
-                if let Some(index) = self.selected_index {
-                    if let Some(&color) = self.colors.get(index) {
+                if let Some(index) = self.selected_index
+                    && let Some(&color) = self.colors.get(index) {
                         self.color_selected.emit(color);
                         self.close();
                         return true;
                     }
-                }
                 false
             }
             Key::ArrowLeft => self.move_selection(-1, 0),
@@ -637,10 +634,7 @@ impl Widget for ColorPalettePopup {
             WidgetEvent::MouseMove(e) => {
                 let pos = e.local_pos;
                 let new_hover = self.swatch_at_point(pos);
-                let new_action_hover = self
-                    .action_rect()
-                    .map(|r| r.contains(pos))
-                    .unwrap_or(false);
+                let new_action_hover = self.action_rect().map(|r| r.contains(pos)).unwrap_or(false);
 
                 if new_hover != self.hovered_index || new_action_hover != self.action_hovered {
                     self.hovered_index = new_hover;
@@ -678,8 +672,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     };
 
     fn setup() {

@@ -34,9 +34,9 @@ use std::collections::HashMap;
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::{GpuRenderer, Point, Rect, Renderer};
 
+use super::WidgetAccess;
 use super::events::{PaintEvent, WidgetEvent};
 use super::traits::PaintContext;
-use super::WidgetAccess;
 
 /// Manages repaint requests and coalesces updates.
 ///
@@ -212,7 +212,14 @@ impl FrameRenderer {
 
         // Paint each widget
         for widget_id in paint_order {
-            Self::paint_widget(storage, widget_id, renderer, Point::ZERO, alt_held, &mut stats);
+            Self::paint_widget(
+                storage,
+                widget_id,
+                renderer,
+                Point::ZERO,
+                alt_held,
+                &mut stats,
+            );
         }
 
         stats
@@ -482,7 +489,15 @@ impl FrameRenderer {
         // Paint children
         let children = storage.get_children(widget_id);
         for child_id in children {
-            Self::paint_widget_with_clip(storage, child_id, renderer, window_pos, dirty_region, alt_held, stats);
+            Self::paint_widget_with_clip(
+                storage,
+                child_id,
+                renderer,
+                window_pos,
+                dirty_region,
+                alt_held,
+                stats,
+            );
         }
     }
 

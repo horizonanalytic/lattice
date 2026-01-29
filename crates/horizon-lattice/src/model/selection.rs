@@ -347,12 +347,18 @@ impl SelectionModel {
 
     /// Checks if a column is selected (any cell in that column).
     pub fn is_column_selected(&self, column: usize) -> bool {
-        self.selected_indices.iter().any(|idx| idx.column() == column)
+        self.selected_indices
+            .iter()
+            .any(|idx| idx.column() == column)
     }
 
     /// Returns the selected columns.
     pub fn selected_columns(&self) -> Vec<usize> {
-        let mut cols: Vec<usize> = self.selected_indices.iter().map(|idx| idx.column()).collect();
+        let mut cols: Vec<usize> = self
+            .selected_indices
+            .iter()
+            .map(|idx| idx.column())
+            .collect();
         cols.sort_unstable();
         cols.dedup();
         cols
@@ -431,7 +437,10 @@ impl SelectionModel {
             // Keep only the most recently selected
             let keep = self.selected_indices.pop().unwrap();
             for removed in self.selected_indices.drain(..) {
-                if !newly_deselected.iter().any(|idx| idx.internal_id() == removed.internal_id()) {
+                if !newly_deselected
+                    .iter()
+                    .any(|idx| idx.internal_id() == removed.internal_id())
+                {
                     newly_deselected.push(removed.clone());
                 }
                 self.selected_ids.remove(&removed.internal_id());
@@ -723,8 +732,8 @@ impl SelectionModel {
 mod tests {
     use super::*;
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     };
 
     #[test]
@@ -792,8 +801,14 @@ mod tests {
         let mut model = SelectionModel::new();
         model.set_selection_mode(SelectionMode::MultiSelection);
 
-        model.select(ModelIndex::new(0, 0, ModelIndex::invalid()), SelectionFlags::SELECT);
-        model.select(ModelIndex::new(1, 0, ModelIndex::invalid()), SelectionFlags::SELECT);
+        model.select(
+            ModelIndex::new(0, 0, ModelIndex::invalid()),
+            SelectionFlags::SELECT,
+        );
+        model.select(
+            ModelIndex::new(1, 0, ModelIndex::invalid()),
+            SelectionFlags::SELECT,
+        );
         assert_eq!(model.selected_count(), 2);
 
         model.clear_selection();
@@ -805,7 +820,10 @@ mod tests {
         let mut model = SelectionModel::new();
         model.set_selection_mode(SelectionMode::NoSelection);
 
-        model.select(ModelIndex::new(0, 0, ModelIndex::invalid()), SelectionFlags::SELECT);
+        model.select(
+            ModelIndex::new(0, 0, ModelIndex::invalid()),
+            SelectionFlags::SELECT,
+        );
         assert!(!model.has_selection());
     }
 
@@ -843,8 +861,14 @@ mod tests {
             count_clone.fetch_add(selected.len(), Ordering::SeqCst);
         });
 
-        model.select(ModelIndex::new(0, 0, ModelIndex::invalid()), SelectionFlags::SELECT);
-        model.select(ModelIndex::new(1, 0, ModelIndex::invalid()), SelectionFlags::SELECT);
+        model.select(
+            ModelIndex::new(0, 0, ModelIndex::invalid()),
+            SelectionFlags::SELECT,
+        );
+        model.select(
+            ModelIndex::new(1, 0, ModelIndex::invalid()),
+            SelectionFlags::SELECT,
+        );
 
         assert_eq!(selected_count.load(Ordering::SeqCst), 2);
     }
@@ -860,8 +884,14 @@ mod tests {
             count_clone.fetch_add(1, Ordering::SeqCst);
         });
 
-        model.set_current_index(ModelIndex::new(0, 0, ModelIndex::invalid()), SelectionFlags::CURRENT);
-        model.set_current_index(ModelIndex::new(1, 0, ModelIndex::invalid()), SelectionFlags::CURRENT);
+        model.set_current_index(
+            ModelIndex::new(0, 0, ModelIndex::invalid()),
+            SelectionFlags::CURRENT,
+        );
+        model.set_current_index(
+            ModelIndex::new(1, 0, ModelIndex::invalid()),
+            SelectionFlags::CURRENT,
+        );
 
         assert_eq!(changed_count.load(Ordering::SeqCst), 2);
     }
@@ -871,9 +901,18 @@ mod tests {
         let mut model = SelectionModel::new();
         model.set_selection_mode(SelectionMode::MultiSelection);
 
-        model.select(ModelIndex::new(5, 0, ModelIndex::invalid()), SelectionFlags::SELECT);
-        model.select(ModelIndex::new(2, 0, ModelIndex::invalid()), SelectionFlags::SELECT);
-        model.select(ModelIndex::new(8, 0, ModelIndex::invalid()), SelectionFlags::SELECT);
+        model.select(
+            ModelIndex::new(5, 0, ModelIndex::invalid()),
+            SelectionFlags::SELECT,
+        );
+        model.select(
+            ModelIndex::new(2, 0, ModelIndex::invalid()),
+            SelectionFlags::SELECT,
+        );
+        model.select(
+            ModelIndex::new(8, 0, ModelIndex::invalid()),
+            SelectionFlags::SELECT,
+        );
 
         let rows = model.selected_rows();
         assert_eq!(rows, vec![2, 5, 8]);
@@ -983,8 +1022,14 @@ mod tests {
         let mut model = SelectionModel::new();
         model.set_selection_mode(SelectionMode::MultiSelection);
 
-        model.select(ModelIndex::new(1, 2, ModelIndex::invalid()), SelectionFlags::SELECT);
-        model.select(ModelIndex::new(3, 4, ModelIndex::invalid()), SelectionFlags::SELECT);
+        model.select(
+            ModelIndex::new(1, 2, ModelIndex::invalid()),
+            SelectionFlags::SELECT,
+        );
+        model.select(
+            ModelIndex::new(3, 4, ModelIndex::invalid()),
+            SelectionFlags::SELECT,
+        );
 
         let cells = model.selected_cells();
         assert_eq!(cells.len(), 2);

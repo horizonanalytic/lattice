@@ -6,10 +6,12 @@ use crate::timer::TimerId;
 /// Higher priority events are processed first within the same event loop iteration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum EventPriority {
     /// Lowest priority - idle tasks, background work.
     Low = 0,
     /// Normal priority - most application events.
+    #[default]
     Normal = 1,
     /// High priority - user input, timers.
     High = 2,
@@ -17,11 +19,6 @@ pub enum EventPriority {
     Critical = 3,
 }
 
-impl Default for EventPriority {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
 
 /// Internal events dispatched through the Horizon Lattice event loop.
 ///

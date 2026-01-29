@@ -4,8 +4,8 @@
 
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::index::ModelIndex;
 use super::role::{ItemData, ItemRole};
@@ -150,7 +150,11 @@ impl<T> TreeStorage<T> {
     fn children_of(&self, parent_id: Option<NodeId>) -> &[NodeId] {
         match parent_id {
             None => &self.root_children,
-            Some(id) => self.nodes.get(&id).map(|n| n.children.as_slice()).unwrap_or(&[]),
+            Some(id) => self
+                .nodes
+                .get(&id)
+                .map(|n| n.children.as_slice())
+                .unwrap_or(&[]),
         }
     }
 
@@ -263,7 +267,9 @@ impl<T: Send + Sync + 'static> TreeModel<T> {
             row = storage.root_children.len();
             id = storage.add_root(data);
         }
-        self.signals.rows_inserted.emit((ModelIndex::invalid(), row, row));
+        self.signals
+            .rows_inserted
+            .emit((ModelIndex::invalid(), row, row));
         id
     }
 
@@ -278,7 +284,11 @@ impl<T: Send + Sync + 'static> TreeModel<T> {
             let mut storage = self.storage.write();
 
             // Get the parent's row before adding
-            row = storage.nodes.get(&parent_id).map(|n| n.children.len()).unwrap_or(0);
+            row = storage
+                .nodes
+                .get(&parent_id)
+                .map(|n| n.children.len())
+                .unwrap_or(0);
 
             // Create parent index
             parent_index = self.create_index_for_id(&storage, parent_id)?;
@@ -305,7 +315,9 @@ impl<T: Send + Sync + 'static> TreeModel<T> {
             };
         }
 
-        self.signals.rows_about_to_be_removed.emit((parent_index.clone(), row, row));
+        self.signals
+            .rows_about_to_be_removed
+            .emit((parent_index.clone(), row, row));
         let result = self.storage.write().remove_node(id);
         self.signals.rows_removed.emit((parent_index, row, row));
         result
@@ -354,7 +366,8 @@ impl<T: Send + Sync + 'static> TreeModel<T> {
             result = f(&mut node.data);
             index = self.create_index_for_id(&storage, id)?;
         }
-        self.signals.emit_data_changed_single(index, vec![ItemRole::Display]);
+        self.signals
+            .emit_data_changed_single(index, vec![ItemRole::Display]);
         Some(result)
     }
 
@@ -470,7 +483,8 @@ impl<T: TreeNodeData + 'static> ItemModel for TreeModel<T> {
         let grandparent_index = match grandparent_id {
             Some(gid) => {
                 // Recursively build the index chain using create_index_for_id
-                self.create_index_for_id(&storage, gid).unwrap_or_else(ModelIndex::invalid)
+                self.create_index_for_id(&storage, gid)
+                    .unwrap_or_else(ModelIndex::invalid)
             }
             None => ModelIndex::invalid(),
         };
@@ -494,7 +508,8 @@ impl<T: TreeNodeData + 'static> ItemModel for TreeModel<T> {
         let storage = self.storage.read();
         let node_id = index.internal_id();
 
-        storage.get_node(node_id)
+        storage
+            .get_node(node_id)
             .map(|n| n.data.flags())
             .unwrap_or_else(ItemFlags::disabled)
     }
@@ -613,7 +628,10 @@ impl<T: Send + Sync + 'static> ItemModel for ExtractorTreeModel<T> {
 
         let grandparent_id = storage.parent_of(parent_id);
         let grandparent_index = match grandparent_id {
-            Some(gid) => self.inner.create_index_for_id(&storage, gid).unwrap_or_else(ModelIndex::invalid),
+            Some(gid) => self
+                .inner
+                .create_index_for_id(&storage, gid)
+                .unwrap_or_else(ModelIndex::invalid),
             None => ModelIndex::invalid(),
         };
 
@@ -663,7 +681,10 @@ mod tests {
 
         let index = model.index(0, 0, &ModelIndex::invalid());
         assert!(index.is_valid());
-        assert_eq!(model.data(&index, ItemRole::Display).as_string(), Some("Documents"));
+        assert_eq!(
+            model.data(&index, ItemRole::Display).as_string(),
+            Some("Documents")
+        );
     }
 
     #[test]
@@ -675,20 +696,35 @@ mod tests {
             is_dir: true,
         });
 
-        let child1 = model.add_child(root, FileNode {
-            name: "Child1".into(),
-            is_dir: true,
-        }).unwrap();
+        let child1 = model
+            .add_child(
+                root,
+                FileNode {
+                    name: "Child1".into(),
+                    is_dir: true,
+                },
+            )
+            .unwrap();
 
-        model.add_child(root, FileNode {
-            name: "Child2".into(),
-            is_dir: false,
-        }).unwrap();
+        model
+            .add_child(
+                root,
+                FileNode {
+                    name: "Child2".into(),
+                    is_dir: false,
+                },
+            )
+            .unwrap();
 
-        model.add_child(child1, FileNode {
-            name: "Grandchild".into(),
-            is_dir: false,
-        }).unwrap();
+        model
+            .add_child(
+                child1,
+                FileNode {
+                    name: "Grandchild".into(),
+                    is_dir: false,
+                },
+            )
+            .unwrap();
 
         // Check root
         assert_eq!(model.row_count(&ModelIndex::invalid()), 1);
@@ -703,7 +739,10 @@ mod tests {
         // Get first child
         let child1_index = model.index(0, 0, &root_index);
         assert!(child1_index.is_valid());
-        assert_eq!(model.data(&child1_index, ItemRole::Display).as_string(), Some("Child1"));
+        assert_eq!(
+            model.data(&child1_index, ItemRole::Display).as_string(),
+            Some("Child1")
+        );
 
         // Check first child's children
         assert_eq!(model.row_count(&child1_index), 1);
@@ -711,12 +750,18 @@ mod tests {
         // Get grandchild
         let grandchild_index = model.index(0, 0, &child1_index);
         assert!(grandchild_index.is_valid());
-        assert_eq!(model.data(&grandchild_index, ItemRole::Display).as_string(), Some("Grandchild"));
+        assert_eq!(
+            model.data(&grandchild_index, ItemRole::Display).as_string(),
+            Some("Grandchild")
+        );
 
         // Check parent relationship
         let parent = model.parent(&grandchild_index);
         assert!(parent.is_valid());
-        assert_eq!(model.data(&parent, ItemRole::Display).as_string(), Some("Child1"));
+        assert_eq!(
+            model.data(&parent, ItemRole::Display).as_string(),
+            Some("Child1")
+        );
     }
 
     #[test]
@@ -728,10 +773,15 @@ mod tests {
             is_dir: true,
         });
 
-        let child = model.add_child(root, FileNode {
-            name: "Child".into(),
-            is_dir: false,
-        }).unwrap();
+        let child = model
+            .add_child(
+                root,
+                FileNode {
+                    name: "Child".into(),
+                    is_dir: false,
+                },
+            )
+            .unwrap();
 
         assert_eq!(model.row_count(&ModelIndex::invalid()), 1);
 
@@ -769,28 +819,35 @@ mod tests {
             value: i32,
         }
 
-        let model = ExtractorTreeModel::new(
-            |node: &Node, role| match role {
-                ItemRole::Display => ItemData::from(node.label.as_str()),
-                ItemRole::ToolTip => ItemData::from(format!("Value: {}", node.value)),
-                _ => ItemData::None,
-            },
-        );
+        let model = ExtractorTreeModel::new(|node: &Node, role| match role {
+            ItemRole::Display => ItemData::from(node.label.as_str()),
+            ItemRole::ToolTip => ItemData::from(format!("Value: {}", node.value)),
+            _ => ItemData::None,
+        });
 
         let root = model.add_root(Node {
             label: "Root".into(),
             value: 100,
         });
 
-        model.add_child(root, Node {
-            label: "Child".into(),
-            value: 50,
-        });
+        model.add_child(
+            root,
+            Node {
+                label: "Child".into(),
+                value: 50,
+            },
+        );
 
         assert_eq!(model.row_count(&ModelIndex::invalid()), 1);
 
         let root_index = model.index(0, 0, &ModelIndex::invalid());
-        assert_eq!(model.data(&root_index, ItemRole::Display).as_string(), Some("Root"));
-        assert_eq!(model.data(&root_index, ItemRole::ToolTip).as_string(), Some("Value: 100"));
+        assert_eq!(
+            model.data(&root_index, ItemRole::Display).as_string(),
+            Some("Root")
+        );
+        assert_eq!(
+            model.data(&root_index, ItemRole::ToolTip).as_string(),
+            Some("Value: 100")
+        );
     }
 }

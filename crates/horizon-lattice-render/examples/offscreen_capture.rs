@@ -6,8 +6,8 @@
 //! Run with: cargo run -p horizon-lattice-render --example offscreen_capture
 
 use horizon_lattice_render::{
-    Color, GpuRenderer, GraphicsConfig, GraphicsContext, OffscreenConfig, OffscreenSurface,
-    Rect, Renderer, RoundedRect, Size, Stroke, Point,
+    Color, GpuRenderer, GraphicsConfig, GraphicsContext, OffscreenConfig, OffscreenSurface, Point,
+    Rect, Renderer, RoundedRect, Size, Stroke,
 };
 
 fn main() {
@@ -27,7 +27,11 @@ fn main() {
     // Create an offscreen surface (renders to a texture, not a window)
     let config = OffscreenConfig::new(800, 600);
     let surface = OffscreenSurface::new(config).expect("Failed to create offscreen surface");
-    println!("Created offscreen surface: {}x{}", surface.width(), surface.height());
+    println!(
+        "Created offscreen surface: {}x{}",
+        surface.width(),
+        surface.height()
+    );
 
     // Create a renderer for the offscreen surface
     let mut renderer = GpuRenderer::new_offscreen(&surface).expect("Failed to create renderer");
@@ -78,28 +82,37 @@ fn main() {
     renderer.set_opacity(1.0);
 
     // Draw text label rectangle
-    renderer.fill_rect(Rect::new(50.0, 500.0, 300.0, 40.0), Color::from_rgb(0.2, 0.2, 0.2));
+    renderer.fill_rect(
+        Rect::new(50.0, 500.0, 300.0, 40.0),
+        Color::from_rgb(0.2, 0.2, 0.2),
+    );
 
     renderer.end_frame();
     println!("Frame rendered (batched)");
 
     // Render to the offscreen surface
-    renderer.render_to_offscreen(&surface).expect("Failed to render");
+    renderer
+        .render_to_offscreen(&surface)
+        .expect("Failed to render");
     println!("Render submitted to GPU");
 
     // Save to file
     let output_path = "offscreen_capture.png";
-    surface.save_to_file(output_path).expect("Failed to save image");
+    surface
+        .save_to_file(output_path)
+        .expect("Failed to save image");
     println!();
     println!("Screenshot saved to: {}", output_path);
     println!();
 
     // Also demonstrate reading raw pixels
     let pixels = surface.read_pixels().expect("Failed to read pixels");
-    println!("Read {} bytes of pixel data ({}x{} RGBA)",
-             pixels.len(),
-             surface.width(),
-             surface.height());
+    println!(
+        "Read {} bytes of pixel data ({}x{} RGBA)",
+        pixels.len(),
+        surface.width(),
+        surface.height()
+    );
 
     // Verify pixel data
     let expected_size = (surface.width() * surface.height() * 4) as usize;

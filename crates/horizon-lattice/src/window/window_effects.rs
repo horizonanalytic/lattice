@@ -152,7 +152,12 @@ pub struct WindowMask {
 #[allow(dead_code)] // Platform-specific usage
 pub(super) enum MaskShape {
     /// A rectangular region.
-    Rect { x: i32, y: i32, width: u32, height: u32 },
+    Rect {
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+    },
     /// A rounded rectangle region.
     RoundedRect {
         x: i32,
@@ -162,7 +167,12 @@ pub(super) enum MaskShape {
         radius: u32,
     },
     /// An elliptical region.
-    Ellipse { x: i32, y: i32, width: u32, height: u32 },
+    Ellipse {
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+    },
     /// A polygon defined by points.
     Polygon(Vec<(i32, i32)>),
     /// Union of multiple shapes.
@@ -180,7 +190,12 @@ impl WindowMask {
     /// * `height` - Height of the rectangle
     pub fn rect(x: i32, y: i32, width: u32, height: u32) -> Self {
         Self {
-            shape: MaskShape::Rect { x, y, width, height },
+            shape: MaskShape::Rect {
+                x,
+                y,
+                width,
+                height,
+            },
         }
     }
 
@@ -221,7 +236,12 @@ impl WindowMask {
     /// * `height` - Height of the bounding box
     pub fn ellipse(x: i32, y: i32, width: u32, height: u32) -> Self {
         Self {
-            shape: MaskShape::Ellipse { x, y, width, height },
+            shape: MaskShape::Ellipse {
+                x,
+                y,
+                width,
+                height,
+            },
         }
     }
 
@@ -281,9 +301,25 @@ impl WindowMask {
     /// Returns `(x, y, width, height)`.
     pub fn bounds(&self) -> (i32, i32, u32, u32) {
         match &self.shape {
-            MaskShape::Rect { x, y, width, height }
-            | MaskShape::RoundedRect { x, y, width, height, .. }
-            | MaskShape::Ellipse { x, y, width, height } => (*x, *y, *width, *height),
+            MaskShape::Rect {
+                x,
+                y,
+                width,
+                height,
+            }
+            | MaskShape::RoundedRect {
+                x,
+                y,
+                width,
+                height,
+                ..
+            }
+            | MaskShape::Ellipse {
+                x,
+                y,
+                width,
+                height,
+            } => (*x, *y, *width, *height),
             MaskShape::Polygon(points) => {
                 if points.is_empty() {
                     return (0, 0, 0, 0);
@@ -292,12 +328,7 @@ impl WindowMask {
                 let min_y = points.iter().map(|(_, y)| *y).min().unwrap();
                 let max_x = points.iter().map(|(x, _)| *x).max().unwrap();
                 let max_y = points.iter().map(|(_, y)| *y).max().unwrap();
-                (
-                    min_x,
-                    min_y,
-                    (max_x - min_x) as u32,
-                    (max_y - min_y) as u32,
-                )
+                (min_x, min_y, (max_x - min_x) as u32, (max_y - min_y) as u32)
             }
             MaskShape::Union(shapes) => {
                 if shapes.is_empty() {
@@ -314,12 +345,7 @@ impl WindowMask {
                     max_x = max_x.max(x + w as i32);
                     max_y = max_y.max(y + h as i32);
                 }
-                (
-                    min_x,
-                    min_y,
-                    (max_x - min_x) as u32,
-                    (max_y - min_y) as u32,
-                )
+                (min_x, min_y, (max_x - min_x) as u32, (max_y - min_y) as u32)
             }
         }
     }
@@ -450,9 +476,9 @@ pub fn set_window_mask(
 #[cfg(target_os = "macos")]
 mod macos {
     use super::*;
+    use objc2::msg_send;
     use objc2::rc::Retained;
     use objc2::runtime::AnyObject;
-    use objc2::msg_send;
     use objc2_app_kit::NSWindow;
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -518,10 +544,7 @@ mod macos {
                 let _: () = msg_send![&ns_window, setOpaque: false];
 
                 // Get NSColor.clearColor
-                let clear_color: *mut AnyObject = msg_send![
-                    objc2::class!(NSColor),
-                    clearColor
-                ];
+                let clear_color: *mut AnyObject = msg_send![objc2::class!(NSColor), clearColor];
                 let _: () = msg_send![&ns_window, setBackgroundColor: clear_color];
             }
 
@@ -536,10 +559,8 @@ mod macos {
                 let _: () = msg_send![&ns_window, setOpaque: true];
 
                 // Restore default window background
-                let default_color: *mut AnyObject = msg_send![
-                    objc2::class!(NSColor),
-                    windowBackgroundColor
-                ];
+                let default_color: *mut AnyObject =
+                    msg_send![objc2::class!(NSColor), windowBackgroundColor];
                 let _: () = msg_send![&ns_window, setBackgroundColor: default_color];
             }
             Ok(())
@@ -564,8 +585,8 @@ mod windows_impl {
         DeleteObject, HRGN, RGN_OR, WINDING,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetLayeredWindowAttributes, GetWindowLongW, SetLayeredWindowAttributes, SetWindowLongW,
-        SetWindowRgn, GWL_EXSTYLE, LWA_ALPHA, WS_EX_LAYERED,
+        GWL_EXSTYLE, GetLayeredWindowAttributes, GetWindowLongW, LWA_ALPHA,
+        SetLayeredWindowAttributes, SetWindowLongW, SetWindowRgn, WS_EX_LAYERED,
     };
     use windows::core::POINT;
 
@@ -575,9 +596,7 @@ mod windows_impl {
             .map_err(|e| WindowEffectError::handle_access(e.to_string()))?;
 
         match handle.as_raw() {
-            RawWindowHandle::Win32(handle) => {
-                Ok(HWND(handle.hwnd.get() as *mut std::ffi::c_void))
-            }
+            RawWindowHandle::Win32(handle) => Ok(HWND(handle.hwnd.get() as *mut std::ffi::c_void)),
             _ => Err(WindowEffectError::handle_access(
                 "expected Win32 window handle",
             )),
@@ -633,9 +652,7 @@ mod windows_impl {
                 // SetWindowRgn takes ownership of the region, so we don't delete it
                 if SetWindowRgn(hwnd, Some(hrgn), true).is_err() {
                     DeleteObject(hrgn);
-                    return Err(WindowEffectError::platform_error(
-                        "SetWindowRgn failed",
-                    ));
+                    return Err(WindowEffectError::platform_error("SetWindowRgn failed"));
                 }
             }
         } else {
@@ -652,7 +669,12 @@ mod windows_impl {
     fn create_region_from_mask(mask: &WindowMask) -> Result<HRGN, WindowEffectError> {
         unsafe {
             match mask.shape() {
-                MaskShape::Rect { x, y, width, height } => {
+                MaskShape::Rect {
+                    x,
+                    y,
+                    width,
+                    height,
+                } => {
                     let hrgn = CreateRectRgn(*x, *y, x + *width as i32, y + *height as i32);
                     if hrgn.is_invalid() {
                         return Err(WindowEffectError::platform_error("CreateRectRgn failed"));
@@ -675,22 +697,29 @@ mod windows_impl {
                         *radius as i32,
                     );
                     if hrgn.is_invalid() {
-                        return Err(WindowEffectError::platform_error("CreateRoundRectRgn failed"));
+                        return Err(WindowEffectError::platform_error(
+                            "CreateRoundRectRgn failed",
+                        ));
                     }
                     Ok(hrgn)
                 }
-                MaskShape::Ellipse { x, y, width, height } => {
+                MaskShape::Ellipse {
+                    x,
+                    y,
+                    width,
+                    height,
+                } => {
                     let hrgn = CreateEllipticRgn(*x, *y, x + *width as i32, y + *height as i32);
                     if hrgn.is_invalid() {
-                        return Err(WindowEffectError::platform_error("CreateEllipticRgn failed"));
+                        return Err(WindowEffectError::platform_error(
+                            "CreateEllipticRgn failed",
+                        ));
                     }
                     Ok(hrgn)
                 }
                 MaskShape::Polygon(points) => {
-                    let win_points: Vec<POINT> = points
-                        .iter()
-                        .map(|(x, y)| POINT { x: *x, y: *y })
-                        .collect();
+                    let win_points: Vec<POINT> =
+                        points.iter().map(|(x, y)| POINT { x: *x, y: *y }).collect();
                     let hrgn = CreatePolygonRgn(&win_points, WINDING);
                     if hrgn.is_invalid() {
                         return Err(WindowEffectError::platform_error("CreatePolygonRgn failed"));
@@ -815,7 +844,10 @@ mod linux {
 
         match handle.as_raw() {
             RawWindowHandle::Xlib(handle) => Ok(X11Window {
-                display: handle.display.map(|d| d.as_ptr()).unwrap_or(std::ptr::null_mut()),
+                display: handle
+                    .display
+                    .map(|d| d.as_ptr())
+                    .unwrap_or(std::ptr::null_mut()),
                 window: handle.window,
             }),
             RawWindowHandle::Xcb(handle) => {
@@ -947,7 +979,12 @@ mod linux {
 
     fn mask_to_rectangles(mask: &WindowMask) -> Vec<XRectangle> {
         match mask.shape() {
-            MaskShape::Rect { x, y, width, height } => {
+            MaskShape::Rect {
+                x,
+                y,
+                width,
+                height,
+            } => {
                 vec![XRectangle {
                     x: *x as i16,
                     y: *y as i16,
@@ -965,7 +1002,12 @@ mod linux {
                 // Approximate rounded rectangle with multiple rectangles
                 approximate_rounded_rect(*x, *y, *width, *height, *radius)
             }
-            MaskShape::Ellipse { x, y, width, height } => {
+            MaskShape::Ellipse {
+                x,
+                y,
+                width,
+                height,
+            } => {
                 // Approximate ellipse with horizontal scan lines
                 approximate_ellipse(*x, *y, *width, *height)
             }
@@ -983,7 +1025,13 @@ mod linux {
         }
     }
 
-    fn approximate_rounded_rect(x: i32, y: i32, width: u32, height: u32, radius: u32) -> Vec<XRectangle> {
+    fn approximate_rounded_rect(
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        radius: u32,
+    ) -> Vec<XRectangle> {
         let mut rects = Vec::new();
         let r = radius as i32;
         let w = width as i32;

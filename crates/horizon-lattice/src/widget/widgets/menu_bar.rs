@@ -188,7 +188,10 @@ impl MenuBar {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -279,22 +282,20 @@ impl MenuBar {
 
     /// Set visibility of a menu item.
     pub fn set_menu_visible(&mut self, index: usize, visible: bool) {
-        if let Some(item) = self.items.get_mut(index) {
-            if item.visible != visible {
+        if let Some(item) = self.items.get_mut(index)
+            && item.visible != visible {
                 item.visible = visible;
                 self.base.update();
             }
-        }
     }
 
     /// Set enabled state of a menu item.
     pub fn set_menu_enabled(&mut self, index: usize, enabled: bool) {
-        if let Some(item) = self.items.get_mut(index) {
-            if item.enabled != enabled {
+        if let Some(item) = self.items.get_mut(index)
+            && item.enabled != enabled {
                 item.enabled = enabled;
                 self.base.update();
             }
-        }
     }
 
     // =========================================================================
@@ -439,11 +440,10 @@ impl MenuBar {
             self.highlighted_index = index;
 
             // If a menu is open, switch to the newly highlighted menu
-            if self.menu_open {
-                if let Some(idx) = index {
+            if self.menu_open
+                && let Some(idx) = index {
                     self.open_menu(idx);
                 }
-            }
 
             self.base.update();
         }
@@ -461,7 +461,8 @@ impl MenuBar {
                 continue;
             }
 
-            let width = self.estimate_text_width(&item.display_text) + self.style.item_padding * 2.0;
+            let width =
+                self.estimate_text_width(&item.display_text) + self.style.item_padding * 2.0;
 
             if i == index {
                 return Some(Rect::new(x, 0.0, width, self.style.height));
@@ -481,7 +482,8 @@ impl MenuBar {
                 continue;
             }
 
-            let width = self.estimate_text_width(&item.display_text) + self.style.item_padding * 2.0;
+            let width =
+                self.estimate_text_width(&item.display_text) + self.style.item_padding * 2.0;
             let rect = Rect::new(x, 0.0, width, self.style.height);
 
             if rect.contains(pos) {
@@ -524,11 +526,10 @@ impl MenuBar {
                 continue;
             }
 
-            if let Some(mnemonic) = item.mnemonic {
-                if mnemonic == target_char {
+            if let Some(mnemonic) = item.mnemonic
+                && mnemonic == target_char {
                     return Some(i);
                 }
-            }
         }
 
         None
@@ -567,12 +568,11 @@ impl MenuBar {
     fn handle_mouse_move(&mut self, event: &MouseMoveEvent) -> bool {
         let pos = event.local_pos;
 
-        if let Some(index) = self.item_at_position(pos) {
-            if self.is_item_highlightable(index) {
+        if let Some(index) = self.item_at_position(pos)
+            && self.is_item_highlightable(index) {
                 self.set_highlighted_index(Some(index));
                 return true;
             }
-        }
 
         false
     }
@@ -643,12 +643,11 @@ impl MenuBar {
             }
             _ => {
                 // Check for mnemonic key (with Alt held or when mnemonics are visible)
-                if event.modifiers.alt || self.mnemonics_visible {
-                    if let Some(index) = self.find_mnemonic_item(event.key) {
+                if (event.modifiers.alt || self.mnemonics_visible)
+                    && let Some(index) = self.find_mnemonic_item(event.key) {
                         self.open_menu(index);
                         return true;
                     }
-                }
             }
         }
 
@@ -669,11 +668,8 @@ impl MenuBar {
         // Draw bottom border
         let stroke = Stroke::new(self.style.border_color, self.style.border_width);
         let y = rect.height() - self.style.border_width / 2.0;
-        ctx.renderer().draw_line(
-            Point::new(0.0, y),
-            Point::new(rect.width(), y),
-            &stroke,
-        );
+        ctx.renderer()
+            .draw_line(Point::new(0.0, y), Point::new(rect.width(), y), &stroke);
     }
 
     fn paint_items(&self, ctx: &mut PaintContext<'_>) {
@@ -684,7 +680,8 @@ impl MenuBar {
                 continue;
             }
 
-            let width = self.estimate_text_width(&item.display_text) + self.style.item_padding * 2.0;
+            let width =
+                self.estimate_text_width(&item.display_text) + self.style.item_padding * 2.0;
             let item_rect = Rect::new(x, 0.0, width, self.style.height);
 
             let is_highlighted = self.highlighted_index == Some(i);
@@ -696,7 +693,13 @@ impl MenuBar {
         }
     }
 
-    fn paint_item(&self, ctx: &mut PaintContext<'_>, item: &MenuBarItem, rect: Rect, highlighted: bool) {
+    fn paint_item(
+        &self,
+        ctx: &mut PaintContext<'_>,
+        item: &MenuBarItem,
+        rect: Rect,
+        highlighted: bool,
+    ) {
         let enabled = item.enabled;
 
         // Highlight background
@@ -721,11 +724,10 @@ impl MenuBar {
         self.paint_text(ctx, &item.display_text, text_x, text_y, text_color);
 
         // Draw mnemonic underline if visible
-        if self.mnemonics_visible || ctx.is_alt_held() {
-            if let Some(mnemonic_index) = item.mnemonic_index {
+        if (self.mnemonics_visible || ctx.is_alt_held())
+            && let Some(mnemonic_index) = item.mnemonic_index {
                 self.paint_mnemonic_underline(ctx, mnemonic_index, text_x, text_y, text_color);
             }
-        }
     }
 
     fn paint_text(&self, _ctx: &mut PaintContext<'_>, text: &str, x: f32, y: f32, color: Color) {
@@ -772,8 +774,7 @@ impl Widget for MenuBar {
 
     fn size_hint(&self) -> SizeHint {
         let preferred = Size::new(self.calculate_preferred_width(), self.style.height);
-        SizeHint::new(preferred)
-            .with_minimum(Size::new(50.0, self.style.height))
+        SizeHint::new(preferred).with_minimum(Size::new(50.0, self.style.height))
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {

@@ -464,11 +464,10 @@ impl CalendarWidget {
 
     /// Set the selected date.
     pub fn set_selected_date(&mut self, date: Option<NaiveDate>) {
-        if let Some(d) = date {
-            if !self.is_date_valid(d) {
+        if let Some(d) = date
+            && !self.is_date_valid(d) {
                 return;
             }
-        }
         if self.selected_date != date {
             self.selected_date = date;
             self.base.update();
@@ -543,16 +542,14 @@ impl CalendarWidget {
 
     /// Check if a date is valid (within range).
     pub fn is_date_valid(&self, date: NaiveDate) -> bool {
-        if let Some(min) = self.minimum_date {
-            if date < min {
+        if let Some(min) = self.minimum_date
+            && date < min {
                 return false;
             }
-        }
-        if let Some(max) = self.maximum_date {
-            if date > max {
+        if let Some(max) = self.maximum_date
+            && date > max {
                 return false;
             }
-        }
         true
     }
 
@@ -690,7 +687,10 @@ impl CalendarWidget {
         let (year, month) = if self.displayed_month.month() == 1 {
             (self.displayed_month.year() - 1, 12)
         } else {
-            (self.displayed_month.year(), self.displayed_month.month() - 1)
+            (
+                self.displayed_month.year(),
+                self.displayed_month.month() - 1,
+            )
         };
         self.displayed_month = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
         self.base.update();
@@ -702,7 +702,10 @@ impl CalendarWidget {
         let (year, month) = if self.displayed_month.month() == 12 {
             (self.displayed_month.year() + 1, 1)
         } else {
-            (self.displayed_month.year(), self.displayed_month.month() + 1)
+            (
+                self.displayed_month.year(),
+                self.displayed_month.month() + 1,
+            )
         };
         self.displayed_month = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
         self.base.update();
@@ -751,11 +754,7 @@ impl CalendarWidget {
     // =========================================================================
 
     fn week_number_width(&self) -> f32 {
-        if self.show_week_numbers {
-            28.0
-        } else {
-            0.0
-        }
+        if self.show_week_numbers { 28.0 } else { 0.0 }
     }
 
     fn grid_width(&self) -> f32 {
@@ -822,7 +821,12 @@ impl CalendarWidget {
     fn today_button_rect(&self) -> Option<Rect> {
         if self.show_today_button {
             let top = self.header_height + self.weekday_header_height + 6.0 * self.cell_size;
-            Some(Rect::new(4.0, top, self.grid_width() - 8.0, self.today_button_height))
+            Some(Rect::new(
+                4.0,
+                top,
+                self.grid_width() - 8.0,
+                self.today_button_height,
+            ))
         } else {
             None
         }
@@ -880,11 +884,10 @@ impl CalendarWidget {
         }
 
         // Check today button
-        if let Some(rect) = self.today_button_rect() {
-            if rect.contains(pos) {
+        if let Some(rect) = self.today_button_rect()
+            && rect.contains(pos) {
                 return CalendarPart::TodayButton;
             }
-        }
 
         // Check header area
         let header = self.header_rect();
@@ -939,8 +942,8 @@ impl CalendarWidget {
                 true
             }
             CalendarPart::DayCell(row, col) => {
-                if let Some(date) = self.date_at_cell(row, col) {
-                    if self.is_date_valid(date) {
+                if let Some(date) = self.date_at_cell(row, col)
+                    && self.is_date_valid(date) {
                         self.set_selected_date(Some(date));
                         // Navigate to the date's month if it's in a different month
                         if date.month() != self.displayed_month.month()
@@ -949,7 +952,6 @@ impl CalendarWidget {
                             self.show_date(date);
                         }
                     }
-                }
                 true
             }
             _ => false,
@@ -981,14 +983,12 @@ impl CalendarWidget {
         }
 
         let part = self.hit_test(event.local_pos);
-        if let CalendarPart::DayCell(row, col) = part {
-            if let Some(date) = self.date_at_cell(row, col) {
-                if self.is_date_valid(date) {
+        if let CalendarPart::DayCell(row, col) = part
+            && let Some(date) = self.date_at_cell(row, col)
+                && self.is_date_valid(date) {
                     self.activated.emit(date);
                     return true;
                 }
-            }
-        }
         false
     }
 
@@ -1105,7 +1105,8 @@ impl CalendarWidget {
 
     fn paint_header(&self, ctx: &mut PaintContext<'_>) {
         let header = self.header_rect();
-        ctx.renderer().fill_rect(header, self.header_background_color);
+        ctx.renderer()
+            .fill_rect(header, self.header_background_color);
 
         // Month/Year text
         let month_names = [
@@ -1200,7 +1201,7 @@ impl CalendarWidget {
         }
     }
 
-    fn paint_weekday_headers(&self, ctx: &mut PaintContext<'_>) {
+    fn paint_weekday_headers(&self, _ctx: &mut PaintContext<'_>) {
         let header_rect = self.weekday_header_rect();
         let weekdays = if self.first_day_of_week == Weekday::Sun {
             ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
@@ -1320,7 +1321,8 @@ impl CalendarWidget {
         let is_today = date == today;
         let is_valid = self.is_date_valid(date);
         let is_weekend = date.weekday() == Weekday::Sat || date.weekday() == Weekday::Sun;
-        let is_hovered = matches!(self.hover_part, CalendarPart::DayCell(r, c) if r == row && c == col);
+        let is_hovered =
+            matches!(self.hover_part, CalendarPart::DayCell(r, c) if r == row && c == col);
 
         // Get custom formatting from the day formatter (if any)
         let custom_format = if let Some(formatter) = &self.day_formatter {
@@ -1344,8 +1346,12 @@ impl CalendarWidget {
             rect.origin.y + rect.height() / 2.0,
         );
         let radius = (rect.width().min(rect.height()) / 2.0 - 2.0).max(0.0);
-        let circle_rect =
-            Rect::new(center.x - radius, center.y - radius, radius * 2.0, radius * 2.0);
+        let circle_rect = Rect::new(
+            center.x - radius,
+            center.y - radius,
+            radius * 2.0,
+            radius * 2.0,
+        );
         let rrect = RoundedRect::new(circle_rect, radius);
 
         if is_selected && is_valid {
@@ -1428,7 +1434,7 @@ impl CalendarWidget {
         }
     }
 
-    fn paint_week_numbers(&self, ctx: &mut PaintContext<'_>) {
+    fn paint_week_numbers(&self, _ctx: &mut PaintContext<'_>) {
         if !self.show_week_numbers {
             return;
         }
@@ -1616,8 +1622,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
 
     fn setup() {
@@ -1661,7 +1667,7 @@ mod tests {
         let initial = calendar.displayed_year_month();
 
         calendar.show_next_month();
-        let (year, month) = calendar.displayed_year_month();
+        let (_year, month) = calendar.displayed_year_month();
         assert!(month == (initial.1 % 12) + 1 || (initial.1 == 12 && month == 1));
 
         calendar.show_previous_month();
@@ -1826,8 +1832,9 @@ mod tests {
     fn test_date_range_highlight_formatter() {
         let start = NaiveDate::from_ymd_opt(2025, 1, 10).unwrap();
         let end = NaiveDate::from_ymd_opt(2025, 1, 20).unwrap();
-        let formatter = DateRangeHighlightFormatter::new(start, end, Color::from_rgba8(200, 230, 255, 255))
-            .with_text_color(Color::BLACK);
+        let formatter =
+            DateRangeHighlightFormatter::new(start, end, Color::from_rgba8(200, 230, 255, 255))
+                .with_text_color(Color::BLACK);
 
         // Date in range
         let in_range_info = DayCellInfo {

@@ -24,8 +24,8 @@ use horizon_lattice_render::{
 };
 
 use crate::widget::{
-    parse_mnemonic, FocusPolicy, Key, KeyPressEvent, KeySequence, MnemonicText, MouseButton,
-    MousePressEvent, MouseReleaseEvent, SizeHint, WidgetBase,
+    FocusPolicy, Key, KeyPressEvent, KeySequence, MnemonicText, MouseButton, MousePressEvent,
+    MouseReleaseEvent, SizeHint, WidgetBase, parse_mnemonic,
 };
 
 // =========================================================================
@@ -878,8 +878,7 @@ impl AbstractButton {
             (content_size.height + padding).max(min_height),
         );
 
-        SizeHint::new(preferred)
-            .with_minimum_dimensions(min_width, min_height)
+        SizeHint::new(preferred).with_minimum_dimensions(min_width, min_height)
     }
 
     /// Get the color for the button background based on current state.

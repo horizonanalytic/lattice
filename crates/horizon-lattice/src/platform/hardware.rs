@@ -127,6 +127,7 @@ impl std::error::Error for HardwareError {}
 
 /// Represents a rectangle in screen coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub struct ScreenRect {
     /// X coordinate of the top-left corner.
     pub x: i32,
@@ -166,16 +167,6 @@ impl ScreenRect {
     }
 }
 
-impl Default for ScreenRect {
-    fn default() -> Self {
-        Self {
-            x: 0,
-            y: 0,
-            width: 0,
-            height: 0,
-        }
-    }
-}
 
 // ============================================================================
 // Screen
@@ -461,7 +452,9 @@ mod platform {
 
             if result == TRUE {
                 // Sort so primary is first
-                context.screens.sort_by(|a, b| b.is_primary.cmp(&a.is_primary));
+                context
+                    .screens
+                    .sort_by(|a, b| b.is_primary.cmp(&a.is_primary));
                 Ok(context.screens)
             } else {
                 Err(HardwareError::enumeration_failed(
@@ -531,16 +524,15 @@ mod platform {
 #[cfg(target_os = "macos")]
 mod platform {
     use super::*;
+    use objc2::MainThreadMarker;
     use objc2::rc::Retained;
     use objc2::runtime::AnyObject;
-    use objc2::MainThreadMarker;
     use objc2_app_kit::NSScreen;
     use objc2_foundation::NSArray;
 
     pub fn enumerate_screens() -> Result<Vec<Screen>, HardwareError> {
-        let mtm = MainThreadMarker::new().ok_or_else(|| {
-            HardwareError::enumeration_failed("must be called from main thread")
-        })?;
+        let mtm = MainThreadMarker::new()
+            .ok_or_else(|| HardwareError::enumeration_failed("must be called from main thread"))?;
 
         let mut result = Vec::new();
 
@@ -574,18 +566,16 @@ mod platform {
 
             // Check if this is the main screen
             let screen_ptr = &*screen as *const NSScreen as *const AnyObject;
-            let is_primary = main_ptr.map_or(false, |mp| mp == screen_ptr);
+            let is_primary = main_ptr == Some(screen_ptr);
 
             // Get device description for name
             let name = format!("Display {}", index + 1);
 
             // Use frame origin as a pseudo-ID (macOS doesn't expose stable IDs)
-            let id = ScreenId::new(
-                ((frame.origin.x as i64) << 32 | (frame.origin.y as i64)) as u64,
-            );
+            let id =
+                ScreenId::new(((frame.origin.x as i64) << 32 | (frame.origin.y as i64)) as u64);
 
-            let screen_info =
-                Screen::new(id, name, geometry, work_area, scale_factor, is_primary);
+            let screen_info = Screen::new(id, name, geometry, work_area, scale_factor, is_primary);
 
             // Note: NSScreen.depth returns NSWindowDepth which is not easily convertible
             // to bits per pixel. Color depth detection is skipped on macOS.
@@ -672,7 +662,9 @@ mod platform {
 
         // Find the geometry (format: WxH+X+Y)
         let geometry_str = parts.iter().find(|p| {
-            p.contains('x') && (p.contains('+') || p.contains('-')) && p.chars().next().unwrap_or(' ').is_ascii_digit()
+            p.contains('x')
+                && (p.contains('+') || p.contains('-'))
+                && p.chars().next().unwrap_or(' ').is_ascii_digit()
         })?;
 
         let (width, height, x, y) = parse_geometry(geometry_str)?;
@@ -794,8 +786,8 @@ mod platform {
 // ScreenWatcher (monitor change events)
 // ============================================================================
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use horizon_lattice_core::Signal;
 

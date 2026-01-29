@@ -26,11 +26,10 @@ use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{Color, Icon, Rect, Renderer, Stroke};
 use parking_lot::RwLock;
 
-use crate::model::{
-    CheckState, ItemData, ItemFlags, ItemModel, ItemRole, ModelIndex, ModelSignals,
-    TextAlignment,
-};
 use crate::model::selection::SelectionMode;
+use crate::model::{
+    CheckState, ItemData, ItemFlags, ItemModel, ItemRole, ModelIndex, ModelSignals, TextAlignment,
+};
 use crate::widget::{
     FocusPolicy, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase,
     WidgetEvent,
@@ -236,25 +235,30 @@ impl ItemModel for ListWidgetModel {
 
         match role {
             ItemRole::Display => ItemData::String(item.text.clone()),
-            ItemRole::Decoration => {
-                item.icon.clone().map(ItemData::Icon).unwrap_or(ItemData::None)
-            }
-            ItemRole::ToolTip => {
-                item.tooltip.clone().map(ItemData::String).unwrap_or(ItemData::None)
-            }
-            ItemRole::CheckState => {
-                item.check_state.map(ItemData::CheckState).unwrap_or(ItemData::None)
-            }
-            ItemRole::BackgroundColor => {
-                item.background.map(ItemData::Color).unwrap_or(ItemData::None)
-            }
-            ItemRole::ForegroundColor => {
-                item.foreground.map(ItemData::Color).unwrap_or(ItemData::None)
-            }
+            ItemRole::Decoration => item
+                .icon
+                .clone()
+                .map(ItemData::Icon)
+                .unwrap_or(ItemData::None),
+            ItemRole::ToolTip => item
+                .tooltip
+                .clone()
+                .map(ItemData::String)
+                .unwrap_or(ItemData::None),
+            ItemRole::CheckState => item
+                .check_state
+                .map(ItemData::CheckState)
+                .unwrap_or(ItemData::None),
+            ItemRole::BackgroundColor => item
+                .background
+                .map(ItemData::Color)
+                .unwrap_or(ItemData::None),
+            ItemRole::ForegroundColor => item
+                .foreground
+                .map(ItemData::Color)
+                .unwrap_or(ItemData::None),
             ItemRole::TextAlignment => ItemData::TextAlignment(item.text_alignment),
-            ItemRole::User(n) => {
-                item.data.get(&n).cloned().unwrap_or(ItemData::None)
-            }
+            ItemRole::User(n) => item.data.get(&n).cloned().unwrap_or(ItemData::None),
             _ => ItemData::None,
         }
     }
@@ -376,7 +380,10 @@ impl ListWidget {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         let items = Arc::new(RwLock::new(Vec::new()));
         let model = Arc::new(ListWidgetModel::new(items.clone()));
@@ -423,9 +430,11 @@ impl ListWidget {
     /// Adds a pre-configured item.
     pub fn add_item_object(&mut self, item: ListWidgetItem) {
         let row = self.items.read().len();
-        self.model.signals.emit_rows_inserted(ModelIndex::invalid(), row, row, || {
-            self.items.write().push(item);
-        });
+        self.model
+            .signals
+            .emit_rows_inserted(ModelIndex::invalid(), row, row, || {
+                self.items.write().push(item);
+            });
         self.update_content_height();
         self.base.update();
     }
@@ -440,16 +449,17 @@ impl ListWidget {
         let len = self.items.read().len();
         let row = row.min(len);
 
-        self.model.signals.emit_rows_inserted(ModelIndex::invalid(), row, row, || {
-            self.items.write().insert(row, item);
-        });
+        self.model
+            .signals
+            .emit_rows_inserted(ModelIndex::invalid(), row, row, || {
+                self.items.write().insert(row, item);
+            });
 
         // Update current row if needed
-        if let Some(current) = self.current_row {
-            if current >= row {
+        if let Some(current) = self.current_row
+            && current >= row {
                 self.current_row = Some(current + 1);
             }
-        }
 
         self.update_content_height();
         self.base.update();
@@ -462,9 +472,11 @@ impl ListWidget {
         }
 
         let mut removed = None;
-        self.model.signals.emit_rows_removed(ModelIndex::invalid(), row, row, || {
-            removed = Some(self.items.write().remove(row));
-        });
+        self.model
+            .signals
+            .emit_rows_removed(ModelIndex::invalid(), row, row, || {
+                removed = Some(self.items.write().remove(row));
+            });
 
         // Update current row if needed
         if let Some(current) = self.current_row {
@@ -520,7 +532,9 @@ impl ListWidget {
         drop(items);
 
         let index = ModelIndex::new(row, 0, ModelIndex::invalid());
-        self.model.signals.emit_data_changed_single(index, vec![ItemRole::Display]);
+        self.model
+            .signals
+            .emit_data_changed_single(index, vec![ItemRole::Display]);
         self.item_changed.emit(row);
         self.base.update();
         Some(result)
@@ -731,11 +745,7 @@ impl ListWidget {
         let row = (content_y / (self.item_height + self.spacing)) as usize;
         let count = self.items.read().len();
 
-        if row < count {
-            Some(row)
-        } else {
-            None
-        }
+        if row < count { Some(row) } else { None }
     }
 
     fn row_rect(&self, row: usize) -> Rect {
@@ -816,7 +826,8 @@ impl Widget for ListWidget {
         let items = self.items.read();
         let viewport_height = rect.height();
         let first_visible = (self.scroll_y as f32 / (self.item_height + self.spacing)) as usize;
-        let visible_count = (viewport_height / (self.item_height + self.spacing)).ceil() as usize + 1;
+        let visible_count =
+            (viewport_height / (self.item_height + self.spacing)).ceil() as usize + 1;
 
         for row in first_visible..(first_visible + visible_count).min(items.len()) {
             let item = &items[row];
@@ -825,7 +836,8 @@ impl Widget for ListWidget {
             }
 
             let item_rect = self.row_rect(row);
-            if item_rect.origin.y > viewport_height || item_rect.origin.y + item_rect.height() < 0.0 {
+            if item_rect.origin.y > viewport_height || item_rect.origin.y + item_rect.height() < 0.0
+            {
                 continue;
             }
 
@@ -859,10 +871,8 @@ impl Widget for ListWidget {
             let text_y = item_rect.origin.y + item_rect.height() / 2.0;
             let text_width = (item.text.len() as f32 * 7.0).min(item_rect.width() - 16.0);
             if text_width > 0.0 {
-                ctx.renderer().fill_rect(
-                    Rect::new(text_x, text_y - 1.0, text_width, 2.0),
-                    text_color,
-                );
+                ctx.renderer()
+                    .fill_rect(Rect::new(text_x, text_y - 1.0, text_width, 2.0), text_color);
             }
 
             // Focus indicator
@@ -882,24 +892,21 @@ impl Widget for ListWidget {
     fn event(&mut self, event: &mut WidgetEvent) -> bool {
         match event {
             WidgetEvent::MousePress(e) => {
-                if e.button == crate::widget::MouseButton::Left {
-                    if let Some(row) = self.row_at_y(e.local_pos.y) {
+                if e.button == crate::widget::MouseButton::Left
+                    && let Some(row) = self.row_at_y(e.local_pos.y) {
                         self.pressed_row = Some(row);
                         self.handle_click(row, &e.modifiers);
                         event.accept();
                         return true;
                     }
-                }
             }
             WidgetEvent::MouseRelease(e) => {
                 if e.button == crate::widget::MouseButton::Left {
-                    if let Some(pressed) = self.pressed_row.take() {
-                        if let Some(row) = self.row_at_y(e.local_pos.y) {
-                            if row == pressed {
+                    if let Some(pressed) = self.pressed_row.take()
+                        && let Some(row) = self.row_at_y(e.local_pos.y)
+                            && row == pressed {
                                 // Check for double-click would go here
                             }
-                        }
-                    }
                     self.base.update();
                 }
             }
@@ -959,7 +966,9 @@ impl Widget for ListWidget {
                         return true;
                     }
                     crate::widget::Key::PageUp => {
-                        let page_size = (self.base.rect().height() / (self.item_height + self.spacing)) as usize;
+                        let page_size = (self.base.rect().height()
+                            / (self.item_height + self.spacing))
+                            as usize;
                         if let Some(current) = self.current_row {
                             let new_row = current.saturating_sub(page_size.max(1));
                             self.set_current_row(Some(new_row));
@@ -968,7 +977,9 @@ impl Widget for ListWidget {
                         return true;
                     }
                     crate::widget::Key::PageDown => {
-                        let page_size = (self.base.rect().height() / (self.item_height + self.spacing)) as usize;
+                        let page_size = (self.base.rect().height()
+                            / (self.item_height + self.spacing))
+                            as usize;
                         if let Some(current) = self.current_row {
                             let new_row = (current + page_size.max(1)).min(count - 1);
                             self.set_current_row(Some(new_row));

@@ -32,9 +32,8 @@ use horizon_lattice_render::{Color, Point, Rect, Renderer, Stroke};
 
 use crate::model::{ItemModel, ItemRole, Orientation};
 use crate::widget::{
-    ContextMenuEvent, FocusPolicy, MouseButton, MouseMoveEvent, MousePressEvent,
-    MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase,
-    WidgetEvent,
+    ContextMenuEvent, FocusPolicy, MouseButton, MouseMoveEvent, MousePressEvent, MouseReleaseEvent,
+    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
 };
 
 /// Resize mode for header sections.
@@ -278,7 +277,8 @@ impl HeaderView {
 
         // Resize vectors
         self.section_sizes.resize(count, self.default_section_size);
-        self.section_resize_modes.resize(count, ResizeMode::Interactive);
+        self.section_resize_modes
+            .resize(count, ResizeMode::Interactive);
         self.section_hidden.resize(count, false);
 
         // Reset visual/logical mappings to identity
@@ -313,7 +313,8 @@ impl HeaderView {
         if (clamped_size - old_size).abs() > 0.5 {
             self.section_sizes[logical_index] = clamped_size;
             self.update_section_positions();
-            self.section_resized.emit((logical_index, old_size, clamped_size));
+            self.section_resized
+                .emit((logical_index, old_size, clamped_size));
             self.base.update();
         }
     }
@@ -693,13 +694,12 @@ impl HeaderView {
 
     fn section_rect(&self, logical_index: usize) -> Rect {
         let visual = self.visual_index(logical_index);
-        let start = self
-            .section_positions
-            .get(visual)
+        let start = self.section_positions.get(visual).copied().unwrap_or(0.0) - self.offset as f32;
+        let size = self
+            .section_sizes
+            .get(logical_index)
             .copied()
-            .unwrap_or(0.0)
-            - self.offset as f32;
-        let size = self.section_sizes.get(logical_index).copied().unwrap_or(0.0);
+            .unwrap_or(0.0);
 
         match self.orientation {
             Orientation::Horizontal => Rect::new(start, 0.0, size, self.header_size),
@@ -708,14 +708,13 @@ impl HeaderView {
     }
 
     fn header_text(&self, logical_index: usize) -> String {
-        if let Some(model) = &self.model {
-            if let Some(text) = model
+        if let Some(model) = &self.model
+            && let Some(text) = model
                 .header_data(logical_index, self.orientation, ItemRole::Display)
                 .as_string()
             {
                 return text.to_string();
             }
-        }
 
         // Default: column/row number
         match self.orientation {
@@ -921,22 +920,20 @@ impl HeaderView {
         }
 
         // End move
-        if let Some(moving) = self.move_section.take() {
-            if let Some(target_visual) = self.move_target_visual.take() {
+        if let Some(moving) = self.move_section.take()
+            && let Some(target_visual) = self.move_target_visual.take() {
                 let from_visual = self.visual_index(moving);
                 if from_visual != target_visual {
                     self.move_section(from_visual, target_visual);
                 }
             }
-        }
 
         // Emit click if released on same section
         if let Some(pressed) = self.pressed_section.take() {
-            if let Some(current) = self.section_at(pos) {
-                if current == pressed {
+            if let Some(current) = self.section_at(pos)
+                && current == pressed {
                     self.section_clicked.emit(pressed);
                 }
-            }
             self.base.update();
             return true;
         }
@@ -1016,8 +1013,10 @@ impl Widget for HeaderView {
 
     fn size_hint(&self) -> SizeHint {
         match self.orientation {
-            Orientation::Horizontal => SizeHint::from_dimensions(self.total_size(), self.header_size)
-                .with_minimum_dimensions(0.0, self.header_size),
+            Orientation::Horizontal => {
+                SizeHint::from_dimensions(self.total_size(), self.header_size)
+                    .with_minimum_dimensions(0.0, self.header_size)
+            }
             Orientation::Vertical => SizeHint::from_dimensions(self.header_size, self.total_size())
                 .with_minimum_dimensions(self.header_size, 0.0),
         }
@@ -1141,8 +1140,8 @@ mod tests {
 
     #[test]
     fn test_context_menu_signal() {
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
 
         let header = HeaderView::new(Orientation::Horizontal);
         let signal_received = Arc::new(AtomicBool::new(false));
@@ -1154,7 +1153,9 @@ mod tests {
         });
 
         // Emit a test signal (simulating what handle_context_menu does)
-        header.context_menu_requested.emit((Some(0), Point::new(10.0, 10.0)));
+        header
+            .context_menu_requested
+            .emit((Some(0), Point::new(10.0, 10.0)));
 
         assert!(signal_received.load(Ordering::SeqCst));
     }

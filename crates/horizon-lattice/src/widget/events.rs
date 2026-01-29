@@ -981,7 +981,12 @@ pub struct KeyPressEvent {
 
 impl KeyPressEvent {
     /// Create a new key press event.
-    pub fn new(key: Key, modifiers: KeyboardModifiers, text: impl Into<String>, is_repeat: bool) -> Self {
+    pub fn new(
+        key: Key,
+        modifiers: KeyboardModifiers,
+        text: impl Into<String>,
+        is_repeat: bool,
+    ) -> Self {
         Self {
             base: EventBase::new(),
             key,

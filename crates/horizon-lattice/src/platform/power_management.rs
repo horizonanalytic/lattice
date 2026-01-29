@@ -79,8 +79,8 @@
 //! - **Linux**: Uses `systemd-logind` D-Bus `PrepareForSleep` signal
 
 use std::fmt;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use horizon_lattice_core::Signal;
 
@@ -184,20 +184,17 @@ impl std::error::Error for PowerManagementError {}
 
 /// The current power source for the system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub enum PowerSource {
     /// Running on AC power (plugged in).
     Ac,
     /// Running on battery power.
     Battery,
     /// Power source could not be determined.
+    #[default]
     Unknown,
 }
 
-impl Default for PowerSource {
-    fn default() -> Self {
-        Self::Unknown
-    }
-}
 
 // ============================================================================
 // Battery State
@@ -319,8 +316,8 @@ impl PowerState {
     /// Returns `None` if no battery is present or if the level cannot be determined.
     /// If multiple batteries are present, returns the average level.
     pub fn battery_level() -> Option<f32> {
-        use starship_battery::units::ratio::percent;
         use starship_battery::Manager;
+        use starship_battery::units::ratio::percent;
 
         let manager = Manager::new().ok()?;
         let batteries = manager.batteries().ok()?;
@@ -342,14 +339,14 @@ impl PowerState {
 
     /// Get detailed information about all batteries in the system.
     pub fn batteries() -> Result<Vec<BatteryInfo>, PowerManagementError> {
+        use starship_battery::Manager;
         use starship_battery::units::{
             electric_potential::volt, power::watt, ratio::percent,
             thermodynamic_temperature::degree_celsius, time::second,
         };
-        use starship_battery::Manager;
 
-        let manager = Manager::new()
-            .map_err(|e| PowerManagementError::battery_query(e.to_string()))?;
+        let manager =
+            Manager::new().map_err(|e| PowerManagementError::battery_query(e.to_string()))?;
 
         let batteries = manager
             .batteries()
@@ -369,15 +366,11 @@ impl PowerState {
             let info = BatteryInfo {
                 level: battery.state_of_charge().get::<percent>(),
                 state,
-                time_to_empty: battery
-                    .time_to_empty()
-                    .map(|t| t.get::<second>() as u64),
+                time_to_empty: battery.time_to_empty().map(|t| t.get::<second>() as u64),
                 time_to_full: battery.time_to_full().map(|t| t.get::<second>() as u64),
                 voltage: Some(battery.voltage().get::<volt>()),
                 energy_rate: Some(battery.energy_rate().get::<watt>()),
-                temperature: battery
-                    .temperature()
-                    .map(|t| t.get::<degree_celsius>()),
+                temperature: battery.temperature().map(|t| t.get::<degree_celsius>()),
                 cycle_count: battery.cycle_count(),
                 health: Some(battery.state_of_health().get::<percent>()),
             };
@@ -649,9 +642,7 @@ impl PowerEventWatcher {
         let inner = Arc::clone(&self.inner);
 
         std::thread::spawn(move || {
-            let result = pollster::block_on(async {
-                linux_power_event_loop(&inner).await
-            });
+            let result = pollster::block_on(async { linux_power_event_loop(&inner).await });
 
             if let Err(e) = result {
                 eprintln!("Power event watcher error: {}", e);
@@ -777,20 +768,17 @@ async fn linux_power_event_loop(
 // ============================================================================
 
 #[cfg(target_os = "windows")]
-fn windows_power_event_loop(
-    inner: &PowerEventWatcherInner,
-) -> Result<(), PowerManagementError> {
+fn windows_power_event_loop(inner: &PowerEventWatcherInner) -> Result<(), PowerManagementError> {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
-    use windows::core::PCWSTR;
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
-        PeekMessageW, RegisterClassW, TranslateMessage, CS_HREDRAW, CS_VREDRAW,
-        CW_USEDEFAULT, MSG, PM_NOREMOVE, WM_DESTROY, WM_POWERBROADCAST,
-        WNDCLASSW, WS_OVERLAPPEDWINDOW,
+        CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow,
+        DispatchMessageW, GetMessageW, MSG, PM_NOREMOVE, PeekMessageW, RegisterClassW,
+        TranslateMessage, WM_DESTROY, WM_POWERBROADCAST, WNDCLASSW, WS_OVERLAPPEDWINDOW,
     };
+    use windows::core::PCWSTR;
 
     // Power broadcast constants
     const PBT_APMSUSPEND: u32 = 0x0004;
@@ -798,7 +786,10 @@ fn windows_power_event_loop(
     const PBT_APMRESUMEAUTOMATIC: u32 = 0x0012;
 
     fn to_wide(s: &str) -> Vec<u16> {
-        OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
+        OsStr::new(s)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
     }
 
     // Store a raw pointer to inner in thread-local for the window proc callback
@@ -838,9 +829,7 @@ fn windows_power_event_loop(
                 });
                 LRESULT(1) // TRUE
             }
-            WM_DESTROY => {
-                LRESULT(0)
-            }
+            WM_DESTROY => LRESULT(0),
             _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
         }
     }

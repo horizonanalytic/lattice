@@ -108,8 +108,8 @@ use std::path::Path;
 
 use quick_xml::events::{BytesCData, BytesDecl, BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::{Reader, Writer};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use super::error::{FileError, FileErrorKind, FileResult};
 use super::operations::{atomic_write, read_text};
@@ -333,7 +333,9 @@ impl XmlElement {
 
     /// Returns an iterator over all attributes.
     pub fn attributes(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.attributes.iter().map(|(k, v)| (k.as_str(), v.as_str()))
+        self.attributes
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
     }
 
     /// Returns the number of attributes.
@@ -456,7 +458,9 @@ impl XmlElement {
 
     /// Returns true if this element has any text content.
     pub fn has_text(&self) -> bool {
-        self.children.iter().any(|n| matches!(n, XmlNode::Text(_) | XmlNode::CData(_)))
+        self.children
+            .iter()
+            .any(|n| matches!(n, XmlNode::Text(_) | XmlNode::CData(_)))
     }
 
     // ========================================================================
@@ -974,13 +978,8 @@ pub fn parse_xml(s: &str) -> FileResult<XmlDocument> {
 /// Reads and parses an XML file into a document.
 pub fn read_xml(path: impl AsRef<Path>) -> FileResult<XmlDocument> {
     let content = read_text(&path)?;
-    parse_xml(&content).map_err(|e| {
-        FileError::new(
-            e.kind(),
-            Some(path.as_ref().to_path_buf()),
-            None,
-        )
-    })
+    parse_xml(&content)
+        .map_err(|e| FileError::new(e.kind(), Some(path.as_ref().to_path_buf()), None))
 }
 
 /// Reads and deserializes an XML file into a typed value.
@@ -1089,11 +1088,10 @@ fn parse_document<R: BufRead>(reader: &mut Reader<R>) -> FileResult<XmlDocument>
             Ok(Event::Text(text)) => {
                 if let Ok(content) = text.unescape() {
                     let content = content.to_string();
-                    if !content.is_empty() {
-                        if let Some(parent) = element_stack.last_mut() {
+                    if !content.is_empty()
+                        && let Some(parent) = element_stack.last_mut() {
                             parent.add_text(content);
                         }
-                    }
                 }
             }
             Ok(Event::CData(cdata)) => {
@@ -1264,7 +1262,10 @@ mod tests {
         let books = doc.get_all("bookstore/book");
         assert_eq!(books.len(), 3);
 
-        let titles: Vec<String> = books.iter().map(|b| b.child("title").unwrap().text()).collect();
+        let titles: Vec<String> = books
+            .iter()
+            .map(|b| b.child("title").unwrap().text())
+            .collect();
         assert_eq!(titles, vec!["Book 1", "Book 2", "Book 3"]);
     }
 
@@ -1315,7 +1316,10 @@ mod tests {
 
         let doc = parse_xml(xml).unwrap();
         // The element should be accessible by full name
-        let element = doc.root().child_elements().find(|e| e.full_name() == "ns:element");
+        let element = doc
+            .root()
+            .child_elements()
+            .find(|e| e.full_name() == "ns:element");
         assert!(element.is_some());
         assert_eq!(element.unwrap().text(), "Namespaced content");
     }

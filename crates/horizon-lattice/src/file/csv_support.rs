@@ -98,8 +98,8 @@ use std::io::Read;
 use std::path::Path;
 use std::str::FromStr;
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use super::error::{FileError, FileErrorKind, FileResult};
 use super::operations::{atomic_write, read_bytes};
@@ -452,8 +452,7 @@ impl CsvTable {
 
     /// Gets a cell value by column name and parses it as the specified type.
     pub fn get_by_name_as<T: FromStr>(&self, row: usize, col_name: &str) -> Option<T> {
-        self.get_by_name(row, col_name)
-            .and_then(|s| s.parse().ok())
+        self.get_by_name(row, col_name).and_then(|s| s.parse().ok())
     }
 
     // ========================================================================
@@ -513,7 +512,11 @@ impl CsvTable {
     }
 
     /// Saves this table to a file with custom options.
-    pub fn save_with_options(&self, path: impl AsRef<Path>, options: &CsvOptions) -> FileResult<()> {
+    pub fn save_with_options(
+        &self,
+        path: impl AsRef<Path>,
+        options: &CsvOptions,
+    ) -> FileResult<()> {
         let content = self.to_string_with_options(options);
         atomic_write(&path, |writer| writer.write_all(content.as_bytes()))
     }
@@ -636,7 +639,10 @@ where
 }
 
 /// Reads and deserializes CSV records with custom options.
-pub fn read_csv_as_with_options<T>(path: impl AsRef<Path>, options: &CsvOptions) -> FileResult<Vec<T>>
+pub fn read_csv_as_with_options<T>(
+    path: impl AsRef<Path>,
+    options: &CsvOptions,
+) -> FileResult<Vec<T>>
 where
     T: DeserializeOwned,
 {
@@ -802,10 +808,15 @@ pub fn table_to_csv_string_with_options(table: &CsvTable, options: &CsvOptions) 
 // ============================================================================
 
 /// Reads CSV data from a reader into a CsvTable.
-fn read_into_table<R: Read>(reader: &mut csv::Reader<R>, has_headers: bool) -> FileResult<CsvTable> {
+fn read_into_table<R: Read>(
+    reader: &mut csv::Reader<R>,
+    has_headers: bool,
+) -> FileResult<CsvTable> {
     let headers = if has_headers {
         let header_record = reader.headers().map_err(|e| csv_error(e, None))?;
-        Some(CsvRecord::from_iter(header_record.iter().map(|s| s.to_string())))
+        Some(CsvRecord::from_iter(
+            header_record.iter().map(|s| s.to_string()),
+        ))
     } else {
         None
     };
@@ -830,19 +841,15 @@ where
         writer.serialize(record).map_err(|e| csv_error(e, None))?;
     }
 
-    writer.flush().map_err(|e| {
-        FileError::new(
-            FileErrorKind::Other,
-            None,
-            Some(e),
-        )
-    })?;
+    writer
+        .flush()
+        .map_err(|e| FileError::new(FileErrorKind::Other, None, Some(e)))?;
 
     let bytes = writer.into_inner().map_err(|e| {
         FileError::new(
             FileErrorKind::Other,
             None,
-            Some(std::io::Error::new(std::io::ErrorKind::Other, e)),
+            Some(std::io::Error::other(e)),
         )
     })?;
 
@@ -854,7 +861,10 @@ fn csv_error(e: csv::Error, path: Option<&Path>) -> FileError {
     FileError::new(
         FileErrorKind::InvalidData,
         path.map(|p| p.to_path_buf()),
-        Some(std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())),
+        Some(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            e.to_string(),
+        )),
     )
 }
 
@@ -872,7 +882,10 @@ mod tests {
 
         assert!(table.has_headers());
         assert_eq!(table.len(), 2);
-        assert_eq!(table.header_names(), Some(&["name".to_string(), "age".to_string()][..]));
+        assert_eq!(
+            table.header_names(),
+            Some(&["name".to_string(), "age".to_string()][..])
+        );
         assert_eq!(table.get_by_name(0, "name"), Some("Alice"));
         assert_eq!(table.get_by_name_as::<i32>(0, "age"), Some(30));
         assert_eq!(table.get_by_name(1, "name"), Some("Bob"));
@@ -1052,12 +1065,21 @@ mod tests {
 
     #[test]
     fn test_quoted_fields() {
-        let table = parse_csv(r#"name,description
+        let table = parse_csv(
+            r#"name,description
 "Alice","Has a comma, in description"
-"Bob","Normal description""#).unwrap();
+"Bob","Normal description""#,
+        )
+        .unwrap();
 
-        assert_eq!(table.get_by_name(0, "description"), Some("Has a comma, in description"));
-        assert_eq!(table.get_by_name(1, "description"), Some("Normal description"));
+        assert_eq!(
+            table.get_by_name(0, "description"),
+            Some("Has a comma, in description")
+        );
+        assert_eq!(
+            table.get_by_name(1, "description"),
+            Some("Normal description")
+        );
     }
 
     #[test]

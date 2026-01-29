@@ -31,19 +31,19 @@ use std::time::Instant;
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{Color, Point, Rect, Renderer, Size};
 
-use crate::model::{
-    DefaultItemDelegate, DelegatePaintContext, ItemDelegate, ItemModel, ItemRole,
-    ModelIndex, StyleOptionViewItem, ViewItemFeatures, ViewItemState,
-};
 use crate::model::selection::{SelectionFlags, SelectionMode, SelectionModel};
+use crate::model::{
+    DefaultItemDelegate, DelegatePaintContext, ItemDelegate, ItemModel, ItemRole, ModelIndex,
+    StyleOptionViewItem, ViewItemFeatures, ViewItemState,
+};
+use crate::widget::drag_drop::{
+    DragData, DragEnterEvent, DragLeaveEvent, DragMoveEvent, DropAction, DropEvent,
+    DropIndicatorState, DropPosition,
+};
 use crate::widget::{
     ContextMenuEvent, FocusPolicy, Key, KeyPressEvent, MouseButton, MouseMoveEvent,
     MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair,
     WheelEvent, Widget, WidgetBase, WidgetEvent,
-};
-use crate::widget::drag_drop::{
-    DragData, DragEnterEvent, DragMoveEvent, DragLeaveEvent, DropEvent, DropAction,
-    DropIndicatorState, DropPosition,
 };
 
 use super::scroll_area::ScrollBarPolicy;
@@ -172,7 +172,10 @@ impl ListView {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         Self {
             base,
@@ -564,20 +567,19 @@ impl ListView {
             let texts: Vec<String> = indices
                 .iter()
                 .filter_map(|index| {
-                    model.data(index, ItemRole::Display).as_string().map(String::from)
+                    model
+                        .data(index, ItemRole::Display)
+                        .as_string()
+                        .map(String::from)
                 })
                 .collect();
 
             if !texts.is_empty() {
-                data.set_text(&texts.join("\n"));
+                data.set_text(texts.join("\n"));
             }
         }
 
-        if data.is_empty() {
-            None
-        } else {
-            Some(data)
-        }
+        if data.is_empty() { None } else { Some(data) }
     }
 
     /// Returns the drop action for the given position.
@@ -601,7 +603,7 @@ impl ListView {
         }
 
         // After last item
-        if let Some(_) = self.item_rects.last() {
+        if self.item_rects.last().is_some() {
             let row_count = self.item_rects.len();
             return (Some(row_count.saturating_sub(1)), DropPosition::BelowItem);
         }
@@ -639,12 +641,15 @@ impl ListView {
             let item_rects: Vec<(usize, Rect)> = (first..=last)
                 .filter_map(|row| {
                     self.item_rects.get(row).map(|r| {
-                        (row, Rect::new(
-                            r.origin.x - self.scroll_x as f32,
-                            r.origin.y - self.scroll_y as f32,
-                            r.width(),
-                            r.height(),
-                        ))
+                        (
+                            row,
+                            Rect::new(
+                                r.origin.x - self.scroll_x as f32,
+                                r.origin.y - self.scroll_y as f32,
+                                r.width(),
+                                r.height(),
+                            ),
+                        )
                     })
                 })
                 .collect();
@@ -855,7 +860,7 @@ impl ListView {
                         .push(Rect::new(x, y, cell_size.width, cell_size.height));
                 }
 
-                let num_rows = (row_count + items_per_row - 1) / items_per_row;
+                let num_rows = row_count.div_ceil(items_per_row);
                 self.content_size = Size::new(
                     viewport_width,
                     (num_rows as f32 * (cell_size.height + self.spacing) - self.spacing).max(0.0),
@@ -876,7 +881,7 @@ impl ListView {
                         .push(Rect::new(x, y, cell_size.width, cell_size.height));
                 }
 
-                let num_cols = (row_count + items_per_col - 1) / items_per_col;
+                let num_cols = row_count.div_ceil(items_per_col);
                 self.content_size = Size::new(
                     (num_cols as f32 * (cell_size.width + self.spacing) - self.spacing).max(0.0),
                     viewport_height,
@@ -1000,9 +1005,17 @@ impl ListView {
 
         if let Some(model) = &self.model {
             let model_index = model.index(row, 0, &ModelIndex::invalid());
-            text = model.data(&model_index, ItemRole::Display).as_string().map(|s| s.to_string());
-            icon = model.data(&model_index, ItemRole::Decoration).as_icon().cloned();
-            check_state = model.data(&model_index, ItemRole::CheckState).as_check_state();
+            text = model
+                .data(&model_index, ItemRole::Display)
+                .as_string()
+                .map(|s| s.to_string());
+            icon = model
+                .data(&model_index, ItemRole::Decoration)
+                .as_icon()
+                .cloned();
+            check_state = model
+                .data(&model_index, ItemRole::CheckState)
+                .as_check_state();
             flags = model.flags(&model_index);
         }
 
@@ -1038,16 +1051,14 @@ impl ListView {
         }
 
         // Check scrollbar clicks
-        if let Some(rect) = self.vertical_scrollbar_rect() {
-            if rect.contains(event.local_pos) {
+        if let Some(rect) = self.vertical_scrollbar_rect()
+            && rect.contains(event.local_pos) {
                 return self.handle_scrollbar_click(event.local_pos, false);
             }
-        }
-        if let Some(rect) = self.horizontal_scrollbar_rect() {
-            if rect.contains(event.local_pos) {
+        if let Some(rect) = self.horizontal_scrollbar_rect()
+            && rect.contains(event.local_pos) {
                 return self.handle_scrollbar_click(event.local_pos, true);
             }
-        }
 
         // Check item click
         self.ensure_layout();
@@ -1076,8 +1087,11 @@ impl ListView {
                     } else if event.modifiers.shift {
                         // Range selection from anchor
                         let anchor_row = self.selection_model.anchor_index().row();
-                        self.selection_model
-                            .select_range(anchor_row, row, SelectionFlags::CLEAR_AND_SELECT);
+                        self.selection_model.select_range(
+                            anchor_row,
+                            row,
+                            SelectionFlags::CLEAR_AND_SELECT,
+                        );
                         self.selection_model
                             .set_current_index(index, SelectionFlags::CURRENT);
                         self.base.update();
@@ -1108,9 +1122,9 @@ impl ListView {
         self.base.update();
 
         // Emit clicked signal
-        if let Some(row) = pressed {
-            if let Some(click_index) = self.index_at(event.local_pos) {
-                if click_index.row() == row {
+        if let Some(row) = pressed
+            && let Some(click_index) = self.index_at(event.local_pos)
+                && click_index.row() == row {
                     let index = ModelIndex::new(row, 0, ModelIndex::invalid());
                     self.clicked.emit(index.clone());
 
@@ -1118,21 +1132,17 @@ impl ListView {
                     let now = Instant::now();
                     if let (Some(last_time), Some(last_row)) =
                         (self.last_click_time, self.last_click_row)
-                    {
-                        if last_row == row && now.duration_since(last_time).as_millis() < 500 {
+                        && last_row == row && now.duration_since(last_time).as_millis() < 500 {
                             self.double_clicked.emit(index.clone());
                             self.activated.emit(index);
                             self.last_click_time = None;
                             self.last_click_row = None;
                             return true;
                         }
-                    }
 
                     self.last_click_time = Some(now);
                     self.last_click_row = Some(row);
                 }
-            }
-        }
 
         true
     }
@@ -1214,16 +1224,14 @@ impl ListView {
             }
             Key::PageUp => {
                 let viewport_height = self.viewport_rect().height();
-                let items_per_page =
-                    (viewport_height / self.default_item_height).floor() as usize;
+                let items_per_page = (viewport_height / self.default_item_height).floor() as usize;
                 let new_row = current_row.saturating_sub(items_per_page.max(1));
                 self.move_to_row(new_row, &event.modifiers);
                 true
             }
             Key::PageDown => {
                 let viewport_height = self.viewport_rect().height();
-                let items_per_page =
-                    (viewport_height / self.default_item_height).floor() as usize;
+                let items_per_page = (viewport_height / self.default_item_height).floor() as usize;
                 let new_row = (current_row + items_per_page.max(1)).min(row_count - 1);
                 self.move_to_row(new_row, &event.modifiers);
                 true
@@ -1266,8 +1274,11 @@ impl ListView {
             SelectionMode::MultiSelection | SelectionMode::ExtendedSelection => {
                 if modifiers.shift {
                     let anchor_row = self.selection_model.anchor_index().row();
-                    self.selection_model
-                        .select_range(anchor_row, row, SelectionFlags::CLEAR_AND_SELECT);
+                    self.selection_model.select_range(
+                        anchor_row,
+                        row,
+                        SelectionFlags::CLEAR_AND_SELECT,
+                    );
                     SelectionFlags::CURRENT
                 } else if modifiers.control {
                     SelectionFlags::CURRENT
@@ -1309,32 +1320,30 @@ impl ListView {
                 }
                 return true;
             }
-        } else {
-            if let Some(rect) = self.vertical_scrollbar_rect() {
-                let viewport = self.viewport_rect();
-                let thumb_ratio = viewport.height() / self.content_size.height.max(1.0);
-                let thumb_height = (rect.height() * thumb_ratio).max(20.0).min(rect.height());
-                let available_travel = rect.height() - thumb_height;
-                let max_scroll = self.max_scroll_y() as f32;
+        } else if let Some(rect) = self.vertical_scrollbar_rect() {
+            let viewport = self.viewport_rect();
+            let thumb_ratio = viewport.height() / self.content_size.height.max(1.0);
+            let thumb_height = (rect.height() * thumb_ratio).max(20.0).min(rect.height());
+            let available_travel = rect.height() - thumb_height;
+            let max_scroll = self.max_scroll_y() as f32;
 
-                if available_travel > 0.0 && max_scroll > 0.0 {
-                    let thumb_pos = (self.scroll_y as f32 / max_scroll) * available_travel;
-                    let click_pos = pos.y - rect.origin.y;
+            if available_travel > 0.0 && max_scroll > 0.0 {
+                let thumb_pos = (self.scroll_y as f32 / max_scroll) * available_travel;
+                let click_pos = pos.y - rect.origin.y;
 
-                    if click_pos < thumb_pos {
-                        self.set_scroll_position(
-                            self.scroll_x,
-                            self.scroll_y - viewport.height() as i32,
-                        );
-                    } else if click_pos > thumb_pos + thumb_height {
-                        self.set_scroll_position(
-                            self.scroll_x,
-                            self.scroll_y + viewport.height() as i32,
-                        );
-                    }
+                if click_pos < thumb_pos {
+                    self.set_scroll_position(
+                        self.scroll_x,
+                        self.scroll_y - viewport.height() as i32,
+                    );
+                } else if click_pos > thumb_pos + thumb_height {
+                    self.set_scroll_position(
+                        self.scroll_x,
+                        self.scroll_y + viewport.height() as i32,
+                    );
                 }
-                return true;
             }
+            return true;
         }
         false
     }
@@ -1343,7 +1352,9 @@ impl ListView {
         self.ensure_layout();
 
         // Find the index at the context menu position
-        let index = self.index_at(event.local_pos).unwrap_or_else(ModelIndex::invalid);
+        let index = self
+            .index_at(event.local_pos)
+            .unwrap_or_else(ModelIndex::invalid);
 
         // Emit the context_menu_requested signal with the index and position
         self.context_menu_requested.emit((index, event.local_pos));
@@ -1356,7 +1367,8 @@ impl ListView {
     // =========================================================================
 
     fn paint_background(&self, ctx: &mut PaintContext<'_>) {
-        ctx.renderer().fill_rect(self.base.rect(), self.background_color);
+        ctx.renderer()
+            .fill_rect(self.base.rect(), self.background_color);
     }
 
     fn paint_items(&self, ctx: &mut PaintContext<'_>) {
@@ -1664,8 +1676,8 @@ mod tests {
 
     #[test]
     fn test_context_menu_signal() {
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
         setup();
 
         let view = ListView::new();
@@ -1678,7 +1690,8 @@ mod tests {
         });
 
         // Emit a test signal (simulating what handle_context_menu does)
-        view.context_menu_requested.emit((ModelIndex::invalid(), Point::new(10.0, 10.0)));
+        view.context_menu_requested
+            .emit((ModelIndex::invalid(), Point::new(10.0, 10.0)));
 
         assert!(signal_received.load(Ordering::SeqCst));
     }

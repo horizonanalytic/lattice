@@ -28,19 +28,19 @@
 //!     .await?;
 //! ```
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
 use parking_lot::Mutex;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
-use crate::error::{NetworkError, Result};
 use super::client::{HttpClient, HttpClientBuilder};
 use super::download::RetryConfig;
 use super::request::{HttpMethod, HttpRequest, RequestBody};
 use super::response::HttpResponse;
+use crate::error::{NetworkError, Result};
 
 /// Authentication method for REST APIs.
 #[derive(Clone, Debug)]
@@ -100,8 +100,7 @@ impl RateLimitInfo {
             .or_else(|| Self::parse_header_u64(headers, "RateLimit-Reset"));
 
         // Parse Retry-After (can be seconds or HTTP date, we only handle seconds)
-        let retry_after = Self::parse_header_u64(headers, "Retry-After")
-            .map(Duration::from_secs);
+        let retry_after = Self::parse_header_u64(headers, "Retry-After").map(Duration::from_secs);
 
         Self {
             limit,
@@ -141,7 +140,8 @@ impl RateLimitInfo {
     }
 
     fn parse_header_u64(headers: &http::HeaderMap, name: &str) -> Option<u64> {
-        headers.get(name)
+        headers
+            .get(name)
             .and_then(|v| v.to_str().ok())
             .and_then(|s| s.parse().ok())
     }
@@ -204,7 +204,8 @@ impl RateLimiter {
                 return false;
             }
 
-            if self.tokens
+            if self
+                .tokens
                 .compare_exchange_weak(current, current - 1, Ordering::AcqRel, Ordering::Acquire)
                 .is_ok()
             {
@@ -749,7 +750,8 @@ impl RestApiRequestBuilder {
 
     /// Build the request without sending it.
     pub fn build(self) -> HttpRequest {
-        let auth = self.auth_override
+        let auth = self
+            .auth_override
             .as_ref()
             .or(self.client.inner.auth.as_ref());
 
@@ -768,17 +770,16 @@ impl RestApiRequestBuilder {
         let mut headers = self.headers;
 
         // Add API key header if using API key auth
-        if let Some(ApiAuth::ApiKey { header, value }) = self.auth_override
-            .as_ref()
-            .or(self.client.inner.auth.as_ref())
-        {
-            if let (Ok(name), Ok(val)) = (
+        if let Some(ApiAuth::ApiKey { header, value }) =
+            self.auth_override
+                .as_ref()
+                .or(self.client.inner.auth.as_ref())
+            && let (Ok(name), Ok(val)) = (
                 http::HeaderName::try_from(header.as_str()),
                 http::HeaderValue::try_from(value.as_str()),
             ) {
                 headers.insert(name, val);
             }
-        }
 
         HttpRequest {
             method: self.method,
@@ -813,14 +814,13 @@ impl RestApiRequestBuilder {
         }
 
         // Execute with retry logic
-        let result = Self::execute_with_retry(
-            &inner.http_client,
-            request,
-            &inner.retry_config,
-        ).await;
+        let result =
+            Self::execute_with_retry(&inner.http_client, request, &inner.retry_config).await;
 
         // Transform error if needed
-        let result = match result {
+        
+
+        match result {
             Ok(response) => {
                 // Apply response interceptors
                 for interceptor in &inner.interceptors.response {
@@ -835,9 +835,7 @@ impl RestApiRequestBuilder {
                     Err(e)
                 }
             }
-        };
-
-        result
+        }
     }
 
     /// Send the request and parse the response as JSON.
@@ -904,11 +902,8 @@ impl RestApiRequestBuilder {
                 }
                 Err(e) => {
                     // Retry on connection errors
-                    let is_retryable = matches!(
-                        e,
-                        NetworkError::Connection(_)
-                        | NetworkError::Timeout
-                    );
+                    let is_retryable =
+                        matches!(e, NetworkError::Connection(_) | NetworkError::Timeout);
 
                     if is_retryable && attempts < retry_config.max_retries {
                         tokio::time::sleep(delay).await;

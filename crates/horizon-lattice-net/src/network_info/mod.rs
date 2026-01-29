@@ -49,18 +49,6 @@
 mod interface;
 mod monitor;
 
-pub use interface::{
-    GatewayInfo,
-    InterfaceType,
-    Ipv4Info,
-    Ipv6Info,
-    MacAddress,
-    NetworkInterface,
-};
+pub use interface::{GatewayInfo, InterfaceType, Ipv4Info, Ipv6Info, MacAddress, NetworkInterface};
 
-pub use monitor::{
-    check_connectivity,
-    InterfaceChange,
-    InterfaceEvent,
-    NetworkMonitor,
-};
+pub use monitor::{InterfaceChange, InterfaceEvent, NetworkMonitor, check_connectivity};

@@ -70,11 +70,7 @@ impl ModalManager {
     /// * `dialog_id` - The ObjectId of the modal dialog
     /// * `modality` - The type of modality
     /// * `parent_id` - The parent window (required for WindowModal)
-    pub fn push_modal(
-        dialog_id: ObjectId,
-        modality: WindowModality,
-        parent_id: Option<ObjectId>,
-    ) {
+    pub fn push_modal(dialog_id: ObjectId, modality: WindowModality, parent_id: Option<ObjectId>) {
         if modality.is_non_modal() {
             return;
         }

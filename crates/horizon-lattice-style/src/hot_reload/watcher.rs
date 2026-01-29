@@ -1,14 +1,14 @@
 //! File watching for stylesheet hot-reload.
 
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use notify_debouncer_mini::{new_debouncer, Debouncer, DebouncedEventKind};
+use notify::{RecommendedWatcher, RecursiveMode};
+use notify_debouncer_mini::{DebouncedEventKind, Debouncer, new_debouncer};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::Duration;
 
-use crate::rules::{StyleSheet, StylePriority};
 use crate::resolve::StyleEngine;
+use crate::rules::{StylePriority, StyleSheet};
 use crate::{Error, Result};
 
 /// Event indicating a stylesheet file changed.
@@ -68,7 +68,9 @@ impl StylesheetWatcher {
 
     /// Start watching a stylesheet file.
     pub fn watch(&mut self, path: impl AsRef<Path>) -> Result<()> {
-        let path = path.as_ref().canonicalize()
+        let path = path
+            .as_ref()
+            .canonicalize()
             .map_err(|e| Error::io(path.as_ref(), e))?;
 
         if !self.watched_paths.contains(&path) {
@@ -204,7 +206,7 @@ impl StylesheetWatcher {
 mod tests {
     use super::*;
     use std::fs;
-    use std::io::Write;
+    
     use tempfile::tempdir;
 
     #[test]

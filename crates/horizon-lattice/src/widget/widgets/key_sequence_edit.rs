@@ -30,12 +30,12 @@ use horizon_lattice_render::{
     Color, Font, FontSystem, Point, Rect, Renderer, RoundedRect, Stroke, TextLayout, TextRenderer,
 };
 
+use crate::widget::KeySequence;
 use crate::widget::{
     FocusOutEvent, FocusPolicy, Key, KeyPressEvent, KeyboardModifiers, MouseButton,
     MousePressEvent, MouseReleaseEvent, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget,
     WidgetBase, WidgetEvent,
 };
-use crate::widget::KeySequence;
 
 /// A widget for capturing and editing keyboard shortcuts.
 ///
@@ -114,7 +114,10 @@ impl KeySequenceEdit {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -221,9 +224,7 @@ impl KeySequenceEdit {
 
     /// Get the clear button rectangle.
     fn clear_button_rect(&self) -> Option<Rect> {
-        if self.key_sequence.is_none() {
-            return None;
-        }
+        self.key_sequence.as_ref()?;
 
         let rect = self.base.rect();
         let padding = 4.0;

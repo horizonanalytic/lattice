@@ -314,13 +314,11 @@ impl UndoStack {
         self.commands.truncate(self.index);
 
         // Try to merge with the last command if merging is enabled
-        if self.merge_enabled {
-            if let Some(last) = self.commands.last_mut() {
-                if last.try_merge(&command) {
+        if self.merge_enabled
+            && let Some(last) = self.commands.last_mut()
+                && last.try_merge(&command) {
                     return;
                 }
-            }
-        }
 
         // Add new command
         self.commands.push(command);
@@ -518,7 +516,6 @@ pub struct PlainTextEdit {
     current_search_highlight_color: Color,
 
     // Signals
-
     /// Signal emitted when text changes.
     pub text_changed: Signal<String>,
 
@@ -546,7 +543,10 @@ impl PlainTextEdit {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         let font = Font::new(FontFamily::Monospace, 14.0);
         let line_height = font.size() * 1.2;
@@ -729,11 +729,10 @@ impl PlainTextEdit {
 
     /// Notify the highlighter of text changes.
     fn notify_highlighter(&mut self) {
-        if let Some(ref highlighter) = self.highlighter {
-            if let Some(mut hl) = highlighter.try_write() {
+        if let Some(ref highlighter) = self.highlighter
+            && let Some(mut hl) = highlighter.try_write() {
                 hl.on_text_changed(&self.rope);
             }
-        }
     }
 
     // =========================================================================
@@ -1044,7 +1043,10 @@ impl PlainTextEdit {
         }
 
         if self.cursor_pos < self.rope.len_chars() {
-            let deleted = self.rope.slice(self.cursor_pos..self.cursor_pos + 1).to_string();
+            let deleted = self
+                .rope
+                .slice(self.cursor_pos..self.cursor_pos + 1)
+                .to_string();
 
             self.undo_stack.push(EditCommand::Delete {
                 pos: self.cursor_pos,
@@ -1091,11 +1093,10 @@ impl PlainTextEdit {
     pub fn copy(&self) {
         if self.has_selection() {
             let text = self.selected_text();
-            if !text.is_empty() {
-                if let Ok(mut clipboard) = Clipboard::new() {
+            if !text.is_empty()
+                && let Ok(mut clipboard) = Clipboard::new() {
                     let _ = clipboard.set_text(&text);
                 }
-            }
         }
     }
 
@@ -1113,11 +1114,10 @@ impl PlainTextEdit {
             return;
         }
 
-        if let Ok(mut clipboard) = Clipboard::new() {
-            if let Ok(text) = clipboard.get_text() {
+        if let Ok(mut clipboard) = Clipboard::new()
+            && let Ok(text) = clipboard.get_text() {
                 self.insert_text(&text);
             }
-        }
     }
 
     // =========================================================================
@@ -1804,7 +1804,7 @@ impl PlainTextEdit {
                 true
             }
             Key::Tab => {
-                let spaces: String = std::iter::repeat(' ').take(self.tab_width).collect();
+                let spaces: String = std::iter::repeat_n(' ', self.tab_width).collect();
                 self.insert_text(&spaces);
                 true
             }
@@ -2098,7 +2098,12 @@ impl PlainTextEdit {
         }
     }
 
-    fn paint_search_matches(&self, ctx: &mut PaintContext<'_>, first_line: usize, last_line: usize) {
+    fn paint_search_matches(
+        &self,
+        ctx: &mut PaintContext<'_>,
+        first_line: usize,
+        last_line: usize,
+    ) {
         let char_width = self.font.size() * 0.6;
 
         for (i, search_match) in self.search_matches.iter().enumerate() {
@@ -2139,10 +2144,8 @@ impl PlainTextEdit {
                     let x = match_start as f32 * char_width;
                     let width = (match_end - match_start) as f32 * char_width;
 
-                    ctx.renderer().fill_rect(
-                        Rect::new(x, y, width, self.line_height),
-                        color,
-                    );
+                    ctx.renderer()
+                        .fill_rect(Rect::new(x, y, width, self.line_height), color);
                 }
             }
         }
@@ -2157,7 +2160,8 @@ impl PlainTextEdit {
         let config = &self.line_number_config;
 
         // Paint gutter background
-        ctx.renderer().fill_rect(gutter_rect, config.background_color);
+        ctx.renderer()
+            .fill_rect(gutter_rect, config.background_color);
 
         // Get the current line for highlighting
         let (current_line, _) = self.char_pos_to_line_col(self.cursor_pos);
@@ -2171,10 +2175,8 @@ impl PlainTextEdit {
 
         // Paint each visible line number
         ctx.renderer().save();
-        ctx.renderer().translate(
-            gutter_rect.origin.x,
-            gutter_rect.origin.y - self.scroll_y,
-        );
+        ctx.renderer()
+            .translate(gutter_rect.origin.x, gutter_rect.origin.y - self.scroll_y);
 
         for line_idx in first_line..last_line {
             let y = line_idx as f32 * self.line_height;
@@ -2182,13 +2184,9 @@ impl PlainTextEdit {
 
             // Paint current line background highlight
             if is_current_line {
-                let highlight_rect = Rect::new(
-                    0.0,
-                    y,
-                    gutter_rect.width(),
-                    self.line_height,
-                );
-                ctx.renderer().fill_rect(highlight_rect, config.current_line_background);
+                let highlight_rect = Rect::new(0.0, y, gutter_rect.width(), self.line_height);
+                ctx.renderer()
+                    .fill_rect(highlight_rect, config.current_line_background);
             }
 
             // Format line number (1-indexed, right-aligned)
@@ -2219,13 +2217,10 @@ impl PlainTextEdit {
 
         // Draw a subtle separator line between gutter and text
         let separator_x = gutter_rect.origin.x + gutter_rect.width() - 1.0;
-        let separator_rect = Rect::new(
-            separator_x,
-            gutter_rect.origin.y,
-            1.0,
-            gutter_rect.height(),
-        );
-        ctx.renderer().fill_rect(separator_rect, Color::from_rgb8(220, 220, 220));
+        let separator_rect =
+            Rect::new(separator_x, gutter_rect.origin.y, 1.0, gutter_rect.height());
+        ctx.renderer()
+            .fill_rect(separator_rect, Color::from_rgb8(220, 220, 220));
     }
 
     fn paint_highlighted_line(
@@ -2372,7 +2367,8 @@ impl PlainTextEdit {
                 self.scrollbar_thickness,
                 self.scrollbar_thickness,
             );
-            ctx.renderer().fill_rect(corner_rect, Color::from_rgb8(230, 230, 230));
+            ctx.renderer()
+                .fill_rect(corner_rect, Color::from_rgb8(230, 230, 230));
         }
     }
 }
@@ -2403,8 +2399,7 @@ impl Widget for PlainTextEdit {
     }
 
     fn size_hint(&self) -> SizeHint {
-        SizeHint::from_dimensions(400.0, 300.0)
-            .with_minimum_dimensions(100.0, 50.0)
+        SizeHint::from_dimensions(400.0, 300.0).with_minimum_dimensions(100.0, 50.0)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
@@ -2483,7 +2478,8 @@ impl super::find_replace::Searchable for PlainTextEdit {
         if self.cursor_pos == 0 {
             0
         } else {
-            self.rope.char_to_byte(self.cursor_pos.min(self.rope.len_chars()))
+            self.rope
+                .char_to_byte(self.cursor_pos.min(self.rope.len_chars()))
         }
     }
 
@@ -2787,9 +2783,7 @@ mod tests {
     fn test_large_document() {
         setup();
         // Create a document with 10000 lines
-        let lines: String = (0..10000)
-            .map(|i| format!("Line {}\n", i))
-            .collect();
+        let lines: String = (0..10000).map(|i| format!("Line {}\n", i)).collect();
         let edit = PlainTextEdit::with_text(&lines);
 
         assert_eq!(edit.len_lines(), 10001); // 10000 lines + trailing empty
@@ -2799,8 +2793,8 @@ mod tests {
     #[test]
     fn test_signal_emission() {
         setup();
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
 
         let text_changed = Arc::new(AtomicBool::new(false));
         let cursor_changed = Arc::new(AtomicBool::new(false));
@@ -2830,7 +2824,11 @@ mod tests {
         fn highlight_line(&self, line: &str, _line_number: usize) -> Vec<HighlightSpan> {
             let mut spans = Vec::new();
             for (idx, _) in line.match_indices("fn") {
-                spans.push(HighlightSpan::new(idx, idx + 2, Color::from_rgb8(86, 156, 214)));
+                spans.push(HighlightSpan::new(
+                    idx,
+                    idx + 2,
+                    Color::from_rgb8(86, 156, 214),
+                ));
             }
             spans
         }
@@ -2889,8 +2887,14 @@ mod tests {
         edit.set_line_number_config(config);
 
         assert!(edit.line_numbers_visible());
-        assert_eq!(edit.line_number_config().text_color, Color::from_rgb8(100, 100, 100));
-        assert_eq!(edit.line_number_config().current_line_color, Color::from_rgb8(50, 50, 50));
+        assert_eq!(
+            edit.line_number_config().text_color,
+            Color::from_rgb8(100, 100, 100)
+        );
+        assert_eq!(
+            edit.line_number_config().current_line_color,
+            Color::from_rgb8(50, 50, 50)
+        );
     }
 
     #[test]
@@ -2924,16 +2928,12 @@ mod tests {
     fn test_gutter_width_increases_with_lines() {
         setup();
         // Small document (< 1000 lines)
-        let small_doc = PlainTextEdit::with_text("line 1\nline 2\nline 3")
-            .with_line_numbers(true);
+        let small_doc = PlainTextEdit::with_text("line 1\nline 2\nline 3").with_line_numbers(true);
         let small_width = small_doc.gutter_width_const();
 
         // Large document (> 1000 lines)
-        let large_lines: String = (0..1500)
-            .map(|i| format!("Line {}\n", i))
-            .collect();
-        let large_doc = PlainTextEdit::with_text(&large_lines)
-            .with_line_numbers(true);
+        let large_lines: String = (0..1500).map(|i| format!("Line {}\n", i)).collect();
+        let large_doc = PlainTextEdit::with_text(&large_lines).with_line_numbers(true);
         let large_width = large_doc.gutter_width_const();
 
         // Large document needs more space for 4-digit line numbers

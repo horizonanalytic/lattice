@@ -39,9 +39,9 @@ use cosmic_text::{Attrs, Buffer, CacheKeyFlags, Metrics, Shaping, Wrap};
 use fontdb::ID as FontFaceId;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Font, FontStyle, FontSystem, FontWeight, TextDecoration, TextDirection};
 #[cfg(test)]
 use super::FontFamily;
+use super::{Font, FontStyle, FontSystem, FontWeight, TextDecoration, TextDirection};
 
 /// Horizontal text alignment.
 ///
@@ -522,7 +522,13 @@ pub struct BackgroundRect {
 impl BackgroundRect {
     /// Create a new background rectangle.
     pub fn new(x: f32, y: f32, width: f32, height: f32, color: [u8; 4]) -> Self {
-        Self { x, y, width, height, color }
+        Self {
+            x,
+            y,
+            width,
+            height,
+            color,
+        }
     }
 }
 
@@ -1245,7 +1251,8 @@ impl TextLayout {
                     };
 
                     // Determine color (use decoration color, or fall back to text color, or default to black)
-                    let color = decoration.color
+                    let color = decoration
+                        .color
                         .or(info.text_color)
                         .unwrap_or([0, 0, 0, 255]);
 
@@ -1318,11 +1325,11 @@ impl TextLayout {
             // Add text before this element
             if current_pos < adjusted_pos {
                 let text_slice = &modified_text[current_pos..adjusted_pos];
-                spans.push((text_slice, attrs.clone()));
+                spans.push((text_slice, attrs));
             }
 
             // Add placeholder with metadata
-            let placeholder_attrs = attrs.clone().metadata(INLINE_ELEMENT_BASE + element.id);
+            let placeholder_attrs = attrs.metadata(INLINE_ELEMENT_BASE + element.id);
             let placeholder_slice = &modified_text[adjusted_pos..adjusted_pos + 3]; // UTF-8 length of U+FFFC
             spans.push((placeholder_slice, placeholder_attrs));
 
@@ -1391,10 +1398,7 @@ impl TextLayout {
         );
         ellipsis_buffer.shape_until_scroll(font_system.inner_mut(), false);
 
-        let ellipsis_width: f32 = ellipsis_buffer
-            .layout_runs()
-            .map(|r| r.line_w)
-            .sum();
+        let ellipsis_width: f32 = ellipsis_buffer.layout_runs().map(|r| r.line_w).sum();
 
         // Truncate text to fit ellipsis
         let target_width = max_width - ellipsis_width;
@@ -1622,7 +1626,9 @@ impl TextLayout {
                             InlineVerticalAlign::Middle => {
                                 line.top_y + (line.height - element.height) / 2.0
                             }
-                            InlineVerticalAlign::Bottom => line.top_y + line.height - element.height,
+                            InlineVerticalAlign::Bottom => {
+                                line.top_y + line.height - element.height
+                            }
                         };
                         self.inline_elements.push((element.clone(), x, y));
                     }
@@ -1665,7 +1671,12 @@ pub struct SelectionRect {
 impl SelectionRect {
     /// Create a new selection rectangle.
     pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     /// Check if a point is within this rectangle.
@@ -1891,11 +1902,10 @@ impl TextLayout {
         while current > 0 {
             let prev = self.move_cursor_left(current);
             let char_at_prev = self.text[prev..current].chars().next();
-            if let Some(c) = char_at_prev {
-                if c.is_alphanumeric() {
+            if let Some(c) = char_at_prev
+                && c.is_alphanumeric() {
                     break;
                 }
-            }
             current = prev;
         }
 
@@ -1916,11 +1926,10 @@ impl TextLayout {
         let mut current = offset;
         while current < self.text.len() {
             let char_at = self.text[current..].chars().next();
-            if let Some(c) = char_at {
-                if c.is_alphanumeric() {
+            if let Some(c) = char_at
+                && c.is_alphanumeric() {
                     break;
                 }
-            }
             current = self.move_cursor_right(current);
         }
 
@@ -2022,11 +2031,17 @@ impl TextLayout {
         }
 
         // Find current line
-        let current_line_idx = self.line_index_for_offset(offset).unwrap_or(self.lines.len() - 1);
+        let current_line_idx = self
+            .line_index_for_offset(offset)
+            .unwrap_or(self.lines.len() - 1);
 
         if current_line_idx >= self.lines.len() - 1 {
             // Already on last line
-            return self.lines.last().map(|l| l.text_range.end).unwrap_or(self.text.len());
+            return self
+                .lines
+                .last()
+                .map(|l| l.text_range.end)
+                .unwrap_or(self.text.len());
         }
 
         // Move to next line
@@ -2180,8 +2195,8 @@ mod tests {
 
     #[test]
     fn inline_element_creation() {
-        let element = InlineElement::new(1, 32.0, 32.0)
-            .with_vertical_align(InlineVerticalAlign::Middle);
+        let element =
+            InlineElement::new(1, 32.0, 32.0).with_vertical_align(InlineVerticalAlign::Middle);
 
         assert_eq!(element.id, 1);
         assert_eq!(element.width, 32.0);
@@ -2468,23 +2483,21 @@ mod tests {
         layout.text = "Line one\nLine two".to_string();
         layout.lines = vec![
             LayoutLine {
-                glyphs: vec![
-                    LayoutGlyph {
-                        glyph_id: 1,
-                        font_id: fontdb::ID::dummy(),
-                        x: 0.0,
-                        y: 16.0,
-                        width: 10.0,
-                        x_offset: 0.0,
-                        y_offset: 0.0,
-                        cluster: 0..1,
-                        font_size: 16.0,
-                        cache_key_flags: CacheKeyFlags::empty(),
-                        level: 0,
-                        color: None,
-                        metadata: 0,
-                    },
-                ],
+                glyphs: vec![LayoutGlyph {
+                    glyph_id: 1,
+                    font_id: fontdb::ID::dummy(),
+                    x: 0.0,
+                    y: 16.0,
+                    width: 10.0,
+                    x_offset: 0.0,
+                    y_offset: 0.0,
+                    cluster: 0..1,
+                    font_size: 16.0,
+                    cache_key_flags: CacheKeyFlags::empty(),
+                    level: 0,
+                    color: None,
+                    metadata: 0,
+                }],
                 baseline_y: 16.0,
                 top_y: 0.0,
                 height: 20.0,
@@ -2493,23 +2506,21 @@ mod tests {
                 is_hard_break: true,
             },
             LayoutLine {
-                glyphs: vec![
-                    LayoutGlyph {
-                        glyph_id: 1,
-                        font_id: fontdb::ID::dummy(),
-                        x: 0.0,
-                        y: 36.0,
-                        width: 10.0,
-                        x_offset: 0.0,
-                        y_offset: 0.0,
-                        cluster: 9..10,
-                        font_size: 16.0,
-                        cache_key_flags: CacheKeyFlags::empty(),
-                        level: 0,
-                        color: None,
-                        metadata: 0,
-                    },
-                ],
+                glyphs: vec![LayoutGlyph {
+                    glyph_id: 1,
+                    font_id: fontdb::ID::dummy(),
+                    x: 0.0,
+                    y: 36.0,
+                    width: 10.0,
+                    x_offset: 0.0,
+                    y_offset: 0.0,
+                    cluster: 9..10,
+                    font_size: 16.0,
+                    cache_key_flags: CacheKeyFlags::empty(),
+                    level: 0,
+                    color: None,
+                    metadata: 0,
+                }],
                 baseline_y: 36.0,
                 top_y: 20.0,
                 height: 20.0,
@@ -2521,7 +2532,7 @@ mod tests {
 
         // Move down from first line
         let new_offset = layout.move_cursor_down(4, 5.0);
-        assert!(new_offset >= 9 && new_offset <= 17); // Should be on second line
+        assert!((9..=17).contains(&new_offset)); // Should be on second line
 
         // Move up from second line
         let new_offset = layout.move_cursor_up(12, 5.0);
@@ -2676,8 +2687,7 @@ mod tests {
 
     #[test]
     fn text_span_with_background_color() {
-        let span = TextSpan::new("Highlighted")
-            .with_background_color([255, 255, 0, 128]);
+        let span = TextSpan::new("Highlighted").with_background_color([255, 255, 0, 128]);
 
         assert_eq!(span.text, "Highlighted");
         assert_eq!(span.background_color, Some([255, 255, 0, 128]));
@@ -2692,27 +2702,40 @@ mod tests {
 
         assert_eq!(span.text, "Decorated");
         assert_eq!(span.decorations.len(), 2);
-        assert_eq!(span.decorations[0].decoration_type, super::super::TextDecorationType::Underline);
-        assert_eq!(span.decorations[1].decoration_type, super::super::TextDecorationType::Strikethrough);
+        assert_eq!(
+            span.decorations[0].decoration_type,
+            super::super::TextDecorationType::Underline
+        );
+        assert_eq!(
+            span.decorations[1].decoration_type,
+            super::super::TextDecorationType::Strikethrough
+        );
     }
 
     #[test]
     fn text_span_with_wavy_underline() {
-        let span = TextSpan::new("Error")
-            .with_wavy_underline();
+        let span = TextSpan::new("Error").with_wavy_underline();
 
         assert_eq!(span.decorations.len(), 1);
-        assert_eq!(span.decorations[0].decoration_type, super::super::TextDecorationType::Underline);
-        assert_eq!(span.decorations[0].style, super::super::TextDecorationStyle::Wavy);
+        assert_eq!(
+            span.decorations[0].decoration_type,
+            super::super::TextDecorationType::Underline
+        );
+        assert_eq!(
+            span.decorations[0].style,
+            super::super::TextDecorationStyle::Wavy
+        );
     }
 
     #[test]
     fn text_span_with_overline() {
-        let span = TextSpan::new("Overlined")
-            .with_overline();
+        let span = TextSpan::new("Overlined").with_overline();
 
         assert_eq!(span.decorations.len(), 1);
-        assert_eq!(span.decorations[0].decoration_type, super::super::TextDecorationType::Overline);
+        assert_eq!(
+            span.decorations[0].decoration_type,
+            super::super::TextDecorationType::Overline
+        );
     }
 
     #[test]
@@ -2761,8 +2784,7 @@ mod tests {
 
     #[test]
     fn direction_option_builder() {
-        let options = TextLayoutOptions::default()
-            .direction(TextDirection::RightToLeft);
+        let options = TextLayoutOptions::default().direction(TextDirection::RightToLeft);
         assert_eq!(options.direction, TextDirection::RightToLeft);
 
         let ltr_options = TextLayoutOptions::default().ltr();
@@ -2794,7 +2816,10 @@ mod tests {
     fn direction_resolve_explicit_override() {
         // Explicit direction should override text content
         let explicit_rtl = TextDirection::RightToLeft;
-        assert_eq!(explicit_rtl.resolve("Hello World"), TextDirection::RightToLeft);
+        assert_eq!(
+            explicit_rtl.resolve("Hello World"),
+            TextDirection::RightToLeft
+        );
 
         let explicit_ltr = TextDirection::LeftToRight;
         assert_eq!(explicit_ltr.resolve("مرحبا"), TextDirection::LeftToRight);

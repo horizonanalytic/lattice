@@ -79,8 +79,8 @@ impl IconThemeLoader {
 
                 // Check for index.theme
                 let index_path = path.join("index.theme");
-                if index_path.exists() {
-                    if let Ok(info) = self.parse_theme(&path) {
+                if index_path.exists()
+                    && let Ok(info) = self.parse_theme(&path) {
                         let id = info.id.clone();
                         // Merge base paths if theme already exists
                         if let Some(existing) = self.themes.get_mut(&id) {
@@ -94,7 +94,6 @@ impl IconThemeLoader {
                             count += 1;
                         }
                     }
-                }
             }
         }
 
@@ -143,9 +142,8 @@ impl IconThemeLoader {
             .to_string();
 
         let index_path = theme_path.join("index.theme");
-        let content = fs::read_to_string(&index_path).map_err(|e| {
-            crate::Error::io(&index_path, e)
-        })?;
+        let content =
+            fs::read_to_string(&index_path).map_err(|e| crate::Error::io(&index_path, e))?;
 
         let mut info = IconThemeInfo::new(&theme_id);
         info.base_paths.push(theme_path.to_path_buf());
@@ -179,7 +177,8 @@ impl IconThemeLoader {
                         "Name" => info.name = value.to_string(),
                         "Comment" => info.comment = Some(value.to_string()),
                         "Inherits" => {
-                            info.inherits = value.split(',').map(|s| s.trim().to_string()).collect();
+                            info.inherits =
+                                value.split(',').map(|s| s.trim().to_string()).collect();
                         }
                         "Hidden" => info.hidden = value.eq_ignore_ascii_case("true"),
                         "Example" => info.example = Some(value.to_string()),
@@ -205,11 +204,10 @@ impl IconThemeLoader {
 
         // Parse directory sections
         for dir_path in directories_list {
-            if let Some(section) = directory_sections.get(&dir_path) {
-                if let Some(dir) = self.parse_directory_section(&dir_path, section) {
+            if let Some(section) = directory_sections.get(&dir_path)
+                && let Some(dir) = self.parse_directory_section(&dir_path, section) {
                     info.directories.push(dir);
                 }
-            }
         }
 
         // Use theme ID as name if name wasn't set
@@ -236,7 +234,7 @@ impl IconThemeLoader {
 
         let context = section
             .get("Context")
-            .and_then(|s| IconContext::from_str(s));
+            .and_then(|s| IconContext::parse(s));
 
         let size_type = section
             .get("Type")
@@ -310,11 +308,10 @@ impl IconThemeLoader {
         paths.push(PathBuf::from("/Library/Application Support/Icons"));
 
         // If running from a bundle, check Resources
-        if let Ok(exe) = std::env::current_exe() {
-            if let Some(bundle) = exe.parent().and_then(|p| p.parent()) {
+        if let Ok(exe) = std::env::current_exe()
+            && let Some(bundle) = exe.parent().and_then(|p| p.parent()) {
                 paths.push(bundle.join("Resources/icons"));
             }
-        }
 
         paths
     }

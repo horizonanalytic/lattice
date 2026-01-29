@@ -118,71 +118,78 @@ impl NetworkInterface {
             ifaces => ifaces,
         };
 
-        interfaces.into_iter().map(|iface| {
-            let mac_address = iface.mac_addr.map(|mac| {
-                MacAddress::new(mac.octets())
-            });
+        interfaces
+            .into_iter()
+            .map(|iface| {
+                let mac_address = iface.mac_addr.map(|mac| MacAddress::new(mac.octets()));
 
-            let ipv4_addresses: Vec<Ipv4Info> = iface.ipv4.iter().map(|net| {
-                Ipv4Info {
-                    address: net.addr(),
-                    prefix_len: net.prefix_len(),
-                    netmask: Ipv4Info::prefix_to_netmask(net.prefix_len()),
+                let ipv4_addresses: Vec<Ipv4Info> = iface
+                    .ipv4
+                    .iter()
+                    .map(|net| Ipv4Info {
+                        address: net.addr(),
+                        prefix_len: net.prefix_len(),
+                        netmask: Ipv4Info::prefix_to_netmask(net.prefix_len()),
+                    })
+                    .collect();
+
+                let ipv6_addresses: Vec<Ipv6Info> = iface
+                    .ipv6
+                    .iter()
+                    .map(|net| Ipv6Info {
+                        address: net.addr(),
+                        prefix_len: net.prefix_len(),
+                    })
+                    .collect();
+
+                let interface_type = if iface.is_loopback() {
+                    InterfaceType::Loopback
+                } else if iface.is_tun() {
+                    InterfaceType::Virtual
+                } else {
+                    // netdev doesn't distinguish WiFi from Ethernet directly
+                    // On macOS, "en0" is typically WiFi, but this isn't reliable
+                    InterfaceType::Ethernet
+                };
+
+                NetworkInterface {
+                    name: iface.name.clone(),
+                    description: iface.description.clone().unwrap_or_default(),
+                    mac_address,
+                    ipv4_addresses,
+                    ipv6_addresses,
+                    interface_type,
+                    is_up: iface.is_up(),
+                    mtu: None, // MTU not available in netdev crate
+                    index: iface.index,
                 }
-            }).collect();
-
-            let ipv6_addresses: Vec<Ipv6Info> = iface.ipv6.iter().map(|net| {
-                Ipv6Info {
-                    address: net.addr(),
-                    prefix_len: net.prefix_len(),
-                }
-            }).collect();
-
-            let interface_type = if iface.is_loopback() {
-                InterfaceType::Loopback
-            } else if iface.is_tun() {
-                InterfaceType::Virtual
-            } else {
-                // netdev doesn't distinguish WiFi from Ethernet directly
-                // On macOS, "en0" is typically WiFi, but this isn't reliable
-                InterfaceType::Ethernet
-            };
-
-            NetworkInterface {
-                name: iface.name.clone(),
-                description: iface.description.clone().unwrap_or_default(),
-                mac_address,
-                ipv4_addresses,
-                ipv6_addresses,
-                interface_type,
-                is_up: iface.is_up(),
-                mtu: None, // MTU not available in netdev crate
-                index: iface.index,
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     /// Get the default network interface (used for internet traffic).
     pub fn default_interface() -> Option<NetworkInterface> {
         netdev::get_default_interface().ok().map(|iface| {
-            let mac_address = iface.mac_addr.map(|mac| {
-                MacAddress::new(mac.octets())
-            });
+            let mac_address = iface.mac_addr.map(|mac| MacAddress::new(mac.octets()));
 
-            let ipv4_addresses: Vec<Ipv4Info> = iface.ipv4.iter().map(|net| {
-                Ipv4Info {
+            let ipv4_addresses: Vec<Ipv4Info> = iface
+                .ipv4
+                .iter()
+                .map(|net| Ipv4Info {
                     address: net.addr(),
                     prefix_len: net.prefix_len(),
                     netmask: Ipv4Info::prefix_to_netmask(net.prefix_len()),
-                }
-            }).collect();
+                })
+                .collect();
 
-            let ipv6_addresses: Vec<Ipv6Info> = iface.ipv6.iter().map(|net| {
-                Ipv6Info {
+            let ipv6_addresses: Vec<Ipv6Info> = iface
+                .ipv6
+                .iter()
+                .map(|net| Ipv6Info {
                     address: net.addr(),
                     prefix_len: net.prefix_len(),
-                }
-            }).collect();
+                })
+                .collect();
 
             let interface_type = if iface.is_loopback() {
                 InterfaceType::Loopback
@@ -211,7 +218,9 @@ impl NetworkInterface {
         netdev::get_default_gateway().ok().map(|gw| {
             // Get the first IPv4 address, or fall back to first IPv6
             // The gateway's ipv4/ipv6 fields are Vec<Ipv4Addr>/Vec<Ipv6Addr>
-            let ip_address: IpAddr = gw.ipv4.first()
+            let ip_address: IpAddr = gw
+                .ipv4
+                .first()
                 .map(|addr| IpAddr::V4(*addr))
                 .or_else(|| gw.ipv6.first().map(|addr| IpAddr::V6(*addr)))
                 .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
@@ -227,14 +236,15 @@ impl NetworkInterface {
 
     /// Get all IP addresses (both v4 and v6) for this interface.
     pub fn all_addresses(&self) -> Vec<IpAddr> {
-        let mut addrs: Vec<IpAddr> = self.ipv4_addresses
+        let mut addrs: Vec<IpAddr> = self
+            .ipv4_addresses
             .iter()
             .map(|info| IpAddr::V4(info.address))
             .collect();
         addrs.extend(
             self.ipv6_addresses
                 .iter()
-                .map(|info| IpAddr::V6(info.address))
+                .map(|info| IpAddr::V6(info.address)),
         );
         addrs
     }

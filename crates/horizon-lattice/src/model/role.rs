@@ -273,8 +273,10 @@ impl CheckState {
 /// assert_eq!(data.downcast::<u32>(), Some(&42));
 /// ```
 #[derive(Debug)]
+#[derive(Default)]
 pub enum ItemData {
     /// No data.
+    #[default]
     None,
     /// String data (for Display, ToolTip, etc.).
     String(String),
@@ -300,11 +302,6 @@ pub enum ItemData {
     Custom(Box<dyn std::any::Any + Send + Sync>),
 }
 
-impl Default for ItemData {
-    fn default() -> Self {
-        ItemData::None
-    }
-}
 
 impl Clone for ItemData {
     fn clone(&self) -> Self {

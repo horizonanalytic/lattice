@@ -4,7 +4,9 @@
 //! for all widgets. It handles geometry, visibility, enabled state, and
 //! coordinates with the object system.
 
-use horizon_lattice_core::{global_registry, Object, ObjectBase, ObjectId, ObjectResult, Signal, WidgetState};
+use horizon_lattice_core::{
+    Object, ObjectBase, ObjectId, ObjectResult, Signal, WidgetState, global_registry,
+};
 use horizon_lattice_render::{Point, Rect, Size};
 
 use super::cursor::CursorShape;
@@ -528,7 +530,12 @@ impl WidgetBase {
     /// This is always positioned at (0, 0) with the widget's size.
     #[inline]
     pub fn rect(&self) -> Rect {
-        Rect::new(0.0, 0.0, self.geometry.size.width, self.geometry.size.height)
+        Rect::new(
+            0.0,
+            0.0,
+            self.geometry.size.width,
+            self.geometry.size.height,
+        )
     }
 
     // =========================================================================
@@ -654,11 +661,10 @@ impl WidgetBase {
                 break;
             }
             // Check this ancestor's visibility via registry
-            if let Ok(Some(state)) = registry.widget_state(id) {
-                if !state.visible {
+            if let Ok(Some(state)) = registry.widget_state(id)
+                && !state.visible {
                     return false;
                 }
-            }
             current = registry.parent(id).ok().flatten();
         }
 
@@ -759,16 +765,20 @@ impl WidgetBase {
     /// Check if the widget accepts focus via Tab/Shift+Tab navigation.
     #[inline]
     pub fn accepts_tab_focus(&self) -> bool {
-        matches!(self.focus_policy, FocusPolicy::TabFocus | FocusPolicy::StrongFocus)
-            && self.enabled
+        matches!(
+            self.focus_policy,
+            FocusPolicy::TabFocus | FocusPolicy::StrongFocus
+        ) && self.enabled
             && self.visible
     }
 
     /// Check if the widget accepts focus via mouse click.
     #[inline]
     pub fn accepts_click_focus(&self) -> bool {
-        matches!(self.focus_policy, FocusPolicy::ClickFocus | FocusPolicy::StrongFocus)
-            && self.enabled
+        matches!(
+            self.focus_policy,
+            FocusPolicy::ClickFocus | FocusPolicy::StrongFocus
+        ) && self.enabled
             && self.visible
     }
 
@@ -886,8 +896,8 @@ impl WidgetBase {
         }
 
         // Otherwise, try to inherit from parent
-        if let Some(parent_id) = self.parent_id() {
-            if let Ok(registry) = global_registry() {
+        if let Some(parent_id) = self.parent_id()
+            && let Ok(registry) = global_registry() {
                 // Walk up the parent chain to find an explicit cursor
                 let mut current = Some(parent_id);
                 while let Some(id) = current {
@@ -897,7 +907,6 @@ impl WidgetBase {
                     current = registry.parent(id).ok().flatten();
                 }
             }
-        }
 
         // Default to arrow cursor
         CursorShape::Arrow

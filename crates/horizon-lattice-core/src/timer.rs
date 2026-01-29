@@ -7,7 +7,7 @@ use std::collections::BinaryHeap;
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
-use slotmap::{new_key_type, SlotMap};
+use slotmap::{SlotMap, new_key_type};
 
 use crate::error::{Result, TimerError};
 use crate::event::LatticeEvent;

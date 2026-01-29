@@ -33,8 +33,8 @@
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, Font, FontFamily, FontStyle, FontSystem, FontWeight, Point, Rect, Renderer,
-    RoundedRect, Stroke, TextLayout, TextLayoutOptions, TextRenderer,
+    Color, Font, FontFamily, FontStyle, FontSystem, FontWeight, Point, Rect, Renderer, RoundedRect,
+    Stroke, TextLayout, TextLayoutOptions, TextRenderer,
 };
 
 use crate::widget::{
@@ -489,11 +489,10 @@ impl FontDialog {
         self.selected_family = display_index as i32;
 
         if self.selected_family != old_family {
-            if let Some(&family_idx) = self.filtered_families.get(display_index) {
-                if let Some(family) = self.all_families.get(family_idx).cloned() {
+            if let Some(&family_idx) = self.filtered_families.get(display_index)
+                && let Some(family) = self.all_families.get(family_idx).cloned() {
                     self.load_styles_for_family(&family);
                 }
-            }
             self.emit_font_changed();
         }
     }
@@ -609,8 +608,8 @@ impl FontDialog {
         self.size_cursor_pos = self.size_text.len();
 
         // Find and select family
-        if let FontFamily::Name(name) = font.family() {
-            if let Some(pos) = self.filtered_families.iter().position(|&idx| {
+        if let FontFamily::Name(name) = font.family()
+            && let Some(pos) = self.filtered_families.iter().position(|&idx| {
                 self.all_families
                     .get(idx)
                     .map(|f| f.eq_ignore_ascii_case(name))
@@ -632,7 +631,6 @@ impl FontDialog {
                     self.ensure_style_visible(style_pos);
                 }
             }
-        }
 
         // Scroll size list to show current size
         self.scroll_size_to_current();
@@ -721,7 +719,10 @@ impl FontDialog {
                 };
                 let desc = NativeFontDesc::new(family_name, font.size())
                     .bold(font.weight() == FontWeight::BOLD || font.weight() == FontWeight::BLACK)
-                    .italic(matches!(font.style(), FontStyle::Italic | FontStyle::Oblique));
+                    .italic(matches!(
+                        font.style(),
+                        FontStyle::Italic | FontStyle::Oblique
+                    ));
                 native_options = native_options.initial_font(desc);
             }
 
@@ -823,14 +824,20 @@ impl FontDialog {
     fn family_list_rect(&self) -> Rect {
         let header = self.family_header_rect();
         let content = self.content_rect();
-        let list_height = (MAX_VISIBLE_ITEMS as f32 * LIST_ITEM_HEIGHT).min(content.height() * 0.45);
+        let list_height =
+            (MAX_VISIBLE_ITEMS as f32 * LIST_ITEM_HEIGHT).min(content.height() * 0.45);
         Rect::new(header.left(), header.bottom() + 4.0, 200.0, list_height)
     }
 
     /// Style list header rect.
     fn style_header_rect(&self) -> Rect {
         let family = self.family_list_rect();
-        Rect::new(family.right() + self.padding, family.top() - 24.0, 150.0, 20.0)
+        Rect::new(
+            family.right() + self.padding,
+            family.top() - 24.0,
+            150.0,
+            20.0,
+        )
     }
 
     /// Style list rect.
@@ -843,7 +850,12 @@ impl FontDialog {
     /// Size header rect.
     fn size_header_rect(&self) -> Rect {
         let style = self.style_list_rect();
-        Rect::new(style.right() + self.padding, style.top() - 24.0, 100.0, 20.0)
+        Rect::new(
+            style.right() + self.padding,
+            style.top() - 24.0,
+            100.0,
+            20.0,
+        )
     }
 
     /// Size input rect.
@@ -1210,7 +1222,8 @@ impl FontDialog {
     fn paint_label(&self, _ctx: &mut PaintContext<'_>, text: &str, rect: Rect) {
         let mut font_system = FontSystem::new();
         let font = Font::new(FontFamily::SansSerif, 12.0);
-        let layout = TextLayout::with_options(&mut font_system, text, &font, TextLayoutOptions::new());
+        let layout =
+            TextLayout::with_options(&mut font_system, text, &font, TextLayoutOptions::new());
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
             let _ = text_renderer.prepare_layout(
@@ -1278,8 +1291,12 @@ impl FontDialog {
                 Color::BLACK
             };
 
-            let layout =
-                TextLayout::with_options(&mut font_system, family_name, &font, TextLayoutOptions::new());
+            let layout = TextLayout::with_options(
+                &mut font_system,
+                family_name,
+                &font,
+                TextLayoutOptions::new(),
+            );
 
             let text_x = item_rect.left() + 4.0;
             let text_y = item_rect.top() + (item_rect.height() - layout.height()) / 2.0;
@@ -1400,8 +1417,12 @@ impl FontDialog {
         // Text
         let mut font_system = FontSystem::new();
         let font = Font::new(FontFamily::SansSerif, 13.0);
-        let layout =
-            TextLayout::with_options(&mut font_system, &self.size_text, &font, TextLayoutOptions::new());
+        let layout = TextLayout::with_options(
+            &mut font_system,
+            &self.size_text,
+            &font,
+            TextLayoutOptions::new(),
+        );
 
         let text_x = rect.left() + 6.0;
         let text_y = rect.top() + (rect.height() - layout.height()) / 2.0;
@@ -1465,8 +1486,12 @@ impl FontDialog {
                 Color::BLACK
             };
 
-            let layout =
-                TextLayout::with_options(&mut font_system, &size_str, &font, TextLayoutOptions::new());
+            let layout = TextLayout::with_options(
+                &mut font_system,
+                &size_str,
+                &font,
+                TextLayoutOptions::new(),
+            );
 
             let text_x = item_rect.left() + 4.0;
             let text_y = item_rect.top() + (item_rect.height() - layout.height()) / 2.0;
@@ -1482,7 +1507,13 @@ impl FontDialog {
         }
 
         if COMMON_SIZES.len() > visible_count {
-            self.paint_scrollbar(ctx, rect, self.size_scroll, COMMON_SIZES.len(), visible_count);
+            self.paint_scrollbar(
+                ctx,
+                rect,
+                self.size_scroll,
+                COMMON_SIZES.len(),
+                visible_count,
+            );
         }
     }
 
@@ -1678,9 +1709,11 @@ mod tests {
             .with_preview_text("Sample text");
 
         assert_eq!(dialog.title(), "Test Font");
-        assert!(dialog
-            .options()
-            .contains(FontDialogOptions::MONOSPACED_FONTS));
+        assert!(
+            dialog
+                .options()
+                .contains(FontDialogOptions::MONOSPACED_FONTS)
+        );
         assert_eq!(dialog.preview_text(), "Sample text");
     }
 
@@ -1749,12 +1782,12 @@ mod tests {
         let dialog = FontDialog::new()
             .with_options(FontDialogOptions::SCALABLE_FONTS | FontDialogOptions::MONOSPACED_FONTS);
 
-        assert!(dialog
-            .options()
-            .contains(FontDialogOptions::SCALABLE_FONTS));
-        assert!(dialog
-            .options()
-            .contains(FontDialogOptions::MONOSPACED_FONTS));
+        assert!(dialog.options().contains(FontDialogOptions::SCALABLE_FONTS));
+        assert!(
+            dialog
+                .options()
+                .contains(FontDialogOptions::MONOSPACED_FONTS)
+        );
     }
 
     #[test]

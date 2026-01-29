@@ -187,13 +187,11 @@ impl UndoStack {
         self.commands.truncate(self.index);
 
         // Try to merge with the last command if merging is enabled
-        if self.merge_enabled {
-            if let Some(last) = self.commands.last_mut() {
-                if last.try_merge(&command) {
+        if self.merge_enabled
+            && let Some(last) = self.commands.last_mut()
+                && last.try_merge(&command) {
                     return;
                 }
-            }
-        }
 
         // Add the new command
         self.commands.push(command);
@@ -398,7 +396,6 @@ pub struct LineEdit {
     pending_context_action: Arc<RwLock<Option<ContextMenuAction>>>,
 
     // Signals
-
     /// Signal emitted when text changes (and validation passes, if a validator is set).
     pub text_changed: Signal<String>,
 
@@ -539,11 +536,10 @@ impl LineEdit {
             let mut new_text = new_text;
 
             // Truncate to max_length if set
-            if let Some(max) = self.max_length {
-                if new_text.chars().count() > max {
+            if let Some(max) = self.max_length
+                && new_text.chars().count() > max {
                     new_text = new_text.chars().take(max).collect();
                 }
-            }
 
             if self.text != new_text {
                 self.text = new_text.clone();
@@ -570,7 +566,11 @@ impl LineEdit {
             if let Some(ref mask) = self.input_mask {
                 self.text = mask.display_text("");
             }
-            if let Some(pos) = self.input_mask.as_ref().and_then(|m| m.first_editable_pos()) {
+            if let Some(pos) = self
+                .input_mask
+                .as_ref()
+                .and_then(|m| m.first_editable_pos())
+            {
                 self.cursor_pos = self.mask_display_pos_to_byte(pos);
             } else {
                 self.cursor_pos = 0;
@@ -694,12 +694,11 @@ impl LineEdit {
     pub fn set_max_length(&mut self, max: Option<usize>) {
         self.max_length = max;
         // Truncate if necessary
-        if let Some(max) = max {
-            if self.text_length() > max {
+        if let Some(max) = max
+            && self.text_length() > max {
                 let truncated: String = self.text.chars().take(max).collect();
                 self.set_text(truncated);
             }
-        }
     }
 
     /// Set max length using builder pattern.
@@ -832,25 +831,23 @@ impl LineEdit {
 
     /// Hide the completer popup.
     fn hide_completer_popup(&mut self) {
-        if let Some(ref mut completer) = self.completer {
-            if completer.is_popup_visible() {
+        if let Some(ref mut completer) = self.completer
+            && completer.is_popup_visible() {
                 completer.hide_popup();
                 self.base.update();
             }
-        }
     }
 
     /// Accept the currently selected completion.
     ///
     /// Returns true if a completion was accepted.
     fn accept_completion(&mut self) -> bool {
-        if let Some(ref mut completer) = self.completer {
-            if let Some(text) = completer.complete() {
+        if let Some(ref mut completer) = self.completer
+            && let Some(text) = completer.complete() {
                 self.set_text(text);
                 self.base.update();
                 return true;
             }
-        }
         false
     }
 
@@ -1010,7 +1007,11 @@ impl LineEdit {
             self.input_mask = Some(parsed);
 
             // Position cursor at first editable position
-            if let Some(pos) = self.input_mask.as_ref().and_then(|m| m.first_editable_pos()) {
+            if let Some(pos) = self
+                .input_mask
+                .as_ref()
+                .and_then(|m| m.first_editable_pos())
+            {
                 self.cursor_pos = self.mask_display_pos_to_byte(pos);
             } else {
                 self.cursor_pos = 0;
@@ -1082,7 +1083,7 @@ impl LineEdit {
             let display_pos = mask.input_pos_to_display_pos(i);
             if let Some(element) = mask.element_at(display_pos) {
                 // Find next char from input that matches this position
-                while let Some(ch) = text_chars.next() {
+                for ch in text_chars.by_ref() {
                     if element.accepts(ch) {
                         result.push(element.transform(ch));
                         break;
@@ -1333,8 +1334,8 @@ impl LineEdit {
             };
 
             // Check if this character is valid for this position
-            if let Some(element) = mask.element_at(editable_pos) {
-                if element.accepts(ch) {
+            if let Some(element) = mask.element_at(editable_pos)
+                && element.accepts(ch) {
                     let transformed = element.transform(ch);
 
                     // Calculate the input position for this display position
@@ -1356,7 +1357,6 @@ impl LineEdit {
                     // Move to next position after this editable one
                     display_pos = editable_pos + 1;
                 }
-            }
         }
 
         if !inserted_chars.is_empty() {
@@ -1454,7 +1454,9 @@ impl LineEdit {
 
         if start_input < end_input && start_input < self.mask_input.chars().count() {
             // Delete the range from mask_input
-            let deleted: String = self.mask_input.chars()
+            let deleted: String = self
+                .mask_input
+                .chars()
                 .skip(start_input)
                 .take(end_input - start_input)
                 .collect();
@@ -1853,12 +1855,11 @@ impl LineEdit {
             return false;
         }
 
-        if let Ok(mut clipboard) = Clipboard::new() {
-            if clipboard.set_text(&selected).is_ok() {
+        if let Ok(mut clipboard) = Clipboard::new()
+            && clipboard.set_text(&selected).is_ok() {
                 self.delete_selection();
                 return true;
             }
-        }
         false
     }
 
@@ -1880,8 +1881,8 @@ impl LineEdit {
             return false;
         }
 
-        if let Ok(mut clipboard) = Clipboard::new() {
-            if let Ok(text) = clipboard.get_text() {
+        if let Ok(mut clipboard) = Clipboard::new()
+            && let Ok(text) = clipboard.get_text() {
                 // Filter out newlines and other control characters
                 let filtered: String = text
                     .chars()
@@ -1893,7 +1894,6 @@ impl LineEdit {
                     return true;
                 }
             }
-        }
         false
     }
 
@@ -2461,11 +2461,10 @@ impl LineEdit {
     fn display_text(&self) -> String {
         match self.echo_mode {
             EchoMode::Normal => self.text.clone(),
-            EchoMode::Password => {
-                self.password_char
-                    .to_string()
-                    .repeat(self.text.chars().count())
-            }
+            EchoMode::Password => self
+                .password_char
+                .to_string()
+                .repeat(self.text.chars().count()),
             EchoMode::NoEcho => String::new(),
         }
     }
@@ -2481,11 +2480,10 @@ impl LineEdit {
 
         let display_text = self.display_text();
 
-        if let Some(ref cache) = *cached {
-            if cache.display_text == display_text {
+        if let Some(ref cache) = *cached
+            && cache.display_text == display_text {
                 return cache.layout.clone();
             }
-        }
 
         let options = TextLayoutOptions::new();
         let layout = TextLayout::with_options(font_system, &display_text, &self.font, options);
@@ -2520,8 +2518,12 @@ impl LineEdit {
                 0.0
             } else {
                 let prefix = &display_text[..display_cursor_pos.min(display_text.len())];
-                let prefix_layout =
-                    TextLayout::with_options(&mut font_system, prefix, &self.font, TextLayoutOptions::new());
+                let prefix_layout = TextLayout::with_options(
+                    &mut font_system,
+                    prefix,
+                    &self.font,
+                    TextLayoutOptions::new(),
+                );
                 prefix_layout.width()
             }
         };
@@ -2675,13 +2677,11 @@ impl LineEdit {
             // Enter
             Key::Enter => {
                 // Try to fixup if we have a validator and input is not acceptable
-                if !self.has_acceptable_input() {
-                    if let Some(ref validator) = self.validator {
-                        if let Some(fixed) = validator.fixup(&self.text) {
+                if !self.has_acceptable_input()
+                    && let Some(ref validator) = self.validator
+                        && let Some(fixed) = validator.fixup(&self.text) {
                             self.set_text(fixed);
                         }
-                    }
-                }
 
                 // Only emit signals if input is acceptable (or no validator)
                 if self.has_acceptable_input() {
@@ -2761,14 +2761,13 @@ impl LineEdit {
         // Check if click is on clear button
         let widget_size = self.base.size();
         let local_rect = Rect::new(0.0, 0.0, widget_size.width, widget_size.height);
-        if let Some(btn_rect) = self.clear_button_rect(local_rect) {
-            if btn_rect.contains(event.local_pos) {
+        if let Some(btn_rect) = self.clear_button_rect(local_rect)
+            && btn_rect.contains(event.local_pos) {
                 // Clear the text
                 self.clear();
                 self.cleared.emit(());
                 return true;
             }
-        }
 
         // Calculate cursor position from click
         let mut font_system = FontSystem::new();
@@ -2805,11 +2804,10 @@ impl LineEdit {
         self.is_dragging = false;
 
         // Clear selection if it's empty (single click)
-        if let Some(anchor) = self.selection_anchor {
-            if anchor == self.cursor_pos {
+        if let Some(anchor) = self.selection_anchor
+            && anchor == self.cursor_pos {
                 self.selection_anchor = None;
             }
-        }
 
         true
     }
@@ -2869,13 +2867,11 @@ impl LineEdit {
         self.hide_completer_popup();
 
         // Try to fixup if we have a validator and input is not acceptable
-        if !self.has_acceptable_input() {
-            if let Some(ref validator) = self.validator {
-                if let Some(fixed) = validator.fixup(&self.text) {
+        if !self.has_acceptable_input()
+            && let Some(ref validator) = self.validator
+                && let Some(fixed) = validator.fixup(&self.text) {
                     self.set_text(fixed);
                 }
-            }
-        }
 
         // Only emit editing_finished if input is acceptable (or no validator)
         if self.has_acceptable_input() {
@@ -2974,15 +2970,15 @@ impl Widget for LineEdit {
         // Draw border - color based on validation state and focus
         let border_color = if self.base.has_focus() {
             match self.validation_state {
-                ValidationState::Invalid => Color::from_rgb8(220, 53, 69),    // Red for invalid
+                ValidationState::Invalid => Color::from_rgb8(220, 53, 69), // Red for invalid
                 ValidationState::Intermediate => Color::from_rgb8(255, 193, 7), // Yellow/amber for intermediate
-                ValidationState::Acceptable => Color::from_rgb8(51, 153, 255),  // Blue for acceptable
+                ValidationState::Acceptable => Color::from_rgb8(51, 153, 255), // Blue for acceptable
             }
         } else {
             match self.validation_state {
-                ValidationState::Invalid => Color::from_rgb8(220, 53, 69),    // Red for invalid
+                ValidationState::Invalid => Color::from_rgb8(220, 53, 69), // Red for invalid
                 ValidationState::Intermediate => Color::from_rgb8(200, 200, 200), // Gray for intermediate (unfocused)
-                ValidationState::Acceptable => Color::from_rgb8(200, 200, 200),   // Gray for acceptable (unfocused)
+                ValidationState::Acceptable => Color::from_rgb8(200, 200, 200), // Gray for acceptable (unfocused)
             }
         };
         ctx.renderer()
@@ -3023,8 +3019,8 @@ impl Widget for LineEdit {
             let x = text_rect.origin.x - self.scroll_offset;
 
             // Draw selection background if we have a selection and are focused
-            if self.has_selection() && self.base.has_focus() {
-                if let Some((start, end)) = self.selection_range() {
+            if self.has_selection() && self.base.has_focus()
+                && let Some((start, end)) = self.selection_range() {
                     // Convert to display positions
                     let display_start = match self.echo_mode {
                         EchoMode::Normal => start,
@@ -3054,7 +3050,6 @@ impl Widget for LineEdit {
                         );
                     }
                 }
-            }
 
             // Draw text
             if let Ok(mut text_renderer) = TextRenderer::new() {
@@ -3082,12 +3077,7 @@ impl Widget for LineEdit {
                     prefix_layout.width()
                 };
 
-                let cursor_rect = Rect::new(
-                    x + cursor_x,
-                    y,
-                    1.5,
-                    layout.height(),
-                );
+                let cursor_rect = Rect::new(x + cursor_x, y, 1.5, layout.height());
                 ctx.renderer().fill_rect(cursor_rect, self.text_color);
             }
         }
@@ -3379,7 +3369,10 @@ mod tests {
     #[test]
     fn test_text_changed_signal() {
         setup();
-        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
 
         let mut edit = LineEdit::new();
         let signal_received = Arc::new(AtomicBool::new(false));
@@ -3859,8 +3852,7 @@ mod tests {
         setup();
         use crate::widget::validator::IntValidator;
 
-        let edit = LineEdit::with_text("50")
-            .with_validator(IntValidator::new(0, 100));
+        let edit = LineEdit::with_text("50").with_validator(IntValidator::new(0, 100));
 
         assert_eq!(edit.validation_state(), ValidationState::Acceptable);
     }
@@ -3891,7 +3883,10 @@ mod tests {
     #[test]
     fn test_text_edited_signal() {
         setup();
-        use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
 
         let mut edit = LineEdit::new();
         let counter = Arc::new(AtomicUsize::new(0));

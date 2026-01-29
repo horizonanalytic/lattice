@@ -26,13 +26,13 @@ use regex::Regex;
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, Font, FontFamily, FontSystem, Point, Rect, Renderer, RoundedRect, Stroke,
-    TextLayout, TextRenderer,
+    Color, Font, FontFamily, FontSystem, Point, Rect, Renderer, RoundedRect, Stroke, TextLayout,
+    TextRenderer,
 };
 
 use crate::widget::{
-    FocusPolicy, Key, KeyPressEvent, MouseButton, MousePressEvent,
-    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+    FocusPolicy, Key, KeyPressEvent, MouseButton, MousePressEvent, PaintContext, SizeHint,
+    SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
 };
 
 // =========================================================================
@@ -251,11 +251,7 @@ pub trait Searchable {
         }
 
         // Wrap around if enabled
-        if options.wrap_around {
-            Some(0)
-        } else {
-            None
-        }
+        if options.wrap_around { Some(0) } else { None }
     }
 
     /// Find the previous match from the current position.
@@ -426,7 +422,10 @@ impl FindReplaceBar {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -854,7 +853,8 @@ impl FindReplaceBar {
         ctx.renderer().fill_rounded_rect(rrect, bg_color);
 
         // Label
-        let text_x = x + (Self::OPTION_BUTTON_WIDTH - label.len() as f32 * self.font.size() * 0.5) / 2.0;
+        let text_x =
+            x + (Self::OPTION_BUTTON_WIDTH - label.len() as f32 * self.font.size() * 0.5) / 2.0;
         let text_y = y + (Self::INPUT_HEIGHT - self.font.size()) / 2.0;
 
         let layout = TextLayout::new(font_system, label, &self.font);
@@ -939,7 +939,13 @@ impl FindReplaceBar {
         }
     }
 
-    fn paint_match_count(&self, _ctx: &mut PaintContext<'_>, font_system: &mut FontSystem, x: f32, y: f32) {
+    fn paint_match_count(
+        &self,
+        _ctx: &mut PaintContext<'_>,
+        font_system: &mut FontSystem,
+        x: f32,
+        y: f32,
+    ) {
         let count_text = if self.matches.is_empty() && !self.search_text.is_empty() {
             "No results".to_string()
         } else if let Some(current) = self.current_match {
@@ -1104,7 +1110,12 @@ impl FindReplaceBar {
         let y_offset = Self::PADDING;
 
         // Check if click is in search input
-        let search_rect = Rect::new(Self::PADDING, y_offset, Self::INPUT_WIDTH, Self::INPUT_HEIGHT);
+        let search_rect = Rect::new(
+            Self::PADDING,
+            y_offset,
+            Self::INPUT_WIDTH,
+            Self::INPUT_HEIGHT,
+        );
         if search_rect.contains(pos) {
             self.focused_field = 0;
             self.base.update();
@@ -1224,8 +1235,7 @@ impl Widget for FindReplaceBar {
             FindReplaceMode::Find => Self::ROW_HEIGHT + Self::PADDING * 2.0,
             FindReplaceMode::Replace => Self::ROW_HEIGHT * 2.0 + Self::PADDING * 2.0,
         };
-        SizeHint::from_dimensions(600.0, height)
-            .with_minimum_dimensions(400.0, height)
+        SizeHint::from_dimensions(600.0, height).with_minimum_dimensions(400.0, height)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {

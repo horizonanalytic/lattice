@@ -56,8 +56,8 @@
 
 use std::fmt;
 use std::str::FromStr;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use horizon_lattice_core::{Object, ObjectBase, ObjectId, Signal};
@@ -667,7 +667,6 @@ pub enum StandardKey {
     // =========================================================================
     // Document Operations
     // =========================================================================
-
     /// Create new document (Ctrl+N / Cmd+N).
     New,
     /// Open document (Ctrl+O / Cmd+O).
@@ -686,7 +685,6 @@ pub enum StandardKey {
     // =========================================================================
     // Editing Operations
     // =========================================================================
-
     /// Undo (Ctrl+Z / Cmd+Z).
     Undo,
     /// Redo (Ctrl+Shift+Z or Ctrl+Y / Cmd+Shift+Z).
@@ -707,7 +705,6 @@ pub enum StandardKey {
     // =========================================================================
     // Find/Replace
     // =========================================================================
-
     /// Find (Ctrl+F / Cmd+F).
     Find,
     /// Find next (F3 / Cmd+G).
@@ -720,7 +717,6 @@ pub enum StandardKey {
     // =========================================================================
     // Navigation
     // =========================================================================
-
     /// Navigate back (Alt+Left / Cmd+[).
     Back,
     /// Navigate forward (Alt+Right / Cmd+]).
@@ -737,7 +733,6 @@ pub enum StandardKey {
     // =========================================================================
     // View Operations
     // =========================================================================
-
     /// Zoom in (Ctrl++ / Cmd++).
     ZoomIn,
     /// Zoom out (Ctrl+- / Cmd+-).
@@ -748,7 +743,6 @@ pub enum StandardKey {
     // =========================================================================
     // Text Formatting
     // =========================================================================
-
     /// Bold text (Ctrl+B / Cmd+B).
     Bold,
     /// Italic text (Ctrl+I / Cmd+I).
@@ -759,7 +753,6 @@ pub enum StandardKey {
     // =========================================================================
     // Cursor Movement
     // =========================================================================
-
     /// Move to next character (Right).
     MoveToNextChar,
     /// Move to previous character (Left).
@@ -784,7 +777,6 @@ pub enum StandardKey {
     // =========================================================================
     // Selection (cursor movement with Shift)
     // =========================================================================
-
     /// Extend selection to next character (Shift+Right).
     SelectNextChar,
     /// Extend selection to previous character (Shift+Left).
@@ -809,7 +801,6 @@ pub enum StandardKey {
     // =========================================================================
     // Deletion
     // =========================================================================
-
     /// Delete to start of word (Ctrl+Backspace / Option+Backspace).
     DeleteStartOfWord,
     /// Delete to end of word (Ctrl+Delete / Option+Delete).
@@ -818,7 +809,6 @@ pub enum StandardKey {
     // =========================================================================
     // Help
     // =========================================================================
-
     /// Open help contents (F1).
     HelpContents,
     /// Activate "What's This?" mode (Shift+F1).
@@ -827,14 +817,12 @@ pub enum StandardKey {
     // =========================================================================
     // Preferences
     // =========================================================================
-
     /// Open preferences/settings (Ctrl+, / Cmd+,).
     Preferences,
 
     // =========================================================================
     // Misc
     // =========================================================================
-
     /// Cancel/escape current operation (Escape).
     Cancel,
     /// Deselect (no standard shortcut).
@@ -872,18 +860,24 @@ impl StandardKey {
             Self::New => KeySequence::from_combination(KeyCombination::new(Key::N, cmd_or_ctrl)),
             Self::Open => KeySequence::from_combination(KeyCombination::new(Key::O, cmd_or_ctrl)),
             Self::Save => KeySequence::from_combination(KeyCombination::new(Key::S, cmd_or_ctrl)),
-            Self::SaveAs => KeySequence::from_combination(KeyCombination::new(Key::S, cmd_or_ctrl_shift)),
+            Self::SaveAs => {
+                KeySequence::from_combination(KeyCombination::new(Key::S, cmd_or_ctrl_shift))
+            }
             Self::Close => KeySequence::from_combination(KeyCombination::new(Key::W, cmd_or_ctrl)),
             Self::Print => KeySequence::from_combination(KeyCombination::new(Key::P, cmd_or_ctrl)),
             Self::Quit => KeySequence::from_combination(KeyCombination::new(Key::Q, cmd_or_ctrl)),
 
             // Editing operations
             Self::Undo => KeySequence::from_combination(KeyCombination::new(Key::Z, cmd_or_ctrl)),
-            Self::Redo => KeySequence::from_combination(KeyCombination::new(Key::Z, cmd_or_ctrl_shift)),
+            Self::Redo => {
+                KeySequence::from_combination(KeyCombination::new(Key::Z, cmd_or_ctrl_shift))
+            }
             Self::Cut => KeySequence::from_combination(KeyCombination::new(Key::X, cmd_or_ctrl)),
             Self::Copy => KeySequence::from_combination(KeyCombination::new(Key::C, cmd_or_ctrl)),
             Self::Paste => KeySequence::from_combination(KeyCombination::new(Key::V, cmd_or_ctrl)),
-            Self::SelectAll => KeySequence::from_combination(KeyCombination::new(Key::A, cmd_or_ctrl)),
+            Self::SelectAll => {
+                KeySequence::from_combination(KeyCombination::new(Key::A, cmd_or_ctrl))
+            }
             Self::Delete => KeySequence::key_only(Key::Delete),
             Self::Backspace => KeySequence::key_only(Key::Backspace),
 
@@ -905,11 +899,14 @@ impl StandardKey {
             }
             Self::Replace => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::F, KeyboardModifiers {
-                        meta: true,
-                        alt: true,
-                        ..Default::default()
-                    }))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::F,
+                        KeyboardModifiers {
+                            meta: true,
+                            alt: true,
+                            ..Default::default()
+                        },
+                    ))
                 } else {
                     KeySequence::ctrl(Key::H)
                 }
@@ -918,39 +915,57 @@ impl StandardKey {
             // Navigation
             Self::Back => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::BracketLeft, KeyboardModifiers::META))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::BracketLeft,
+                        KeyboardModifiers::META,
+                    ))
                 } else {
                     KeySequence::alt(Key::ArrowLeft)
                 }
             }
             Self::Forward => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::BracketRight, KeyboardModifiers::META))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::BracketRight,
+                        KeyboardModifiers::META,
+                    ))
                 } else {
                     KeySequence::alt(Key::ArrowRight)
                 }
             }
             Self::Refresh => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::R, KeyboardModifiers::META))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::R,
+                        KeyboardModifiers::META,
+                    ))
                 } else {
                     KeySequence::key_only(Key::F5)
                 }
             }
             Self::AddTab => KeySequence::from_combination(KeyCombination::new(Key::T, cmd_or_ctrl)),
             Self::NextChild => KeySequence::from_combination(KeyCombination::ctrl(Key::Tab)),
-            Self::PreviousChild => KeySequence::from_combination(KeyCombination::ctrl_shift(Key::Tab)),
+            Self::PreviousChild => {
+                KeySequence::from_combination(KeyCombination::ctrl_shift(Key::Tab))
+            }
 
             // View operations
-            Self::ZoomIn => KeySequence::from_combination(KeyCombination::new(Key::Equal, cmd_or_ctrl)),
-            Self::ZoomOut => KeySequence::from_combination(KeyCombination::new(Key::Minus, cmd_or_ctrl)),
+            Self::ZoomIn => {
+                KeySequence::from_combination(KeyCombination::new(Key::Equal, cmd_or_ctrl))
+            }
+            Self::ZoomOut => {
+                KeySequence::from_combination(KeyCombination::new(Key::Minus, cmd_or_ctrl))
+            }
             Self::FullScreen => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::F, KeyboardModifiers {
-                        meta: true,
-                        control: true,
-                        ..Default::default()
-                    }))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::F,
+                        KeyboardModifiers {
+                            meta: true,
+                            control: true,
+                            ..Default::default()
+                        },
+                    ))
                 } else {
                     KeySequence::key_only(Key::F11)
                 }
@@ -959,7 +974,9 @@ impl StandardKey {
             // Text formatting
             Self::Bold => KeySequence::from_combination(KeyCombination::new(Key::B, cmd_or_ctrl)),
             Self::Italic => KeySequence::from_combination(KeyCombination::new(Key::I, cmd_or_ctrl)),
-            Self::Underline => KeySequence::from_combination(KeyCombination::new(Key::U, cmd_or_ctrl)),
+            Self::Underline => {
+                KeySequence::from_combination(KeyCombination::new(Key::U, cmd_or_ctrl))
+            }
 
             // Cursor movement
             Self::MoveToNextChar => KeySequence::key_only(Key::ArrowRight),
@@ -982,28 +999,40 @@ impl StandardKey {
             Self::MoveToPreviousLine => KeySequence::key_only(Key::ArrowUp),
             Self::MoveToStartOfLine => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::ArrowLeft, KeyboardModifiers::META))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::ArrowLeft,
+                        KeyboardModifiers::META,
+                    ))
                 } else {
                     KeySequence::key_only(Key::Home)
                 }
             }
             Self::MoveToEndOfLine => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::ArrowRight, KeyboardModifiers::META))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::ArrowRight,
+                        KeyboardModifiers::META,
+                    ))
                 } else {
                     KeySequence::key_only(Key::End)
                 }
             }
             Self::MoveToStartOfDocument => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::ArrowUp, KeyboardModifiers::META))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::ArrowUp,
+                        KeyboardModifiers::META,
+                    ))
                 } else {
                     KeySequence::ctrl(Key::Home)
                 }
             }
             Self::MoveToEndOfDocument => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::ArrowDown, KeyboardModifiers::META))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::ArrowDown,
+                        KeyboardModifiers::META,
+                    ))
                 } else {
                     KeySequence::ctrl(Key::End)
                 }
@@ -1014,22 +1043,28 @@ impl StandardKey {
             Self::SelectPreviousChar => KeySequence::shift(Key::ArrowLeft),
             Self::SelectNextWord => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::ArrowRight, KeyboardModifiers {
-                        alt: true,
-                        shift: true,
-                        ..Default::default()
-                    }))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::ArrowRight,
+                        KeyboardModifiers {
+                            alt: true,
+                            shift: true,
+                            ..Default::default()
+                        },
+                    ))
                 } else {
                     KeySequence::ctrl_shift(Key::ArrowRight)
                 }
             }
             Self::SelectPreviousWord => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::ArrowLeft, KeyboardModifiers {
-                        alt: true,
-                        shift: true,
-                        ..Default::default()
-                    }))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::ArrowLeft,
+                        KeyboardModifiers {
+                            alt: true,
+                            shift: true,
+                            ..Default::default()
+                        },
+                    ))
                 } else {
                     KeySequence::ctrl_shift(Key::ArrowLeft)
                 }
@@ -1038,44 +1073,56 @@ impl StandardKey {
             Self::SelectPreviousLine => KeySequence::shift(Key::ArrowUp),
             Self::SelectStartOfLine => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::ArrowLeft, KeyboardModifiers {
-                        meta: true,
-                        shift: true,
-                        ..Default::default()
-                    }))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::ArrowLeft,
+                        KeyboardModifiers {
+                            meta: true,
+                            shift: true,
+                            ..Default::default()
+                        },
+                    ))
                 } else {
                     KeySequence::shift(Key::Home)
                 }
             }
             Self::SelectEndOfLine => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::ArrowRight, KeyboardModifiers {
-                        meta: true,
-                        shift: true,
-                        ..Default::default()
-                    }))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::ArrowRight,
+                        KeyboardModifiers {
+                            meta: true,
+                            shift: true,
+                            ..Default::default()
+                        },
+                    ))
                 } else {
                     KeySequence::shift(Key::End)
                 }
             }
             Self::SelectStartOfDocument => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::ArrowUp, KeyboardModifiers {
-                        meta: true,
-                        shift: true,
-                        ..Default::default()
-                    }))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::ArrowUp,
+                        KeyboardModifiers {
+                            meta: true,
+                            shift: true,
+                            ..Default::default()
+                        },
+                    ))
                 } else {
                     KeySequence::ctrl_shift(Key::Home)
                 }
             }
             Self::SelectEndOfDocument => {
                 if is_macos {
-                    KeySequence::from_combination(KeyCombination::new(Key::ArrowDown, KeyboardModifiers {
-                        meta: true,
-                        shift: true,
-                        ..Default::default()
-                    }))
+                    KeySequence::from_combination(KeyCombination::new(
+                        Key::ArrowDown,
+                        KeyboardModifiers {
+                            meta: true,
+                            shift: true,
+                            ..Default::default()
+                        },
+                    ))
                 } else {
                     KeySequence::ctrl_shift(Key::End)
                 }
@@ -1102,7 +1149,9 @@ impl StandardKey {
             Self::WhatsThis => KeySequence::shift(Key::F1),
 
             // Preferences
-            Self::Preferences => KeySequence::from_combination(KeyCombination::new(Key::Comma, cmd_or_ctrl)),
+            Self::Preferences => {
+                KeySequence::from_combination(KeyCombination::new(Key::Comma, cmd_or_ctrl))
+            }
 
             // Misc
             Self::Cancel => KeySequence::key_only(Key::Escape),
@@ -1475,14 +1524,19 @@ impl ShortcutManager {
     /// Register a shortcut.
     pub fn register(&mut self, shortcut: Arc<Shortcut>) {
         // Avoid duplicates
-        if !self.shortcuts.iter().any(|s| s.object_id() == shortcut.object_id()) {
+        if !self
+            .shortcuts
+            .iter()
+            .any(|s| s.object_id() == shortcut.object_id())
+        {
             self.shortcuts.push(shortcut);
         }
     }
 
     /// Unregister a shortcut.
     pub fn unregister(&mut self, shortcut: &Shortcut) {
-        self.shortcuts.retain(|s| s.object_id() != shortcut.object_id());
+        self.shortcuts
+            .retain(|s| s.object_id() != shortcut.object_id());
     }
 
     /// Clear all registered shortcuts.
@@ -1596,9 +1650,11 @@ impl ShortcutManager {
             }
 
             // Check if shorter is a prefix of longer
-            let is_prefix = shorter.combinations().iter().zip(longer.combinations()).all(
-                |(a, b)| a.key == b.key && a.modifiers == b.modifiers,
-            );
+            let is_prefix = shorter
+                .combinations()
+                .iter()
+                .zip(longer.combinations())
+                .all(|(a, b)| a.key == b.key && a.modifiers == b.modifiers);
 
             if is_prefix {
                 conflicts.push(shortcut.clone());
@@ -1882,11 +1938,17 @@ mod tests {
 
         // First key matches
         let first_key = KeyCombination::ctrl(Key::K);
-        assert_eq!(seq.matches_partial(&[first_key]), SequenceMatch::PartialMatch);
+        assert_eq!(
+            seq.matches_partial(&[first_key]),
+            SequenceMatch::PartialMatch
+        );
 
         // Both keys match
         let second_key = KeyCombination::ctrl(Key::C);
-        assert_eq!(seq.matches_partial(&[first_key, second_key]), SequenceMatch::ExactMatch);
+        assert_eq!(
+            seq.matches_partial(&[first_key, second_key]),
+            SequenceMatch::ExactMatch
+        );
 
         // Wrong first key
         let wrong_key = KeyCombination::ctrl(Key::X);
@@ -2046,8 +2108,8 @@ mod tests {
     #[test]
     fn test_shortcut_context() {
         horizon_lattice_core::init_global_registry();
-        let shortcut = Shortcut::new(KeySequence::ctrl(Key::S))
-            .with_context(ShortcutContext::Application);
+        let shortcut =
+            Shortcut::new(KeySequence::ctrl(Key::S)).with_context(ShortcutContext::Application);
         assert_eq!(shortcut.context(), ShortcutContext::Application);
     }
 

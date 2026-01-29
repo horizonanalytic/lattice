@@ -26,11 +26,11 @@ use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{Color, Icon, Point, Rect, Renderer, Stroke};
 use parking_lot::RwLock;
 
-use crate::model::{
-    CheckState, ItemData, ItemFlags, ItemModel, ItemRole, ModelIndex, ModelSignals,
-    Orientation, TextAlignment,
-};
 use crate::model::selection::{SelectionBehavior, SelectionMode};
+use crate::model::{
+    CheckState, ItemData, ItemFlags, ItemModel, ItemRole, ModelIndex, ModelSignals, Orientation,
+    TextAlignment,
+};
 use crate::widget::{
     FocusPolicy, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase,
     WidgetEvent,
@@ -242,25 +242,30 @@ impl ItemModel for TableWidgetModel {
 
         match role {
             ItemRole::Display => ItemData::String(item.text.clone()),
-            ItemRole::Decoration => {
-                item.icon.clone().map(ItemData::Icon).unwrap_or(ItemData::None)
-            }
-            ItemRole::ToolTip => {
-                item.tooltip.clone().map(ItemData::String).unwrap_or(ItemData::None)
-            }
-            ItemRole::CheckState => {
-                item.check_state.map(ItemData::CheckState).unwrap_or(ItemData::None)
-            }
-            ItemRole::BackgroundColor => {
-                item.background.map(ItemData::Color).unwrap_or(ItemData::None)
-            }
-            ItemRole::ForegroundColor => {
-                item.foreground.map(ItemData::Color).unwrap_or(ItemData::None)
-            }
+            ItemRole::Decoration => item
+                .icon
+                .clone()
+                .map(ItemData::Icon)
+                .unwrap_or(ItemData::None),
+            ItemRole::ToolTip => item
+                .tooltip
+                .clone()
+                .map(ItemData::String)
+                .unwrap_or(ItemData::None),
+            ItemRole::CheckState => item
+                .check_state
+                .map(ItemData::CheckState)
+                .unwrap_or(ItemData::None),
+            ItemRole::BackgroundColor => item
+                .background
+                .map(ItemData::Color)
+                .unwrap_or(ItemData::None),
+            ItemRole::ForegroundColor => item
+                .foreground
+                .map(ItemData::Color)
+                .unwrap_or(ItemData::None),
             ItemRole::TextAlignment => ItemData::TextAlignment(item.text_alignment),
-            ItemRole::User(n) => {
-                item.data.get(&n).cloned().unwrap_or(ItemData::None)
-            }
+            ItemRole::User(n) => item.data.get(&n).cloned().unwrap_or(ItemData::None),
             _ => ItemData::None,
         }
     }
@@ -304,7 +309,7 @@ impl ItemModel for TableWidgetModel {
         cells[row][col]
             .as_ref()
             .map(|item| item.flags)
-            .unwrap_or(ItemFlags::new())
+            .unwrap_or_default()
     }
 
     fn header_data(&self, section: usize, orientation: Orientation, role: ItemRole) -> ItemData {
@@ -404,7 +409,10 @@ impl TableWidget {
     pub fn new(rows: usize, columns: usize) -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         // Initialize cells
         let cells: Vec<Vec<Option<TableWidgetItem>>> =
@@ -518,11 +526,10 @@ impl TableWidget {
             self.row_heights.truncate(count);
 
             // Update selection
-            if let Some(row) = self.current_row {
-                if row >= count {
+            if let Some(row) = self.current_row
+                && row >= count {
                     self.current_row = if count > 0 { Some(count - 1) } else { None };
                 }
-            }
         }
 
         self.update_content_size();
@@ -547,11 +554,10 @@ impl TableWidget {
         self.column_widths.resize(count, self.default_column_width);
 
         // Update selection
-        if let Some(col) = self.current_column {
-            if col >= count {
+        if let Some(col) = self.current_column
+            && col >= count {
                 self.current_column = if count > 0 { Some(count - 1) } else { None };
             }
-        }
 
         self.update_content_size();
         self.base.update();
@@ -582,7 +588,9 @@ impl TableWidget {
         }
 
         let index = ModelIndex::new(row, column, ModelIndex::invalid());
-        self.model.signals.emit_data_changed_single(index, vec![ItemRole::Display]);
+        self.model
+            .signals
+            .emit_data_changed_single(index, vec![ItemRole::Display]);
         self.cell_changed.emit((row, column));
         self.base.update();
     }
@@ -603,7 +611,9 @@ impl TableWidget {
 
         if item.is_some() {
             let index = ModelIndex::new(row, column, ModelIndex::invalid());
-            self.model.signals.emit_data_changed_single(index, vec![ItemRole::Display]);
+            self.model
+                .signals
+                .emit_data_changed_single(index, vec![ItemRole::Display]);
             self.cell_changed.emit((row, column));
             self.base.update();
         }
@@ -665,20 +675,21 @@ impl TableWidget {
         let cols = *self.column_count.read();
         let row = row.min(rows);
 
-        self.model.signals.emit_rows_inserted(ModelIndex::invalid(), row, row, || {
-            let mut cells = self.cells.write();
-            cells.insert(row, vec![None; cols]);
-            *self.row_count.write() = rows + 1;
-        });
+        self.model
+            .signals
+            .emit_rows_inserted(ModelIndex::invalid(), row, row, || {
+                let mut cells = self.cells.write();
+                cells.insert(row, vec![None; cols]);
+                *self.row_count.write() = rows + 1;
+            });
 
         self.row_heights.insert(row, self.default_row_height);
 
         // Update current selection
-        if let Some(current_row) = self.current_row {
-            if current_row >= row {
+        if let Some(current_row) = self.current_row
+            && current_row >= row {
                 self.current_row = Some(current_row + 1);
             }
-        }
 
         self.update_content_size();
         self.base.update();
@@ -691,11 +702,13 @@ impl TableWidget {
             return;
         }
 
-        self.model.signals.emit_rows_removed(ModelIndex::invalid(), row, row, || {
-            let mut cells = self.cells.write();
-            cells.remove(row);
-            *self.row_count.write() = rows - 1;
-        });
+        self.model
+            .signals
+            .emit_rows_removed(ModelIndex::invalid(), row, row, || {
+                let mut cells = self.cells.write();
+                cells.remove(row);
+                *self.row_count.write() = rows - 1;
+            });
 
         self.row_heights.remove(row);
 
@@ -733,11 +746,10 @@ impl TableWidget {
         self.column_widths.insert(column, self.default_column_width);
 
         // Update current selection
-        if let Some(current_col) = self.current_column {
-            if current_col >= column {
+        if let Some(current_col) = self.current_column
+            && current_col >= column {
                 self.current_column = Some(current_col + 1);
             }
-        }
 
         self.update_content_size();
         self.base.update();
@@ -821,7 +833,10 @@ impl TableWidget {
 
     /// Gets the width of a column.
     pub fn column_width(&self, column: usize) -> f32 {
-        self.column_widths.get(column).copied().unwrap_or(self.default_column_width)
+        self.column_widths
+            .get(column)
+            .copied()
+            .unwrap_or(self.default_column_width)
     }
 
     /// Sets the height of a row.
@@ -835,7 +850,10 @@ impl TableWidget {
 
     /// Gets the height of a row.
     pub fn row_height(&self, row: usize) -> f32 {
-        self.row_heights.get(row).copied().unwrap_or(self.default_row_height)
+        self.row_heights
+            .get(row)
+            .copied()
+            .unwrap_or(self.default_row_height)
     }
 
     // =========================================================================
@@ -904,9 +922,7 @@ impl TableWidget {
     pub fn is_cell_selected(&self, row: usize, column: usize) -> bool {
         match self.selection_behavior {
             SelectionBehavior::SelectItems => self.selected_cells.contains(&(row, column)),
-            SelectionBehavior::SelectRows => {
-                self.selected_cells.iter().any(|(r, _)| *r == row)
-            }
+            SelectionBehavior::SelectRows => self.selected_cells.iter().any(|(r, _)| *r == row),
             SelectionBehavior::SelectColumns => {
                 self.selected_cells.iter().any(|(_, c)| *c == column)
             }
@@ -1031,7 +1047,12 @@ impl TableWidget {
         )
     }
 
-    fn handle_click(&mut self, row: usize, col: usize, modifiers: &crate::widget::KeyboardModifiers) {
+    fn handle_click(
+        &mut self,
+        row: usize,
+        col: usize,
+        modifiers: &crate::widget::KeyboardModifiers,
+    ) {
         match self.selection_mode {
             SelectionMode::NoSelection => {
                 self.set_current_cell(row, col);
@@ -1106,14 +1127,18 @@ impl Widget for TableWidget {
         // Draw header
         if self.show_horizontal_header {
             let header_rect = Rect::new(0.0, 0.0, widget_rect.width(), header_h);
-            ctx.renderer().fill_rect(header_rect, Color::from_rgb8(240, 240, 240));
+            ctx.renderer()
+                .fill_rect(header_rect, Color::from_rgb8(240, 240, 240));
 
             let headers = self.horizontal_headers.read();
             let mut x = -self.scroll_x as f32;
 
             for (col, width) in self.column_widths.iter().enumerate() {
                 if x + width > 0.0 && x < widget_rect.width() {
-                    let label = headers.get(col).cloned().unwrap_or_else(|| (col + 1).to_string());
+                    let label = headers
+                        .get(col)
+                        .cloned()
+                        .unwrap_or_else(|| (col + 1).to_string());
                     // Draw text placeholder (horizontal line representing text)
                     let text_x = x + 8.0;
                     let text_y = header_h / 2.0;
@@ -1172,7 +1197,11 @@ impl Widget for TableWidget {
                     Color::from_rgb8(229, 243, 255)
                 } else if self.alternate_row_colors && row % 2 == 1 {
                     Color::from_rgb8(245, 245, 245)
-                } else if let Some(item) = cells.get(row).and_then(|r| r.get(col)).and_then(|c| c.as_ref()) {
+                } else if let Some(item) = cells
+                    .get(row)
+                    .and_then(|r| r.get(col))
+                    .and_then(|c| c.as_ref())
+                {
                     item.background.unwrap_or(self.background_color)
                 } else {
                     self.background_color
@@ -1181,7 +1210,11 @@ impl Widget for TableWidget {
                 ctx.renderer().fill_rect(cell_rect, bg_color);
 
                 // Cell text placeholder
-                if let Some(item) = cells.get(row).and_then(|r| r.get(col)).and_then(|c| c.as_ref()) {
+                if let Some(item) = cells
+                    .get(row)
+                    .and_then(|r| r.get(col))
+                    .and_then(|c| c.as_ref())
+                {
                     let text_color = if self.is_cell_selected(row, col) {
                         Color::WHITE
                     } else {
@@ -1204,13 +1237,19 @@ impl Widget for TableWidget {
                     // Right border
                     ctx.renderer().draw_line(
                         Point::new(cell_rect.origin.x + cell_rect.width(), cell_rect.origin.y),
-                        Point::new(cell_rect.origin.x + cell_rect.width(), cell_rect.origin.y + cell_rect.height()),
+                        Point::new(
+                            cell_rect.origin.x + cell_rect.width(),
+                            cell_rect.origin.y + cell_rect.height(),
+                        ),
                         &grid_stroke,
                     );
                     // Bottom border
                     ctx.renderer().draw_line(
                         Point::new(cell_rect.origin.x, cell_rect.origin.y + cell_rect.height()),
-                        Point::new(cell_rect.origin.x + cell_rect.width(), cell_rect.origin.y + cell_rect.height()),
+                        Point::new(
+                            cell_rect.origin.x + cell_rect.width(),
+                            cell_rect.origin.y + cell_rect.height(),
+                        ),
                         &grid_stroke,
                     );
                 }
@@ -1233,14 +1272,13 @@ impl Widget for TableWidget {
     fn event(&mut self, event: &mut WidgetEvent) -> bool {
         match event {
             WidgetEvent::MousePress(e) => {
-                if e.button == crate::widget::MouseButton::Left {
-                    if let Some((row, col)) = self.cell_at_pos(e.local_pos) {
+                if e.button == crate::widget::MouseButton::Left
+                    && let Some((row, col)) = self.cell_at_pos(e.local_pos) {
                         self.pressed_cell = Some((row, col));
                         self.handle_click(row, col, &e.modifiers);
                         event.accept();
                         return true;
                     }
-                }
             }
             WidgetEvent::MouseRelease(e) => {
                 if e.button == crate::widget::MouseButton::Left {
@@ -1274,12 +1312,11 @@ impl Widget for TableWidget {
 
                 match e.key {
                     crate::widget::Key::ArrowUp => {
-                        if let Some(row) = self.current_row {
-                            if row > 0 {
+                        if let Some(row) = self.current_row
+                            && row > 0 {
                                 let col = self.current_column.unwrap_or(0);
                                 self.set_current_cell(row - 1, col);
                             }
-                        }
                         return true;
                     }
                     crate::widget::Key::ArrowDown => {
@@ -1294,12 +1331,11 @@ impl Widget for TableWidget {
                         return true;
                     }
                     crate::widget::Key::ArrowLeft => {
-                        if let Some(col) = self.current_column {
-                            if col > 0 {
+                        if let Some(col) = self.current_column
+                            && col > 0 {
                                 let row = self.current_row.unwrap_or(0);
                                 self.set_current_cell(row, col - 1);
                             }
-                        }
                         return true;
                     }
                     crate::widget::Key::ArrowRight => {

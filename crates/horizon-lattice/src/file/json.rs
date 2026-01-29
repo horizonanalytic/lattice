@@ -90,8 +90,8 @@ use std::fmt;
 use std::ops::{Index, IndexMut};
 use std::path::Path;
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use super::error::{FileError, FileErrorKind, FileResult};
 use super::operations::{atomic_write, read_text};
@@ -389,11 +389,10 @@ impl JsonValue {
     ///
     /// Does nothing if this is not an array or if the index is out of bounds.
     pub fn insert_at<V: Into<JsonValue>>(&mut self, index: usize, value: V) {
-        if let Some(arr) = self.0.as_array_mut() {
-            if index <= arr.len() {
+        if let Some(arr) = self.0.as_array_mut()
+            && index <= arr.len() {
                 arr.insert(index, value.into().0);
             }
-        }
     }
 
     /// Removes and returns the value at the specified index.
@@ -444,7 +443,10 @@ impl JsonValue {
 
     /// Returns true if this object contains the specified key.
     pub fn contains_key(&self, key: &str) -> bool {
-        self.0.as_object().map(|obj| obj.contains_key(key)).unwrap_or(false)
+        self.0
+            .as_object()
+            .map(|obj| obj.contains_key(key))
+            .unwrap_or(false)
     }
 
     /// Returns an iterator over the keys of this object.
@@ -473,10 +475,9 @@ impl JsonValue {
     pub fn entries(&self) -> impl Iterator<Item = (&str, &JsonValue)> {
         self.0.as_object().into_iter().flat_map(|obj| {
             obj.iter().map(|(k, v)| {
-                (
-                    k.as_str(),
-                    unsafe { &*(v as *const serde_json::Value as *const JsonValue) },
-                )
+                (k.as_str(), unsafe {
+                    &*(v as *const serde_json::Value as *const JsonValue)
+                })
             })
         })
     }
@@ -1026,16 +1027,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(
-            value.get("users[0].name").unwrap().as_str(),
-            Some("Alice")
-        );
+        assert_eq!(value.get("users[0].name").unwrap().as_str(), Some("Alice"));
         assert_eq!(value.get("users[1].name").unwrap().as_str(), Some("Bob"));
         assert_eq!(value.get("users[0].scores[0]").unwrap().as_i64(), Some(95));
-        assert_eq!(
-            value.get("config.theme").unwrap().as_str(),
-            Some("dark")
-        );
+        assert_eq!(value.get("config.theme").unwrap().as_str(), Some("dark"));
     }
 
     #[test]
@@ -1055,10 +1050,8 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut value = parse_json(
-            r#"{"users": [{"name": "Alice"}, {"name": "Bob"}], "count": 2}"#,
-        )
-        .unwrap();
+        let mut value =
+            parse_json(r#"{"users": [{"name": "Alice"}, {"name": "Bob"}], "count": 2}"#).unwrap();
 
         let removed = value.remove("count");
         assert_eq!(removed.unwrap().as_i64(), Some(2));
@@ -1069,10 +1062,7 @@ mod tests {
             removed.unwrap().get("name").unwrap().as_str(),
             Some("Alice")
         );
-        assert_eq!(
-            value.get("users[0].name").unwrap().as_str(),
-            Some("Bob")
-        );
+        assert_eq!(value.get("users[0].name").unwrap().as_str(), Some("Bob"));
     }
 
     #[test]

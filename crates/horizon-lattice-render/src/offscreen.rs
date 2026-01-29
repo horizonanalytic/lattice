@@ -115,9 +115,7 @@ impl OffscreenSurface {
         }
 
         // Default to Rgba8UnormSrgb for PNG-compatible output
-        let format = config
-            .format
-            .unwrap_or(wgpu::TextureFormat::Rgba8UnormSrgb);
+        let format = config.format.unwrap_or(wgpu::TextureFormat::Rgba8UnormSrgb);
 
         let texture = ctx.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("offscreen_render_target"),
@@ -253,7 +251,6 @@ impl OffscreenSurface {
     pub fn save_to_file(&self, path: impl AsRef<std::path::Path>) -> RenderResult<()> {
         crate::capture::save_texture_to_file(&self.texture, self.width, self.height, path)
     }
-
 }
 
 impl std::fmt::Debug for OffscreenSurface {

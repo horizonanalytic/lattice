@@ -33,11 +33,13 @@ use std::time::Instant;
 
 use horizon_lattice_core::{Object, ObjectId, Signal};
 use horizon_lattice_render::{
-    Color, Font, FontFamily, FontSystem, HorizontalAlign, Point, Renderer, RoundedRect,
-    TextLayout, TextLayoutOptions, TextRenderer,
+    Color, Font, FontFamily, FontSystem, HorizontalAlign, Point, Renderer, RoundedRect, TextLayout,
+    TextLayoutOptions, TextRenderer,
 };
 
-use crate::widget::{FocusPolicy, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase};
+use crate::widget::{
+    FocusPolicy, PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase,
+};
 
 /// Orientation for the progress bar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -140,7 +142,10 @@ impl ProgressBar {
         // Progress bars don't receive focus
         base.set_focus_policy(FocusPolicy::NoFocus);
         // Set appropriate size policy
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -523,12 +528,10 @@ impl Widget for ProgressBar {
     fn size_hint(&self) -> SizeHint {
         match self.orientation {
             Orientation::Horizontal => {
-                SizeHint::from_dimensions(200.0, 24.0)
-                    .with_minimum_dimensions(40.0, 16.0)
+                SizeHint::from_dimensions(200.0, 24.0).with_minimum_dimensions(40.0, 16.0)
             }
             Orientation::Vertical => {
-                SizeHint::from_dimensions(24.0, 200.0)
-                    .with_minimum_dimensions(16.0, 40.0)
+                SizeHint::from_dimensions(24.0, 200.0).with_minimum_dimensions(16.0, 40.0)
             }
         }
     }
@@ -538,7 +541,8 @@ impl Widget for ProgressBar {
 
         // Draw background track
         let track_rrect = RoundedRect::new(rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(track_rrect, self.background_color);
+        ctx.renderer()
+            .fill_rounded_rect(track_rrect, self.background_color);
 
         if self.is_indeterminate() {
             // Draw indeterminate animated indicator
@@ -609,7 +613,8 @@ impl ProgressBar {
         };
 
         let fill_rrect = RoundedRect::new(fill_rect, self.border_radius);
-        ctx.renderer().fill_rounded_rect(fill_rrect, self.progress_color);
+        ctx.renderer()
+            .fill_rounded_rect(fill_rrect, self.progress_color);
     }
 
     /// Paint the indeterminate (busy) indicator.
@@ -641,7 +646,8 @@ impl ProgressBar {
                 );
 
                 let indicator_rrect = RoundedRect::new(indicator_rect, self.border_radius);
-                ctx.renderer().fill_rounded_rect(indicator_rrect, self.progress_color);
+                ctx.renderer()
+                    .fill_rounded_rect(indicator_rrect, self.progress_color);
             }
             Orientation::Vertical => {
                 let indicator_height = rect.height() * indicator_size_ratio;
@@ -663,7 +669,8 @@ impl ProgressBar {
                 );
 
                 let indicator_rrect = RoundedRect::new(indicator_rect, self.border_radius);
-                ctx.renderer().fill_rounded_rect(indicator_rrect, self.progress_color);
+                ctx.renderer()
+                    .fill_rounded_rect(indicator_rrect, self.progress_color);
             }
         }
     }
@@ -691,12 +698,8 @@ impl ProgressBar {
         let text_pos = Point::new(text_x, text_y);
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
-            let _ = text_renderer.prepare_layout(
-                &mut font_system,
-                &layout,
-                text_pos,
-                self.text_color,
-            );
+            let _ =
+                text_renderer.prepare_layout(&mut font_system, &layout, text_pos, self.text_color);
         }
     }
 }
@@ -709,8 +712,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicI32, Ordering},
         Arc,
+        atomic::{AtomicI32, Ordering},
     };
 
     fn setup() {

@@ -384,10 +384,7 @@ mod tests {
         let path = temp_path("atomic_write_ops.txt");
         cleanup(&path);
 
-        atomic_write(&path, |w| {
-            w.write_all(b"atomic content")
-        })
-        .unwrap();
+        atomic_write(&path, |w| w.write_all(b"atomic content")).unwrap();
 
         let content = read_text(&path).unwrap();
         assert_eq!(content, "atomic content");

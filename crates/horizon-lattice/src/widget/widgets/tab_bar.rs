@@ -219,7 +219,10 @@ impl TabBar {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -329,7 +332,9 @@ impl TabBar {
             self.current_index = -1;
             self.current_changed.emit(-1);
         } else if index <= self.current_index {
-            let new_index = (self.current_index - 1).max(0).min(self.tabs.len() as i32 - 1);
+            let new_index = (self.current_index - 1)
+                .max(0)
+                .min(self.tabs.len() as i32 - 1);
             if new_index != self.current_index {
                 self.current_index = new_index;
                 self.current_changed.emit(new_index);
@@ -403,7 +408,10 @@ impl TabBar {
 
     /// Get whether a tab is enabled.
     pub fn is_tab_enabled(&self, index: i32) -> bool {
-        self.tabs.get(index as usize).map(|t| t.enabled).unwrap_or(false)
+        self.tabs
+            .get(index as usize)
+            .map(|t| t.enabled)
+            .unwrap_or(false)
     }
 
     /// Set whether a tab is enabled.
@@ -430,7 +438,10 @@ impl TabBar {
 
     /// Get whether a specific tab is closable.
     pub fn is_tab_closable(&self, index: i32) -> bool {
-        self.tabs.get(index as usize).map(|t| t.closable).unwrap_or(false)
+        self.tabs
+            .get(index as usize)
+            .map(|t| t.closable)
+            .unwrap_or(false)
     }
 
     /// Set whether a specific tab is closable.
@@ -732,14 +743,24 @@ impl TabBar {
             } else {
                 self.tab_width(index)
             };
-            Rect::new(content.origin.x + pos, content.origin.y, width, self.tab_height)
+            Rect::new(
+                content.origin.x + pos,
+                content.origin.y,
+                width,
+                self.tab_height,
+            )
         } else {
             let height = if self.expanding && !self.overflow && !self.tabs.is_empty() {
                 content.height() / self.tabs.len() as f32
             } else {
                 self.tab_height
             };
-            Rect::new(content.origin.x, content.origin.y + pos, self.tab_height, height)
+            Rect::new(
+                content.origin.x,
+                content.origin.y + pos,
+                self.tab_height,
+                height,
+            )
         };
 
         Some(rect)
@@ -801,21 +822,19 @@ impl TabBar {
     /// Hit test to find which part of the tab bar is at a point.
     fn hit_test(&self, pos: Point) -> TabBarPart {
         // Check scroll buttons first
-        if let Some(rect) = self.scroll_decrease_rect() {
-            if rect.contains(pos) {
+        if let Some(rect) = self.scroll_decrease_rect()
+            && rect.contains(pos) {
                 return TabBarPart::ScrollDecrease;
             }
-        }
-        if let Some(rect) = self.scroll_increase_rect() {
-            if rect.contains(pos) {
+        if let Some(rect) = self.scroll_increase_rect()
+            && rect.contains(pos) {
                 return TabBarPart::ScrollIncrease;
             }
-        }
 
         // Check tabs
         for i in 0..self.tabs.len() {
-            if let Some(tab_rect) = self.tab_rect(i) {
-                if tab_rect.contains(pos) {
+            if let Some(tab_rect) = self.tab_rect(i)
+                && tab_rect.contains(pos) {
                     // Check close button
                     if self.tabs[i].closable {
                         let close_rect = self.close_button_rect(&tab_rect);
@@ -825,7 +844,6 @@ impl TabBar {
                     }
                     return TabBarPart::Tab(i);
                 }
-            }
         }
 
         TabBarPart::None
@@ -889,11 +907,12 @@ impl TabBar {
         if tab_start < visible_start {
             self.scroll_offset = tab_start;
         } else if tab_end > visible_end {
-            self.scroll_offset = tab_end - if is_horizontal {
-                content.width()
-            } else {
-                content.height()
-            };
+            self.scroll_offset = tab_end
+                - if is_horizontal {
+                    content.width()
+                } else {
+                    content.height()
+                };
         }
     }
 
@@ -975,13 +994,12 @@ impl TabBar {
         let part = self.hit_test(event.local_pos);
 
         // Handle drag end
-        if let Some(drag) = self.dragging.take() {
-            if drag.active {
+        if let Some(drag) = self.dragging.take()
+            && drag.active {
                 // Drag finished - tab was already moved during drag
                 self.base.update();
                 return true;
             }
-        }
 
         // Handle click
         if self.pressed_part == part {
@@ -1036,9 +1054,9 @@ impl TabBar {
             };
 
             // Perform reordering (self is no longer borrowed)
-            if is_active {
-                if let Some(new_index) = self.tab_index_at_drag_pos(event.local_pos) {
-                    if new_index != current_tab_index {
+            if is_active
+                && let Some(new_index) = self.tab_index_at_drag_pos(event.local_pos)
+                    && new_index != current_tab_index {
                         self.move_tab(current_tab_index as i32, new_index as i32);
 
                         // Update drag state with new index
@@ -1046,8 +1064,6 @@ impl TabBar {
                             drag.tab_index = new_index;
                         }
                     }
-                }
-            }
 
             self.base.update();
             return true;
@@ -1201,7 +1217,13 @@ impl TabBar {
         }
     }
 
-    fn paint_scroll_arrow(&self, ctx: &mut PaintContext<'_>, rect: Rect, increase: bool, horizontal: bool) {
+    fn paint_scroll_arrow(
+        &self,
+        ctx: &mut PaintContext<'_>,
+        rect: Rect,
+        increase: bool,
+        horizontal: bool,
+    ) {
         let center_x = rect.origin.x + rect.width() / 2.0;
         let center_y = rect.origin.y + rect.height() / 2.0;
         let arrow_size = 4.0;
@@ -1291,20 +1313,23 @@ impl TabBar {
         // Draw bottom border for selected tab (creates visual connection to content)
         if is_selected {
             let border_rect = match self.tab_position {
-                TabPosition::Top => {
-                    Rect::new(rect.origin.x, rect.origin.y + rect.height() - 2.0, rect.width(), 2.0)
-                }
-                TabPosition::Bottom => {
-                    Rect::new(rect.origin.x, rect.origin.y, rect.width(), 2.0)
-                }
-                TabPosition::Left => {
-                    Rect::new(rect.origin.x + rect.width() - 2.0, rect.origin.y, 2.0, rect.height())
-                }
-                TabPosition::Right => {
-                    Rect::new(rect.origin.x, rect.origin.y, 2.0, rect.height())
-                }
+                TabPosition::Top => Rect::new(
+                    rect.origin.x,
+                    rect.origin.y + rect.height() - 2.0,
+                    rect.width(),
+                    2.0,
+                ),
+                TabPosition::Bottom => Rect::new(rect.origin.x, rect.origin.y, rect.width(), 2.0),
+                TabPosition::Left => Rect::new(
+                    rect.origin.x + rect.width() - 2.0,
+                    rect.origin.y,
+                    2.0,
+                    rect.height(),
+                ),
+                TabPosition::Right => Rect::new(rect.origin.x, rect.origin.y, 2.0, rect.height()),
             };
-            ctx.renderer().fill_rect(border_rect, self.tab_selected_color);
+            ctx.renderer()
+                .fill_rect(border_rect, self.tab_selected_color);
         }
 
         // Draw icon and text
@@ -1355,7 +1380,8 @@ impl TabBar {
 
             if let Some(img) = image {
                 let icon_rect = Rect::new(current_x, icon_y, self.icon_size, self.icon_size);
-                ctx.renderer().draw_image(img, icon_rect, ImageScaleMode::Fit);
+                ctx.renderer()
+                    .draw_image(img, icon_rect, ImageScaleMode::Fit);
             }
 
             current_x += self.icon_size + self.icon_spacing;
@@ -1381,7 +1407,11 @@ impl TabBar {
     }
 
     fn rounded_tab_rect(&self, rect: &Rect, is_selected: bool) -> RoundedRect {
-        let r = if is_selected { self.border_radius } else { self.border_radius / 2.0 };
+        let r = if is_selected {
+            self.border_radius
+        } else {
+            self.border_radius / 2.0
+        };
 
         // Round corners based on tab position
         let radii = match self.tab_position {
@@ -1426,7 +1456,11 @@ impl TabBar {
 
         // Draw X
         let padding = 4.0;
-        let color = if is_hovered { Color::WHITE } else { self.close_button_color };
+        let color = if is_hovered {
+            Color::WHITE
+        } else {
+            self.close_button_color
+        };
         let stroke = Stroke::new(color, 1.5);
 
         let p1 = Point::new(rect.origin.x + padding, rect.origin.y + padding);
@@ -1434,7 +1468,10 @@ impl TabBar {
             rect.origin.x + rect.width() - padding,
             rect.origin.y + rect.height() - padding,
         );
-        let p3 = Point::new(rect.origin.x + rect.width() - padding, rect.origin.y + padding);
+        let p3 = Point::new(
+            rect.origin.x + rect.width() - padding,
+            rect.origin.y + padding,
+        );
         let p4 = Point::new(
             rect.origin.x + padding,
             rect.origin.y + rect.height() - padding,
@@ -1528,7 +1565,12 @@ impl Widget for TabBar {
 // Color helper
 fn darken_color(color: Color, factor: f32) -> Color {
     let factor = 1.0 - factor.clamp(0.0, 1.0);
-    Color::new(color.r * factor, color.g * factor, color.b * factor, color.a)
+    Color::new(
+        color.r * factor,
+        color.g * factor,
+        color.b * factor,
+        color.a,
+    )
 }
 
 // Ensure TabBar is Send + Sync
@@ -1539,8 +1581,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicI32, Ordering},
         Arc,
+        atomic::{AtomicI32, Ordering},
     };
 
     fn setup() {
@@ -1689,9 +1731,7 @@ mod tests {
     #[test]
     fn test_icon_size_configuration() {
         setup();
-        let bar = TabBar::new()
-            .with_icon_size(24.0)
-            .with_icon_spacing(8.0);
+        let bar = TabBar::new().with_icon_size(24.0).with_icon_spacing(8.0);
 
         assert_eq!(bar.icon_size(), 24.0);
         assert_eq!(bar.icon_spacing(), 8.0);

@@ -9,9 +9,7 @@
 
 use std::sync::Arc;
 
-use horizon_lattice::platform::{
-    DateLength, DateTimeFormatter, NumberFormatter, TimeLength,
-};
+use horizon_lattice::platform::{DateLength, DateTimeFormatter, NumberFormatter, TimeLength};
 use horizon_lattice::render::{
     Color, GpuRenderer, GradientStop, GraphicsConfig, GraphicsContext, Paint, Point, Rect,
     RenderSurface, Renderer, RoundedRect, Size, Stroke, SurfaceConfig,
@@ -86,19 +84,43 @@ impl App {
 
         println!("\n=== Localization Test ({}) ===", self.current_locale);
         println!("Number Formatting:");
-        println!("  Integer 1234567: {}", num_formatter.format_integer(1234567));
+        println!(
+            "  Integer 1234567: {}",
+            num_formatter.format_integer(1234567)
+        );
         println!("  Float 1234567.89: {}", num_formatter.format(1234567.89));
-        println!("  Precision 3: {}", num_formatter.format_with_precision(1234.56789, 3));
+        println!(
+            "  Precision 3: {}",
+            num_formatter.format_with_precision(1234.56789, 3)
+        );
 
         println!("\nDate Formatting:");
-        println!("  Short: {}", dt_formatter.format_date(&now, DateLength::Short));
-        println!("  Medium: {}", dt_formatter.format_date(&now, DateLength::Medium));
-        println!("  Long: {}", dt_formatter.format_date(&now, DateLength::Long));
-        println!("  Full: {}", dt_formatter.format_date(&now, DateLength::Full));
+        println!(
+            "  Short: {}",
+            dt_formatter.format_date(&now, DateLength::Short)
+        );
+        println!(
+            "  Medium: {}",
+            dt_formatter.format_date(&now, DateLength::Medium)
+        );
+        println!(
+            "  Long: {}",
+            dt_formatter.format_date(&now, DateLength::Long)
+        );
+        println!(
+            "  Full: {}",
+            dt_formatter.format_date(&now, DateLength::Full)
+        );
 
         println!("\nTime Formatting:");
-        println!("  Short: {}", dt_formatter.format_time(&now, TimeLength::Short));
-        println!("  Medium: {}", dt_formatter.format_time(&now, TimeLength::Medium));
+        println!(
+            "  Short: {}",
+            dt_formatter.format_time(&now, TimeLength::Short)
+        );
+        println!(
+            "  Medium: {}",
+            dt_formatter.format_time(&now, TimeLength::Medium)
+        );
         println!("=====================================\n");
     }
 
@@ -112,8 +134,12 @@ impl App {
         let hovered_button = self.hovered_button;
         let current_locale = self.current_locale.clone();
 
-        let Some(surface) = &mut self.surface else { return };
-        let Some(renderer) = &mut self.renderer else { return };
+        let Some(surface) = &mut self.surface else {
+            return;
+        };
+        let Some(renderer) = &mut self.renderer else {
+            return;
+        };
 
         // Use fixed content size matching window logical size
         let content_size = Size::new(480.0, 520.0);
@@ -150,11 +176,12 @@ impl App {
         match active_mode % 3 {
             0 => {
                 // Shapes: square + circle
-                renderer.fill_rect(
-                    Rect::new(mode_icon_x, 22.0, 20.0, 20.0),
+                renderer.fill_rect(Rect::new(mode_icon_x, 22.0, 20.0, 20.0), current_mode_color);
+                renderer.fill_circle(
+                    Point::new(mode_icon_x + 45.0, 32.0),
+                    10.0,
                     current_mode_color,
                 );
-                renderer.fill_circle(Point::new(mode_icon_x + 45.0, 32.0), 10.0, current_mode_color);
             }
             1 => {
                 // Gradients: gradient bar
@@ -164,9 +191,18 @@ impl App {
                         Point::new(mode_icon_x, 25.0),
                         Point::new(mode_icon_x + 55.0, 25.0),
                         vec![
-                            GradientStop { offset: 0.0, color: Color::from_rgb8(255, 100, 100) },
-                            GradientStop { offset: 0.5, color: Color::from_rgb8(100, 200, 255) },
-                            GradientStop { offset: 1.0, color: Color::from_rgb8(100, 200, 100) },
+                            GradientStop {
+                                offset: 0.0,
+                                color: Color::from_rgb8(255, 100, 100),
+                            },
+                            GradientStop {
+                                offset: 0.5,
+                                color: Color::from_rgb8(100, 200, 255),
+                            },
+                            GradientStop {
+                                offset: 1.0,
+                                color: Color::from_rgb8(100, 200, 100),
+                            },
                         ],
                     ),
                 );
@@ -176,7 +212,10 @@ impl App {
                 renderer.save();
                 renderer.translate(mode_icon_x + 28.0, 32.0);
                 renderer.rotate(0.3);
-                renderer.fill_rect(Rect::new(-10.0, -10.0, 20.0, 20.0), Color::from_rgba8(100, 200, 100, 180));
+                renderer.fill_rect(
+                    Rect::new(-10.0, -10.0, 20.0, 20.0),
+                    Color::from_rgba8(100, 200, 100, 180),
+                );
                 renderer.restore();
                 renderer.save();
                 renderer.translate(mode_icon_x + 28.0, 32.0);
@@ -219,7 +258,14 @@ impl App {
         Self::draw_mouse_indicator(renderer, mouse_pos);
 
         // Draw status area at the bottom of the content area
-        Self::draw_status(renderer, content_size, active_mode, click_count, slider_value, &current_locale);
+        Self::draw_status(
+            renderer,
+            content_size,
+            active_mode,
+            click_count,
+            slider_value,
+            &current_locale,
+        );
 
         renderer.end_frame();
         if let Err(e) = renderer.render_to_surface(surface) {
@@ -304,8 +350,14 @@ impl App {
                 Point::new(20.0, 30.0),
                 Point::new(180.0, 30.0),
                 vec![
-                    GradientStop { offset: 0.0, color: Color::from_rgb8(255, 100, 150) },
-                    GradientStop { offset: 1.0, color: Color::from_rgb8(100, 200, 255) },
+                    GradientStop {
+                        offset: 0.0,
+                        color: Color::from_rgb8(255, 100, 150),
+                    },
+                    GradientStop {
+                        offset: 1.0,
+                        color: Color::from_rgb8(100, 200, 255),
+                    },
                 ],
             ),
         );
@@ -317,8 +369,14 @@ impl App {
                 Point::new(200.0, 30.0),
                 Point::new(200.0, 110.0),
                 vec![
-                    GradientStop { offset: 0.0, color: Color::from_rgb8(50, 50, 200) },
-                    GradientStop { offset: 1.0, color: Color::from_rgb8(200, 50, 50) },
+                    GradientStop {
+                        offset: 0.0,
+                        color: Color::from_rgb8(50, 50, 200),
+                    },
+                    GradientStop {
+                        offset: 1.0,
+                        color: Color::from_rgb8(200, 50, 50),
+                    },
                 ],
             ),
         );
@@ -330,11 +388,26 @@ impl App {
                 Point::new(20.0, 130.0),
                 Point::new(360.0, 130.0),
                 vec![
-                    GradientStop { offset: 0.0, color: Color::RED },
-                    GradientStop { offset: 0.25, color: Color::from_rgb8(255, 165, 0) },
-                    GradientStop { offset: 0.5, color: Color::YELLOW },
-                    GradientStop { offset: 0.75, color: Color::GREEN },
-                    GradientStop { offset: 1.0, color: Color::BLUE },
+                    GradientStop {
+                        offset: 0.0,
+                        color: Color::RED,
+                    },
+                    GradientStop {
+                        offset: 0.25,
+                        color: Color::from_rgb8(255, 165, 0),
+                    },
+                    GradientStop {
+                        offset: 0.5,
+                        color: Color::YELLOW,
+                    },
+                    GradientStop {
+                        offset: 0.75,
+                        color: Color::GREEN,
+                    },
+                    GradientStop {
+                        offset: 1.0,
+                        color: Color::BLUE,
+                    },
                 ],
             ),
         );
@@ -346,9 +419,18 @@ impl App {
                 Point::new(20.0, 230.0),
                 Point::new(180.0, 330.0),
                 vec![
-                    GradientStop { offset: 0.0, color: Color::from_rgb8(255, 255, 255) },
-                    GradientStop { offset: 0.5, color: Color::from_rgb8(100, 100, 200) },
-                    GradientStop { offset: 1.0, color: Color::from_rgb8(0, 0, 100) },
+                    GradientStop {
+                        offset: 0.0,
+                        color: Color::from_rgb8(255, 255, 255),
+                    },
+                    GradientStop {
+                        offset: 0.5,
+                        color: Color::from_rgb8(100, 100, 200),
+                    },
+                    GradientStop {
+                        offset: 1.0,
+                        color: Color::from_rgb8(0, 0, 100),
+                    },
                 ],
             ),
         );
@@ -360,8 +442,14 @@ impl App {
                 Point::new(200.0, 230.0),
                 Point::new(360.0, 330.0),
                 vec![
-                    GradientStop { offset: 0.0, color: Color::from_rgb8(255, 200, 100) },
-                    GradientStop { offset: 1.0, color: Color::from_rgb8(200, 100, 50) },
+                    GradientStop {
+                        offset: 0.0,
+                        color: Color::from_rgb8(255, 200, 100),
+                    },
+                    GradientStop {
+                        offset: 1.0,
+                        color: Color::from_rgb8(200, 100, 50),
+                    },
                 ],
             ),
         );
@@ -534,7 +622,14 @@ impl App {
         renderer.fill_circle(mouse_pos, 5.0, Color::from_rgba8(255, 0, 0, 128));
     }
 
-    fn draw_status(renderer: &mut GpuRenderer, viewport: Size, active_mode: usize, click_count: u32, slider_value: f32, current_locale: &str) {
+    fn draw_status(
+        renderer: &mut GpuRenderer,
+        viewport: Size,
+        active_mode: usize,
+        click_count: u32,
+        slider_value: f32,
+        current_locale: &str,
+    ) {
         // Status bar background
         renderer.fill_rect(
             Rect::new(0.0, viewport.height - 24.0, viewport.width, 24.0),
@@ -592,17 +687,42 @@ impl App {
         // Locale indicator (flag-like colored stripes)
         let locale_x = 280.0;
         let locale_colors = match current_locale {
-            "en-US" => [Color::from_rgb8(60, 60, 150), Color::WHITE, Color::from_rgb8(180, 50, 50)],
-            "en-GB" => [Color::from_rgb8(0, 36, 125), Color::WHITE, Color::from_rgb8(200, 16, 46)],
-            "de-DE" => [Color::BLACK, Color::from_rgb8(221, 0, 0), Color::from_rgb8(255, 206, 0)],
-            "fr-FR" => [Color::from_rgb8(0, 35, 149), Color::WHITE, Color::from_rgb8(237, 41, 57)],
+            "en-US" => [
+                Color::from_rgb8(60, 60, 150),
+                Color::WHITE,
+                Color::from_rgb8(180, 50, 50),
+            ],
+            "en-GB" => [
+                Color::from_rgb8(0, 36, 125),
+                Color::WHITE,
+                Color::from_rgb8(200, 16, 46),
+            ],
+            "de-DE" => [
+                Color::BLACK,
+                Color::from_rgb8(221, 0, 0),
+                Color::from_rgb8(255, 206, 0),
+            ],
+            "fr-FR" => [
+                Color::from_rgb8(0, 35, 149),
+                Color::WHITE,
+                Color::from_rgb8(237, 41, 57),
+            ],
             "ja-JP" => [Color::WHITE, Color::from_rgb8(188, 0, 45), Color::WHITE],
-            "es-ES" => [Color::from_rgb8(170, 21, 27), Color::from_rgb8(241, 191, 0), Color::from_rgb8(170, 21, 27)],
+            "es-ES" => [
+                Color::from_rgb8(170, 21, 27),
+                Color::from_rgb8(241, 191, 0),
+                Color::from_rgb8(170, 21, 27),
+            ],
             _ => [Color::GRAY, Color::GRAY, Color::GRAY],
         };
         for (i, color) in locale_colors.iter().enumerate() {
             renderer.fill_rect(
-                Rect::new(locale_x + i as f32 * 10.0, viewport.height - 18.0, 10.0, 12.0),
+                Rect::new(
+                    locale_x + i as f32 * 10.0,
+                    viewport.height - 18.0,
+                    10.0,
+                    12.0,
+                ),
                 *color,
             );
         }
@@ -651,7 +771,8 @@ impl App {
             track_rect.height() + 20.0,
         );
         if expanded_track.contains(pos) {
-            self.slider_value = ((pos.x - track_rect.origin.x) / track_rect.width()).clamp(0.0, 1.0);
+            self.slider_value =
+                ((pos.x - track_rect.origin.x) / track_rect.width()).clamp(0.0, 1.0);
             println!("Slider: {:.2}", self.slider_value);
         }
     }
@@ -692,7 +813,11 @@ impl ApplicationHandler for App {
             .with_inner_size(winit::dpi::PhysicalSize::new(480, 520))
             .with_resizable(false);
 
-        let window = Arc::new(event_loop.create_window(attrs).expect("Failed to create window"));
+        let window = Arc::new(
+            event_loop
+                .create_window(attrs)
+                .expect("Failed to create window"),
+        );
 
         // Create surface and renderer
         let surface = RenderSurface::new(Arc::clone(&window), SurfaceConfig::default())
@@ -745,7 +870,9 @@ impl ApplicationHandler for App {
                             );
                             if expanded_track.contains(self.mouse_pos) {
                                 self.slider_dragging = true;
-                                self.slider_value = ((self.mouse_pos.x - track_rect.origin.x) / track_rect.width()).clamp(0.0, 1.0);
+                                self.slider_value = ((self.mouse_pos.x - track_rect.origin.x)
+                                    / track_rect.width())
+                                .clamp(0.0, 1.0);
                             }
                         }
                         ElementState::Released => {
@@ -772,7 +899,11 @@ impl ApplicationHandler for App {
                             println!("Mode: {}", mode_names[self.active_mode]);
                         }
                         Key::Named(NamedKey::ArrowLeft) => {
-                            self.active_mode = if self.active_mode == 0 { 2 } else { self.active_mode - 1 };
+                            self.active_mode = if self.active_mode == 0 {
+                                2
+                            } else {
+                                self.active_mode - 1
+                            };
                             let mode_names = ["Shapes", "Gradients", "Transforms"];
                             println!("Mode: {}", mode_names[self.active_mode]);
                         }

@@ -251,8 +251,7 @@ impl AtomicWriter {
         let temp_name = format!(".{}.tmp.{}", file_name, std::process::id());
         let temp_path = parent.join(&temp_name);
 
-        let file =
-            fs::File::create(&temp_path).map_err(|e| FileError::from_io(e, &target_path))?;
+        let file = fs::File::create(&temp_path).map_err(|e| FileError::from_io(e, &target_path))?;
 
         Ok(Self {
             target_path,
@@ -319,10 +318,7 @@ impl AtomicWriter {
     /// is left unchanged.
     pub fn commit(mut self) -> FileResult<()> {
         // Take ownership of the writer
-        let mut writer = self
-            .writer
-            .take()
-            .expect("AtomicWriter already consumed");
+        let mut writer = self.writer.take().expect("AtomicWriter already consumed");
 
         // Flush and sync
         writer
@@ -357,14 +353,14 @@ impl Write for AtomicWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.writer
             .as_mut()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "AtomicWriter already consumed"))?
+            .ok_or_else(|| io::Error::other("AtomicWriter already consumed"))?
             .write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
         self.writer
             .as_mut()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "AtomicWriter already consumed"))?
+            .ok_or_else(|| io::Error::other("AtomicWriter already consumed"))?
             .flush()
     }
 }
@@ -462,10 +458,7 @@ mod tests {
         cleanup(&path);
 
         // Write atomically
-        AtomicWriter::write(&path, |w| {
-            w.write_all(b"atomic content")
-        })
-        .unwrap();
+        AtomicWriter::write(&path, |w| w.write_all(b"atomic content")).unwrap();
 
         let content = fs::read_to_string(&path).unwrap();
         assert_eq!(content, "atomic content");
@@ -504,10 +497,7 @@ mod tests {
         fs::write(&path, "original").unwrap();
 
         // Write atomically (should replace)
-        AtomicWriter::write(&path, |w| {
-            w.write_all(b"replaced")
-        })
-        .unwrap();
+        AtomicWriter::write(&path, |w| w.write_all(b"replaced")).unwrap();
 
         let content = fs::read_to_string(&path).unwrap();
         assert_eq!(content, "replaced");

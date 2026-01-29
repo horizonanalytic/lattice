@@ -43,8 +43,8 @@ use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use horizon_lattice_core::Signal;
 use parking_lot::Mutex;
@@ -264,8 +264,8 @@ impl DownloadManager {
     /// Returns `true` if the download was paused, `false` if it was not in a pausable state.
     pub fn pause(&self, id: DownloadId) -> bool {
         let mut downloads = self.downloads.lock();
-        if let Some(task) = downloads.get_mut(&id) {
-            if task.state == DownloadState::Downloading {
+        if let Some(task) = downloads.get_mut(&id)
+            && task.state == DownloadState::Downloading {
                 // Send cancel signal to stop the current download
                 if let Some(tx) = task.cancel_tx.take() {
                     let _ = tx.send(());
@@ -275,7 +275,6 @@ impl DownloadManager {
                 self.event.emit(DownloadEvent::Paused { id });
                 return true;
             }
-        }
         false
     }
 
@@ -285,8 +284,8 @@ impl DownloadManager {
     /// or the server doesn't support range requests.
     pub fn resume(&self, id: DownloadId) -> bool {
         let mut downloads = self.downloads.lock();
-        if let Some(task) = downloads.get_mut(&id) {
-            if task.state == DownloadState::Paused {
+        if let Some(task) = downloads.get_mut(&id)
+            && task.state == DownloadState::Paused {
                 if !task.supports_resume && task.bytes_downloaded > 0 {
                     // Server doesn't support resume, need to restart
                     task.bytes_downloaded = 0;
@@ -306,7 +305,6 @@ impl DownloadManager {
                 self.spawn_download_task(id, url, path, offset, cancel_rx);
                 return true;
             }
-        }
         false
     }
 
@@ -315,8 +313,8 @@ impl DownloadManager {
     /// Returns `true` if the download was cancelled.
     pub fn cancel(&self, id: DownloadId) -> bool {
         let mut downloads = self.downloads.lock();
-        if let Some(task) = downloads.get_mut(&id) {
-            if matches!(
+        if let Some(task) = downloads.get_mut(&id)
+            && matches!(
                 task.state,
                 DownloadState::Pending | DownloadState::Downloading | DownloadState::Paused
             ) {
@@ -329,7 +327,6 @@ impl DownloadManager {
                 self.event.emit(DownloadEvent::Cancelled { id });
                 return true;
             }
-        }
         false
     }
 
@@ -349,15 +346,14 @@ impl DownloadManager {
     /// Remove a completed, failed, or cancelled download from the manager.
     pub fn remove(&self, id: DownloadId) -> bool {
         let mut downloads = self.downloads.lock();
-        if let Some(task) = downloads.get(&id) {
-            if matches!(
+        if let Some(task) = downloads.get(&id)
+            && matches!(
                 task.state,
                 DownloadState::Completed | DownloadState::Failed | DownloadState::Cancelled
             ) {
                 downloads.remove(&id);
                 return true;
             }
-        }
         false
     }
 
@@ -428,7 +424,11 @@ impl DownloadManager {
 
                     if should_retry {
                         // Calculate backoff delay
-                        let retry_count = downloads.lock().get(&id).map(|t| t.retry_count).unwrap_or(1);
+                        let retry_count = downloads
+                            .lock()
+                            .get(&id)
+                            .map(|t| t.retry_count)
+                            .unwrap_or(1);
                         let delay = (retry_config.initial_delay_ms as f64
                             * retry_config.backoff_multiplier.powi(retry_count as i32 - 1))
                             as u64;
@@ -468,11 +468,17 @@ impl DownloadManager {
 
                             match result {
                                 Ok(()) => {
-                                    downloads.lock().get_mut(&id).map(|t| t.state = DownloadState::Completed);
+                                    downloads
+                                        .lock()
+                                        .get_mut(&id)
+                                        .map(|t| t.state = DownloadState::Completed);
                                     emit_event_inner(DownloadEvent::Finished { id, path });
                                 }
                                 Err(err) => {
-                                    downloads.lock().get_mut(&id).map(|t| t.state = DownloadState::Failed);
+                                    downloads
+                                        .lock()
+                                        .get_mut(&id)
+                                        .map(|t| t.state = DownloadState::Failed);
                                     emit_event_inner(DownloadEvent::Error {
                                         id,
                                         message: err.to_string(),
@@ -542,7 +548,8 @@ impl DownloadManager {
         {
             let mut downloads = downloads.lock();
             if let Some(task) = downloads.get_mut(&id) {
-                task.supports_resume = supports_resume || response.header("Accept-Ranges") == Some("bytes");
+                task.supports_resume =
+                    supports_resume || response.header("Accept-Ranges") == Some("bytes");
                 task.total_bytes = total_bytes;
                 if !supports_resume && offset > 0 {
                     // Server doesn't support resume, reset offset

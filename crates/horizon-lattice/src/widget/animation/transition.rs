@@ -4,7 +4,7 @@
 
 use std::time::{Duration, Instant};
 
-use super::easing::{ease, Easing};
+use super::easing::{Easing, ease};
 
 /// Type of transition effect.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -22,8 +22,10 @@ pub enum TransitionType {
 
 /// Current state of a transition.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default)]
 pub enum TransitionState {
     /// No transition in progress.
+    #[default]
     Idle,
     /// Transition is running.
     Running {
@@ -36,11 +38,6 @@ pub enum TransitionState {
     },
 }
 
-impl Default for TransitionState {
-    fn default() -> Self {
-        Self::Idle
-    }
-}
 
 impl TransitionState {
     /// Check if a transition is currently in progress.

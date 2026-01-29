@@ -261,7 +261,8 @@ impl WindowConfig {
     /// If explicit flags are set, returns those. Otherwise, returns
     /// the default flags for the window type.
     pub fn effective_flags(&self) -> WindowFlags {
-        self.flags.unwrap_or_else(|| self.window_type.default_flags())
+        self.flags
+            .unwrap_or_else(|| self.window_type.default_flags())
     }
 
     /// Get the aspect ratio constraint, if set.
@@ -282,9 +283,8 @@ impl WindowConfig {
     /// - Frameless flag
     pub fn has_decorations(&self) -> bool {
         let flags = self.effective_flags();
-        self.decorations.unwrap_or_else(|| {
-            self.window_type.has_decorations() && !flags.is_frameless()
-        })
+        self.decorations
+            .unwrap_or_else(|| self.window_type.has_decorations() && !flags.is_frameless())
     }
 
     /// Convert to winit `WindowAttributes`.
@@ -309,19 +309,20 @@ impl WindowConfig {
 
         // Position
         if let Some((x, y)) = self.position {
-            attrs = attrs.with_position(Position::Logical(LogicalPosition::new(x as f64, y as f64)));
+            attrs =
+                attrs.with_position(Position::Logical(LogicalPosition::new(x as f64, y as f64)));
         }
 
         // Resizable
-        let resizable = self.resizable.unwrap_or_else(|| {
-            self.window_type.is_resizable() && flags.is_resizable()
-        });
+        let resizable = self
+            .resizable
+            .unwrap_or_else(|| self.window_type.is_resizable() && flags.is_resizable());
         attrs = attrs.with_resizable(resizable);
 
         // Decorations
-        let decorations = self.decorations.unwrap_or_else(|| {
-            self.window_type.has_decorations() && !flags.is_frameless()
-        });
+        let decorations = self
+            .decorations
+            .unwrap_or_else(|| self.window_type.has_decorations() && !flags.is_frameless());
         attrs = attrs.with_decorations(decorations);
 
         // Transparency
@@ -360,11 +361,10 @@ impl WindowConfig {
         attrs = attrs.with_enabled_buttons(buttons);
 
         // Icon
-        if let Some(ref icon) = self.icon {
-            if let Ok(winit_icon) = icon.to_winit_icon() {
+        if let Some(ref icon) = self.icon
+            && let Ok(winit_icon) = icon.to_winit_icon() {
                 attrs = attrs.with_window_icon(Some(winit_icon));
             }
-        }
 
         attrs
     }
@@ -456,20 +456,17 @@ mod tests {
         assert_eq!(config.aspect_ratio(), None);
 
         // Set 16:9 aspect ratio
-        let config = WindowConfig::new("Video Player")
-            .with_aspect_ratio(16.0 / 9.0);
+        let config = WindowConfig::new("Video Player").with_aspect_ratio(16.0 / 9.0);
         let ratio = config.aspect_ratio().unwrap();
         assert!((ratio - 1.777).abs() < 0.01);
 
         // Set 4:3 aspect ratio
-        let config = WindowConfig::new("Classic")
-            .with_aspect_ratio(4.0 / 3.0);
+        let config = WindowConfig::new("Classic").with_aspect_ratio(4.0 / 3.0);
         let ratio = config.aspect_ratio().unwrap();
         assert!((ratio - 1.333).abs() < 0.01);
 
         // Set square aspect ratio
-        let config = WindowConfig::new("Square")
-            .with_aspect_ratio(1.0);
+        let config = WindowConfig::new("Square").with_aspect_ratio(1.0);
         assert_eq!(config.aspect_ratio(), Some(1.0));
     }
 

@@ -85,7 +85,9 @@ impl GrpcMetadata {
     /// Remove a metadata entry.
     pub fn remove(&mut self, key: &str) -> Option<String> {
         let key = MetadataKey::<Ascii>::from_str(key).ok()?;
-        self.inner.remove(&key).and_then(|v| v.to_str().ok().map(|s| s.to_string()))
+        self.inner
+            .remove(&key)
+            .and_then(|v| v.to_str().ok().map(|s| s.to_string()))
     }
 
     /// Check if a key exists.
@@ -113,15 +115,13 @@ impl GrpcMetadata {
 
     /// Iterate over ASCII entries.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.inner
-            .iter()
-            .filter_map(|entry| {
-                if let tonic::metadata::KeyAndValueRef::Ascii(key, value) = entry {
-                    Some((key.as_str(), value.to_str().ok()?))
-                } else {
-                    None
-                }
-            })
+        self.inner.iter().filter_map(|entry| {
+            if let tonic::metadata::KeyAndValueRef::Ascii(key, value) = entry {
+                Some((key.as_str(), value.to_str().ok()?))
+            } else {
+                None
+            }
+        })
     }
 
     /// Get the underlying tonic MetadataMap.
@@ -169,6 +169,10 @@ impl From<GrpcMetadata> for MetadataMap {
 }
 
 /// Extension trait to apply metadata to gRPC requests.
+///
+/// This trait is designed to be used by library consumers for adding
+/// metadata to gRPC requests.
+#[allow(dead_code)] // Public API - used by library consumers
 pub trait WithMetadata {
     /// Apply metadata to this request.
     fn with_metadata(self, metadata: &GrpcMetadata) -> Self;

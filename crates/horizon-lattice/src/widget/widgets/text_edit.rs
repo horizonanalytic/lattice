@@ -35,8 +35,7 @@ use parking_lot::RwLock;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::styled_document::{
-    BlockFormat, BlockRun, CharFormat, FormatRun, LineSpacing, ListFormat, ListStyle,
-    StyledDocument,
+    BlockRun, CharFormat, FormatRun, LineSpacing, ListFormat, ListStyle, StyledDocument,
 };
 use crate::platform::Clipboard;
 use horizon_lattice_core::{Object, ObjectId, Signal};
@@ -241,13 +240,11 @@ impl UndoStack {
         self.commands.truncate(self.index);
 
         // Try to merge with the last command if merging is enabled
-        if self.merge_enabled {
-            if let Some(last) = self.commands.last_mut() {
-                if last.try_merge(&command) {
+        if self.merge_enabled
+            && let Some(last) = self.commands.last_mut()
+                && last.try_merge(&command) {
                     return;
                 }
-            }
-        }
 
         self.commands.push(command);
         self.index = self.commands.len();
@@ -476,7 +473,6 @@ pub struct TextEdit {
     current_search_highlight_color: Color,
 
     // Signals
-
     /// Signal emitted when text changes.
     pub text_changed: Signal<String>,
 
@@ -514,7 +510,10 @@ impl TextEdit {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         Self {
             base,
@@ -899,10 +898,8 @@ impl TextEdit {
             let old_runs = self.document.capture_format_runs(&range);
 
             // Toggle bold on selection
-            self.document.toggle_format(
-                range.clone(),
-                CharFormat::new().with_bold(true),
-            );
+            self.document
+                .toggle_format(range.clone(), CharFormat::new().with_bold(true));
 
             // Capture new format runs after the change
             let new_runs = self.document.capture_format_runs(&range);
@@ -939,10 +936,8 @@ impl TextEdit {
             let old_runs = self.document.capture_format_runs(&range);
 
             // Toggle italic on selection
-            self.document.toggle_format(
-                range.clone(),
-                CharFormat::new().with_italic(true),
-            );
+            self.document
+                .toggle_format(range.clone(), CharFormat::new().with_italic(true));
 
             // Capture new format runs after the change
             let new_runs = self.document.capture_format_runs(&range);
@@ -979,10 +974,8 @@ impl TextEdit {
             let old_runs = self.document.capture_format_runs(&range);
 
             // Toggle underline on selection
-            self.document.toggle_format(
-                range.clone(),
-                CharFormat::new().with_underline(true),
-            );
+            self.document
+                .toggle_format(range.clone(), CharFormat::new().with_underline(true));
 
             // Capture new format runs after the change
             let new_runs = self.document.capture_format_runs(&range);
@@ -1019,10 +1012,8 @@ impl TextEdit {
             let old_runs = self.document.capture_format_runs(&range);
 
             // Toggle strikethrough on selection
-            self.document.toggle_format(
-                range.clone(),
-                CharFormat::new().with_strikethrough(true),
-            );
+            self.document
+                .toggle_format(range.clone(), CharFormat::new().with_strikethrough(true));
 
             // Capture new format runs after the change
             let new_runs = self.document.capture_format_runs(&range);
@@ -1139,7 +1130,10 @@ impl TextEdit {
             if underline {
                 self.apply_format_to_range(range.clone(), CharFormat::new().with_underline(true));
             } else {
-                self.remove_format_from_range(range.clone(), CharFormat::new().with_underline(true));
+                self.remove_format_from_range(
+                    range.clone(),
+                    CharFormat::new().with_underline(true),
+                );
             }
 
             // Capture new format runs after the change
@@ -1175,9 +1169,15 @@ impl TextEdit {
             let old_runs = self.document.capture_format_runs(&range);
 
             if strikethrough {
-                self.apply_format_to_range(range.clone(), CharFormat::new().with_strikethrough(true));
+                self.apply_format_to_range(
+                    range.clone(),
+                    CharFormat::new().with_strikethrough(true),
+                );
             } else {
-                self.remove_format_from_range(range.clone(), CharFormat::new().with_strikethrough(true));
+                self.remove_format_from_range(
+                    range.clone(),
+                    CharFormat::new().with_strikethrough(true),
+                );
             }
 
             // Capture new format runs after the change
@@ -1565,7 +1565,8 @@ impl TextEdit {
 
         self.invalidate_layout();
         self.base.update();
-        self.indent_changed.emit((indent, self.paragraph_first_line_indent()));
+        self.indent_changed
+            .emit((indent, self.paragraph_first_line_indent()));
     }
 
     /// Set the first line indent for the current paragraph(s).
@@ -1594,7 +1595,8 @@ impl TextEdit {
 
         self.invalidate_layout();
         self.base.update();
-        self.indent_changed.emit((self.paragraph_left_indent(), indent));
+        self.indent_changed
+            .emit((self.paragraph_left_indent(), indent));
     }
 
     /// Increase the left indent of the current paragraph(s) by the standard step.
@@ -1624,7 +1626,8 @@ impl TextEdit {
         self.invalidate_layout();
         self.base.update();
         let left_indent = self.paragraph_left_indent();
-        self.indent_changed.emit((left_indent, self.paragraph_first_line_indent()));
+        self.indent_changed
+            .emit((left_indent, self.paragraph_first_line_indent()));
     }
 
     /// Decrease the left indent of the current paragraph(s) by the standard step.
@@ -1655,7 +1658,8 @@ impl TextEdit {
         self.invalidate_layout();
         self.base.update();
         let left_indent = self.paragraph_left_indent();
-        self.indent_changed.emit((left_indent, self.paragraph_first_line_indent()));
+        self.indent_changed
+            .emit((left_indent, self.paragraph_first_line_indent()));
     }
 
     /// Set the line spacing for the current paragraph(s).
@@ -2184,7 +2188,8 @@ impl TextEdit {
     ///
     /// Returns owned spans that can be used with TextLayout::rich_text.
     fn styled_spans_for_rendering(&self) -> Vec<(String, CharFormat)> {
-        self.document.to_styled_spans()
+        self.document
+            .to_styled_spans()
             .into_iter()
             .map(|(text, format)| (text.to_string(), format))
             .collect()
@@ -2213,7 +2218,8 @@ impl TextEdit {
         }
 
         // Insert into the styled document with current cursor format first
-        self.document.insert(self.cursor_pos, text, self.cursor_format.clone());
+        self.document
+            .insert(self.cursor_pos, text, self.cursor_format.clone());
 
         // Then insert into the plain text buffer
         self.text.insert_str(self.cursor_pos, text);
@@ -2395,11 +2401,10 @@ impl TextEdit {
             return;
         }
 
-        if let Ok(mut clipboard) = Clipboard::new() {
-            if let Ok(text) = clipboard.get_text() {
+        if let Ok(mut clipboard) = Clipboard::new()
+            && let Ok(text) = clipboard.get_text() {
                 self.insert_text(&text);
             }
-        }
     }
 
     /// Insert content from a StyledDocument at the current cursor position.
@@ -2425,7 +2430,8 @@ impl TextEdit {
 
         // Insert the plain text first (this handles undo stack)
         self.text.insert_str(insert_pos, text);
-        self.document.insert(insert_pos, text, CharFormat::default());
+        self.document
+            .insert(insert_pos, text, CharFormat::default());
 
         // Apply all format runs from the source document, shifted by insert position
         for run in source.format_runs() {
@@ -2450,24 +2456,31 @@ impl TextEdit {
 
             // Apply list format if present
             if let Some(list_fmt) = &block_format.list_format {
-                self.document.set_list_format(para_range.clone(), Some(list_fmt.clone()));
+                self.document
+                    .set_list_format(para_range.clone(), Some(list_fmt.clone()));
             }
             // Apply alignment
-            self.document.set_alignment(para_range.clone(), block_format.alignment);
+            self.document
+                .set_alignment(para_range.clone(), block_format.alignment);
             // Apply indentation
-            self.document.set_left_indent(para_range.clone(), block_format.left_indent);
+            self.document
+                .set_left_indent(para_range.clone(), block_format.left_indent);
             if block_format.first_line_indent != 0.0 {
-                self.document.set_first_line_indent(para_range.clone(), block_format.first_line_indent);
+                self.document
+                    .set_first_line_indent(para_range.clone(), block_format.first_line_indent);
             }
             // Apply spacing
             if block_format.spacing_before != 0.0 {
-                self.document.set_spacing_before(para_range.clone(), block_format.spacing_before);
+                self.document
+                    .set_spacing_before(para_range.clone(), block_format.spacing_before);
             }
             if block_format.spacing_after != 0.0 {
-                self.document.set_spacing_after(para_range.clone(), block_format.spacing_after);
+                self.document
+                    .set_spacing_after(para_range.clone(), block_format.spacing_after);
             }
             // Apply line spacing
-            self.document.set_line_spacing(para_range.clone(), block_format.line_spacing);
+            self.document
+                .set_line_spacing(para_range.clone(), block_format.line_spacing);
 
             // Move to next paragraph
             current_offset = para_range.end;
@@ -2732,11 +2745,10 @@ impl TextEdit {
         };
 
         // Check if cached layout is still valid
-        if let Some(ref c) = *cached {
-            if c.text == self.text && c.width == max_width {
+        if let Some(ref c) = *cached
+            && c.text == self.text && c.width == max_width {
                 return;
             }
-        }
 
         // Create new layout
         let options = TextLayoutOptions::default()
@@ -2832,11 +2844,10 @@ impl TextEdit {
     /// Get the byte position at the start of a line.
     fn line_start(&self, line: usize) -> usize {
         let cached = self.cached_layout.read();
-        if let Some(ref c) = *cached {
-            if line < c.line_starts.len() {
+        if let Some(ref c) = *cached
+            && line < c.line_starts.len() {
                 return c.line_starts[line];
             }
-        }
         // Fall back to computing it
         let mut current_line = 0;
         for (i, c) in self.text.char_indices() {
@@ -3641,7 +3652,11 @@ impl TextEdit {
 
         if event.modifiers.shift || event.delta_x.abs() > event.delta_y.abs() {
             // Horizontal scroll
-            let delta = if event.modifiers.shift { event.delta_y } else { event.delta_x };
+            let delta = if event.modifiers.shift {
+                event.delta_y
+            } else {
+                event.delta_x
+            };
             let new_x = self.scroll_x - delta * scroll_amount / 120.0;
             let (max_x, _) = self.max_scroll();
             self.scroll_x = new_x.clamp(0.0, max_x);
@@ -3699,18 +3714,18 @@ impl TextEdit {
         // Paint text or placeholder
         if self.text.is_empty() {
             if !self.placeholder.is_empty() {
-                let options = TextLayoutOptions::default()
-                    .wrap(self.wrap_mode.to_render_wrap());
+                let options = TextLayoutOptions::default().wrap(self.wrap_mode.to_render_wrap());
                 let options = if self.wrap_mode != TextWrapMode::NoWrap {
                     options.max_width(content_rect.width())
                 } else {
                     options
                 };
-                let layout = TextLayout::with_options(font_system, &self.placeholder, &self.font, options);
+                let layout =
+                    TextLayout::with_options(font_system, &self.placeholder, &self.font, options);
 
                 // Prepare glyphs for rendering
-                if let Ok(mut text_renderer) = TextRenderer::new() {
-                    if let Ok(_prepared_glyphs) = text_renderer.prepare_layout(
+                if let Ok(mut text_renderer) = TextRenderer::new()
+                    && let Ok(_prepared_glyphs) = text_renderer.prepare_layout(
                         font_system,
                         &layout,
                         Point::new(0.0, 0.0),
@@ -3719,7 +3734,6 @@ impl TextEdit {
                         // Note: Actual glyph rendering requires integration with the
                         // application's render pass system.
                     }
-                }
             }
         } else if self.has_formatting() || self.has_block_formatting() {
             // Rich text rendering: use styled spans (also used when there's block formatting)
@@ -3814,8 +3828,8 @@ impl TextEdit {
             let layout = TextLayout::rich_text(font_system, &text_spans, &self.font, options);
 
             // Prepare glyphs for rendering
-            if let Ok(mut text_renderer) = TextRenderer::new() {
-                if let Ok(_prepared_glyphs) = text_renderer.prepare_layout(
+            if let Ok(mut text_renderer) = TextRenderer::new()
+                && let Ok(_prepared_glyphs) = text_renderer.prepare_layout(
                     font_system,
                     &layout,
                     Point::new(0.0, 0.0),
@@ -3824,15 +3838,14 @@ impl TextEdit {
                     // Note: Actual glyph rendering requires integration with the
                     // application's render pass system.
                 }
-            }
         } else {
             // Plain text rendering: use cached layout
             self.ensure_layout(font_system);
             let cached = self.cached_layout.read();
             if let Some(ref c) = *cached {
                 // Prepare glyphs for rendering
-                if let Ok(mut text_renderer) = TextRenderer::new() {
-                    if let Ok(_prepared_glyphs) = text_renderer.prepare_layout(
+                if let Ok(mut text_renderer) = TextRenderer::new()
+                    && let Ok(_prepared_glyphs) = text_renderer.prepare_layout(
                         font_system,
                         &c.layout,
                         Point::new(0.0, 0.0),
@@ -3841,7 +3854,6 @@ impl TextEdit {
                         // Note: Actual glyph rendering requires integration with the
                         // application's render pass system.
                     }
-                }
             }
         }
 
@@ -3855,7 +3867,13 @@ impl TextEdit {
         ctx.renderer().restore();
     }
 
-    fn paint_selection(&self, ctx: &mut PaintContext<'_>, start: usize, end: usize, line_height: f32) {
+    fn paint_selection(
+        &self,
+        ctx: &mut PaintContext<'_>,
+        start: usize,
+        end: usize,
+        line_height: f32,
+    ) {
         let start_pos = self.byte_pos_to_line_column(start);
         let end_pos = self.byte_pos_to_line_column(end);
 
@@ -3876,7 +3894,8 @@ impl TextEdit {
             let width = (line_end_col - line_start_col) as f32 * char_width;
 
             let selection_rect = Rect::new(x, y, width.max(char_width), line_height);
-            ctx.renderer().fill_rect(selection_rect, self.selection_color);
+            ctx.renderer()
+                .fill_rect(selection_rect, self.selection_color);
         }
     }
 
@@ -3919,7 +3938,12 @@ impl TextEdit {
     }
 
     /// Paint list markers for list items.
-    fn paint_list_markers(&self, _ctx: &mut PaintContext<'_>, font_system: &mut FontSystem, line_height: f32) {
+    fn paint_list_markers(
+        &self,
+        _ctx: &mut PaintContext<'_>,
+        font_system: &mut FontSystem,
+        line_height: f32,
+    ) {
         if !self.has_list_formatting() {
             return;
         }
@@ -3933,9 +3957,7 @@ impl TextEdit {
             let block_format = self.document.block_format_at(para_idx);
             let Some(ref list_format) = block_format.list_format else {
                 // Reset item counts when we hit a non-list paragraph
-                for count in &mut item_counts {
-                    *count = 0;
-                }
+                item_counts.fill(0);
                 continue;
             };
 
@@ -3952,7 +3974,9 @@ impl TextEdit {
             } else {
                 // For numbered lists, track the count at this level
                 let item_number = item_counts.get(indent_level).copied().unwrap_or(0);
-                let marker = list_format.style.number_marker(item_number, list_format.start)
+                let marker = list_format
+                    .style
+                    .number_marker(item_number, list_format.start)
                     .unwrap_or_else(|| format!("{}.", item_number + 1));
 
                 // Increment the count for this level
@@ -3974,8 +3998,8 @@ impl TextEdit {
             let layout = TextLayout::new(font_system, &marker, &self.font);
 
             // Prepare and render the marker
-            if let Ok(mut text_renderer) = TextRenderer::new() {
-                if let Ok(_prepared_glyphs) = text_renderer.prepare_layout(
+            if let Ok(mut text_renderer) = TextRenderer::new()
+                && let Ok(_prepared_glyphs) = text_renderer.prepare_layout(
                     font_system,
                     &layout,
                     Point::new(marker_x, para_y),
@@ -3984,7 +4008,6 @@ impl TextEdit {
                     // Note: Actual glyph rendering requires integration with the
                     // application's render pass system.
                 }
-            }
         }
     }
 
@@ -4017,7 +4040,8 @@ impl TextEdit {
                 self.scrollbar_thickness,
                 rect.height() - self.scrollbar_thickness,
             );
-            ctx.renderer().fill_rect(track_rect, Color::from_rgb8(240, 240, 240));
+            ctx.renderer()
+                .fill_rect(track_rect, Color::from_rgb8(240, 240, 240));
 
             let visible_ratio = viewport.height() / content_size.height;
             let thumb_height = (track_rect.height() * visible_ratio).max(20.0);
@@ -4035,7 +4059,8 @@ impl TextEdit {
                 thumb_height - 4.0,
             );
             let thumb_rrect = horizon_lattice_render::RoundedRect::new(thumb_rect, 4.0);
-            ctx.renderer().fill_rounded_rect(thumb_rrect, Color::from_rgb8(180, 180, 180));
+            ctx.renderer()
+                .fill_rounded_rect(thumb_rrect, Color::from_rgb8(180, 180, 180));
         }
 
         // Horizontal scrollbar (only if no wrap)
@@ -4046,7 +4071,8 @@ impl TextEdit {
                 rect.width() - self.scrollbar_thickness,
                 self.scrollbar_thickness,
             );
-            ctx.renderer().fill_rect(track_rect, Color::from_rgb8(240, 240, 240));
+            ctx.renderer()
+                .fill_rect(track_rect, Color::from_rgb8(240, 240, 240));
 
             let visible_ratio = viewport.width() / content_size.width;
             let thumb_width = (track_rect.width() * visible_ratio).max(20.0);
@@ -4064,7 +4090,8 @@ impl TextEdit {
                 self.scrollbar_thickness - 4.0,
             );
             let thumb_rrect = horizon_lattice_render::RoundedRect::new(thumb_rect, 4.0);
-            ctx.renderer().fill_rounded_rect(thumb_rrect, Color::from_rgb8(180, 180, 180));
+            ctx.renderer()
+                .fill_rounded_rect(thumb_rrect, Color::from_rgb8(180, 180, 180));
         }
 
         // Corner (if both scrollbars visible)
@@ -4078,7 +4105,8 @@ impl TextEdit {
                 self.scrollbar_thickness,
                 self.scrollbar_thickness,
             );
-            ctx.renderer().fill_rect(corner_rect, Color::from_rgb8(230, 230, 230));
+            ctx.renderer()
+                .fill_rect(corner_rect, Color::from_rgb8(230, 230, 230));
         }
     }
 }
@@ -4105,8 +4133,7 @@ impl Widget for TextEdit {
     }
 
     fn size_hint(&self) -> SizeHint {
-        SizeHint::from_dimensions(300.0, 200.0)
-            .with_minimum_dimensions(100.0, 50.0)
+        SizeHint::from_dimensions(300.0, 200.0).with_minimum_dimensions(100.0, 50.0)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
@@ -4271,8 +4298,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
 
     fn setup() {
@@ -4589,10 +4616,7 @@ mod tests {
         let mut edit = TextEdit::new();
         edit.set_text("hello world hello");
 
-        let matches = vec![
-            SearchMatch::new(0, 5),
-            SearchMatch::new(12, 17),
-        ];
+        let matches = vec![SearchMatch::new(0, 5), SearchMatch::new(12, 17)];
         edit.set_search_matches(matches.clone());
 
         // Verify internal state is set
@@ -4939,7 +4963,10 @@ mod tests {
         // Apply red color to "Hello"
         edit.set_selection(0, 5);
         edit.set_char_foreground_color(Some(Color::RED));
-        assert_eq!(edit.document.format_at(0).foreground_color, Some(Color::RED));
+        assert_eq!(
+            edit.document.format_at(0).foreground_color,
+            Some(Color::RED)
+        );
 
         // Undo
         edit.undo();
@@ -4947,7 +4974,10 @@ mod tests {
 
         // Redo
         edit.redo();
-        assert_eq!(edit.document.format_at(0).foreground_color, Some(Color::RED));
+        assert_eq!(
+            edit.document.format_at(0).foreground_color,
+            Some(Color::RED)
+        );
     }
 
     #[test]
@@ -4996,15 +5026,24 @@ mod tests {
         // Set first paragraph to center
         edit.set_cursor_position(2); // In "Hello"
         edit.set_paragraph_alignment(HorizontalAlign::Center);
-        assert_eq!(edit.document.block_format_at(0).alignment, HorizontalAlign::Center);
+        assert_eq!(
+            edit.document.block_format_at(0).alignment,
+            HorizontalAlign::Center
+        );
 
         // Undo
         edit.undo();
-        assert_eq!(edit.document.block_format_at(0).alignment, HorizontalAlign::Left);
+        assert_eq!(
+            edit.document.block_format_at(0).alignment,
+            HorizontalAlign::Left
+        );
 
         // Redo
         edit.redo();
-        assert_eq!(edit.document.block_format_at(0).alignment, HorizontalAlign::Center);
+        assert_eq!(
+            edit.document.block_format_at(0).alignment,
+            HorizontalAlign::Center
+        );
     }
 
     #[test]

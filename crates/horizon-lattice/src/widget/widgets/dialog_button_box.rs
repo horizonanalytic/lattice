@@ -33,8 +33,8 @@ use crate::widget::{
     WidgetEvent,
 };
 
-use super::push_button::PushButton;
 use super::abstract_button::ButtonVariant;
+use super::push_button::PushButton;
 
 // ============================================================================
 // Standard Buttons
@@ -405,7 +405,10 @@ impl DialogButtonBox {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::NoFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Fixed));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Fixed,
+        ));
 
         Self {
             base,
@@ -543,7 +546,8 @@ impl DialogButtonBox {
         }
 
         // Sort buttons by platform-specific order
-        self.buttons.sort_by_key(|b| self.button_order.sort_key(b.role));
+        self.buttons
+            .sort_by_key(|b| self.button_order.sort_key(b.role));
     }
 
     // =========================================================================
@@ -575,7 +579,8 @@ impl DialogButtonBox {
         });
 
         // Re-sort buttons
-        self.buttons.sort_by_key(|b| self.button_order.sort_key(b.role));
+        self.buttons
+            .sort_by_key(|b| self.button_order.sort_key(b.role));
 
         self.base.update();
         button_id
@@ -649,7 +654,8 @@ impl DialogButtonBox {
         if self.button_order != order {
             self.button_order = order;
             // Re-sort buttons
-            self.buttons.sort_by_key(|b| self.button_order.sort_key(b.role));
+            self.buttons
+                .sort_by_key(|b| self.button_order.sort_key(b.role));
             self.base.update();
         }
     }
@@ -749,8 +755,7 @@ impl DialogButtonBox {
 
                 // Start from the right side (standard dialog convention)
                 let start_x = content_rect.origin.x + content_rect.width() - total_width;
-                let y = content_rect.origin.y
-                    + (content_rect.height() - button_size.height) / 2.0;
+                let y = content_rect.origin.y + (content_rect.height() - button_size.height) / 2.0;
 
                 for (i, info) in self.buttons.iter().enumerate() {
                     let x = start_x + (button_size.width + self.spacing) * i as f32;
@@ -764,10 +769,8 @@ impl DialogButtonBox {
                 let total_height = button_size.height * total_buttons as f32 + total_spacing;
 
                 // Center horizontally
-                let x = content_rect.origin.x
-                    + (content_rect.width() - button_size.width) / 2.0;
-                let start_y = content_rect.origin.y
-                    + (content_rect.height() - total_height) / 2.0;
+                let x = content_rect.origin.x + (content_rect.width() - button_size.width) / 2.0;
+                let start_y = content_rect.origin.y + (content_rect.height() - total_height) / 2.0;
 
                 for (i, info) in self.buttons.iter().enumerate() {
                     let y = start_y + (button_size.height + self.spacing) * i as f32;

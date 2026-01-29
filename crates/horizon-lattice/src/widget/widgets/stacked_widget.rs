@@ -30,7 +30,9 @@ use horizon_lattice_render::{Color, Rect, Renderer, Stroke};
 
 use crate::widget::animation::{Easing, TransitionType};
 use crate::widget::layout::{ContentMargins, Layout, LayoutItem, StackLayout, StackSizeMode};
-use crate::widget::{PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent};
+use crate::widget::{
+    PaintContext, SizeHint, SizePolicy, SizePolicyPair, Widget, WidgetBase, WidgetEvent,
+};
 
 use std::time::Duration;
 
@@ -80,7 +82,10 @@ impl StackedWidget {
     /// Create a new stacked widget.
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         Self {
             base,
@@ -119,7 +124,8 @@ impl StackedWidget {
         };
 
         self.pages.insert(insert_pos, widget_id);
-        self.stack_layout.insert_item(insert_pos, LayoutItem::Widget(widget_id));
+        self.stack_layout
+            .insert_item(insert_pos, LayoutItem::Widget(widget_id));
         self.base.update();
         insert_pos as i32
     }
@@ -512,7 +518,7 @@ mod tests {
     use super::*;
     use crate::widget::base::WidgetBase;
     use crate::widget::traits::{PaintContext, Widget};
-    use horizon_lattice_core::{init_global_registry, Object};
+    use horizon_lattice_core::{Object, init_global_registry};
 
     /// Mock widget for testing.
     struct MockWidget {

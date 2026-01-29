@@ -51,8 +51,10 @@ use crate::types::{Color, Size};
 /// good coverage for different UI contexts (toolbars, menus, dialogs, etc.).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(u32)]
+#[derive(Default)]
 pub enum IconSize {
     /// 16x16 - Small icons for menus and compact toolbars
+    #[default]
     Size16 = 16,
     /// 22x22 - Common toolbar size
     Size22 = 22,
@@ -139,11 +141,6 @@ impl IconSize {
     }
 }
 
-impl Default for IconSize {
-    fn default() -> Self {
-        IconSize::Size16
-    }
-}
 
 impl From<IconSize> for Size {
     fn from(size: IconSize) -> Self {
@@ -188,7 +185,10 @@ impl IconState {
 
     /// Check if this is an interactive/active state.
     pub fn is_interactive(self) -> bool {
-        matches!(self, IconState::Active | IconState::Selected | IconState::Focused)
+        matches!(
+            self,
+            IconState::Active | IconState::Selected | IconState::Focused
+        )
     }
 }
 
@@ -265,11 +265,10 @@ impl SizedIconSet {
         }
 
         // Try exact match first
-        if let Some(size) = IconSize::from_pixels(target) {
-            if let Some(source) = self.variants.get(&size) {
+        if let Some(size) = IconSize::from_pixels(target)
+            && let Some(source) = self.variants.get(&size) {
                 return Some((size, source));
             }
-        }
 
         // Find smallest size >= target (prefer scaling down)
         for (&size, source) in &self.variants {
@@ -524,7 +523,6 @@ pub struct Icon {
     loaded_disabled_image: Option<Image>,
 
     // Advanced variant support
-
     /// Size variants for different display sizes.
     sized_variants: Option<SizedIconSet>,
 
@@ -677,7 +675,9 @@ impl Icon {
 
     /// Check if this icon has size variants.
     pub fn has_size_variants(&self) -> bool {
-        self.sized_variants.as_ref().map_or(false, |s| !s.is_empty())
+        self.sized_variants
+            .as_ref()
+            .is_some_and(|s| !s.is_empty())
     }
 
     /// Get the best image for a target pixel size.
@@ -686,11 +686,10 @@ impl Icon {
     /// Otherwise, returns the primary image.
     pub fn image_for_size(&self, target_pixels: u32) -> Option<&Image> {
         // Try sized variants first
-        if let Some(set) = &self.sized_variants {
-            if let Some((_size, source)) = set.best_for_pixels(target_pixels) {
+        if let Some(set) = &self.sized_variants
+            && let Some((_size, source)) = set.best_for_pixels(target_pixels) {
                 return source.image();
             }
-        }
         // Fall back to primary image
         self.image()
     }
@@ -729,7 +728,7 @@ impl Icon {
     pub fn has_state_variant(&self, state: IconState) -> bool {
         self.state_variants
             .as_ref()
-            .map_or(false, |s| s.has_state(state))
+            .is_some_and(|s| s.has_state(state))
     }
 
     /// Get the image for a specific state.
@@ -788,7 +787,7 @@ impl Icon {
     pub fn has_theme_variant(&self, mode: IconThemeMode) -> bool {
         self.themed_variants
             .as_ref()
-            .map_or(false, |s| s.has_mode(mode))
+            .is_some_and(|s| s.has_mode(mode))
     }
 
     /// Get the image for a specific theme mode.
@@ -1380,8 +1379,8 @@ mod tests {
 
     #[test]
     fn test_icon_with_themed_variants() {
-        let icon = Icon::from_path("light.png")
-            .with_dark_variant(IconSource::Path("dark.png".into()));
+        let icon =
+            Icon::from_path("light.png").with_dark_variant(IconSource::Path("dark.png".into()));
 
         assert!(icon.has_theme_variant(IconThemeMode::Light));
         assert!(icon.has_theme_variant(IconThemeMode::Dark));

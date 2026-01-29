@@ -30,17 +30,27 @@ async fn test_resolve_localhost() {
 
     // localhost should always resolve
     let result = resolver.resolve("localhost").await;
-    assert!(result.is_ok(), "Failed to resolve localhost: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to resolve localhost: {:?}",
+        result.err()
+    );
 
     let addresses = result.unwrap();
-    assert!(!addresses.is_empty(), "localhost should resolve to at least one address");
+    assert!(
+        !addresses.is_empty(),
+        "localhost should resolve to at least one address"
+    );
 
     // localhost typically resolves to 127.0.0.1 or ::1
     let has_loopback = addresses.iter().any(|addr| {
         matches!(addr, IpAddr::V4(v4) if v4.is_loopback())
             || matches!(addr, IpAddr::V6(v6) if v6.is_loopback())
     });
-    assert!(has_loopback, "localhost should resolve to a loopback address");
+    assert!(
+        has_loopback,
+        "localhost should resolve to a loopback address"
+    );
 }
 
 #[tokio::test]
@@ -109,6 +119,10 @@ async fn test_ip_strategy_variants() {
     for strategy in strategies {
         let config = DnsConfig::system().ip_strategy(strategy);
         let resolver = DnsResolver::new(config);
-        assert!(resolver.is_ok(), "Failed to create resolver with strategy {:?}", strategy);
+        assert!(
+            resolver.is_ok(),
+            "Failed to create resolver with strategy {:?}",
+            strategy
+        );
     }
 }

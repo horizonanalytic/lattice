@@ -33,7 +33,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use parking_lot::{Mutex, RwLock};
-use slotmap::{new_key_type, SlotMap};
+use slotmap::{SlotMap, new_key_type};
 
 new_key_type! {
     /// A unique identifier for an object in the registry.
@@ -201,13 +201,11 @@ impl ObjectRegistry {
         tracing::trace!(target: "horizon_lattice_core::object", ?id, descendant_count = children_to_destroy.len(), "destroying object tree");
 
         // Remove from parent's children list.
-        if let Some(data) = self.objects.get(id) {
-            if let Some(parent_id) = data.parent {
-                if let Some(parent_data) = self.objects.get_mut(parent_id) {
+        if let Some(data) = self.objects.get(id)
+            && let Some(parent_id) = data.parent
+                && let Some(parent_data) = self.objects.get_mut(parent_id) {
                     parent_data.children.retain(|&child| child != id);
                 }
-            }
-        }
 
         // Destroy all descendants (children first, then self).
         for child_id in children_to_destroy {
@@ -266,11 +264,10 @@ impl ObjectRegistry {
 
         // Remove from old parent.
         let old_parent = self.objects.get(id).and_then(|d| d.parent);
-        if let Some(old_parent_id) = old_parent {
-            if let Some(parent_data) = self.objects.get_mut(old_parent_id) {
+        if let Some(old_parent_id) = old_parent
+            && let Some(parent_data) = self.objects.get_mut(old_parent_id) {
                 parent_data.children.retain(|&child| child != id);
             }
-        }
 
         // Update the object's parent reference.
         if let Some(data) = self.objects.get_mut(id) {
@@ -278,11 +275,10 @@ impl ObjectRegistry {
         }
 
         // Add to new parent's children.
-        if let Some(parent_id) = new_parent {
-            if let Some(parent_data) = self.objects.get_mut(parent_id) {
+        if let Some(parent_id) = new_parent
+            && let Some(parent_data) = self.objects.get_mut(parent_id) {
                 parent_data.children.push(id);
             }
-        }
 
         Ok(())
     }
@@ -351,25 +347,27 @@ impl ObjectRegistry {
     pub fn find_child_by_name(&self, id: ObjectId, name: &str) -> ObjectResult<Option<ObjectId>> {
         let children = self.children(id)?;
         for &child_id in children {
-            if let Some(data) = self.objects.get(child_id) {
-                if data.name == name {
+            if let Some(data) = self.objects.get(child_id)
+                && data.name == name {
                     return Ok(Some(child_id));
                 }
-            }
         }
         Ok(None)
     }
 
     /// Find a child by name and type (direct children only).
-    pub fn find_child<T: 'static>(&self, id: ObjectId, name: &str) -> ObjectResult<Option<ObjectId>> {
+    pub fn find_child<T: 'static>(
+        &self,
+        id: ObjectId,
+        name: &str,
+    ) -> ObjectResult<Option<ObjectId>> {
         let target_type = TypeId::of::<T>();
         let children = self.children(id)?;
         for &child_id in children {
-            if let Some(data) = self.objects.get(child_id) {
-                if data.name == name && data.type_id == target_type {
+            if let Some(data) = self.objects.get(child_id)
+                && data.name == name && data.type_id == target_type {
                     return Ok(Some(child_id));
                 }
-            }
         }
         Ok(None)
     }
@@ -408,11 +406,10 @@ impl ObjectRegistry {
     ) -> ObjectResult<()> {
         let children = self.children(id)?;
         for &child_id in children {
-            if let Some(data) = self.objects.get(child_id) {
-                if data.name == name {
+            if let Some(data) = self.objects.get(child_id)
+                && data.name == name {
                     result.push(child_id);
                 }
-            }
             self.find_descendants_by_name_recursive(child_id, name, result)?;
         }
         Ok(())
@@ -425,7 +422,10 @@ impl ObjectRegistry {
         name: impl Into<String>,
         value: T,
     ) -> ObjectResult<()> {
-        let data = self.objects.get_mut(id).ok_or(ObjectError::InvalidObjectId)?;
+        let data = self
+            .objects
+            .get_mut(id)
+            .ok_or(ObjectError::InvalidObjectId)?;
         data.dynamic_properties.insert(name.into(), Box::new(value));
         Ok(())
     }
@@ -445,7 +445,10 @@ impl ObjectRegistry {
         id: ObjectId,
         name: &str,
     ) -> ObjectResult<Option<Box<dyn Any + Send + Sync>>> {
-        let data = self.objects.get_mut(id).ok_or(ObjectError::InvalidObjectId)?;
+        let data = self
+            .objects
+            .get_mut(id)
+            .ok_or(ObjectError::InvalidObjectId)?;
         Ok(data.dynamic_properties.remove(name))
     }
 
@@ -464,7 +467,10 @@ impl ObjectRegistry {
     /// Called when a widget is created to set up initial state in the registry.
     /// This enables state propagation queries via `is_effectively_visible`/`is_effectively_enabled`.
     pub fn init_widget_state(&mut self, id: ObjectId, state: WidgetState) -> ObjectResult<()> {
-        let data = self.objects.get_mut(id).ok_or(ObjectError::InvalidObjectId)?;
+        let data = self
+            .objects
+            .get_mut(id)
+            .ok_or(ObjectError::InvalidObjectId)?;
         data.widget_state = Some(state);
         Ok(())
     }
@@ -479,7 +485,10 @@ impl ObjectRegistry {
 
     /// Set the visible state for a widget.
     pub fn set_widget_visible(&mut self, id: ObjectId, visible: bool) -> ObjectResult<()> {
-        let data = self.objects.get_mut(id).ok_or(ObjectError::InvalidObjectId)?;
+        let data = self
+            .objects
+            .get_mut(id)
+            .ok_or(ObjectError::InvalidObjectId)?;
         if let Some(ref mut state) = data.widget_state {
             state.visible = visible;
         } else {
@@ -493,7 +502,10 @@ impl ObjectRegistry {
 
     /// Set the enabled state for a widget.
     pub fn set_widget_enabled(&mut self, id: ObjectId, enabled: bool) -> ObjectResult<()> {
-        let data = self.objects.get_mut(id).ok_or(ObjectError::InvalidObjectId)?;
+        let data = self
+            .objects
+            .get_mut(id)
+            .ok_or(ObjectError::InvalidObjectId)?;
         if let Some(ref mut state) = data.widget_state {
             state.enabled = enabled;
         } else {
@@ -528,11 +540,10 @@ impl ObjectRegistry {
         let mut current = data.parent;
         while let Some(current_id) = current {
             if let Some(ancestor_data) = self.objects.get(current_id) {
-                if let Some(ancestor_state) = ancestor_data.widget_state {
-                    if !ancestor_state.visible {
+                if let Some(ancestor_state) = ancestor_data.widget_state
+                    && !ancestor_state.visible {
                         return Ok(Some(false));
                     }
-                }
                 current = ancestor_data.parent;
             } else {
                 break;
@@ -565,11 +576,10 @@ impl ObjectRegistry {
         let mut current = data.parent;
         while let Some(current_id) = current {
             if let Some(ancestor_data) = self.objects.get(current_id) {
-                if let Some(ancestor_state) = ancestor_data.widget_state {
-                    if !ancestor_state.enabled {
+                if let Some(ancestor_state) = ancestor_data.widget_state
+                    && !ancestor_state.enabled {
                         return Ok(Some(false));
                     }
-                }
                 current = ancestor_data.parent;
             } else {
                 break;
@@ -624,11 +634,10 @@ impl ObjectRegistry {
                 .get(parent_id)
                 .ok_or(ObjectError::InvalidObjectId)?;
 
-            if let Some(pos) = parent_data.children.iter().position(|&child| child == id) {
-                if pos + 1 < parent_data.children.len() {
+            if let Some(pos) = parent_data.children.iter().position(|&child| child == id)
+                && pos + 1 < parent_data.children.len() {
                     return Ok(Some(parent_data.children[pos + 1]));
                 }
-            }
         }
         Ok(None)
     }
@@ -643,11 +652,10 @@ impl ObjectRegistry {
                 .get(parent_id)
                 .ok_or(ObjectError::InvalidObjectId)?;
 
-            if let Some(pos) = parent_data.children.iter().position(|&child| child == id) {
-                if pos > 0 {
+            if let Some(pos) = parent_data.children.iter().position(|&child| child == id)
+                && pos > 0 {
                     return Ok(Some(parent_data.children[pos - 1]));
                 }
-            }
         }
         Ok(None)
     }
@@ -983,7 +991,11 @@ impl SharedObjectRegistry {
     }
 
     /// Find a child by name and type.
-    pub fn find_child<T: 'static>(&self, id: ObjectId, name: &str) -> ObjectResult<Option<ObjectId>> {
+    pub fn find_child<T: 'static>(
+        &self,
+        id: ObjectId,
+        name: &str,
+    ) -> ObjectResult<Option<ObjectId>> {
         self.inner.read().find_child::<T>(id, name)
     }
 
@@ -1591,8 +1603,12 @@ mod tests {
         obj.base.set_property("counter", 100i32).unwrap();
 
         let registry = global_registry().unwrap();
-        let value = registry
-            .with_read(|r| r.dynamic_property::<i32>(obj.object_id(), "counter").ok().flatten().copied());
+        let value = registry.with_read(|r| {
+            r.dynamic_property::<i32>(obj.object_id(), "counter")
+                .ok()
+                .flatten()
+                .copied()
+        });
         assert_eq!(value, Some(100));
     }
 

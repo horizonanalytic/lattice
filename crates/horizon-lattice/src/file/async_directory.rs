@@ -51,7 +51,7 @@ use std::time::SystemTime;
 use tokio::fs;
 use tokio_stream::Stream;
 
-use super::directory::{glob_to_regex, WalkDirOptions};
+use super::directory::{WalkDirOptions, glob_to_regex};
 use super::error::{FileError, FileErrorKind, FileResult};
 use super::info::{FileType, Permissions};
 
@@ -514,11 +514,10 @@ impl AsyncWalkDir {
         }
 
         // Check glob pattern
-        if let Some(ref regex) = self.glob_regex {
-            if !regex.is_match(&entry.name()) {
+        if let Some(ref regex) = self.glob_regex
+            && !regex.is_match(&entry.name()) {
                 return false;
             }
-        }
 
         true
     }
@@ -526,11 +525,10 @@ impl AsyncWalkDir {
     /// Returns true if a directory should be descended into.
     fn should_descend(&self, entry: &AsyncWalkEntry, depth: usize) -> bool {
         // Check depth limit
-        if let Some(max_depth) = self.options.max_depth {
-            if depth >= max_depth {
+        if let Some(max_depth) = self.options.max_depth
+            && depth >= max_depth {
                 return false;
             }
-        }
 
         // Check if it's a directory
         if !entry.is_dir() {
@@ -641,11 +639,10 @@ pub async fn dir_size_async(path: impl AsRef<Path>) -> FileResult<u64> {
     let mut walker = AsyncWalkDir::with_options(&path, WalkDirOptions::new().files_only()).await?;
 
     while let Some(result) = walker.next().await {
-        if let Ok(entry) = result {
-            if let Ok(size) = entry.size().await {
+        if let Ok(entry) = result
+            && let Ok(size) = entry.size().await {
                 total += size;
             }
-        }
     }
 
     Ok(total)
@@ -796,12 +793,11 @@ mod tests {
     async fn test_async_walk_dir_with_glob() {
         let (_temp_dir, test_dir) = setup_test_dir();
 
-        let txt_files =
-            AsyncWalkDir::with_options(&test_dir, WalkDirOptions::new().glob("*.txt"))
-                .await
-                .unwrap()
-                .collect_ok()
-                .await;
+        let txt_files = AsyncWalkDir::with_options(&test_dir, WalkDirOptions::new().glob("*.txt"))
+            .await
+            .unwrap()
+            .collect_ok()
+            .await;
 
         // Should find file1.txt, nested_file.txt, deep.txt
         assert_eq!(txt_files.len(), 3);

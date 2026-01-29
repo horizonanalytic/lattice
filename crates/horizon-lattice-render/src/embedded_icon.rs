@@ -20,10 +20,10 @@
 //! let icon = SAVE_ICON.to_icon(&mut image_manager)?;
 //! ```
 
+use crate::RenderError;
 use crate::atlas::ImageManager;
 use crate::icon::{Icon, IconSource};
 use crate::image::Image;
-use crate::RenderError;
 
 /// Image format for embedded icon data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -155,14 +155,13 @@ impl ImageFormat {
         }
 
         // AVIF/HEIF: check for ftyp box with avif/heic brands
-        if data.len() >= 12 {
-            if &data[4..8] == b"ftyp" {
+        if data.len() >= 12
+            && &data[4..8] == b"ftyp" {
                 let brand = &data[8..12];
                 if brand == b"avif" || brand == b"avis" || brand == b"mif1" {
                     return ImageFormat::Avif;
                 }
             }
-        }
 
         // PNM formats
         if data.len() >= 2 && data[0] == b'P' {
@@ -401,7 +400,10 @@ impl EmbeddedIconData {
     }
 
     /// Convert to an [`IconSource::Image`] by loading the image.
-    pub fn to_icon_source(&self, image_manager: &mut ImageManager) -> Result<IconSource, RenderError> {
+    pub fn to_icon_source(
+        &self,
+        image_manager: &mut ImageManager,
+    ) -> Result<IconSource, RenderError> {
         let image = self.load(image_manager)?;
         Ok(IconSource::Image(image))
     }
@@ -554,7 +556,10 @@ mod tests {
 
         // Farbfeld magic bytes
         let ff_data = b"farbfeld";
-        assert_eq!(ImageFormat::from_magic_bytes(ff_data), ImageFormat::Farbfeld);
+        assert_eq!(
+            ImageFormat::from_magic_bytes(ff_data),
+            ImageFormat::Farbfeld
+        );
 
         // Unknown/short data
         let short_data = [0x00, 0x01];
@@ -603,7 +608,10 @@ mod tests {
     #[test]
     fn test_image_format_extensions() {
         assert_eq!(ImageFormat::Png.extensions(), &["png"]);
-        assert_eq!(ImageFormat::Jpeg.extensions(), &["jpg", "jpeg", "jpe", "jif", "jfif"]);
+        assert_eq!(
+            ImageFormat::Jpeg.extensions(),
+            &["jpg", "jpeg", "jpe", "jif", "jfif"]
+        );
         assert_eq!(ImageFormat::Tiff.extensions(), &["tiff", "tif"]);
         assert!(ImageFormat::Unknown.extensions().is_empty());
     }

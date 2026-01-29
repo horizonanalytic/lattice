@@ -24,8 +24,7 @@ pub fn is_available() -> bool {
     {
         // Try to establish a connection to the portal
         // This is a simplified check - full implementation would verify specific portals
-        std::env::var("XDG_CURRENT_DESKTOP").is_ok()
-            || std::env::var("DESKTOP_SESSION").is_ok()
+        std::env::var("XDG_CURRENT_DESKTOP").is_ok() || std::env::var("DESKTOP_SESSION").is_ok()
     }
 
     #[cfg(not(target_os = "linux"))]

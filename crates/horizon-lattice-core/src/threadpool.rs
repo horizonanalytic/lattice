@@ -76,12 +76,12 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-use crossbeam_channel::{bounded, Receiver, TryRecvError};
+use crossbeam_channel::{Receiver, TryRecvError, bounded};
 use parking_lot::{Condvar, Mutex};
 use rayon::{ThreadPool as RayonThreadPool, ThreadPoolBuilder};
 
 use crate::error::{LatticeError, ThreadPoolError};
-use crate::invocation::{invocation_registry, QueuedInvocation};
+use crate::invocation::{QueuedInvocation, invocation_registry};
 use crate::progress::ProgressReporter;
 
 /// Global thread pool instance.
@@ -524,7 +524,11 @@ impl ThreadPool {
     }
 
     /// Internal spawn implementation.
-    fn spawn_internal<F, T>(&self, task: F, cancellation: Option<CancellationToken>) -> TaskHandle<T>
+    fn spawn_internal<F, T>(
+        &self,
+        task: F,
+        cancellation: Option<CancellationToken>,
+    ) -> TaskHandle<T>
     where
         F: FnOnce() -> T + Send + 'static,
         T: Send + 'static,

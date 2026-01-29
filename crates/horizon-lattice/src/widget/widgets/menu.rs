@@ -297,17 +297,19 @@ impl Menu {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Preferred, SizePolicy::Preferred));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Preferred,
+            SizePolicy::Preferred,
+        ));
         base.hide();
 
-        let popup = Popup::new()
-            .with_flags(
-                PopupFlags::STAYS_ON_TOP
-                    | PopupFlags::BORDER
-                    | PopupFlags::FOCUS_ON_SHOW
-                    | PopupFlags::AUTO_CLOSE_ON_CLICK_OUTSIDE
-                    | PopupFlags::CLOSE_ON_ESCAPE,
-            );
+        let popup = Popup::new().with_flags(
+            PopupFlags::STAYS_ON_TOP
+                | PopupFlags::BORDER
+                | PopupFlags::FOCUS_ON_SHOW
+                | PopupFlags::AUTO_CLOSE_ON_CLICK_OUTSIDE
+                | PopupFlags::CLOSE_ON_ESCAPE,
+        );
 
         Self {
             base,
@@ -636,7 +638,7 @@ impl Menu {
                     self.triggered.emit(action.clone());
                     self.close();
                 }
-                MenuItem::Submenu { menu, .. } => {
+                MenuItem::Submenu { .. } => {
                     // Open the submenu
                     self.open_submenu(index);
                 }
@@ -774,11 +776,10 @@ impl Menu {
                 continue;
             }
 
-            if let Some(mnemonic) = item.mnemonic() {
-                if mnemonic == target_char && item.is_enabled() {
+            if let Some(mnemonic) = item.mnemonic()
+                && mnemonic == target_char && item.is_enabled() {
                     return Some(i);
                 }
-            }
         }
 
         None
@@ -816,8 +817,8 @@ impl Menu {
     fn handle_mouse_move(&mut self, event: &MouseMoveEvent) -> bool {
         let pos = event.local_pos;
 
-        if let Some(index) = self.item_at_position(pos) {
-            if self.is_item_selectable(index) {
+        if let Some(index) = self.item_at_position(pos)
+            && self.is_item_selectable(index) {
                 self.set_selected_index(Some(index));
 
                 // Open submenu on hover (with a delay in a full implementation)
@@ -827,7 +828,6 @@ impl Menu {
 
                 return true;
             }
-        }
 
         false
     }
@@ -844,12 +844,11 @@ impl Menu {
             }
             Key::ArrowRight => {
                 // Open submenu if selected item is a submenu
-                if let Some(index) = self.selected_index {
-                    if let Some(MenuItem::Submenu { .. }) = self.items.get(index) {
+                if let Some(index) = self.selected_index
+                    && let Some(MenuItem::Submenu { .. }) = self.items.get(index) {
                         self.open_submenu(index);
                         return true;
                     }
-                }
                 false
             }
             Key::ArrowLeft => {
@@ -883,13 +882,12 @@ impl Menu {
             }
             _ => {
                 // Check for mnemonic
-                if self.mnemonics_active {
-                    if let Some(index) = self.find_mnemonic_item(event.key) {
+                if self.mnemonics_active
+                    && let Some(index) = self.find_mnemonic_item(event.key) {
                         self.set_selected_index(Some(index));
                         self.trigger_item(index);
                         return true;
                     }
-                }
                 false
             }
         }
@@ -902,7 +900,8 @@ impl Menu {
     fn paint_background(&self, ctx: &mut PaintContext<'_>) {
         let rect = self.base.rect();
         let local_rect = Rect::new(0.0, 0.0, rect.width(), rect.height());
-        ctx.renderer().fill_rect(local_rect, self.style.background_color);
+        ctx.renderer()
+            .fill_rect(local_rect, self.style.background_color);
     }
 
     fn paint_border(&self, ctx: &mut PaintContext<'_>) {
@@ -1002,8 +1001,7 @@ impl Menu {
         if action.is_icon_visible_in_menu() && action.icon().is_some() {
             let icon_x = rect.origin.x + (self.style.left_padding - self.style.icon_size) / 2.0;
             let icon_y = rect.origin.y + (rect.height() - self.style.icon_size) / 2.0;
-            let icon_rect =
-                Rect::new(icon_x, icon_y, self.style.icon_size, self.style.icon_size);
+            let icon_rect = Rect::new(icon_x, icon_y, self.style.icon_size, self.style.icon_size);
             let icon_color = if enabled {
                 Color::from_rgb8(100, 100, 100)
             } else {
@@ -1021,11 +1019,10 @@ impl Menu {
         self.paint_text_layout(ctx, &display_text, text_x, text_y, text_color);
 
         // Draw mnemonic underline if active
-        if self.mnemonics_active {
-            if let Some(mnemonic_index) = action.mnemonic_index() {
+        if self.mnemonics_active
+            && let Some(mnemonic_index) = action.mnemonic_index() {
                 self.paint_mnemonic_underline(ctx, mnemonic_index, text_x, text_y, text_color);
             }
-        }
 
         // Shortcut text
         if let Some(shortcut) = action.shortcut() {
@@ -1068,11 +1065,10 @@ impl Menu {
 
         self.paint_text_layout(ctx, &parsed.display_text, text_x, text_y, text_color);
 
-        if self.mnemonics_active {
-            if let Some(mnemonic_index) = parsed.mnemonic_index {
+        if self.mnemonics_active
+            && let Some(mnemonic_index) = parsed.mnemonic_index {
                 self.paint_mnemonic_underline(ctx, mnemonic_index, text_x, text_y, text_color);
             }
-        }
 
         // Submenu arrow
         let arrow_x =

@@ -146,11 +146,13 @@ impl GrpcChannelBuilder {
         // Configure TLS
         if let Some(tls_config) = self.tls_config {
             let client_tls_config = Self::build_tls_config(tls_config)?;
-            endpoint = endpoint.tls_config(client_tls_config)
+            endpoint = endpoint
+                .tls_config(client_tls_config)
                 .map_err(|e| NetworkError::Tls(e.to_string()))?;
         } else if self.endpoint.starts_with("https://") {
             // Auto-enable TLS for https endpoints
-            endpoint = endpoint.tls_config(ClientTlsConfig::new().with_native_roots())
+            endpoint = endpoint
+                .tls_config(ClientTlsConfig::new().with_native_roots())
                 .map_err(|e| NetworkError::Tls(e.to_string()))?;
         }
 
@@ -194,7 +196,8 @@ impl GrpcChannelBuilder {
 
         // Apply user agent
         if let Some(user_agent) = self.user_agent {
-            endpoint = endpoint.user_agent(user_agent)
+            endpoint = endpoint
+                .user_agent(user_agent)
                 .map_err(|e| NetworkError::InvalidHeader(e.to_string()))?;
         }
 
@@ -222,10 +225,12 @@ impl GrpcChannelBuilder {
         // Configure TLS
         if let Some(tls_config) = self.tls_config {
             let client_tls_config = Self::build_tls_config(tls_config)?;
-            endpoint = endpoint.tls_config(client_tls_config)
+            endpoint = endpoint
+                .tls_config(client_tls_config)
                 .map_err(|e| NetworkError::Tls(e.to_string()))?;
         } else if self.endpoint.starts_with("https://") {
-            endpoint = endpoint.tls_config(ClientTlsConfig::new().with_native_roots())
+            endpoint = endpoint
+                .tls_config(ClientTlsConfig::new().with_native_roots())
                 .map_err(|e| NetworkError::Tls(e.to_string()))?;
         }
 
@@ -255,7 +260,8 @@ impl GrpcChannelBuilder {
             for der_cert in cert.der_certs() {
                 // Convert DER to PEM format for tonic
                 let pem = Self::der_to_pem(der_cert.as_ref(), "CERTIFICATE");
-                client_config = client_config.ca_certificate(tonic::transport::Certificate::from_pem(pem));
+                client_config =
+                    client_config.ca_certificate(tonic::transport::Certificate::from_pem(pem));
             }
         }
 
@@ -264,9 +270,8 @@ impl GrpcChannelBuilder {
             // Convert identity to PEM format
             let cert_pem = Self::certs_to_pem(identity.cert_chain());
             let key_pem = Self::private_key_to_pem(identity.private_key())?;
-            client_config = client_config.identity(
-                tonic::transport::Identity::from_pem(cert_pem, key_pem)
-            );
+            client_config =
+                client_config.identity(tonic::transport::Identity::from_pem(cert_pem, key_pem));
         }
 
         Ok(client_config)

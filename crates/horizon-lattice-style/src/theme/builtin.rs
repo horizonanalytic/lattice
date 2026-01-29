@@ -1,11 +1,11 @@
 //! Built-in themes.
 
-use std::collections::HashMap;
-use horizon_lattice_render::Color;
-use crate::style::{StyleProperties, Style};
-use crate::types::{LengthValue, EdgeValues, BorderStyle, Cursor};
-use horizon_lattice_render::CornerRadii;
 use super::{ColorPalette, ThemeVariables};
+use crate::style::{Style, StyleProperties};
+use crate::types::{BorderStyle, Cursor, EdgeValues, LengthValue};
+use horizon_lattice_render::Color;
+use horizon_lattice_render::CornerRadii;
+use std::collections::HashMap;
 
 /// Theme mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -115,67 +115,92 @@ fn create_widget_defaults(palette: &ColorPalette) -> HashMap<String, StyleProper
     let mut defaults = HashMap::new();
 
     // Button defaults
-    defaults.insert("Button".to_string(), Style::new()
-        .padding(EdgeValues::symmetric(LengthValue::px(8.0), LengthValue::px(16.0)))
-        .background_color(palette.primary)
-        .color(palette.on_primary)
-        .border_radius(CornerRadii::uniform(4.0))
-        .font_size(LengthValue::px(14.0))
-        .cursor(Cursor::Pointer)
-        .build());
+    defaults.insert(
+        "Button".to_string(),
+        Style::new()
+            .padding(EdgeValues::symmetric(
+                LengthValue::px(8.0),
+                LengthValue::px(16.0),
+            ))
+            .background_color(palette.primary)
+            .color(palette.on_primary)
+            .border_radius(CornerRadii::uniform(4.0))
+            .font_size(LengthValue::px(14.0))
+            .cursor(Cursor::Pointer)
+            .build(),
+    );
 
     // Label defaults
-    defaults.insert("Label".to_string(), Style::new()
-        .color(palette.text_primary)
-        .font_size(LengthValue::px(14.0))
-        .line_height(1.4)
-        .build());
+    defaults.insert(
+        "Label".to_string(),
+        Style::new()
+            .color(palette.text_primary)
+            .font_size(LengthValue::px(14.0))
+            .line_height(1.4)
+            .build(),
+    );
 
     // TextInput defaults
-    defaults.insert("TextInput".to_string(), Style::new()
-        .padding(EdgeValues::symmetric(LengthValue::px(8.0), LengthValue::px(12.0)))
-        .background_color(palette.surface)
-        .color(palette.text_primary)
-        .border_width_all(LengthValue::px(1.0))
-        .border_color(palette.border)
-        .border_style(BorderStyle::Solid)
-        .border_radius(CornerRadii::uniform(4.0))
-        .font_size(LengthValue::px(14.0))
-        .build());
+    defaults.insert(
+        "TextInput".to_string(),
+        Style::new()
+            .padding(EdgeValues::symmetric(
+                LengthValue::px(8.0),
+                LengthValue::px(12.0),
+            ))
+            .background_color(palette.surface)
+            .color(palette.text_primary)
+            .border_width_all(LengthValue::px(1.0))
+            .border_color(palette.border)
+            .border_style(BorderStyle::Solid)
+            .border_radius(CornerRadii::uniform(4.0))
+            .font_size(LengthValue::px(14.0))
+            .build(),
+    );
 
     // Container defaults
-    defaults.insert("Container".to_string(), Style::new()
-        .background_color(palette.background)
-        .build());
+    defaults.insert(
+        "Container".to_string(),
+        Style::new().background_color(palette.background).build(),
+    );
 
     // Panel defaults
-    defaults.insert("Panel".to_string(), Style::new()
-        .background_color(palette.surface)
-        .padding_all(LengthValue::px(16.0))
-        .border_radius(CornerRadii::uniform(8.0))
-        .build());
+    defaults.insert(
+        "Panel".to_string(),
+        Style::new()
+            .background_color(palette.surface)
+            .padding_all(LengthValue::px(16.0))
+            .border_radius(CornerRadii::uniform(8.0))
+            .build(),
+    );
 
     // Card defaults
-    defaults.insert("Card".to_string(), Style::new()
-        .background_color(palette.surface)
-        .padding_all(LengthValue::px(16.0))
-        .border_radius(CornerRadii::uniform(8.0))
-        .build());
+    defaults.insert(
+        "Card".to_string(),
+        Style::new()
+            .background_color(palette.surface)
+            .padding_all(LengthValue::px(16.0))
+            .border_radius(CornerRadii::uniform(8.0))
+            .build(),
+    );
 
     // Checkbox defaults
-    defaults.insert("Checkbox".to_string(), Style::new()
-        .cursor(Cursor::Pointer)
-        .build());
+    defaults.insert(
+        "Checkbox".to_string(),
+        Style::new().cursor(Cursor::Pointer).build(),
+    );
 
     // Slider defaults
-    defaults.insert("Slider".to_string(), Style::new()
-        .cursor(Cursor::Pointer)
-        .build());
+    defaults.insert(
+        "Slider".to_string(),
+        Style::new().cursor(Cursor::Pointer).build(),
+    );
 
     // Divider defaults
-    defaults.insert("Divider".to_string(), Style::new()
-        .background_color(palette.divider)
-        .build());
+    defaults.insert(
+        "Divider".to_string(),
+        Style::new().background_color(palette.divider).build(),
+    );
 
     defaults
 }

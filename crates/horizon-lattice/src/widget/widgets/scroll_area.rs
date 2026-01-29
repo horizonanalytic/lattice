@@ -32,7 +32,6 @@ use crate::widget::{
     WidgetBase, WidgetEvent,
 };
 
-
 /// Policy for scrollbar visibility.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ScrollBarPolicy {
@@ -325,7 +324,10 @@ impl KineticScroller {
 
     /// Check if currently scrolling (needs animation updates).
     fn is_animating(&self) -> bool {
-        matches!(self.state, ScrollerState::Scrolling | ScrollerState::Overshooting)
+        matches!(
+            self.state,
+            ScrollerState::Scrolling | ScrollerState::Overshooting
+        )
     }
 
     /// Check if currently dragging.
@@ -339,7 +341,10 @@ impl ScrollArea {
     pub fn new() -> Self {
         let mut base = WidgetBase::new::<Self>();
         base.set_focus_policy(FocusPolicy::StrongFocus);
-        base.set_size_policy(SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Expanding));
+        base.set_size_policy(SizePolicyPair::new(
+            SizePolicy::Expanding,
+            SizePolicy::Expanding,
+        ));
 
         Self {
             base,
@@ -630,7 +635,15 @@ impl ScrollArea {
     /// Ensure a rectangle is visible in the viewport.
     ///
     /// Scrolls the minimum amount needed to make the rectangle visible.
-    pub fn ensure_visible_rect(&mut self, x: i32, y: i32, width: i32, height: i32, x_margin: i32, y_margin: i32) {
+    pub fn ensure_visible_rect(
+        &mut self,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        x_margin: i32,
+        y_margin: i32,
+    ) {
         let viewport = self.viewport_rect();
         let vw = viewport.width() as i32;
         let vh = viewport.height() as i32;
@@ -729,14 +742,20 @@ impl ScrollArea {
     ///
     /// Returns the position within the viewport where the content point would appear.
     pub fn content_to_viewport(&self, content_x: f32, content_y: f32) -> Point {
-        Point::new(content_x - self.scroll_x as f32, content_y - self.scroll_y as f32)
+        Point::new(
+            content_x - self.scroll_x as f32,
+            content_y - self.scroll_y as f32,
+        )
     }
 
     /// Transform a viewport coordinate to content coordinate.
     ///
     /// Returns the content position that corresponds to the viewport point.
     pub fn viewport_to_content(&self, viewport_x: f32, viewport_y: f32) -> Point {
-        Point::new(viewport_x + self.scroll_x as f32, viewport_y + self.scroll_y as f32)
+        Point::new(
+            viewport_x + self.scroll_x as f32,
+            viewport_y + self.scroll_y as f32,
+        )
     }
 
     /// Get the first visible row index for a list with fixed row heights.
@@ -929,17 +948,15 @@ impl ScrollArea {
         }
 
         // Check if in scrollbar area
-        if let Some(h_rect) = self.horizontal_scrollbar_rect() {
-            if h_rect.contains(event.local_pos) {
+        if let Some(h_rect) = self.horizontal_scrollbar_rect()
+            && h_rect.contains(event.local_pos) {
                 // Let scrollbar handle it (would need embedded scrollbar)
                 return self.handle_scrollbar_click(event.local_pos, true);
             }
-        }
-        if let Some(v_rect) = self.vertical_scrollbar_rect() {
-            if v_rect.contains(event.local_pos) {
+        if let Some(v_rect) = self.vertical_scrollbar_rect()
+            && v_rect.contains(event.local_pos) {
                 return self.handle_scrollbar_click(event.local_pos, false);
             }
-        }
 
         // In viewport - start kinetic scrolling if enabled
         if self.kinetic_scrolling && self.is_in_viewport(event.local_pos) {
@@ -978,28 +995,26 @@ impl ScrollArea {
                 }
                 return true;
             }
-        } else {
-            if let Some(rect) = self.vertical_scrollbar_rect() {
-                let viewport = self.viewport_rect();
-                let thumb_ratio = viewport.height() / self.content_size.height.max(1.0);
-                let thumb_height = (rect.height() * thumb_ratio).max(20.0).min(rect.height());
-                let available_travel = rect.height() - thumb_height;
-                let max_scroll = self.max_scroll_y() as f32;
+        } else if let Some(rect) = self.vertical_scrollbar_rect() {
+            let viewport = self.viewport_rect();
+            let thumb_ratio = viewport.height() / self.content_size.height.max(1.0);
+            let thumb_height = (rect.height() * thumb_ratio).max(20.0).min(rect.height());
+            let available_travel = rect.height() - thumb_height;
+            let max_scroll = self.max_scroll_y() as f32;
 
-                if available_travel > 0.0 && max_scroll > 0.0 {
-                    let thumb_pos = (self.scroll_y as f32 / max_scroll) * available_travel;
-                    let click_pos = pos.y - rect.origin.y;
+            if available_travel > 0.0 && max_scroll > 0.0 {
+                let thumb_pos = (self.scroll_y as f32 / max_scroll) * available_travel;
+                let click_pos = pos.y - rect.origin.y;
 
-                    if click_pos < thumb_pos {
-                        // Page up
-                        self.set_scroll_y(self.scroll_y - viewport.height() as i32);
-                    } else if click_pos > thumb_pos + thumb_height {
-                        // Page down
-                        self.set_scroll_y(self.scroll_y + viewport.height() as i32);
-                    }
+                if click_pos < thumb_pos {
+                    // Page up
+                    self.set_scroll_y(self.scroll_y - viewport.height() as i32);
+                } else if click_pos > thumb_pos + thumb_height {
+                    // Page down
+                    self.set_scroll_y(self.scroll_y + viewport.height() as i32);
                 }
-                return true;
             }
+            return true;
         }
         false
     }
@@ -1021,12 +1036,11 @@ impl ScrollArea {
     }
 
     fn handle_mouse_move(&mut self, event: &MouseMoveEvent) -> bool {
-        if self.scroller.is_dragging() {
-            if let Some((new_x, new_y)) = self.scroller.drag(event.local_pos.x, event.local_pos.y) {
+        if self.scroller.is_dragging()
+            && let Some((new_x, new_y)) = self.scroller.drag(event.local_pos.x, event.local_pos.y) {
                 self.scroll_to(new_x, new_y);
                 return true;
             }
-        }
         false
     }
 
@@ -1035,7 +1049,11 @@ impl ScrollArea {
 
         // Horizontal scroll with shift
         if event.modifiers.shift || event.delta_x.abs() > event.delta_y.abs() {
-            let delta = if event.modifiers.shift { event.delta_y } else { event.delta_x };
+            let delta = if event.modifiers.shift {
+                event.delta_y
+            } else {
+                event.delta_x
+            };
             if delta.abs() > 0.0 {
                 let scroll_amount = (delta * 0.5).round() as i32;
                 self.set_scroll_x(self.scroll_x - scroll_amount);
@@ -1201,9 +1219,19 @@ impl ScrollArea {
         };
 
         let thumb_rect = if horizontal {
-            Rect::new(thumb_pos, rect.origin.y + 2.0, thumb_length, rect.height() - 4.0)
+            Rect::new(
+                thumb_pos,
+                rect.origin.y + 2.0,
+                thumb_length,
+                rect.height() - 4.0,
+            )
         } else {
-            Rect::new(rect.origin.x + 2.0, thumb_pos, rect.width() - 4.0, thumb_length)
+            Rect::new(
+                rect.origin.x + 2.0,
+                thumb_pos,
+                rect.width() - 4.0,
+                thumb_length,
+            )
         };
 
         let thumb_color = Color::from_rgb8(180, 180, 180);
@@ -1244,8 +1272,7 @@ impl Widget for ScrollArea {
     }
 
     fn size_hint(&self) -> SizeHint {
-        SizeHint::from_dimensions(200.0, 200.0)
-            .with_minimum_dimensions(50.0, 50.0)
+        SizeHint::from_dimensions(200.0, 200.0).with_minimum_dimensions(50.0, 50.0)
     }
 
     fn paint(&self, ctx: &mut PaintContext<'_>) {
@@ -1299,8 +1326,8 @@ mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
     use std::sync::{
-        atomic::{AtomicI32, Ordering},
         Arc,
+        atomic::{AtomicI32, Ordering},
     };
 
     fn setup() {
@@ -1337,11 +1364,11 @@ mod tests {
     #[test]
     fn test_scroll_position_clamping() {
         setup();
-        let mut area = ScrollArea::new()
-            .with_content_size(Size::new(1000.0, 1000.0));
+        let mut area = ScrollArea::new().with_content_size(Size::new(1000.0, 1000.0));
 
         // Set geometry for viewport calculation
-        area.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        area.widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         area.set_scroll_x(-100);
         assert_eq!(area.scroll_x(), 0);
@@ -1353,9 +1380,9 @@ mod tests {
     #[test]
     fn test_scroll_signals() {
         setup();
-        let mut area = ScrollArea::new()
-            .with_content_size(Size::new(1000.0, 1000.0));
-        area.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        let mut area = ScrollArea::new().with_content_size(Size::new(1000.0, 1000.0));
+        area.widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         let last_x = Arc::new(AtomicI32::new(-1));
         let last_y = Arc::new(AtomicI32::new(-1));
@@ -1380,9 +1407,9 @@ mod tests {
     #[test]
     fn test_scroll_to() {
         setup();
-        let mut area = ScrollArea::new()
-            .with_content_size(Size::new(1000.0, 1000.0));
-        area.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        let mut area = ScrollArea::new().with_content_size(Size::new(1000.0, 1000.0));
+        area.widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         area.scroll_to(50, 100);
         assert_eq!(area.scroll_x(), 50);
@@ -1392,9 +1419,9 @@ mod tests {
     #[test]
     fn test_scroll_by() {
         setup();
-        let mut area = ScrollArea::new()
-            .with_content_size(Size::new(1000.0, 1000.0));
-        area.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        let mut area = ScrollArea::new().with_content_size(Size::new(1000.0, 1000.0));
+        area.widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         area.scroll_by(10, 20);
         assert_eq!(area.scroll_x(), 10);
@@ -1413,7 +1440,8 @@ mod tests {
             .with_content_size(Size::new(500.0, 800.0))
             .with_horizontal_policy(ScrollBarPolicy::AlwaysOff)
             .with_vertical_policy(ScrollBarPolicy::AlwaysOff);
-        area.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        area.widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         // Max scroll should be content - viewport
         assert_eq!(area.max_scroll_x(), 300);
@@ -1424,7 +1452,8 @@ mod tests {
     fn test_scroll_policies() {
         setup();
         let mut area = ScrollArea::new();
-        area.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        area.widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         // With small content, AsNeeded should hide scrollbars
         area.set_content_size(Size::new(100.0, 100.0));
@@ -1475,7 +1504,8 @@ mod tests {
             .with_content_size(Size::new(1000.0, 1000.0))
             .with_horizontal_policy(ScrollBarPolicy::AlwaysOff)
             .with_vertical_policy(ScrollBarPolicy::AlwaysOff);
-        area.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        area.widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         // Initially at origin
         let visible = area.visible_content_rect();
@@ -1498,7 +1528,8 @@ mod tests {
             .with_content_size(Size::new(1000.0, 1000.0))
             .with_horizontal_policy(ScrollBarPolicy::AlwaysOff)
             .with_vertical_policy(ScrollBarPolicy::AlwaysOff);
-        area.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        area.widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         // Rectangle at origin should be visible
         assert!(area.is_content_visible(Rect::new(0.0, 0.0, 50.0, 50.0)));
@@ -1522,7 +1553,8 @@ mod tests {
             .with_content_size(Size::new(200.0, 2000.0)) // 100 rows of 20px each
             .with_horizontal_policy(ScrollBarPolicy::AlwaysOff)
             .with_vertical_policy(ScrollBarPolicy::AlwaysOff);
-        area.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        area.widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         // Initially showing rows 0-10 (200px viewport / 20px row height, using ceil for partial visibility)
         let (first, last) = area.visible_row_range(20.0, 100);
@@ -1543,7 +1575,8 @@ mod tests {
             .with_content_size(Size::new(1000.0, 1000.0))
             .with_horizontal_policy(ScrollBarPolicy::AlwaysOff)
             .with_vertical_policy(ScrollBarPolicy::AlwaysOff);
-        area.widget_base_mut().set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
+        area.widget_base_mut()
+            .set_geometry(Rect::new(0.0, 0.0, 200.0, 200.0));
 
         // At origin, coordinates are the same
         let vp = area.content_to_viewport(50.0, 50.0);

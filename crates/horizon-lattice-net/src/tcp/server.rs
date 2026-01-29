@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use horizon_lattice_core::Signal;
 use parking_lot::Mutex;
@@ -148,10 +148,8 @@ impl TcpServer {
         // Get signal pointers for use in the async task
         let started_ptr = &self.started as *const Signal<()> as usize;
         let stopped_ptr = &self.stopped as *const Signal<()> as usize;
-        let new_connection_ptr =
-            &self.new_connection as *const Signal<Arc<TcpConnection>> as usize;
-        let connection_closed_ptr =
-            &self.connection_closed as *const Signal<ConnectionId> as usize;
+        let new_connection_ptr = &self.new_connection as *const Signal<Arc<TcpConnection>> as usize;
+        let connection_closed_ptr = &self.connection_closed as *const Signal<ConnectionId> as usize;
         let error_ptr = &self.error as *const Signal<NetworkError> as usize;
 
         tokio::spawn(async move {

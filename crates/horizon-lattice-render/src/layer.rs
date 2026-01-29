@@ -660,7 +660,9 @@ impl Layer {
             view_formats: &[],
         });
 
-        self.view = self.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        self.view = self
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
         // Recreate sampler and bind group
         let sampler = ctx.device().create_sampler(&wgpu::SamplerDescriptor {
@@ -776,7 +778,11 @@ struct CompositeUniforms {
 impl Compositor {
     /// Create a new compositor with the specified output dimensions.
     pub fn new(output_width: u32, output_height: u32) -> RenderResult<Self> {
-        Self::new_with_format(output_width, output_height, wgpu::TextureFormat::Rgba8UnormSrgb)
+        Self::new_with_format(
+            output_width,
+            output_height,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+        )
     }
 
     /// Create a new compositor with the specified output dimensions and format.
@@ -789,27 +795,28 @@ impl Compositor {
         let device = ctx.device();
 
         // Create bind group layout for layer textures
-        let layer_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("layer_bind_group_layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
+        let layer_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("layer_bind_group_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        });
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
 
         // Create uniform buffer
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -820,19 +827,20 @@ impl Compositor {
         });
 
         // Create uniform bind group layout
-        let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("compositor_uniform_bind_group_layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        let uniform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("compositor_uniform_bind_group_layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
 
         // Create uniform bind group
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -858,18 +866,37 @@ impl Compositor {
         });
 
         // Create initial compositing pipeline for Normal blend mode
-        let normal_pipeline = create_composite_pipeline(device, &shader, &pipeline_layout, format, BlendMode::Normal);
+        let normal_pipeline =
+            create_composite_pipeline(device, &shader, &pipeline_layout, format, BlendMode::Normal);
         let mut composite_pipelines = HashMap::new();
         composite_pipelines.insert(BlendMode::Normal, normal_pipeline);
 
         // Create vertex buffer for fullscreen quad
         let vertices = [
-            CompositeVertex { position: [0.0, 0.0], uv: [0.0, 0.0] },
-            CompositeVertex { position: [1.0, 0.0], uv: [1.0, 0.0] },
-            CompositeVertex { position: [1.0, 1.0], uv: [1.0, 1.0] },
-            CompositeVertex { position: [0.0, 0.0], uv: [0.0, 0.0] },
-            CompositeVertex { position: [1.0, 1.0], uv: [1.0, 1.0] },
-            CompositeVertex { position: [0.0, 1.0], uv: [0.0, 1.0] },
+            CompositeVertex {
+                position: [0.0, 0.0],
+                uv: [0.0, 0.0],
+            },
+            CompositeVertex {
+                position: [1.0, 0.0],
+                uv: [1.0, 0.0],
+            },
+            CompositeVertex {
+                position: [1.0, 1.0],
+                uv: [1.0, 1.0],
+            },
+            CompositeVertex {
+                position: [0.0, 0.0],
+                uv: [0.0, 0.0],
+            },
+            CompositeVertex {
+                position: [1.0, 1.0],
+                uv: [1.0, 1.0],
+            },
+            CompositeVertex {
+                position: [0.0, 1.0],
+                uv: [0.0, 1.0],
+            },
         ];
 
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -879,7 +906,8 @@ impl Compositor {
             mapped_at_creation: false,
         });
 
-        ctx.queue().write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
+        ctx.queue()
+            .write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
 
         debug!(
             target: "horizon_lattice_render::layer",
@@ -1006,7 +1034,9 @@ impl Compositor {
         let queue = ctx.queue();
 
         // Ensure all needed blend mode pipelines exist
-        let blend_modes: Vec<BlendMode> = self.layers.iter()
+        let blend_modes: Vec<BlendMode> = self
+            .layers
+            .iter()
             .filter(|l| l.opacity > 0.0)
             .map(|l| l.blend_mode)
             .collect();
@@ -1077,16 +1107,15 @@ impl Compositor {
     ///
     /// This is useful when you want to composite layers onto existing content.
     /// Each layer uses its configured blend mode for compositing.
-    pub fn composite_over(
-        &mut self,
-        target_view: &wgpu::TextureView,
-    ) -> RenderResult<()> {
+    pub fn composite_over(&mut self, target_view: &wgpu::TextureView) -> RenderResult<()> {
         let ctx = GraphicsContext::try_get().ok_or(RenderError::NotInitialized)?;
         let device = ctx.device();
         let queue = ctx.queue();
 
         // Ensure all needed blend mode pipelines exist
-        let blend_modes: Vec<BlendMode> = self.layers.iter()
+        let blend_modes: Vec<BlendMode> = self
+            .layers
+            .iter()
             .filter(|l| l.opacity > 0.0)
             .map(|l| l.blend_mode)
             .collect();

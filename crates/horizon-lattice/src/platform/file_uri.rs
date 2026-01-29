@@ -328,14 +328,23 @@ mod tests {
     fn test_path_to_uri_simple() {
         #[cfg(unix)]
         {
-            assert_eq!(path_to_uri("/home/user/file.txt"), "file:///home/user/file.txt");
+            assert_eq!(
+                path_to_uri("/home/user/file.txt"),
+                "file:///home/user/file.txt"
+            );
             assert_eq!(path_to_uri("/"), "file:///");
         }
 
         #[cfg(windows)]
         {
-            assert_eq!(path_to_uri("C:\\Users\\file.txt"), "file:///C:/Users/file.txt");
-            assert_eq!(path_to_uri("C:/Users/file.txt"), "file:///C:/Users/file.txt");
+            assert_eq!(
+                path_to_uri("C:\\Users\\file.txt"),
+                "file:///C:/Users/file.txt"
+            );
+            assert_eq!(
+                path_to_uri("C:/Users/file.txt"),
+                "file:///C:/Users/file.txt"
+            );
         }
     }
 

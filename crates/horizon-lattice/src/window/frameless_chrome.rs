@@ -455,11 +455,10 @@ impl FramelessWindowChrome {
         }
 
         // 3. Check resize borders
-        if self.resize_enabled && self.resize_border > 0.0 {
-            if let Some(direction) = self.hit_test_resize(x, y, width, height) {
+        if self.resize_enabled && self.resize_border > 0.0
+            && let Some(direction) = self.hit_test_resize(x, y, width, height) {
                 return ChromeHitTestResult::ResizeBorder(direction);
             }
-        }
 
         // 4. Check title bar and draggable regions
         if self.point_in_title_bar(point, window_size) || self.point_in_draggable_region(point) {
@@ -524,29 +523,25 @@ impl FramelessWindowChrome {
     /// Hit test for window buttons.
     fn hit_test_buttons(&self, point: Point) -> Option<ChromeHitTestResult> {
         // Check buttons in order: close, maximize, minimize, sys menu
-        if let Some(ref region) = self.close_button_region {
-            if region.contains(point) {
+        if let Some(ref region) = self.close_button_region
+            && region.contains(point) {
                 return Some(ChromeHitTestResult::CloseButton);
             }
-        }
 
-        if let Some(ref region) = self.maximize_button_region {
-            if region.contains(point) {
+        if let Some(ref region) = self.maximize_button_region
+            && region.contains(point) {
                 return Some(ChromeHitTestResult::MaximizeButton);
             }
-        }
 
-        if let Some(ref region) = self.minimize_button_region {
-            if region.contains(point) {
+        if let Some(ref region) = self.minimize_button_region
+            && region.contains(point) {
                 return Some(ChromeHitTestResult::MinimizeButton);
             }
-        }
 
-        if let Some(ref region) = self.sys_menu_region {
-            if region.contains(point) {
+        if let Some(ref region) = self.sys_menu_region
+            && region.contains(point) {
                 return Some(ChromeHitTestResult::SysMenu);
             }
-        }
 
         None
     }
@@ -577,16 +572,12 @@ impl FramelessWindowChrome {
 
     /// Check if a point is in any custom draggable region.
     fn point_in_draggable_region(&self, point: Point) -> bool {
-        self.draggable_regions
-            .iter()
-            .any(|r| r.contains(point))
+        self.draggable_regions.iter().any(|r| r.contains(point))
     }
 
     /// Check if a point is in any interactive region.
     fn point_in_interactive_region(&self, point: Point) -> bool {
-        self.interactive_regions
-            .iter()
-            .any(|r| r.contains(point))
+        self.interactive_regions.iter().any(|r| r.contains(point))
     }
 
     /// Get the appropriate cursor shape for a hit test result.
@@ -668,19 +659,31 @@ mod tests {
 
         // Top edge (within resize border)
         let result = chrome.hit_test(Point::new(400.0, 3.0), size);
-        assert_eq!(result, ChromeHitTestResult::ResizeBorder(ResizeDirection::North));
+        assert_eq!(
+            result,
+            ChromeHitTestResult::ResizeBorder(ResizeDirection::North)
+        );
 
         // Bottom edge
         let result = chrome.hit_test(Point::new(400.0, 597.0), size);
-        assert_eq!(result, ChromeHitTestResult::ResizeBorder(ResizeDirection::South));
+        assert_eq!(
+            result,
+            ChromeHitTestResult::ResizeBorder(ResizeDirection::South)
+        );
 
         // Left edge
         let result = chrome.hit_test(Point::new(3.0, 300.0), size);
-        assert_eq!(result, ChromeHitTestResult::ResizeBorder(ResizeDirection::West));
+        assert_eq!(
+            result,
+            ChromeHitTestResult::ResizeBorder(ResizeDirection::West)
+        );
 
         // Right edge
         let result = chrome.hit_test(Point::new(797.0, 300.0), size);
-        assert_eq!(result, ChromeHitTestResult::ResizeBorder(ResizeDirection::East));
+        assert_eq!(
+            result,
+            ChromeHitTestResult::ResizeBorder(ResizeDirection::East)
+        );
     }
 
     #[test]
@@ -690,25 +693,37 @@ mod tests {
 
         // Top-left corner
         let result = chrome.hit_test(Point::new(3.0, 3.0), size);
-        assert_eq!(result, ChromeHitTestResult::ResizeBorder(ResizeDirection::NorthWest));
+        assert_eq!(
+            result,
+            ChromeHitTestResult::ResizeBorder(ResizeDirection::NorthWest)
+        );
 
         // Top-right corner
         let result = chrome.hit_test(Point::new(797.0, 3.0), size);
-        assert_eq!(result, ChromeHitTestResult::ResizeBorder(ResizeDirection::NorthEast));
+        assert_eq!(
+            result,
+            ChromeHitTestResult::ResizeBorder(ResizeDirection::NorthEast)
+        );
 
         // Bottom-left corner
         let result = chrome.hit_test(Point::new(3.0, 597.0), size);
-        assert_eq!(result, ChromeHitTestResult::ResizeBorder(ResizeDirection::SouthWest));
+        assert_eq!(
+            result,
+            ChromeHitTestResult::ResizeBorder(ResizeDirection::SouthWest)
+        );
 
         // Bottom-right corner
         let result = chrome.hit_test(Point::new(797.0, 597.0), size);
-        assert_eq!(result, ChromeHitTestResult::ResizeBorder(ResizeDirection::SouthEast));
+        assert_eq!(
+            result,
+            ChromeHitTestResult::ResizeBorder(ResizeDirection::SouthEast)
+        );
     }
 
     #[test]
     fn test_interactive_region_excludes_dragging() {
-        let chrome = FramelessWindowChrome::new()
-            .with_interactive_region(Rect::new(700.0, 8.0, 92.0, 32.0)); // Buttons area
+        let chrome =
+            FramelessWindowChrome::new().with_interactive_region(Rect::new(700.0, 8.0, 92.0, 32.0)); // Buttons area
 
         let size = Size::new(800.0, 600.0);
 

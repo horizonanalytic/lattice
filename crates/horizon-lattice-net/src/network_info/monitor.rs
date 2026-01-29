@@ -6,8 +6,8 @@ use std::sync::Arc;
 use horizon_lattice_core::signal::Signal;
 use parking_lot::Mutex;
 
-use crate::error::{NetworkError, Result};
 use super::interface::NetworkInterface;
+use crate::error::{NetworkError, Result};
 
 /// Event describing a change in network interfaces.
 #[derive(Debug, Clone)]
@@ -129,30 +129,38 @@ impl NetworkMonitor {
         let handle = netwatcher::watch_interfaces(move |update| {
             // Build the interface change event from the diff
             // The diff contains interface indices (u32) for added/removed interfaces
-            let added: Vec<InterfaceChange> = update.diff.added.iter().map(|&ifindex| {
-                // Try to find the interface in the current snapshot
-                let iface = update.interfaces.get(&ifindex);
-                let name = iface.map(|i| i.name.clone());
-                // netwatcher's ips field is Vec<IpAddr>
-                let addresses: Vec<IpAddr> = iface
-                    .map(|i| i.ips.clone())
-                    .unwrap_or_default();
+            let added: Vec<InterfaceChange> = update
+                .diff
+                .added
+                .iter()
+                .map(|&ifindex| {
+                    // Try to find the interface in the current snapshot
+                    let iface = update.interfaces.get(&ifindex);
+                    let name = iface.map(|i| i.name.clone());
+                    // netwatcher's ips field is Vec<IpAddr>
+                    let addresses: Vec<IpAddr> = iface.map(|i| i.ips.clone()).unwrap_or_default();
 
-                InterfaceChange {
-                    interface_index: ifindex,
-                    interface_name: name,
-                    addresses,
-                }
-            }).collect();
+                    InterfaceChange {
+                        interface_index: ifindex,
+                        interface_name: name,
+                        addresses,
+                    }
+                })
+                .collect();
 
-            let removed: Vec<InterfaceChange> = update.diff.removed.iter().map(|&ifindex| {
-                // Removed interfaces won't be in the current snapshot
-                InterfaceChange {
-                    interface_index: ifindex,
-                    interface_name: None,
-                    addresses: Vec::new(),
-                }
-            }).collect();
+            let removed: Vec<InterfaceChange> = update
+                .diff
+                .removed
+                .iter()
+                .map(|&ifindex| {
+                    // Removed interfaces won't be in the current snapshot
+                    InterfaceChange {
+                        interface_index: ifindex,
+                        interface_name: None,
+                        addresses: Vec::new(),
+                    }
+                })
+                .collect();
 
             // Get current interfaces using our wrapper
             let current_interfaces = NetworkInterface::list();
@@ -181,7 +189,8 @@ impl NetworkMonitor {
                     current_interfaces,
                 });
             }
-        }).map_err(|e| NetworkError::Io(e.to_string()))?;
+        })
+        .map_err(|e| NetworkError::Io(e.to_string()))?;
 
         inner._watcher_handle = Some(handle);
         inner.is_running = true;
@@ -229,11 +238,7 @@ impl Drop for NetworkMonitor {
 fn check_online_state() -> bool {
     NetworkInterface::list()
         .iter()
-        .any(|iface| {
-            iface.is_up
-                && !iface.is_loopback()
-                && iface.has_addresses()
-        })
+        .any(|iface| iface.is_up && !iface.is_loopback() && iface.has_addresses())
 }
 
 /// Perform a network connectivity check.
@@ -264,8 +269,8 @@ pub async fn check_connectivity(timeout_secs: Option<u64>) -> bool {
 
     // Try to connect to well-known endpoints
     let endpoints = [
-        ("1.1.1.1", 80),      // Cloudflare
-        ("8.8.8.8", 53),      // Google DNS
+        ("1.1.1.1", 80),        // Cloudflare
+        ("8.8.8.8", 53),        // Google DNS
         ("208.67.222.222", 53), // OpenDNS
     ];
 

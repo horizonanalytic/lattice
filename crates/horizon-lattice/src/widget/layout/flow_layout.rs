@@ -22,11 +22,11 @@
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::{Rect, Size};
 
+use super::ContentMargins;
 use super::base::LayoutBase;
 use super::box_layout::Alignment;
 use super::item::LayoutItem;
 use super::traits::Layout;
-use super::ContentMargins;
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::geometry::{SizeHint, SizePolicy, SizePolicyPair};
 
@@ -140,12 +140,7 @@ impl FlowLayout {
     ///
     /// # Returns
     /// The height required for the layout at the given width.
-    fn do_layout<S: WidgetAccess>(
-        &mut self,
-        storage: &S,
-        rect: Rect,
-        test_only: bool,
-    ) -> f32 {
+    fn do_layout<S: WidgetAccess>(&mut self, storage: &S, rect: Rect, test_only: bool) -> f32 {
         let content_x = rect.origin.x;
         let content_y = rect.origin.y;
         let content_width = rect.width();
@@ -226,12 +221,7 @@ impl FlowLayout {
             let mut current_x = offset;
             for (idx, (item_idx, _, item_width, item_height)) in items.iter().enumerate() {
                 let item_y = row_y + (row_height - item_height) / 2.0; // Center vertically in row
-                let rect = Rect::new(
-                    content_x + current_x,
-                    item_y,
-                    *item_width,
-                    *item_height,
-                );
+                let rect = Rect::new(content_x + current_x, item_y, *item_width, *item_height);
                 base.set_item_geometry(*item_idx, rect);
 
                 current_x += item_width;
@@ -422,8 +412,7 @@ impl Layout for FlowLayout {
 
     fn size_policy(&self) -> SizePolicyPair {
         // Flow layouts prefer to fill horizontal space and adjust height
-        SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Preferred)
-            .with_height_for_width()
+        SizePolicyPair::new(SizePolicy::Expanding, SizePolicy::Preferred).with_height_for_width()
     }
 
     fn has_height_for_width(&self) -> bool {
@@ -490,16 +479,14 @@ impl Layout for FlowLayout {
             maximum: None,
         };
         self.base.set_cached_size_hint(size_hint);
-        self.base.set_cached_minimum_size(self.calculate_minimum_size(storage));
+        self.base
+            .set_cached_minimum_size(self.calculate_minimum_size(storage));
 
         self.base.mark_valid();
 
         // Return the actual size used
         let margins = self.base.content_margins();
-        Size::new(
-            available.width,
-            content_height + margins.vertical(),
-        )
+        Size::new(available.width, content_height + margins.vertical())
     }
 
     fn apply<S: WidgetAccess>(&self, storage: &mut S) {
@@ -551,7 +538,7 @@ mod tests {
     use crate::widget::base::WidgetBase;
     use crate::widget::geometry::SizeHint;
     use crate::widget::traits::{PaintContext, Widget};
-    use horizon_lattice_core::{init_global_registry, Object, ObjectId};
+    use horizon_lattice_core::{Object, ObjectId, init_global_registry};
     use std::collections::HashMap;
 
     /// Mock widget for testing layouts.

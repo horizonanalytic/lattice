@@ -1,9 +1,9 @@
 //! Style properties and computed styles.
 
-mod properties;
-mod computed;
 mod builder;
+mod computed;
+mod properties;
 
-pub use properties::StyleProperties;
-pub use computed::ComputedStyle;
 pub use builder::Style;
+pub use computed::ComputedStyle;
+pub use properties::StyleProperties;

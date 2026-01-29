@@ -72,7 +72,7 @@ use parking_lot::Mutex;
 use tokio::runtime::{Builder, Handle, Runtime};
 use tokio::sync::oneshot;
 
-use crate::invocation::{invocation_registry, QueuedInvocation};
+use crate::invocation::{QueuedInvocation, invocation_registry};
 
 /// Global async runtime instance.
 static GLOBAL_RUNTIME: OnceLock<AsyncRuntime> = OnceLock::new();
@@ -337,7 +337,9 @@ impl AsyncRuntime {
     ///
     /// This must be called before any async operations if you want
     /// custom settings. Returns an error if already initialized.
-    pub fn init_global(config: AsyncRuntimeConfig) -> Result<&'static AsyncRuntime, AsyncRuntimeError> {
+    pub fn init_global(
+        config: AsyncRuntimeConfig,
+    ) -> Result<&'static AsyncRuntime, AsyncRuntimeError> {
         let runtime = AsyncRuntime::new(config)?;
         GLOBAL_RUNTIME
             .set(runtime)
@@ -407,7 +409,9 @@ impl AsyncRuntime {
                     builder.enable_time();
                 }
 
-                let runtime = builder.build().expect("Failed to create single-threaded runtime");
+                let runtime = builder
+                    .build()
+                    .expect("Failed to create single-threaded runtime");
                 let handle = runtime.handle().clone();
 
                 // Send the handle back to the main thread
@@ -422,9 +426,9 @@ impl AsyncRuntime {
             .map_err(|e| AsyncRuntimeError::CreationFailed(e.to_string()))?;
 
         // Wait for the handle
-        let handle = handle_rx
-            .recv()
-            .map_err(|_| AsyncRuntimeError::CreationFailed("Failed to get runtime handle".to_string()))?;
+        let handle = handle_rx.recv().map_err(|_| {
+            AsyncRuntimeError::CreationFailed("Failed to get runtime handle".to_string())
+        })?;
 
         Ok(Self {
             runtime: None,
@@ -655,12 +659,10 @@ impl<T: Send> AsyncSender<T> {
 
     /// Try to send a value without blocking.
     pub fn try_send(&self, value: T) -> Result<(), AsyncChannelError> {
-        self.inner
-            .try_send(value)
-            .map_err(|e| match e {
-                tokio::sync::mpsc::error::TrySendError::Full(_) => AsyncChannelError::Full,
-                tokio::sync::mpsc::error::TrySendError::Closed(_) => AsyncChannelError::Closed,
-            })
+        self.inner.try_send(value).map_err(|e| match e {
+            tokio::sync::mpsc::error::TrySendError::Full(_) => AsyncChannelError::Full,
+            tokio::sync::mpsc::error::TrySendError::Closed(_) => AsyncChannelError::Closed,
+        })
     }
 }
 
@@ -678,12 +680,10 @@ impl<T> AsyncReceiver<T> {
 
     /// Try to receive a value without blocking.
     pub fn try_recv(&mut self) -> Result<T, AsyncChannelError> {
-        self.inner
-            .try_recv()
-            .map_err(|e| match e {
-                tokio::sync::mpsc::error::TryRecvError::Empty => AsyncChannelError::Empty,
-                tokio::sync::mpsc::error::TryRecvError::Disconnected => AsyncChannelError::Closed,
-            })
+        self.inner.try_recv().map_err(|e| match e {
+            tokio::sync::mpsc::error::TryRecvError::Empty => AsyncChannelError::Empty,
+            tokio::sync::mpsc::error::TryRecvError::Disconnected => AsyncChannelError::Closed,
+        })
     }
 }
 

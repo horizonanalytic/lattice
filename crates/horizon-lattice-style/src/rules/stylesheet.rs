@@ -1,8 +1,8 @@
 //! Stylesheet collection and management.
 
-use std::path::{Path, PathBuf};
 use crate::rules::StyleRule;
 use crate::{Error, Result};
+use std::path::{Path, PathBuf};
 
 /// Priority level for style sources.
 ///
@@ -69,8 +69,7 @@ impl StyleSheet {
     /// for hot-reload support.
     pub fn from_file(path: impl AsRef<Path>, priority: StylePriority) -> Result<Self> {
         let path = path.as_ref();
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| Error::io(path, e))?;
+        let content = std::fs::read_to_string(path).map_err(|e| Error::io(path, e))?;
 
         let mut sheet = Self::from_css(&content, priority)?;
         sheet.source_path = Some(path.to_path_buf());
@@ -90,7 +89,11 @@ impl StyleSheet {
     /// Add a rule to the stylesheet.
     ///
     /// The rule's order is automatically set based on the current number of rules.
-    pub fn add_rule(&mut self, selector: crate::selector::Selector, properties: crate::style::StyleProperties) {
+    pub fn add_rule(
+        &mut self,
+        selector: crate::selector::Selector,
+        properties: crate::style::StyleProperties,
+    ) {
         let order = self.rules.len() as u32;
         self.rules.push(StyleRule::new(selector, properties, order));
     }

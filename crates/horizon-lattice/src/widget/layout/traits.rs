@@ -5,8 +5,8 @@
 use horizon_lattice_core::ObjectId;
 use horizon_lattice_render::{Rect, Size};
 
-use super::item::{LayoutItem, LayoutItemData};
 use super::ContentMargins;
+use super::item::{LayoutItem, LayoutItemData};
 use crate::widget::dispatcher::WidgetAccess;
 use crate::widget::geometry::{SizeHint, SizePolicyPair};
 

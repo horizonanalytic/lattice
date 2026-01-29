@@ -48,22 +48,19 @@ use horizon_lattice_render::CornerRadii;
 /// assert_eq!(resolved, 0); // Uses initial, not inherited
 /// ```
 #[derive(Debug, Clone, PartialEq)]
+#[derive(Default)]
 pub enum StyleValue<T> {
     /// An explicit value.
     Set(T),
     /// Inherit from parent (explicit opt-in).
     Inherit,
     /// Use the initial/default value.
+    #[default]
     Initial,
     /// Unset - acts as Inherit for inherited properties, Initial otherwise.
     Unset,
 }
 
-impl<T> Default for StyleValue<T> {
-    fn default() -> Self {
-        Self::Initial
-    }
-}
 
 impl<T: Clone> StyleValue<T> {
     /// Resolve the value given inherited and initial values.
@@ -167,9 +164,10 @@ impl LengthValue {
     pub fn is_zero(&self) -> bool {
         match self {
             LengthValue::Zero => true,
-            LengthValue::Px(v) | LengthValue::Em(v) | LengthValue::Rem(v) | LengthValue::Percent(v) => {
-                *v == 0.0
-            }
+            LengthValue::Px(v)
+            | LengthValue::Em(v)
+            | LengthValue::Rem(v)
+            | LengthValue::Percent(v) => *v == 0.0,
             LengthValue::Auto => false,
         }
     }
@@ -238,8 +236,18 @@ impl EdgeValues {
     }
 
     /// Create from 4 values (top, right, bottom, left).
-    pub fn new(top: LengthValue, right: LengthValue, bottom: LengthValue, left: LengthValue) -> Self {
-        Self { top, right, bottom, left }
+    pub fn new(
+        top: LengthValue,
+        right: LengthValue,
+        bottom: LengthValue,
+        left: LengthValue,
+    ) -> Self {
+        Self {
+            top,
+            right,
+            bottom,
+            left,
+        }
     }
 
     /// Create zero edge values.

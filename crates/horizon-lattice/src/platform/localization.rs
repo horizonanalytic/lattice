@@ -64,8 +64,8 @@
 //! ```
 
 use std::fmt;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use horizon_lattice_core::Signal;
@@ -164,8 +164,10 @@ impl std::error::Error for LocalizationError {}
 
 /// Text direction for bidirectional text support.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub enum TextDirection {
     /// Left-to-right (e.g., English, French, German)
+    #[default]
     Ltr,
     /// Right-to-left (e.g., Arabic, Hebrew)
     Rtl,
@@ -188,7 +190,7 @@ impl TextDirection {
     /// assert_eq!(TextDirection::detect("مرحبا"), TextDirection::Rtl);
     /// ```
     pub fn detect(text: &str) -> Self {
-        use unicode_bidi::{bidi_class, BidiClass};
+        use unicode_bidi::{BidiClass, bidi_class};
 
         if text.is_empty() {
             return TextDirection::Ltr;
@@ -233,11 +235,6 @@ impl TextDirection {
     }
 }
 
-impl Default for TextDirection {
-    fn default() -> Self {
-        TextDirection::Ltr
-    }
-}
 
 // ============================================================================
 // Locale Information
@@ -414,21 +411,14 @@ impl NumberFormatter {
         use icu::decimal::DecimalFormatter;
         use icu::locale::Locale;
 
-        let locale: Locale = locale
-            .parse()
-            .unwrap_or_else(|_| "en-US".parse().unwrap());
+        let locale: Locale = locale.parse().unwrap_or_else(|_| "en-US".parse().unwrap());
 
-        let formatter =
-            DecimalFormatter::try_new(locale.clone().into(), Default::default()).unwrap_or_else(
-                |_| {
-                    let default_locale: Locale = "en-US".parse().unwrap();
-                    DecimalFormatter::try_new(
-                        default_locale.into(),
-                        Default::default(),
-                    )
+        let formatter = DecimalFormatter::try_new(locale.clone().into(), Default::default())
+            .unwrap_or_else(|_| {
+                let default_locale: Locale = "en-US".parse().unwrap();
+                DecimalFormatter::try_new(default_locale.into(), Default::default())
                     .expect("default locale should always work")
-                },
-            );
+            });
 
         Self { locale, formatter }
     }
@@ -510,18 +500,53 @@ impl NumberFormatter {
     /// Determine separators based on locale.
     fn separators_for_locale(locale: &str) -> (char, char) {
         // Extract language and region from locale string
-        let lang = locale.split(['-', '_']).next().unwrap_or("en").to_lowercase();
+        let lang = locale
+            .split(['-', '_'])
+            .next()
+            .unwrap_or("en")
+            .to_lowercase();
 
         // Locales using comma as decimal separator (and period/space as thousands)
         let comma_decimal = matches!(
             lang.as_str(),
-            "de" | "fr" | "es" | "it" | "pt" | "nl" | "da" | "fi" | "nb" | "nn" | "sv"
-            | "pl" | "cs" | "sk" | "hu" | "ro" | "bg" | "hr" | "sl" | "sr" | "uk" | "ru"
-            | "el" | "tr" | "vi" | "id" | "ca" | "gl" | "eu" | "et" | "lv" | "lt"
+            "de" | "fr"
+                | "es"
+                | "it"
+                | "pt"
+                | "nl"
+                | "da"
+                | "fi"
+                | "nb"
+                | "nn"
+                | "sv"
+                | "pl"
+                | "cs"
+                | "sk"
+                | "hu"
+                | "ro"
+                | "bg"
+                | "hr"
+                | "sl"
+                | "sr"
+                | "uk"
+                | "ru"
+                | "el"
+                | "tr"
+                | "vi"
+                | "id"
+                | "ca"
+                | "gl"
+                | "eu"
+                | "et"
+                | "lv"
+                | "lt"
         );
 
         // French and some others use space as thousands separator
-        let space_thousands = matches!(lang.as_str(), "fr" | "fi" | "sv" | "nb" | "nn" | "pl" | "cs" | "sk" | "ru" | "uk" | "bg");
+        let space_thousands = matches!(
+            lang.as_str(),
+            "fr" | "fi" | "sv" | "nb" | "nn" | "pl" | "cs" | "sk" | "ru" | "uk" | "bg"
+        );
 
         if comma_decimal {
             if space_thousands {
@@ -592,7 +617,7 @@ impl NumberFormatter {
 
         let mut result = String::with_capacity(len + len / 3);
         for (i, c) in chars.iter().enumerate() {
-            if i > 0 && (len - i) % 3 == 0 {
+            if i > 0 && (len - i).is_multiple_of(3) {
                 result.push(self.thousands_sep);
             }
             result.push(*c);
@@ -636,19 +661,21 @@ impl DateTimeFormatter {
     pub fn with_locale(locale: &str) -> Self {
         use icu::locale::Locale;
 
-        let locale: Locale = locale
-            .parse()
-            .unwrap_or_else(|_| "en-US".parse().unwrap());
+        let locale: Locale = locale.parse().unwrap_or_else(|_| "en-US".parse().unwrap());
 
         Self { locale }
     }
 
     /// Format a date according to the locale.
-    pub fn format_date(&self, datetime: &chrono::DateTime<chrono::Local>, length: DateLength) -> String {
+    pub fn format_date(
+        &self,
+        datetime: &chrono::DateTime<chrono::Local>,
+        length: DateLength,
+    ) -> String {
         use chrono::Datelike;
         use icu::calendar::Date;
-        use icu::datetime::fieldsets;
         use icu::datetime::DateTimeFormatter as IcuDateTimeFormatter;
+        use icu::datetime::fieldsets;
 
         let naive = datetime.naive_local();
         let year = naive.year();
@@ -664,28 +691,24 @@ impl DateTimeFormatter {
         // Create formatter based on length
         let result = match length {
             DateLength::Short => {
-                IcuDateTimeFormatter::try_new(
-                    self.locale.clone().into(),
-                    fieldsets::YMD::short(),
-                ).ok().map(|f| f.format(&icu_date).to_string())
+                IcuDateTimeFormatter::try_new(self.locale.clone().into(), fieldsets::YMD::short())
+                    .ok()
+                    .map(|f| f.format(&icu_date).to_string())
             }
             DateLength::Medium => {
-                IcuDateTimeFormatter::try_new(
-                    self.locale.clone().into(),
-                    fieldsets::YMD::medium(),
-                ).ok().map(|f| f.format(&icu_date).to_string())
+                IcuDateTimeFormatter::try_new(self.locale.clone().into(), fieldsets::YMD::medium())
+                    .ok()
+                    .map(|f| f.format(&icu_date).to_string())
             }
             DateLength::Long => {
-                IcuDateTimeFormatter::try_new(
-                    self.locale.clone().into(),
-                    fieldsets::YMD::long(),
-                ).ok().map(|f| f.format(&icu_date).to_string())
+                IcuDateTimeFormatter::try_new(self.locale.clone().into(), fieldsets::YMD::long())
+                    .ok()
+                    .map(|f| f.format(&icu_date).to_string())
             }
             DateLength::Full => {
-                IcuDateTimeFormatter::try_new(
-                    self.locale.clone().into(),
-                    fieldsets::YMDE::long(),
-                ).ok().map(|f| f.format(&icu_date).to_string())
+                IcuDateTimeFormatter::try_new(self.locale.clone().into(), fieldsets::YMDE::long())
+                    .ok()
+                    .map(|f| f.format(&icu_date).to_string())
             }
         };
 
@@ -693,10 +716,14 @@ impl DateTimeFormatter {
     }
 
     /// Format a time according to the locale.
-    pub fn format_time(&self, datetime: &chrono::DateTime<chrono::Local>, length: TimeLength) -> String {
+    pub fn format_time(
+        &self,
+        datetime: &chrono::DateTime<chrono::Local>,
+        length: TimeLength,
+    ) -> String {
         use chrono::Timelike;
-        use icu::datetime::fieldsets;
         use icu::datetime::NoCalendarFormatter;
+        use icu::datetime::fieldsets;
         use icu::time::Time;
 
         let naive = datetime.naive_local();
@@ -712,22 +739,19 @@ impl DateTimeFormatter {
 
         let result = match length {
             TimeLength::Short => {
-                NoCalendarFormatter::try_new(
-                    self.locale.clone().into(),
-                    fieldsets::T::short(),
-                ).ok().map(|f| f.format(&icu_time).to_string())
+                NoCalendarFormatter::try_new(self.locale.clone().into(), fieldsets::T::short())
+                    .ok()
+                    .map(|f| f.format(&icu_time).to_string())
             }
             TimeLength::Medium => {
-                NoCalendarFormatter::try_new(
-                    self.locale.clone().into(),
-                    fieldsets::T::medium(),
-                ).ok().map(|f| f.format(&icu_time).to_string())
+                NoCalendarFormatter::try_new(self.locale.clone().into(), fieldsets::T::medium())
+                    .ok()
+                    .map(|f| f.format(&icu_time).to_string())
             }
             TimeLength::Long => {
-                NoCalendarFormatter::try_new(
-                    self.locale.clone().into(),
-                    fieldsets::T::long(),
-                ).ok().map(|f| f.format(&icu_time).to_string())
+                NoCalendarFormatter::try_new(self.locale.clone().into(), fieldsets::T::long())
+                    .ok()
+                    .map(|f| f.format(&icu_time).to_string())
             }
         };
 
@@ -804,7 +828,10 @@ impl DateTimeFormatter {
     /// - `ja-JP`, `zh-CN`, `ko-KR`: YY/MM/DD, 24-hour time
     pub fn with_locale(locale: &str) -> Self {
         let parts: Vec<&str> = locale.split(['-', '_']).collect();
-        let lang = parts.first().map(|s| s.to_lowercase()).unwrap_or_else(|| "en".to_string());
+        let lang = parts
+            .first()
+            .map(|s| s.to_lowercase())
+            .unwrap_or_else(|| "en".to_string());
         let region = parts.get(1).map(|s| s.to_uppercase());
 
         // Determine date order and separator
@@ -842,7 +869,9 @@ impl DateTimeFormatter {
         }
 
         // DMY with period separator (German, Norwegian, etc.)
-        let period_sep_langs = ["de", "no", "nb", "nn", "fi", "et", "lv", "sl", "sk", "cs", "hr", "ro", "bg"];
+        let period_sep_langs = [
+            "de", "no", "nb", "nn", "fi", "et", "lv", "sl", "sk", "cs", "hr", "ro", "bg",
+        ];
         if period_sep_langs.contains(&lang) {
             return (DateOrder::Dmy, '.');
         }
@@ -858,7 +887,11 @@ impl DateTimeFormatter {
     }
 
     /// Format a date according to the locale.
-    pub fn format_date(&self, datetime: &chrono::DateTime<chrono::Local>, length: DateLength) -> String {
+    pub fn format_date(
+        &self,
+        datetime: &chrono::DateTime<chrono::Local>,
+        length: DateLength,
+    ) -> String {
         use chrono::Datelike;
 
         let d = datetime.day();
@@ -867,13 +900,20 @@ impl DateTimeFormatter {
         let y_short = y % 100;
 
         match length {
-            DateLength::Short => {
-                match self.date_order {
-                    DateOrder::Dmy => format!("{:02}{}{:02}{}{:02}", d, self.date_sep, m, self.date_sep, y_short),
-                    DateOrder::Mdy => format!("{:02}{}{:02}{}{:02}", m, self.date_sep, d, self.date_sep, y_short),
-                    DateOrder::Ymd => format!("{:02}{}{:02}{}{:02}", y_short, self.date_sep, m, self.date_sep, d),
-                }
-            }
+            DateLength::Short => match self.date_order {
+                DateOrder::Dmy => format!(
+                    "{:02}{}{:02}{}{:02}",
+                    d, self.date_sep, m, self.date_sep, y_short
+                ),
+                DateOrder::Mdy => format!(
+                    "{:02}{}{:02}{}{:02}",
+                    m, self.date_sep, d, self.date_sep, y_short
+                ),
+                DateOrder::Ymd => format!(
+                    "{:02}{}{:02}{}{:02}",
+                    y_short, self.date_sep, m, self.date_sep, d
+                ),
+            },
             DateLength::Medium => {
                 let month_abbr = datetime.format("%b").to_string();
                 match self.date_order {
@@ -903,7 +943,11 @@ impl DateTimeFormatter {
     }
 
     /// Format a time according to the locale.
-    pub fn format_time(&self, datetime: &chrono::DateTime<chrono::Local>, length: TimeLength) -> String {
+    pub fn format_time(
+        &self,
+        datetime: &chrono::DateTime<chrono::Local>,
+        length: TimeLength,
+    ) -> String {
         if self.use_24_hour {
             match length {
                 TimeLength::Short => datetime.format("%H:%M").to_string(),
@@ -1028,7 +1072,10 @@ impl CurrencyFormatter {
         // Simple formatting - symbol before or after based on common conventions
         match self.currency.0.as_str() {
             "EUR" => format!("{formatted_number} {symbol}"),
-            "JPY" | "CNY" | "KRW" => format!("{symbol}{}", self.number_formatter.format_integer(amount as i64)),
+            "JPY" | "CNY" | "KRW" => format!(
+                "{symbol}{}",
+                self.number_formatter.format_integer(amount as i64)
+            ),
             _ => format!("{symbol}{formatted_number}"),
         }
     }
@@ -1249,7 +1296,11 @@ mod tests {
 
         let formatter = CurrencyFormatter::with_currency(CurrencyCode::eur());
         let formatted = formatter.format(1234.56);
-        assert!(formatted.contains("\u{20ac}") || formatted.contains("EUR") || formatted.contains("1234"));
+        assert!(
+            formatted.contains("\u{20ac}")
+                || formatted.contains("EUR")
+                || formatted.contains("1234")
+        );
     }
 
     #[test]

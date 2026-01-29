@@ -242,16 +242,14 @@ impl GlyphCache {
                 .get_image(font_system.inner_mut(), cache_key);
 
             match image_ref {
-                Some(img) if img.placement.width > 0 && img.placement.height > 0 => {
-                    Some((
-                        img.content,
-                        img.placement.width,
-                        img.placement.height,
-                        img.placement.left,
-                        img.placement.top,
-                        img.data.clone(),
-                    ))
-                }
+                Some(img) if img.placement.width > 0 && img.placement.height > 0 => Some((
+                    img.content,
+                    img.placement.width,
+                    img.placement.height,
+                    img.placement.left,
+                    img.placement.top,
+                    img.data.clone(),
+                )),
                 _ => None,
             }
         };
@@ -400,9 +398,7 @@ impl GlyphCache {
     /// Create a CacheKey from a LayoutGlyph.
     ///
     /// Returns the CacheKey and the integer pixel offsets (x, y) for rendering.
-    pub fn cache_key_from_layout_glyph(
-        glyph: &super::LayoutGlyph,
-    ) -> (CacheKey, i32, i32) {
+    pub fn cache_key_from_layout_glyph(glyph: &super::LayoutGlyph) -> (CacheKey, i32, i32) {
         Self::make_cache_key(
             glyph.font_id,
             glyph.glyph_id,

@@ -231,10 +231,7 @@ impl Transform2D {
     /// Transform a vector (ignores translation).
     #[inline]
     pub fn transform_vector(&self, x: f32, y: f32) -> (f32, f32) {
-        (
-            self.m[0] * x + self.m[2] * y,
-            self.m[1] * x + self.m[3] * y,
-        )
+        (self.m[0] * x + self.m[2] * y, self.m[1] * x + self.m[3] * y)
     }
 
     /// Compute the inverse of this transform, if it exists.
@@ -542,7 +539,7 @@ mod tests {
         let p = Point::new(5.0, 5.0);
         let tp = stack.transform_point(p);
         assert_eq!(tp, Point::new(20.0, 30.0)); // (5+10)*2 = 30, (5+20)*2 = 50? No...
-                                                 // Actually: scale first (5*2=10, 5*2=10), then translate (10+10=20, 10+20=30)
+        // Actually: scale first (5*2=10, 5*2=10), then translate (10+10=20, 10+20=30)
 
         stack.restore();
         let tp2 = stack.transform_point(p);

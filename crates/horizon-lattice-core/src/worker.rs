@@ -699,8 +699,8 @@ mod tests {
         let pending = worker.pending_tasks();
         assert!(pending <= 3);
 
-        // Wait for completion
-        thread::sleep(Duration::from_millis(200));
+        // Wait for completion (generous margin: 3 tasks * 50ms each + overhead)
+        thread::sleep(Duration::from_millis(500));
         assert_eq!(worker.pending_tasks(), 0);
 
         worker.stop_and_join();
@@ -879,8 +879,8 @@ mod tests {
             progress_clone.lock().push(p);
         });
 
-        // Wait for processing
-        thread::sleep(Duration::from_millis(200));
+        // Wait for processing (generous margin for CI environments)
+        thread::sleep(Duration::from_millis(500));
 
         // Verify progress was reported
         let values = progress_values.lock();

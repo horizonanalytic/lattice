@@ -1742,6 +1742,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires desktop environment, hangs on Windows CI"]
     fn test_dialog_lifecycle() {
         setup();
         let mut dialog = FontDialog::new();
@@ -1755,6 +1756,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires desktop environment, hangs on Windows CI"]
     fn test_font_selected_signal() {
         setup();
         let mut dialog = FontDialog::new();

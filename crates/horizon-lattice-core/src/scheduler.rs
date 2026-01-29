@@ -577,24 +577,24 @@ mod tests {
         let executed = Arc::new(AtomicUsize::new(0));
         let executed_clone = executed.clone();
 
-        // Schedule for 100ms from now
-        let id = scheduler.schedule_once(Duration::from_millis(100), move || {
+        // Schedule for 200ms from now (generous margin)
+        let id = scheduler.schedule_once(Duration::from_millis(200), move || {
             executed_clone.fetch_add(1, Ordering::SeqCst);
         });
 
-        // Immediately reschedule to a later time (200ms from now)
+        // Immediately reschedule to a later time (400ms from now)
         scheduler
-            .reschedule(id, Duration::from_millis(200))
+            .reschedule(id, Duration::from_millis(400))
             .unwrap();
 
-        // After 150ms, original time would have passed but task should not execute
+        // After 300ms, original time would have passed but task should not execute
         // because we rescheduled it
-        std::thread::sleep(Duration::from_millis(150));
+        std::thread::sleep(Duration::from_millis(300));
         assert_eq!(scheduler.process_ready(), 0);
         assert_eq!(executed.load(Ordering::SeqCst), 0);
 
-        // Wait for the new scheduled time
-        std::thread::sleep(Duration::from_millis(60));
+        // Wait for the new scheduled time (generous margin)
+        std::thread::sleep(Duration::from_millis(200));
         assert_eq!(scheduler.process_ready(), 1);
         assert_eq!(executed.load(Ordering::SeqCst), 1);
     }

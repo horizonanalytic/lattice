@@ -455,10 +455,12 @@ impl FramelessWindowChrome {
         }
 
         // 3. Check resize borders
-        if self.resize_enabled && self.resize_border > 0.0
-            && let Some(direction) = self.hit_test_resize(x, y, width, height) {
-                return ChromeHitTestResult::ResizeBorder(direction);
-            }
+        if self.resize_enabled
+            && self.resize_border > 0.0
+            && let Some(direction) = self.hit_test_resize(x, y, width, height)
+        {
+            return ChromeHitTestResult::ResizeBorder(direction);
+        }
 
         // 4. Check title bar and draggable regions
         if self.point_in_title_bar(point, window_size) || self.point_in_draggable_region(point) {
@@ -524,24 +526,28 @@ impl FramelessWindowChrome {
     fn hit_test_buttons(&self, point: Point) -> Option<ChromeHitTestResult> {
         // Check buttons in order: close, maximize, minimize, sys menu
         if let Some(ref region) = self.close_button_region
-            && region.contains(point) {
-                return Some(ChromeHitTestResult::CloseButton);
-            }
+            && region.contains(point)
+        {
+            return Some(ChromeHitTestResult::CloseButton);
+        }
 
         if let Some(ref region) = self.maximize_button_region
-            && region.contains(point) {
-                return Some(ChromeHitTestResult::MaximizeButton);
-            }
+            && region.contains(point)
+        {
+            return Some(ChromeHitTestResult::MaximizeButton);
+        }
 
         if let Some(ref region) = self.minimize_button_region
-            && region.contains(point) {
-                return Some(ChromeHitTestResult::MinimizeButton);
-            }
+            && region.contains(point)
+        {
+            return Some(ChromeHitTestResult::MinimizeButton);
+        }
 
         if let Some(ref region) = self.sys_menu_region
-            && region.contains(point) {
-                return Some(ChromeHitTestResult::SysMenu);
-            }
+            && region.contains(point)
+        {
+            return Some(ChromeHitTestResult::SysMenu);
+        }
 
         None
     }

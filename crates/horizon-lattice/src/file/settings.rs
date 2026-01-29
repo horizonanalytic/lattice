@@ -166,7 +166,6 @@ impl SettingsValue {
     }
 }
 
-
 impl From<bool> for SettingsValue {
     fn from(v: bool) -> Self {
         SettingsValue::Bool(v)
@@ -619,9 +618,7 @@ impl Settings {
 
     /// Parses a path string into components.
     fn parse_path(path: &str) -> Vec<&str> {
-        path.split(['.', '/'])
-            .filter(|s| !s.is_empty())
-            .collect()
+        path.split(['.', '/']).filter(|s| !s.is_empty()).collect()
     }
 
     /// Gets a nested value from the data tree.

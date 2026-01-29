@@ -265,16 +265,17 @@ impl DownloadManager {
     pub fn pause(&self, id: DownloadId) -> bool {
         let mut downloads = self.downloads.lock();
         if let Some(task) = downloads.get_mut(&id)
-            && task.state == DownloadState::Downloading {
-                // Send cancel signal to stop the current download
-                if let Some(tx) = task.cancel_tx.take() {
-                    let _ = tx.send(());
-                }
-                task.state = DownloadState::Paused;
-                drop(downloads);
-                self.event.emit(DownloadEvent::Paused { id });
-                return true;
+            && task.state == DownloadState::Downloading
+        {
+            // Send cancel signal to stop the current download
+            if let Some(tx) = task.cancel_tx.take() {
+                let _ = tx.send(());
             }
+            task.state = DownloadState::Paused;
+            drop(downloads);
+            self.event.emit(DownloadEvent::Paused { id });
+            return true;
+        }
         false
     }
 
@@ -285,26 +286,27 @@ impl DownloadManager {
     pub fn resume(&self, id: DownloadId) -> bool {
         let mut downloads = self.downloads.lock();
         if let Some(task) = downloads.get_mut(&id)
-            && task.state == DownloadState::Paused {
-                if !task.supports_resume && task.bytes_downloaded > 0 {
-                    // Server doesn't support resume, need to restart
-                    task.bytes_downloaded = 0;
-                }
-
-                let (cancel_tx, cancel_rx) = oneshot::channel();
-                task.cancel_tx = Some(cancel_tx);
-                task.state = DownloadState::Pending;
-
-                let url = task.url.clone();
-                let path = task.path.clone();
-                let offset = task.bytes_downloaded;
-
-                drop(downloads);
-
-                self.event.emit(DownloadEvent::Resumed { id });
-                self.spawn_download_task(id, url, path, offset, cancel_rx);
-                return true;
+            && task.state == DownloadState::Paused
+        {
+            if !task.supports_resume && task.bytes_downloaded > 0 {
+                // Server doesn't support resume, need to restart
+                task.bytes_downloaded = 0;
             }
+
+            let (cancel_tx, cancel_rx) = oneshot::channel();
+            task.cancel_tx = Some(cancel_tx);
+            task.state = DownloadState::Pending;
+
+            let url = task.url.clone();
+            let path = task.path.clone();
+            let offset = task.bytes_downloaded;
+
+            drop(downloads);
+
+            self.event.emit(DownloadEvent::Resumed { id });
+            self.spawn_download_task(id, url, path, offset, cancel_rx);
+            return true;
+        }
         false
     }
 
@@ -317,16 +319,17 @@ impl DownloadManager {
             && matches!(
                 task.state,
                 DownloadState::Pending | DownloadState::Downloading | DownloadState::Paused
-            ) {
-                // Send cancel signal
-                if let Some(tx) = task.cancel_tx.take() {
-                    let _ = tx.send(());
-                }
-                task.state = DownloadState::Cancelled;
-                drop(downloads);
-                self.event.emit(DownloadEvent::Cancelled { id });
-                return true;
+            )
+        {
+            // Send cancel signal
+            if let Some(tx) = task.cancel_tx.take() {
+                let _ = tx.send(());
             }
+            task.state = DownloadState::Cancelled;
+            drop(downloads);
+            self.event.emit(DownloadEvent::Cancelled { id });
+            return true;
+        }
         false
     }
 
@@ -350,10 +353,11 @@ impl DownloadManager {
             && matches!(
                 task.state,
                 DownloadState::Completed | DownloadState::Failed | DownloadState::Cancelled
-            ) {
-                downloads.remove(&id);
-                return true;
-            }
+            )
+        {
+            downloads.remove(&id);
+            return true;
+        }
         false
     }
 

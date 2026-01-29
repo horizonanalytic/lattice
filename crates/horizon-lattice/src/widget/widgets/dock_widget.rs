@@ -738,13 +738,15 @@ impl DockWidget {
     /// Check which button is at the given position.
     fn hit_test_button(&self, pos: Point) -> Option<TitleBarButton> {
         if let Some(close_rect) = self.close_button_rect()
-            && close_rect.contains(pos) {
-                return Some(TitleBarButton::Close);
-            }
+            && close_rect.contains(pos)
+        {
+            return Some(TitleBarButton::Close);
+        }
         if let Some(float_rect) = self.float_button_rect()
-            && float_rect.contains(pos) {
-                return Some(TitleBarButton::Float);
-            }
+            && float_rect.contains(pos)
+        {
+            return Some(TitleBarButton::Float);
+        }
         None
     }
 
@@ -809,9 +811,10 @@ impl DockWidget {
         if self.close_button_state.pressed {
             self.close_button_state.pressed = false;
             if let Some(rect) = self.close_button_rect()
-                && rect.contains(pos) {
-                    self.close_requested.emit(());
-                }
+                && rect.contains(pos)
+            {
+                self.close_requested.emit(());
+            }
             self.base.update();
             return true;
         }
@@ -819,9 +822,10 @@ impl DockWidget {
         if self.float_button_state.pressed {
             self.float_button_state.pressed = false;
             if let Some(rect) = self.float_button_rect()
-                && rect.contains(pos) {
-                    self.toggle_floating();
-                }
+                && rect.contains(pos)
+            {
+                self.toggle_floating();
+            }
             self.base.update();
             return true;
         }

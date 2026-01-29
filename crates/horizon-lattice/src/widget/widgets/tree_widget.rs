@@ -305,9 +305,10 @@ impl ItemModel for TreeWidgetModel {
 
         // Decode path from internal_id
         if let Some(path) = decode_path(parent.internal_id())
-            && let Some(item) = TreeWidgetModel::get_item_at_path(&items, &path) {
-                return item.child_count();
-            }
+            && let Some(item) = TreeWidgetModel::get_item_at_path(&items, &path)
+        {
+            return item.child_count();
+        }
 
         0
     }
@@ -1198,12 +1199,13 @@ impl Widget for TreeWidget {
         match event {
             WidgetEvent::MousePress(e) => {
                 if e.button == crate::widget::MouseButton::Left
-                    && let Some(row) = self.row_at_y(e.local_pos.y) {
-                        self.pressed_row = Some(row);
-                        self.handle_click(row, e.local_pos, &e.modifiers);
-                        event.accept();
-                        return true;
-                    }
+                    && let Some(row) = self.row_at_y(e.local_pos.y)
+                {
+                    self.pressed_row = Some(row);
+                    self.handle_click(row, e.local_pos, &e.modifiers);
+                    event.accept();
+                    return true;
+                }
             }
             WidgetEvent::MouseRelease(e) => {
                 if e.button == crate::widget::MouseButton::Left {

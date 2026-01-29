@@ -712,9 +712,9 @@ impl HeaderView {
             && let Some(text) = model
                 .header_data(logical_index, self.orientation, ItemRole::Display)
                 .as_string()
-            {
-                return text.to_string();
-            }
+        {
+            return text.to_string();
+        }
 
         // Default: column/row number
         match self.orientation {
@@ -921,19 +921,21 @@ impl HeaderView {
 
         // End move
         if let Some(moving) = self.move_section.take()
-            && let Some(target_visual) = self.move_target_visual.take() {
-                let from_visual = self.visual_index(moving);
-                if from_visual != target_visual {
-                    self.move_section(from_visual, target_visual);
-                }
+            && let Some(target_visual) = self.move_target_visual.take()
+        {
+            let from_visual = self.visual_index(moving);
+            if from_visual != target_visual {
+                self.move_section(from_visual, target_visual);
             }
+        }
 
         // Emit click if released on same section
         if let Some(pressed) = self.pressed_section.take() {
             if let Some(current) = self.section_at(pos)
-                && current == pressed {
-                    self.section_clicked.emit(pressed);
-                }
+                && current == pressed
+            {
+                self.section_clicked.emit(pressed);
+            }
             self.base.update();
             return true;
         }

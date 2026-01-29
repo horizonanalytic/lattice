@@ -738,11 +738,13 @@ impl ToolButton {
         }
 
         if let Some(start) = self.press_start
-            && !self.menu_shown_for_press && start.elapsed() >= self.popup_delay {
-                self.menu_shown_for_press = true;
-                self.request_menu_popup();
-                return true;
-            }
+            && !self.menu_shown_for_press
+            && start.elapsed() >= self.popup_delay
+        {
+            self.menu_shown_for_press = true;
+            self.request_menu_popup();
+            return true;
+        }
         false
     }
 
@@ -982,45 +984,42 @@ impl Widget for ToolButton {
             content_rect.origin.y + (content_rect.size.height - content_size.height) / 2.0;
 
         // Draw icon
-        if shows_icon
-            && let Some(icon) = self.inner.icon() {
-                let image = if is_disabled {
-                    icon.disabled_image()
-                } else {
-                    icon.image()
-                };
+        if shows_icon && let Some(icon) = self.inner.icon() {
+            let image = if is_disabled {
+                icon.disabled_image()
+            } else {
+                icon.image()
+            };
 
-                if let Some(img) = image {
-                    let icon_x = if shows_text
-                        && self.tool_button_style == ToolButtonStyle::TextBesideIcon
-                    {
+            if let Some(img) = image {
+                let icon_x =
+                    if shows_text && self.tool_button_style == ToolButtonStyle::TextBesideIcon {
                         content_x
                     } else {
                         content_rect.origin.x + (content_rect.size.width - icon_size.width) / 2.0
                     };
 
-                    let icon_y = if shows_text
-                        && self.tool_button_style == ToolButtonStyle::TextUnderIcon
-                    {
+                let icon_y =
+                    if shows_text && self.tool_button_style == ToolButtonStyle::TextUnderIcon {
                         content_y
                     } else {
                         content_rect.origin.y + (content_rect.size.height - icon_size.height) / 2.0
                     };
 
-                    let icon_rect = Rect::new(icon_x, icon_y, icon_size.width, icon_size.height);
+                let icon_rect = Rect::new(icon_x, icon_y, icon_size.width, icon_size.height);
 
-                    // Apply tint for state feedback
-                    let _tint = icon_tint_for_state(
-                        Color::WHITE,
-                        is_disabled && icon.disabled_image().is_none(),
-                        is_pressed,
-                        is_hovered,
-                    );
+                // Apply tint for state feedback
+                let _tint = icon_tint_for_state(
+                    Color::WHITE,
+                    is_disabled && icon.disabled_image().is_none(),
+                    is_pressed,
+                    is_hovered,
+                );
 
-                    ctx.renderer()
-                        .draw_image(img, icon_rect, ImageScaleMode::Fit);
-                }
+                ctx.renderer()
+                    .draw_image(img, icon_rect, ImageScaleMode::Fit);
             }
+        }
 
         // Draw text if visible
         if shows_text && !self.inner.display_text().is_empty() {
@@ -1153,10 +1152,13 @@ impl Widget for ToolButton {
                 // Trigger action if menu wasn't shown (DelayedPopup)
                 // and we're still over the button
                 let is_over = self.inner.widget_base().contains_point(e.local_pos);
-                if is_over && self.inner.widget_base().is_pressed() && !menu_was_shown
-                    && self.popup_mode != ToolButtonPopupMode::InstantPopup {
-                        self.trigger();
-                    }
+                if is_over
+                    && self.inner.widget_base().is_pressed()
+                    && !menu_was_shown
+                    && self.popup_mode != ToolButtonPopupMode::InstantPopup
+                {
+                    self.trigger();
+                }
 
                 event.accept();
                 true
@@ -1168,20 +1170,21 @@ impl Widget for ToolButton {
 
                 // Update arrow hover state for MenuButtonPopup
                 if self.popup_mode == ToolButtonPopupMode::MenuButtonPopup
-                    && let Some(ar) = self.arrow_rect() {
-                        let local_arrow = Rect::new(
-                            ar.origin.x - self.inner.widget_base().rect().origin.x,
-                            0.0,
-                            ar.size.width,
-                            ar.size.height,
-                        );
-                        let new_hovered = local_arrow.contains(e.local_pos);
-                        if new_hovered != self.arrow_hovered {
-                            self.arrow_hovered = new_hovered;
-                            self.inner.widget_base_mut().update();
-                            return true;
-                        }
+                    && let Some(ar) = self.arrow_rect()
+                {
+                    let local_arrow = Rect::new(
+                        ar.origin.x - self.inner.widget_base().rect().origin.x,
+                        0.0,
+                        ar.size.width,
+                        ar.size.height,
+                    );
+                    let new_hovered = local_arrow.contains(e.local_pos);
+                    if new_hovered != self.arrow_hovered {
+                        self.arrow_hovered = new_hovered;
+                        self.inner.widget_base_mut().update();
+                        return true;
                     }
+                }
                 false
             }
 

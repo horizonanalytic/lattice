@@ -12,6 +12,7 @@ fn setup() {
 }
 
 // Basic test struct using the derive macro
+#[allow(dead_code)] // Signal fields are tested via macro-generated accessors
 #[derive(Object)]
 struct TestButton {
     base: ObjectBase,
@@ -53,6 +54,7 @@ impl TestButton {
 }
 
 // Test struct with read-only property
+#[allow(dead_code)] // Signal fields are tested via macro-generated accessors
 #[derive(Object)]
 struct TestCounter {
     base: ObjectBase,
@@ -286,6 +288,7 @@ fn test_signal_type_names() {
 fn test_multiple_signal_params() {
     setup();
 
+    #[allow(dead_code)] // Signal fields are tested via macro-generated accessors
     #[derive(Object)]
     #[object(no_factory)]
     struct MultiParamSignals {

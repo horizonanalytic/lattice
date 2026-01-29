@@ -1795,38 +1795,39 @@ impl GpuRenderer {
 
         // Use texture-based gradient for >2 stops
         if gradient.stops.len() > 2
-            && let Some(gradient_id) = self.gradient_atlas.get_or_create(&gradient.stops) {
-                let tex_v = gradient_id.tex_v();
-                let opacity = self.current_opacity;
-                let base_index = self.gradient_tex_vertices.len() as u32;
+            && let Some(gradient_id) = self.gradient_atlas.get_or_create(&gradient.stops)
+        {
+            let tex_v = gradient_id.tex_v();
+            let opacity = self.current_opacity;
+            let base_index = self.gradient_tex_vertices.len() as u32;
 
-                for pos in positions {
-                    self.gradient_tex_vertices
-                        .push(RectVertex::linear_gradient_tex(
-                            pos,
-                            rect_pos,
-                            rect_size,
-                            corner_radii,
-                            start,
-                            end,
-                            tex_v,
-                            opacity,
-                        ));
-                }
-
-                self.gradient_tex_indices.extend_from_slice(&[
-                    base_index,
-                    base_index + 1,
-                    base_index + 2,
-                    base_index,
-                    base_index + 2,
-                    base_index + 3,
-                ]);
-
-                self.vertex_count += 4;
-                return;
+            for pos in positions {
+                self.gradient_tex_vertices
+                    .push(RectVertex::linear_gradient_tex(
+                        pos,
+                        rect_pos,
+                        rect_size,
+                        corner_radii,
+                        start,
+                        end,
+                        tex_v,
+                        opacity,
+                    ));
             }
-            // Fall through to 2-stop path if atlas is full
+
+            self.gradient_tex_indices.extend_from_slice(&[
+                base_index,
+                base_index + 1,
+                base_index + 2,
+                base_index,
+                base_index + 2,
+                base_index + 3,
+            ]);
+
+            self.vertex_count += 4;
+            return;
+        }
+        // Fall through to 2-stop path if atlas is full
 
         // Use the 2-stop gradient path
         let base_index = self.vertices.len() as u32;
@@ -1897,38 +1898,39 @@ impl GpuRenderer {
 
         // Use texture-based gradient for >2 stops
         if gradient.stops.len() > 2
-            && let Some(gradient_id) = self.gradient_atlas.get_or_create(&gradient.stops) {
-                let tex_v = gradient_id.tex_v();
-                let opacity = self.current_opacity;
-                let base_index = self.gradient_tex_vertices.len() as u32;
+            && let Some(gradient_id) = self.gradient_atlas.get_or_create(&gradient.stops)
+        {
+            let tex_v = gradient_id.tex_v();
+            let opacity = self.current_opacity;
+            let base_index = self.gradient_tex_vertices.len() as u32;
 
-                for pos in positions {
-                    self.gradient_tex_vertices
-                        .push(RectVertex::radial_gradient_tex(
-                            pos,
-                            rect_pos,
-                            rect_size,
-                            corner_radii,
-                            center,
-                            normalized_radius,
-                            tex_v,
-                            opacity,
-                        ));
-                }
-
-                self.gradient_tex_indices.extend_from_slice(&[
-                    base_index,
-                    base_index + 1,
-                    base_index + 2,
-                    base_index,
-                    base_index + 2,
-                    base_index + 3,
-                ]);
-
-                self.vertex_count += 4;
-                return;
+            for pos in positions {
+                self.gradient_tex_vertices
+                    .push(RectVertex::radial_gradient_tex(
+                        pos,
+                        rect_pos,
+                        rect_size,
+                        corner_radii,
+                        center,
+                        normalized_radius,
+                        tex_v,
+                        opacity,
+                    ));
             }
-            // Fall through to 2-stop path if atlas is full
+
+            self.gradient_tex_indices.extend_from_slice(&[
+                base_index,
+                base_index + 1,
+                base_index + 2,
+                base_index,
+                base_index + 2,
+                base_index + 3,
+            ]);
+
+            self.vertex_count += 4;
+            return;
+        }
+        // Fall through to 2-stop path if atlas is full
 
         // Use the 2-stop gradient path
         let base_index = self.vertices.len() as u32;

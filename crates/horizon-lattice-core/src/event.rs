@@ -19,7 +19,6 @@ pub enum EventPriority {
     Critical = 3,
 }
 
-
 /// Internal events dispatched through the Horizon Lattice event loop.
 ///
 /// These events are sent via `EventLoopProxy` and processed by the `ApplicationHandler`.

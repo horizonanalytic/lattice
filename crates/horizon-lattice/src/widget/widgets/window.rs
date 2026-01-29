@@ -1714,17 +1714,20 @@ impl Window {
     /// Check which button is at the given position.
     fn hit_test_button(&self, pos: Point) -> Option<TitleBarButton> {
         if let Some(close_rect) = self.close_button_rect()
-            && close_rect.contains(pos) {
-                return Some(TitleBarButton::Close);
-            }
+            && close_rect.contains(pos)
+        {
+            return Some(TitleBarButton::Close);
+        }
         if let Some(max_rect) = self.maximize_button_rect()
-            && max_rect.contains(pos) {
-                return Some(TitleBarButton::Maximize);
-            }
+            && max_rect.contains(pos)
+        {
+            return Some(TitleBarButton::Maximize);
+        }
         if let Some(min_rect) = self.minimize_button_rect()
-            && min_rect.contains(pos) {
-                return Some(TitleBarButton::Minimize);
-            }
+            && min_rect.contains(pos)
+        {
+            return Some(TitleBarButton::Minimize);
+        }
         None
     }
 
@@ -1805,9 +1808,10 @@ impl Window {
         if self.close_button_state.pressed {
             self.close_button_state.pressed = false;
             if let Some(rect) = self.close_button_rect()
-                && rect.contains(pos) {
-                    self.close();
-                }
+                && rect.contains(pos)
+            {
+                self.close();
+            }
             self.base.update();
             return true;
         }
@@ -1815,9 +1819,10 @@ impl Window {
         if self.maximize_button_state.pressed {
             self.maximize_button_state.pressed = false;
             if let Some(rect) = self.maximize_button_rect()
-                && rect.contains(pos) {
-                    self.toggle_maximize();
-                }
+                && rect.contains(pos)
+            {
+                self.toggle_maximize();
+            }
             self.base.update();
             return true;
         }
@@ -1825,9 +1830,10 @@ impl Window {
         if self.minimize_button_state.pressed {
             self.minimize_button_state.pressed = false;
             if let Some(rect) = self.minimize_button_rect()
-                && rect.contains(pos) {
-                    self.minimize();
-                }
+                && rect.contains(pos)
+            {
+                self.minimize();
+            }
             self.base.update();
             return true;
         }
@@ -2081,11 +2087,13 @@ impl Window {
 
         // Handle Enter key for default button activation
         // This handles Enter at the window level when no focused widget consumed it
-        if event.key == Key::Enter && !event.is_repeat
-            && let Some(button_id) = self.default_button {
-                self.default_button_activated.emit(button_id);
-                return true;
-            }
+        if event.key == Key::Enter
+            && !event.is_repeat
+            && let Some(button_id) = self.default_button
+        {
+            self.default_button_activated.emit(button_id);
+            return true;
+        }
 
         // Handle Alt key press - show mnemonic underlines
         if matches!(event.key, Key::AltLeft | Key::AltRight) {
@@ -2099,11 +2107,12 @@ impl Window {
 
         // Handle Alt+key mnemonic activation
         if event.modifiers.alt
-            && let Some(key_char) = event.key.to_ascii_char() {
-                // Emit signal for mnemonic dispatch
-                self.mnemonic_key_pressed.emit(key_char);
-                return true; // Consume the Alt+key event
-            }
+            && let Some(key_char) = event.key.to_ascii_char()
+        {
+            // Emit signal for mnemonic dispatch
+            self.mnemonic_key_pressed.emit(key_char);
+            return true; // Consume the Alt+key event
+        }
 
         false
     }
@@ -2113,13 +2122,12 @@ impl Window {
         if matches!(event.key, Key::AltLeft | Key::AltRight) {
             // Only hide if no Alt keys remain pressed
             // (Check modifiers to see if Alt is still held via the other Alt key)
-            if !event.modifiers.alt
-                && self.alt_held {
-                    self.alt_held = false;
-                    self.reset_mnemonic_cycle();
-                    // Trigger repaint of window to hide mnemonic underlines
-                    self.base.update();
-                }
+            if !event.modifiers.alt && self.alt_held {
+                self.alt_held = false;
+                self.reset_mnemonic_cycle();
+                // Trigger repaint of window to hide mnemonic underlines
+                self.base.update();
+            }
             return false; // Don't consume the Alt key event
         }
 

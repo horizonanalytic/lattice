@@ -39,7 +39,8 @@ async fn test_download_event_id() {
     use horizon_lattice_net::http::DownloadId;
 
     // Test that events carry the correct ID
-    let events = [DownloadEvent::Started {
+    let events = [
+        DownloadEvent::Started {
             id: unsafe { std::mem::transmute::<u64, DownloadId>(1) },
         },
         DownloadEvent::Progress {
@@ -54,7 +55,8 @@ async fn test_download_event_id() {
         DownloadEvent::Error {
             id: unsafe { std::mem::transmute::<u64, DownloadId>(4) },
             message: "test error".to_string(),
-        }];
+        },
+    ];
 
     for (i, event) in events.iter().enumerate() {
         let id_val: u64 = unsafe { std::mem::transmute(event.id()) };
@@ -67,7 +69,8 @@ async fn test_upload_event_id() {
     use horizon_lattice_net::http::UploadId;
 
     // Test that events carry the correct ID
-    let events = [UploadEvent::Started {
+    let events = [
+        UploadEvent::Started {
             id: unsafe { std::mem::transmute::<u64, UploadId>(1) },
         },
         UploadEvent::Progress {
@@ -82,7 +85,8 @@ async fn test_upload_event_id() {
         UploadEvent::Error {
             id: unsafe { std::mem::transmute::<u64, UploadId>(4) },
             message: "test error".to_string(),
-        }];
+        },
+    ];
 
     for (i, event) in events.iter().enumerate() {
         let id_val: u64 = unsafe { std::mem::transmute(event.id()) };

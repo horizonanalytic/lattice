@@ -298,10 +298,9 @@ impl ButtonGroup {
             }
 
             self.checked_button = Some(object_id);
-        } else if !checked
-            && self.checked_button == Some(object_id) {
-                self.checked_button = None;
-            }
+        } else if !checked && self.checked_button == Some(object_id) {
+            self.checked_button = None;
+        }
 
         buttons_to_uncheck
     }

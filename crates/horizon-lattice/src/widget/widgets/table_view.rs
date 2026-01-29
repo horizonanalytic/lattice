@@ -1598,28 +1598,29 @@ impl TableView {
 
         // Check for header clicks
         let header_height = self.header_height();
-        if self.show_horizontal_header && event.local_pos.y < header_height
+        if self.show_horizontal_header
+            && event.local_pos.y < header_height
             && let Some(col) = self.column_at_content_x(
                 event.local_pos.x - self.row_header_width() + self.scroll_x as f32,
-            ) {
-                self.header_clicked.emit((Orientation::Horizontal, col));
+            )
+        {
+            self.header_clicked.emit((Orientation::Horizontal, col));
 
-                if self.sorting_enabled {
-                    // Toggle sort order
-                    let current_order = self.horizontal_header.sort_indicator_order();
-                    let new_order = if self.horizontal_header.sort_indicator_section() == Some(col)
-                    {
-                        match current_order {
-                            SortOrder::Ascending => SortOrder::Descending,
-                            SortOrder::Descending => SortOrder::Ascending,
-                        }
-                    } else {
-                        SortOrder::Ascending
-                    };
-                    self.horizontal_header.set_sort_indicator(col, new_order);
-                }
-                return true;
+            if self.sorting_enabled {
+                // Toggle sort order
+                let current_order = self.horizontal_header.sort_indicator_order();
+                let new_order = if self.horizontal_header.sort_indicator_section() == Some(col) {
+                    match current_order {
+                        SortOrder::Ascending => SortOrder::Descending,
+                        SortOrder::Descending => SortOrder::Ascending,
+                    }
+                } else {
+                    SortOrder::Ascending
+                };
+                self.horizontal_header.set_sort_indicator(col, new_order);
             }
+            return true;
+        }
 
         false
     }
@@ -1634,27 +1635,28 @@ impl TableView {
 
         if let Some((row, col)) = pressed
             && let Some(index) = self.index_at(event.local_pos)
-                && index.row() == row && index.column() == col {
-                    let emit_index = ModelIndex::new(row, col, ModelIndex::invalid());
-                    self.clicked.emit(emit_index.clone());
+            && index.row() == row
+            && index.column() == col
+        {
+            let emit_index = ModelIndex::new(row, col, ModelIndex::invalid());
+            self.clicked.emit(emit_index.clone());
 
-                    // Check for double-click
-                    let now = Instant::now();
-                    if let (Some(last_time), Some(last_cell)) =
-                        (self.last_click_time, self.last_click_cell)
-                        && last_cell == (row, col)
-                            && now.duration_since(last_time).as_millis() < 500
-                        {
-                            self.double_clicked.emit(emit_index.clone());
-                            self.activated.emit(emit_index);
-                            self.last_click_time = None;
-                            self.last_click_cell = None;
-                            return true;
-                        }
+            // Check for double-click
+            let now = Instant::now();
+            if let (Some(last_time), Some(last_cell)) = (self.last_click_time, self.last_click_cell)
+                && last_cell == (row, col)
+                && now.duration_since(last_time).as_millis() < 500
+            {
+                self.double_clicked.emit(emit_index.clone());
+                self.activated.emit(emit_index);
+                self.last_click_time = None;
+                self.last_click_cell = None;
+                return true;
+            }
 
-                    self.last_click_time = Some(now);
-                    self.last_click_cell = Some((row, col));
-                }
+            self.last_click_time = Some(now);
+            self.last_click_cell = Some((row, col));
+        }
 
         true
     }

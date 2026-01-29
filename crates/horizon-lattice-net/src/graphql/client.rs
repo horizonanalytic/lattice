@@ -142,9 +142,13 @@ impl GraphQLClientBuilder {
         // Build connection init payload
         let init_payload = if self.connection_init_payload.is_some() {
             self.connection_init_payload
-        } else { self.auth_token.as_ref().map(|token| serde_json::json!({
-                "Authorization": format!("Bearer {}", token)
-            })) };
+        } else {
+            self.auth_token.as_ref().map(|token| {
+                serde_json::json!({
+                    "Authorization": format!("Bearer {}", token)
+                })
+            })
+        };
 
         Ok(GraphQLClient {
             inner: Arc::new(GraphQLClientInner {

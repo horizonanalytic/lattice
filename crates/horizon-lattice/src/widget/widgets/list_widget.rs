@@ -457,9 +457,10 @@ impl ListWidget {
 
         // Update current row if needed
         if let Some(current) = self.current_row
-            && current >= row {
-                self.current_row = Some(current + 1);
-            }
+            && current >= row
+        {
+            self.current_row = Some(current + 1);
+        }
 
         self.update_content_height();
         self.base.update();
@@ -893,20 +894,22 @@ impl Widget for ListWidget {
         match event {
             WidgetEvent::MousePress(e) => {
                 if e.button == crate::widget::MouseButton::Left
-                    && let Some(row) = self.row_at_y(e.local_pos.y) {
-                        self.pressed_row = Some(row);
-                        self.handle_click(row, &e.modifiers);
-                        event.accept();
-                        return true;
-                    }
+                    && let Some(row) = self.row_at_y(e.local_pos.y)
+                {
+                    self.pressed_row = Some(row);
+                    self.handle_click(row, &e.modifiers);
+                    event.accept();
+                    return true;
+                }
             }
             WidgetEvent::MouseRelease(e) => {
                 if e.button == crate::widget::MouseButton::Left {
                     if let Some(pressed) = self.pressed_row.take()
                         && let Some(row) = self.row_at_y(e.local_pos.y)
-                            && row == pressed {
-                                // Check for double-click would go here
-                            }
+                        && row == pressed
+                    {
+                        // Check for double-click would go here
+                    }
                     self.base.update();
                 }
             }

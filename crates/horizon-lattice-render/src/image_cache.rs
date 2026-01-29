@@ -409,9 +409,10 @@ impl ImageCache {
 
         // Update old head's prev pointer
         if let Some(old_head) = &self.lru_head
-            && let Some(old_node) = self.lru_nodes.get_mut(old_head) {
-                old_node.prev = Some(key.clone());
-            }
+            && let Some(old_node) = self.lru_nodes.get_mut(old_head)
+        {
+            old_node.prev = Some(key.clone());
+        }
 
         // Update tail if this is the first entry
         if self.lru_tail.is_none() {

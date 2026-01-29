@@ -262,11 +262,7 @@ impl FileInfo {
     /// This performs an access check beyond the file permissions.
     pub fn is_writable(&self) -> bool {
         // Try to open for writing (append mode to avoid truncating)
-        fs::OpenOptions::new()
-            
-            .append(true)
-            .open(&self.path)
-            .is_ok()
+        fs::OpenOptions::new().append(true).open(&self.path).is_ok()
     }
 
     /// Returns true if the file is executable by the current user.

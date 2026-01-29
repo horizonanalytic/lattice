@@ -790,10 +790,10 @@ impl DefaultItemDelegate {
         if let Ok(mut text_renderer) = TextRenderer::new()
             && let Ok(_prepared_glyphs) =
                 text_renderer.prepare_layout(&mut font_system, &layout, position, text_color)
-            {
-                // The prepared glyphs would be rendered by the view's text render pass.
-                // For now, this is a placeholder showing the pattern.
-            }
+        {
+            // The prepared glyphs would be rendered by the view's text render pass.
+            // For now, this is a placeholder showing the pattern.
+        }
     }
 
     /// Returns layout information for text at the given index.

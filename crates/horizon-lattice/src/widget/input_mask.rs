@@ -60,8 +60,7 @@
 use std::fmt;
 
 /// Case conversion mode for alphabetic characters.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CaseMode {
     /// No case conversion.
     #[default]
@@ -71,7 +70,6 @@ pub enum CaseMode {
     /// Convert to lowercase.
     Lower,
 }
-
 
 /// Represents a single element in a parsed input mask.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -348,7 +346,9 @@ impl InputMask {
 
     /// Find the last editable position.
     pub fn last_editable_pos(&self) -> Option<usize> {
-        (0..self.elements.len()).rev().find(|&i| self.elements[i].is_editable())
+        (0..self.elements.len())
+            .rev()
+            .find(|&i| self.elements[i].is_editable())
     }
 
     /// Check if a character can be placed at the given mask position.

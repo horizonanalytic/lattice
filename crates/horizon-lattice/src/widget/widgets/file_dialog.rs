@@ -157,9 +157,10 @@ impl FileFilter {
 
             // Handle simple extension patterns like "*.rs"
             if let Some(ext_pattern) = pattern.strip_prefix("*.")
-                && filename_lower.ends_with(&format!(".{}", ext_pattern.to_lowercase())) {
-                    return true;
-                }
+                && filename_lower.ends_with(&format!(".{}", ext_pattern.to_lowercase()))
+            {
+                return true;
+            }
         }
 
         false
@@ -1178,21 +1179,25 @@ impl FileDialog {
             self.system_bookmarks.push(home);
         }
         if let Some(desktop) = BookmarkEntry::desktop()
-            && desktop.path.exists() {
-                self.system_bookmarks.push(desktop);
-            }
+            && desktop.path.exists()
+        {
+            self.system_bookmarks.push(desktop);
+        }
         if let Some(docs) = BookmarkEntry::documents()
-            && docs.path.exists() {
-                self.system_bookmarks.push(docs);
-            }
+            && docs.path.exists()
+        {
+            self.system_bookmarks.push(docs);
+        }
         if let Some(downloads) = BookmarkEntry::downloads()
-            && downloads.path.exists() {
-                self.system_bookmarks.push(downloads);
-            }
+            && downloads.path.exists()
+        {
+            self.system_bookmarks.push(downloads);
+        }
         if let Some(pictures) = BookmarkEntry::pictures()
-            && pictures.path.exists() {
-                self.system_bookmarks.push(pictures);
-            }
+            && pictures.path.exists()
+        {
+            self.system_bookmarks.push(pictures);
+        }
 
         // Add root filesystem
         #[cfg(not(target_os = "windows"))]
@@ -1500,9 +1505,10 @@ impl FileDialog {
 
         // Update filename text
         if let Some(entry) = self.entries.get(index)
-            && (!entry.is_dir || self.mode.is_directory_mode()) {
-                self.filename_text = entry.name.clone();
-            }
+            && (!entry.is_dir || self.mode.is_directory_mode())
+        {
+            self.filename_text = entry.name.clone();
+        }
 
         self.dialog.widget_base_mut().update();
     }
@@ -1721,17 +1727,18 @@ impl FileDialog {
 
         // Handle typing to filter/search
         if let Some(ch) = event.key.to_ascii_char()
-            && ch.is_alphanumeric() {
-                // Find first entry starting with this character
-                let ch_lower = ch.to_ascii_lowercase();
-                for (i, entry) in self.entries.iter().enumerate() {
-                    if entry.name.to_lowercase().starts_with(ch_lower) {
-                        self.select_entry(i, false);
-                        break;
-                    }
+            && ch.is_alphanumeric()
+        {
+            // Find first entry starting with this character
+            let ch_lower = ch.to_ascii_lowercase();
+            for (i, entry) in self.entries.iter().enumerate() {
+                if entry.name.to_lowercase().starts_with(ch_lower) {
+                    self.select_entry(i, false);
+                    break;
                 }
-                return true;
             }
+            return true;
+        }
 
         false
     }

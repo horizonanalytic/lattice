@@ -777,9 +777,11 @@ impl Menu {
             }
 
             if let Some(mnemonic) = item.mnemonic()
-                && mnemonic == target_char && item.is_enabled() {
-                    return Some(i);
-                }
+                && mnemonic == target_char
+                && item.is_enabled()
+            {
+                return Some(i);
+            }
         }
 
         None
@@ -818,16 +820,17 @@ impl Menu {
         let pos = event.local_pos;
 
         if let Some(index) = self.item_at_position(pos)
-            && self.is_item_selectable(index) {
-                self.set_selected_index(Some(index));
+            && self.is_item_selectable(index)
+        {
+            self.set_selected_index(Some(index));
 
-                // Open submenu on hover (with a delay in a full implementation)
-                if let Some(MenuItem::Submenu { .. }) = self.items.get(index) {
-                    self.open_submenu(index);
-                }
-
-                return true;
+            // Open submenu on hover (with a delay in a full implementation)
+            if let Some(MenuItem::Submenu { .. }) = self.items.get(index) {
+                self.open_submenu(index);
             }
+
+            return true;
+        }
 
         false
     }
@@ -845,10 +848,11 @@ impl Menu {
             Key::ArrowRight => {
                 // Open submenu if selected item is a submenu
                 if let Some(index) = self.selected_index
-                    && let Some(MenuItem::Submenu { .. }) = self.items.get(index) {
-                        self.open_submenu(index);
-                        return true;
-                    }
+                    && let Some(MenuItem::Submenu { .. }) = self.items.get(index)
+                {
+                    self.open_submenu(index);
+                    return true;
+                }
                 false
             }
             Key::ArrowLeft => {
@@ -883,11 +887,12 @@ impl Menu {
             _ => {
                 // Check for mnemonic
                 if self.mnemonics_active
-                    && let Some(index) = self.find_mnemonic_item(event.key) {
-                        self.set_selected_index(Some(index));
-                        self.trigger_item(index);
-                        return true;
-                    }
+                    && let Some(index) = self.find_mnemonic_item(event.key)
+                {
+                    self.set_selected_index(Some(index));
+                    self.trigger_item(index);
+                    return true;
+                }
                 false
             }
         }
@@ -1020,9 +1025,10 @@ impl Menu {
 
         // Draw mnemonic underline if active
         if self.mnemonics_active
-            && let Some(mnemonic_index) = action.mnemonic_index() {
-                self.paint_mnemonic_underline(ctx, mnemonic_index, text_x, text_y, text_color);
-            }
+            && let Some(mnemonic_index) = action.mnemonic_index()
+        {
+            self.paint_mnemonic_underline(ctx, mnemonic_index, text_x, text_y, text_color);
+        }
 
         // Shortcut text
         if let Some(shortcut) = action.shortcut() {
@@ -1066,9 +1072,10 @@ impl Menu {
         self.paint_text_layout(ctx, &parsed.display_text, text_x, text_y, text_color);
 
         if self.mnemonics_active
-            && let Some(mnemonic_index) = parsed.mnemonic_index {
-                self.paint_mnemonic_underline(ctx, mnemonic_index, text_x, text_y, text_color);
-            }
+            && let Some(mnemonic_index) = parsed.mnemonic_index
+        {
+            self.paint_mnemonic_underline(ctx, mnemonic_index, text_x, text_y, text_color);
+        }
 
         // Submenu arrow
         let arrow_x =

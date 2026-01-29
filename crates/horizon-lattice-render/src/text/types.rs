@@ -208,8 +208,7 @@ impl FontStretch {
 }
 
 /// Font family specification.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum FontFamily {
     /// A specific font family by name.
     Name(String),
@@ -256,7 +255,6 @@ impl FontFamily {
         }
     }
 }
-
 
 impl fmt::Display for FontFamily {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

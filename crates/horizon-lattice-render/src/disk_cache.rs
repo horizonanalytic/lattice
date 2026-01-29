@@ -172,27 +172,28 @@ impl DiskImageCache {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file()
-                && let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                    // The filename is the hash, we need to read the URL from metadata
-                    // For simplicity, we just track the file by its hash
-                    if let Ok(metadata) = entry.metadata() {
-                        let size = metadata.len();
-                        let created = metadata.created().unwrap_or(SystemTime::UNIX_EPOCH);
-                        let last_accessed = metadata.accessed().unwrap_or(created);
+                && let Some(file_name) = path.file_name().and_then(|n| n.to_str())
+            {
+                // The filename is the hash, we need to read the URL from metadata
+                // For simplicity, we just track the file by its hash
+                if let Ok(metadata) = entry.metadata() {
+                    let size = metadata.len();
+                    let created = metadata.created().unwrap_or(SystemTime::UNIX_EPOCH);
+                    let last_accessed = metadata.accessed().unwrap_or(created);
 
-                        // Use the filename as a pseudo-URL for tracking
-                        let url = file_name.to_string();
-                        self.entries.insert(
-                            url,
-                            CacheEntryMeta {
-                                size,
-                                created,
-                                last_accessed,
-                            },
-                        );
-                        self.current_size += size;
-                    }
+                    // Use the filename as a pseudo-URL for tracking
+                    let url = file_name.to_string();
+                    self.entries.insert(
+                        url,
+                        CacheEntryMeta {
+                            size,
+                            created,
+                            last_accessed,
+                        },
+                    );
+                    self.current_size += size;
                 }
+            }
         }
 
         Ok(())
@@ -250,9 +251,10 @@ impl DiskImageCache {
             // Check TTL
             if let Some(ttl) = self.config.ttl
                 && let Ok(age) = meta.created.elapsed()
-                    && age > ttl {
-                        return false;
-                    }
+                && age > ttl
+            {
+                return false;
+            }
             true
         } else {
             false
@@ -270,11 +272,12 @@ impl DiskImageCache {
             // Check TTL
             if let Some(ttl) = self.config.ttl
                 && let Ok(age) = meta.created.elapsed()
-                    && age > ttl {
-                        // Entry has expired, remove it
-                        self.remove(url)?;
-                        return Ok(None);
-                    }
+                && age > ttl
+            {
+                // Entry has expired, remove it
+                self.remove(url)?;
+                return Ok(None);
+            }
 
             // Read the file
             let path = self.config.cache_dir.join(&hash);
@@ -376,15 +379,16 @@ impl DiskImageCache {
             .map(|(hash, _)| hash.clone());
 
         if let Some(hash) = oldest
-            && let Some(meta) = self.entries.remove(&hash) {
-                self.current_size -= meta.size;
+            && let Some(meta) = self.entries.remove(&hash)
+        {
+            self.current_size -= meta.size;
 
-                // Delete the file
-                let path = self.config.cache_dir.join(&hash);
-                if path.exists() {
-                    let _ = fs::remove_file(&path);
-                }
+            // Delete the file
+            let path = self.config.cache_dir.join(&hash);
+            if path.exists() {
+                let _ = fs::remove_file(&path);
             }
+        }
 
         Ok(())
     }
@@ -416,9 +420,10 @@ impl DiskImageCache {
 
         for (hash, meta) in &self.entries {
             if let Ok(age) = meta.created.elapsed()
-                && age > ttl {
-                    expired.push(hash.clone());
-                }
+                && age > ttl
+            {
+                expired.push(hash.clone());
+            }
         }
 
         let count = expired.len();

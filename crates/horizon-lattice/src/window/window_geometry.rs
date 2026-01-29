@@ -111,9 +111,10 @@ impl WindowGeometry {
     fn find_target_screen<'a>(&self, screens: &'a [Screen]) -> &'a Screen {
         // Try to find by name first
         if let Some(ref name) = self.screen_name
-            && let Some(screen) = screens.iter().find(|s| s.name() == name) {
-                return screen;
-            }
+            && let Some(screen) = screens.iter().find(|s| s.name() == name)
+        {
+            return screen;
+        }
 
         // Try to find the screen containing the saved position
         if let Some(screen) = screens.iter().find(|s| {

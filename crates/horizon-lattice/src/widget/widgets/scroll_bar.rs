@@ -533,13 +533,15 @@ impl ScrollBar {
     fn hit_test(&self, pos: Point) -> ScrollBarPart {
         // Check step buttons first
         if let Some(rect) = self.decrease_button_rect()
-            && rect.contains(pos) {
-                return ScrollBarPart::StepButtonDecrease;
-            }
+            && rect.contains(pos)
+        {
+            return ScrollBarPart::StepButtonDecrease;
+        }
         if let Some(rect) = self.increase_button_rect()
-            && rect.contains(pos) {
-                return ScrollBarPart::StepButtonIncrease;
-            }
+            && rect.contains(pos)
+        {
+            return ScrollBarPart::StepButtonIncrease;
+        }
 
         // Check thumb
         let thumb = self.thumb_rect();

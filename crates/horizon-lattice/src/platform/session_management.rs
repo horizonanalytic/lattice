@@ -179,8 +179,7 @@ impl From<io::Error> for SessionManagementError {
 // ============================================================================
 
 /// The reason why a session is ending.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum SessionEndReason {
     /// System is shutting down.
     Shutdown,
@@ -193,7 +192,6 @@ pub enum SessionEndReason {
     #[default]
     Unknown,
 }
-
 
 // ============================================================================
 // Session Event Watcher
@@ -842,9 +840,10 @@ impl ApplicationState {
 
         for entry in entries.flatten() {
             if let Some(name) = entry.file_name().to_str()
-                && let Some(key) = name.strip_suffix(".state") {
-                    keys.push(key.to_string());
-                }
+                && let Some(key) = name.strip_suffix(".state")
+            {
+                keys.push(key.to_string());
+            }
         }
 
         Ok(keys)

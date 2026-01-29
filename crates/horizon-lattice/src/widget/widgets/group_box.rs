@@ -984,11 +984,12 @@ impl Widget for GroupBox {
                 }
 
                 if e.button == crate::widget::MouseButton::Left
-                    && self.is_point_in_checkbox(e.local_pos) {
-                        self.toggle();
-                        event.accept();
-                        return true;
-                    }
+                    && self.is_point_in_checkbox(e.local_pos)
+                {
+                    self.toggle();
+                    event.accept();
+                    return true;
+                }
                 false
             }
             _ => false,

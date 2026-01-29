@@ -1089,9 +1089,10 @@ fn parse_document<R: BufRead>(reader: &mut Reader<R>) -> FileResult<XmlDocument>
                 if let Ok(content) = text.unescape() {
                     let content = content.to_string();
                     if !content.is_empty()
-                        && let Some(parent) = element_stack.last_mut() {
-                            parent.add_text(content);
-                        }
+                        && let Some(parent) = element_stack.last_mut()
+                    {
+                        parent.add_text(content);
+                    }
                 }
             }
             Ok(Event::CData(cdata)) => {

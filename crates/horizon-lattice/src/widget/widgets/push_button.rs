@@ -715,32 +715,31 @@ impl Widget for PushButton {
         };
 
         // Draw icon if present and loaded
-        if shows_icon
-            && let Some(icon) = self.inner.icon() {
-                // Get the appropriate image based on state
-                let image = if is_disabled {
-                    icon.disabled_image()
-                } else {
-                    icon.image()
-                };
+        if shows_icon && let Some(icon) = self.inner.icon() {
+            // Get the appropriate image based on state
+            let image = if is_disabled {
+                icon.disabled_image()
+            } else {
+                icon.image()
+            };
 
-                if let Some(img) = image {
-                    let icon_rect =
-                        Rect::new(icon_pos.x, icon_pos.y, icon_size.width, icon_size.height);
+            if let Some(img) = image {
+                let icon_rect =
+                    Rect::new(icon_pos.x, icon_pos.y, icon_size.width, icon_size.height);
 
-                    // Apply tint for state feedback (only if not using dedicated disabled image)
-                    let _tint = icon_tint_for_state(
-                        Color::WHITE,
-                        is_disabled && icon.disabled_image().is_none(),
-                        is_pressed,
-                        is_hovered,
-                    );
+                // Apply tint for state feedback (only if not using dedicated disabled image)
+                let _tint = icon_tint_for_state(
+                    Color::WHITE,
+                    is_disabled && icon.disabled_image().is_none(),
+                    is_pressed,
+                    is_hovered,
+                );
 
-                    // Draw the icon image
-                    ctx.renderer()
-                        .draw_image(img, icon_rect, ImageScaleMode::Fit);
-                }
+                // Draw the icon image
+                ctx.renderer()
+                    .draw_image(img, icon_rect, ImageScaleMode::Fit);
             }
+        }
 
         // Draw text if present
         if shows_text && !self.inner.display_text().is_empty() {

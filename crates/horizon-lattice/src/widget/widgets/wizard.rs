@@ -931,9 +931,10 @@ impl Wizard {
     pub fn can_go_back(&self) -> bool {
         // Can't go back past a commit point
         if let Some(commit_idx) = self.first_commit_reached
-            && self.current_page as usize <= commit_idx {
-                return false;
-            }
+            && self.current_page as usize <= commit_idx
+        {
+            return false;
+        }
         self.prev_visible_page().is_some()
     }
 
@@ -1256,9 +1257,10 @@ impl Wizard {
         // Going back: check for commit points
         if target_idx < current {
             if let Some(commit_idx) = self.first_commit_reached
-                && target_idx < commit_idx {
-                    return false;
-                }
+                && target_idx < commit_idx
+            {
+                return false;
+            }
             // Can only go back to completed pages
             return self
                 .pages
@@ -1707,26 +1709,27 @@ impl Wizard {
             // Validation errors
             let validation = page.last_validation();
             if !validation.is_valid()
-                && let Some(error_msg) = validation.first_error_message() {
-                    let error_font = Font::new(FontFamily::SansSerif, 12.0);
-                    let error_layout = TextLayout::with_options(
+                && let Some(error_msg) = validation.first_error_message()
+            {
+                let error_font = Font::new(FontFamily::SansSerif, 12.0);
+                let error_layout = TextLayout::with_options(
+                    &mut font_system,
+                    error_msg,
+                    &error_font,
+                    TextLayoutOptions::new(),
+                );
+                let error_y =
+                    self.size.1 - NAV_BUTTON_HEIGHT - CONTENT_PADDING - error_layout.height();
+                let error_pos = Point::new(content_left + CONTENT_PADDING, error_y);
+                if let Ok(mut text_renderer) = TextRenderer::new() {
+                    let _ = text_renderer.prepare_layout(
                         &mut font_system,
-                        error_msg,
-                        &error_font,
-                        TextLayoutOptions::new(),
+                        &error_layout,
+                        error_pos,
+                        self.error_color,
                     );
-                    let error_y =
-                        self.size.1 - NAV_BUTTON_HEIGHT - CONTENT_PADDING - error_layout.height();
-                    let error_pos = Point::new(content_left + CONTENT_PADDING, error_y);
-                    if let Ok(mut text_renderer) = TextRenderer::new() {
-                        let _ = text_renderer.prepare_layout(
-                            &mut font_system,
-                            &error_layout,
-                            error_pos,
-                            self.error_color,
-                        );
-                    }
                 }
+            }
         }
     }
 

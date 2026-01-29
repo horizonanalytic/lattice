@@ -112,9 +112,10 @@ pub trait ComboBoxModel: Send + Sync {
     fn find_text(&self, text: &str) -> Option<usize> {
         for i in 0..self.row_count() {
             if let Some(item_text) = self.text(i)
-                && item_text == text {
-                    return Some(i);
-                }
+                && item_text == text
+            {
+                return Some(i);
+            }
         }
         None
     }
@@ -388,13 +389,14 @@ impl ComboBoxItemDelegate for DefaultComboBoxDelegate {
 
         // Draw icon if present
         if let Some(icon) = &item.icon
-            && let Some(image) = icon.image() {
-                let icon_y = rect.origin.y + (rect.height() - self.icon_size) / 2.0;
-                let icon_rect = Rect::new(text_x, icon_y, self.icon_size, self.icon_size);
-                ctx.renderer()
-                    .draw_image(image, icon_rect, ImageScaleMode::Fit);
-                text_x += self.icon_size + self.padding;
-            }
+            && let Some(image) = icon.image()
+        {
+            let icon_y = rect.origin.y + (rect.height() - self.icon_size) / 2.0;
+            let icon_rect = Rect::new(text_x, icon_y, self.icon_size, self.icon_size);
+            ctx.renderer()
+                .draw_image(image, icon_rect, ImageScaleMode::Fit);
+            text_x += self.icon_size + self.padding;
+        }
 
         // Draw text
         let mut font_system = FontSystem::new();
@@ -622,9 +624,10 @@ impl ComboBox {
         self.model = Some(model);
         // Reset selection if current index is out of bounds
         if let Some(m) = &self.model
-            && self.current_index >= m.row_count() as i32 {
-                self.set_current_index(-1);
-            }
+            && self.current_index >= m.row_count() as i32
+        {
+            self.set_current_index(-1);
+        }
         self.base.update();
     }
 
@@ -711,12 +714,14 @@ impl ComboBox {
             self.current_index = new_index;
 
             // Update edit text for editable mode
-            if self.editable && new_index >= 0
-                && let Some(text) = self.item_text(new_index as usize) {
-                    self.edit_text = text.clone();
-                    self.cursor_pos = self.edit_text.len();
-                    self.selection_start = None;
-                }
+            if self.editable
+                && new_index >= 0
+                && let Some(text) = self.item_text(new_index as usize)
+            {
+                self.edit_text = text.clone();
+                self.cursor_pos = self.edit_text.len();
+                self.selection_start = None;
+            }
 
             self.base.update();
             self.current_index_changed.emit(new_index);
@@ -794,11 +799,13 @@ impl ComboBox {
             self.editable = editable;
 
             // Initialize edit text from current selection
-            if editable && self.current_index >= 0
-                && let Some(text) = self.item_text(self.current_index as usize) {
-                    self.edit_text = text;
-                    self.cursor_pos = self.edit_text.len();
-                }
+            if editable
+                && self.current_index >= 0
+                && let Some(text) = self.item_text(self.current_index as usize)
+            {
+                self.edit_text = text;
+                self.cursor_pos = self.edit_text.len();
+            }
 
             self.base.update();
         }
@@ -1346,26 +1353,27 @@ impl ComboBox {
         // Handle character input for editable mode
         if self.editable
             && let Some(ch) = event.text.chars().next()
-                && !ch.is_control() {
-                    // Insert character at cursor
-                    self.edit_text.insert(self.cursor_pos, ch);
-                    self.cursor_pos += ch.len_utf8();
-                    self.selection_start = None;
+            && !ch.is_control()
+        {
+            // Insert character at cursor
+            self.edit_text.insert(self.cursor_pos, ch);
+            self.cursor_pos += ch.len_utf8();
+            self.selection_start = None;
 
-                    self.update_filtered_indices();
+            self.update_filtered_indices();
 
-                    // Show popup if we have matches
-                    if !self.filtered_indices.is_empty() && !self.popup_visible {
-                        self.show_popup();
-                    } else if self.popup_visible {
-                        self.highlighted_index = 0;
-                        self.scroll_offset = 0;
-                    }
+            // Show popup if we have matches
+            if !self.filtered_indices.is_empty() && !self.popup_visible {
+                self.show_popup();
+            } else if self.popup_visible {
+                self.highlighted_index = 0;
+                self.scroll_offset = 0;
+            }
 
-                    self.base.update();
-                    self.current_text_changed.emit(self.edit_text.clone());
-                    return true;
-                }
+            self.base.update();
+            self.current_text_changed.emit(self.edit_text.clone());
+            return true;
+        }
 
         false
     }
@@ -1603,27 +1611,28 @@ impl ComboBox {
             let actual_idx = self.actual_index(list_idx);
 
             if let Some(model) = &self.model
-                && let Some(item) = model.item(actual_idx) {
-                    let item_rect = Rect::new(
-                        popup_rect.origin.x + 1.0,
-                        popup_rect.origin.y + 1.0 + (visual_idx as f32) * self.item_height,
-                        popup_rect.size.width - 2.0,
-                        self.item_height,
-                    );
+                && let Some(item) = model.item(actual_idx)
+            {
+                let item_rect = Rect::new(
+                    popup_rect.origin.x + 1.0,
+                    popup_rect.origin.y + 1.0 + (visual_idx as f32) * self.item_height,
+                    popup_rect.size.width - 2.0,
+                    self.item_height,
+                );
 
-                    let is_selected = list_idx as i32 == self.highlighted_index;
-                    let is_hovered =
-                        matches!(self.hover_part, ComboBoxPart::PopupItem(idx) if idx == list_idx);
+                let is_selected = list_idx as i32 == self.highlighted_index;
+                let is_hovered =
+                    matches!(self.hover_part, ComboBoxPart::PopupItem(idx) if idx == list_idx);
 
-                    self.delegate.paint_item(
-                        ctx,
-                        item_rect,
-                        &item,
-                        actual_idx,
-                        is_selected,
-                        is_hovered,
-                    );
-                }
+                self.delegate.paint_item(
+                    ctx,
+                    item_rect,
+                    &item,
+                    actual_idx,
+                    is_selected,
+                    is_hovered,
+                );
+            }
         }
 
         // Draw scroll indicators if needed

@@ -474,10 +474,11 @@ impl FormLayout {
 
         for row in &self.rows {
             if let FormRow::LabelField { label, .. } = row
-                && self.base.is_item_visible(storage, label) {
-                    let hint = self.base.get_item_size_hint(storage, label);
-                    max_width = max_width.max(hint.preferred.width);
-                }
+                && self.base.is_item_visible(storage, label)
+            {
+                let hint = self.base.get_item_size_hint(storage, label);
+                max_width = max_width.max(hint.preferred.width);
+            }
         }
 
         max_width

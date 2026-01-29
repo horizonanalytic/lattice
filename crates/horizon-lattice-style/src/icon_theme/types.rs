@@ -339,8 +339,7 @@ impl IconContext {
 }
 
 /// Size type for icon theme directories.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum IconSizeType {
     /// Fixed size icons - must match exactly
     Fixed,
@@ -350,7 +349,6 @@ pub enum IconSizeType {
     #[default]
     Threshold,
 }
-
 
 /// Information about an icon theme directory.
 #[derive(Debug, Clone)]
@@ -409,7 +407,9 @@ impl IconThemeDirectory {
                 let max = self.max_size.unwrap_or(self.size);
                 if target < min {
                     min - target
-                } else { target.saturating_sub(max) }
+                } else {
+                    target.saturating_sub(max)
+                }
             }
             IconSizeType::Threshold => (self.size as i32 - target as i32).unsigned_abs(),
         }
@@ -568,10 +568,7 @@ mod tests {
     #[test]
     fn test_icon_context_parse() {
         assert_eq!(IconContext::parse("actions"), Some(IconContext::Actions));
-        assert_eq!(
-            IconContext::parse("apps"),
-            Some(IconContext::Applications)
-        );
+        assert_eq!(IconContext::parse("apps"), Some(IconContext::Applications));
         assert_eq!(
             IconContext::parse("applications"),
             Some(IconContext::Applications)

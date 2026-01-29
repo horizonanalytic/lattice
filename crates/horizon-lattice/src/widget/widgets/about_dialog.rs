@@ -605,12 +605,14 @@ impl AboutDialog {
 
         let rect = self.dialog.widget_base().rect();
 
-        self.credits_link_rect().map(|link_rect| Rect::new(
+        self.credits_link_rect().map(|link_rect| {
+            Rect::new(
                 self.content_padding,
                 link_rect.origin.y + link_rect.height() + 4.0,
                 rect.width() - self.content_padding * 2.0,
                 self.expanded_section_height,
-            ))
+            )
+        })
     }
 
     /// Get the license link button rectangle.
@@ -663,12 +665,14 @@ impl AboutDialog {
 
         let rect = self.dialog.widget_base().rect();
 
-        self.license_link_rect().map(|link_rect| Rect::new(
+        self.license_link_rect().map(|link_rect| {
+            Rect::new(
                 self.content_padding,
                 link_rect.origin.y + link_rect.height() + 4.0,
                 rect.width() - self.content_padding * 2.0,
                 self.expanded_section_height,
-            ))
+            )
+        })
     }
 
     // =========================================================================
@@ -682,19 +686,21 @@ impl AboutDialog {
 
         // Check credits link click
         if let Some(credits_rect) = self.credits_link_rect()
-            && credits_rect.contains(event.local_pos) {
-                self.credits_button_state.pressed = true;
-                self.dialog.widget_base_mut().update();
-                return true;
-            }
+            && credits_rect.contains(event.local_pos)
+        {
+            self.credits_button_state.pressed = true;
+            self.dialog.widget_base_mut().update();
+            return true;
+        }
 
         // Check license link click
         if let Some(license_rect) = self.license_link_rect()
-            && license_rect.contains(event.local_pos) {
-                self.license_button_state.pressed = true;
-                self.dialog.widget_base_mut().update();
-                return true;
-            }
+            && license_rect.contains(event.local_pos)
+        {
+            self.license_button_state.pressed = true;
+            self.dialog.widget_base_mut().update();
+            return true;
+        }
 
         false
     }
@@ -709,11 +715,12 @@ impl AboutDialog {
             self.credits_button_state.pressed = false;
 
             if let Some(credits_rect) = self.credits_link_rect()
-                && credits_rect.contains(event.local_pos) {
-                    self.credits_expanded = !self.credits_expanded;
-                    self.credits_clicked.emit(());
-                    self.update_size();
-                }
+                && credits_rect.contains(event.local_pos)
+            {
+                self.credits_expanded = !self.credits_expanded;
+                self.credits_clicked.emit(());
+                self.update_size();
+            }
             self.dialog.widget_base_mut().update();
             return true;
         }
@@ -723,11 +730,12 @@ impl AboutDialog {
             self.license_button_state.pressed = false;
 
             if let Some(license_rect) = self.license_link_rect()
-                && license_rect.contains(event.local_pos) {
-                    self.license_expanded = !self.license_expanded;
-                    self.license_clicked.emit(());
-                    self.update_size();
-                }
+                && license_rect.contains(event.local_pos)
+            {
+                self.license_expanded = !self.license_expanded;
+                self.license_clicked.emit(());
+                self.update_size();
+            }
             self.dialog.widget_base_mut().update();
             return true;
         }

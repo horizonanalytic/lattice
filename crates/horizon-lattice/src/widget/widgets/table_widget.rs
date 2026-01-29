@@ -527,9 +527,10 @@ impl TableWidget {
 
             // Update selection
             if let Some(row) = self.current_row
-                && row >= count {
-                    self.current_row = if count > 0 { Some(count - 1) } else { None };
-                }
+                && row >= count
+            {
+                self.current_row = if count > 0 { Some(count - 1) } else { None };
+            }
         }
 
         self.update_content_size();
@@ -555,9 +556,10 @@ impl TableWidget {
 
         // Update selection
         if let Some(col) = self.current_column
-            && col >= count {
-                self.current_column = if count > 0 { Some(count - 1) } else { None };
-            }
+            && col >= count
+        {
+            self.current_column = if count > 0 { Some(count - 1) } else { None };
+        }
 
         self.update_content_size();
         self.base.update();
@@ -687,9 +689,10 @@ impl TableWidget {
 
         // Update current selection
         if let Some(current_row) = self.current_row
-            && current_row >= row {
-                self.current_row = Some(current_row + 1);
-            }
+            && current_row >= row
+        {
+            self.current_row = Some(current_row + 1);
+        }
 
         self.update_content_size();
         self.base.update();
@@ -747,9 +750,10 @@ impl TableWidget {
 
         // Update current selection
         if let Some(current_col) = self.current_column
-            && current_col >= column {
-                self.current_column = Some(current_col + 1);
-            }
+            && current_col >= column
+        {
+            self.current_column = Some(current_col + 1);
+        }
 
         self.update_content_size();
         self.base.update();
@@ -1273,12 +1277,13 @@ impl Widget for TableWidget {
         match event {
             WidgetEvent::MousePress(e) => {
                 if e.button == crate::widget::MouseButton::Left
-                    && let Some((row, col)) = self.cell_at_pos(e.local_pos) {
-                        self.pressed_cell = Some((row, col));
-                        self.handle_click(row, col, &e.modifiers);
-                        event.accept();
-                        return true;
-                    }
+                    && let Some((row, col)) = self.cell_at_pos(e.local_pos)
+                {
+                    self.pressed_cell = Some((row, col));
+                    self.handle_click(row, col, &e.modifiers);
+                    event.accept();
+                    return true;
+                }
             }
             WidgetEvent::MouseRelease(e) => {
                 if e.button == crate::widget::MouseButton::Left {
@@ -1313,10 +1318,11 @@ impl Widget for TableWidget {
                 match e.key {
                     crate::widget::Key::ArrowUp => {
                         if let Some(row) = self.current_row
-                            && row > 0 {
-                                let col = self.current_column.unwrap_or(0);
-                                self.set_current_cell(row - 1, col);
-                            }
+                            && row > 0
+                        {
+                            let col = self.current_column.unwrap_or(0);
+                            self.set_current_cell(row - 1, col);
+                        }
                         return true;
                     }
                     crate::widget::Key::ArrowDown => {
@@ -1332,10 +1338,11 @@ impl Widget for TableWidget {
                     }
                     crate::widget::Key::ArrowLeft => {
                         if let Some(col) = self.current_column
-                            && col > 0 {
-                                let row = self.current_row.unwrap_or(0);
-                                self.set_current_cell(row, col - 1);
-                            }
+                            && col > 0
+                        {
+                            let row = self.current_row.unwrap_or(0);
+                            self.set_current_cell(row, col - 1);
+                        }
                         return true;
                     }
                     crate::widget::Key::ArrowRight => {

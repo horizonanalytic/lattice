@@ -150,10 +150,11 @@ impl ShaderWatcher {
                 Ok(Ok(events)) => {
                     for event in events {
                         if event.kind == DebouncedEventKind::Any
-                            && let Some(kind) = ShaderKind::from_path(&event.path) {
-                                tracing::debug!("Detected change in shader: {:?}", kind);
-                                self.pending_changes.insert(kind);
-                            }
+                            && let Some(kind) = ShaderKind::from_path(&event.path)
+                        {
+                            tracing::debug!("Detected change in shader: {:?}", kind);
+                            self.pending_changes.insert(kind);
+                        }
                     }
                 }
                 Ok(Err(e)) => {

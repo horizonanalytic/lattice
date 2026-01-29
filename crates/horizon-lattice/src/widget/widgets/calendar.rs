@@ -465,9 +465,10 @@ impl CalendarWidget {
     /// Set the selected date.
     pub fn set_selected_date(&mut self, date: Option<NaiveDate>) {
         if let Some(d) = date
-            && !self.is_date_valid(d) {
-                return;
-            }
+            && !self.is_date_valid(d)
+        {
+            return;
+        }
         if self.selected_date != date {
             self.selected_date = date;
             self.base.update();
@@ -543,13 +544,15 @@ impl CalendarWidget {
     /// Check if a date is valid (within range).
     pub fn is_date_valid(&self, date: NaiveDate) -> bool {
         if let Some(min) = self.minimum_date
-            && date < min {
-                return false;
-            }
+            && date < min
+        {
+            return false;
+        }
         if let Some(max) = self.maximum_date
-            && date > max {
-                return false;
-            }
+            && date > max
+        {
+            return false;
+        }
         true
     }
 
@@ -885,9 +888,10 @@ impl CalendarWidget {
 
         // Check today button
         if let Some(rect) = self.today_button_rect()
-            && rect.contains(pos) {
-                return CalendarPart::TodayButton;
-            }
+            && rect.contains(pos)
+        {
+            return CalendarPart::TodayButton;
+        }
 
         // Check header area
         let header = self.header_rect();
@@ -943,15 +947,16 @@ impl CalendarWidget {
             }
             CalendarPart::DayCell(row, col) => {
                 if let Some(date) = self.date_at_cell(row, col)
-                    && self.is_date_valid(date) {
-                        self.set_selected_date(Some(date));
-                        // Navigate to the date's month if it's in a different month
-                        if date.month() != self.displayed_month.month()
-                            || date.year() != self.displayed_month.year()
-                        {
-                            self.show_date(date);
-                        }
+                    && self.is_date_valid(date)
+                {
+                    self.set_selected_date(Some(date));
+                    // Navigate to the date's month if it's in a different month
+                    if date.month() != self.displayed_month.month()
+                        || date.year() != self.displayed_month.year()
+                    {
+                        self.show_date(date);
                     }
+                }
                 true
             }
             _ => false,
@@ -985,10 +990,11 @@ impl CalendarWidget {
         let part = self.hit_test(event.local_pos);
         if let CalendarPart::DayCell(row, col) = part
             && let Some(date) = self.date_at_cell(row, col)
-                && self.is_date_valid(date) {
-                    self.activated.emit(date);
-                    return true;
-                }
+            && self.is_date_valid(date)
+        {
+            self.activated.emit(date);
+            return true;
+        }
         false
     }
 

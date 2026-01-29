@@ -341,14 +341,13 @@ impl SimpleTableModel {
     /// Sets the data at the specified cell.
     pub fn set_cell(&self, row: usize, column: usize, value: ItemData) {
         let mut data = self.data.write();
-        if row < data.len() && column < self.column_count
-            && column < data[row].len() {
-                data[row][column] = value;
-                drop(data);
-                let index = ModelIndex::new(row, column, ModelIndex::invalid());
-                self.signals
-                    .emit_data_changed_single(index, vec![ItemRole::Display]);
-            }
+        if row < data.len() && column < self.column_count && column < data[row].len() {
+            data[row][column] = value;
+            drop(data);
+            let index = ModelIndex::new(row, column, ModelIndex::invalid());
+            self.signals
+                .emit_data_changed_single(index, vec![ItemRole::Display]);
+        }
     }
 
     /// Appends a row.

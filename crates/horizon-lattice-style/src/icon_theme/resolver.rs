@@ -178,13 +178,14 @@ impl IconResolver {
         while idx < themes_to_check.len() {
             let theme_id = &themes_to_check[idx];
             if visited.insert(theme_id.clone())
-                && let Some(theme) = self.loader.get_theme(theme_id) {
-                    for parent in &theme.inherits {
-                        if !visited.contains(parent) {
-                            themes_to_check.push(parent.clone());
-                        }
+                && let Some(theme) = self.loader.get_theme(theme_id)
+            {
+                for parent in &theme.inherits {
+                    if !visited.contains(parent) {
+                        themes_to_check.push(parent.clone());
                     }
                 }
+            }
             idx += 1;
         }
 
@@ -196,9 +197,10 @@ impl IconResolver {
         // Search through themes
         for theme_id in themes_to_check {
             if let Some(theme) = self.loader.get_theme(&theme_id)
-                && let Some(path) = self.find_icon_in_theme(theme, lookup) {
-                    return Some(path);
-                }
+                && let Some(path) = self.find_icon_in_theme(theme, lookup)
+            {
+                return Some(path);
+            }
         }
 
         None
@@ -276,13 +278,14 @@ impl IconResolver {
         while idx < themes_to_check.len() {
             let theme_id = &themes_to_check[idx];
             if visited.insert(theme_id.clone())
-                && let Some(theme) = self.loader.get_theme(theme_id) {
-                    for parent in &theme.inherits {
-                        if !visited.contains(parent) {
-                            themes_to_check.push(parent.clone());
-                        }
+                && let Some(theme) = self.loader.get_theme(theme_id)
+            {
+                for parent in &theme.inherits {
+                    if !visited.contains(parent) {
+                        themes_to_check.push(parent.clone());
                     }
                 }
+            }
             idx += 1;
         }
 

@@ -465,10 +465,11 @@ impl ProgressDialog {
     fn check_minimum_duration(&mut self) {
         if self.pending_show
             && let Some(start) = self.operation_start
-                && start.elapsed() >= self.minimum_duration {
-                    self.pending_show = false;
-                    self.dialog.open();
-                }
+            && start.elapsed() >= self.minimum_duration
+        {
+            self.pending_show = false;
+            self.dialog.open();
+        }
     }
 
     /// Check if the dialog is currently open.

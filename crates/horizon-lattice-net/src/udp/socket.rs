@@ -186,21 +186,23 @@ impl UdpSocket {
 
             // Apply socket options
             if config.broadcast
-                && let Err(e) = socket.set_broadcast(true) {
-                    emit_error(NetworkError::UdpSocket(format!(
-                        "Failed to enable broadcast: {}",
-                        e
-                    )));
-                }
+                && let Err(e) = socket.set_broadcast(true)
+            {
+                emit_error(NetworkError::UdpSocket(format!(
+                    "Failed to enable broadcast: {}",
+                    e
+                )));
+            }
 
             // Apply multicast settings
             if config.multicast.ttl > 0
-                && let Err(e) = socket.set_multicast_ttl_v4(config.multicast.ttl) {
-                    emit_error(NetworkError::UdpSocket(format!(
-                        "Failed to set multicast TTL: {}",
-                        e
-                    )));
-                }
+                && let Err(e) = socket.set_multicast_ttl_v4(config.multicast.ttl)
+            {
+                emit_error(NetworkError::UdpSocket(format!(
+                    "Failed to set multicast TTL: {}",
+                    e
+                )));
+            }
 
             if let Err(e) = socket.set_multicast_loop_v4(config.multicast.loopback) {
                 emit_error(NetworkError::UdpSocket(format!(

@@ -126,8 +126,7 @@ impl std::error::Error for HardwareError {}
 // ============================================================================
 
 /// Represents a rectangle in screen coordinates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ScreenRect {
     /// X coordinate of the top-left corner.
     pub x: i32,
@@ -166,7 +165,6 @@ impl ScreenRect {
         )
     }
 }
-
 
 // ============================================================================
 // Screen

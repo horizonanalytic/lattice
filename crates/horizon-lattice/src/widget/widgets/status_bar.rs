@@ -703,10 +703,11 @@ impl Widget for StatusBar {
             WidgetEvent::Timer(timer_event) => {
                 // Check if this is our message timeout timer
                 if let Some(timer_id) = self.message_timer_id
-                    && timer_event.id == timer_id {
-                        self.clear_message();
-                        return true;
-                    }
+                    && timer_event.id == timer_id
+                {
+                    self.clear_message();
+                    return true;
+                }
                 false
             }
             _ => false,

@@ -1075,29 +1075,30 @@ impl ToolBar {
 
             // Update button rect if this is an action
             if let ToolBarItem::Action(_) = item
-                && button_idx < self.action_buttons.len() {
-                    let btn = &mut self.action_buttons[button_idx];
-                    btn.in_overflow = first_overflow_index.is_some_and(|fi| i >= fi);
+                && button_idx < self.action_buttons.len()
+            {
+                let btn = &mut self.action_buttons[button_idx];
+                btn.in_overflow = first_overflow_index.is_some_and(|fi| i >= fi);
 
-                    if !btn.in_overflow {
-                        if is_horizontal {
-                            btn.rect = Rect::new(
-                                pos,
-                                self.style.padding,
-                                button_size.width,
-                                button_size.height,
-                            );
-                        } else {
-                            btn.rect = Rect::new(
-                                self.style.padding,
-                                pos,
-                                button_size.width,
-                                button_size.height,
-                            );
-                        }
+                if !btn.in_overflow {
+                    if is_horizontal {
+                        btn.rect = Rect::new(
+                            pos,
+                            self.style.padding,
+                            button_size.width,
+                            button_size.height,
+                        );
+                    } else {
+                        btn.rect = Rect::new(
+                            self.style.padding,
+                            pos,
+                            button_size.width,
+                            button_size.height,
+                        );
                     }
-                    button_idx += 1;
                 }
+                button_idx += 1;
+            }
 
             if first_overflow_index.is_none() || first_overflow_index.is_some_and(|fi| i < fi) {
                 pos += item_size + self.style.spacing;
@@ -1261,9 +1262,10 @@ impl ToolBar {
         };
 
         if let Some(rect) = global_rect
-            && let Some(menu) = &mut self.overflow_menu {
-                menu.popup_relative_to(rect, PopupPlacement::BelowAlignLeft);
-            }
+            && let Some(menu) = &mut self.overflow_menu
+        {
+            menu.popup_relative_to(rect, PopupPlacement::BelowAlignLeft);
+        }
     }
 
     // =========================================================================

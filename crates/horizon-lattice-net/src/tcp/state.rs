@@ -1,8 +1,7 @@
 //! State enums for TCP connections and servers.
 
 /// Current state of a TCP connection.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TcpConnectionState {
     /// Not connected to any server.
     #[default]
@@ -17,7 +16,6 @@ pub enum TcpConnectionState {
     Closing,
 }
 
-
 impl std::fmt::Display for TcpConnectionState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -31,8 +29,7 @@ impl std::fmt::Display for TcpConnectionState {
 }
 
 /// Current state of a TCP server.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TcpServerState {
     /// Server is not running.
     #[default]
@@ -44,7 +41,6 @@ pub enum TcpServerState {
     /// Server is shutting down.
     Stopping,
 }
-
 
 impl std::fmt::Display for TcpServerState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

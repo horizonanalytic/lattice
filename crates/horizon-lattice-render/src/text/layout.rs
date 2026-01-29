@@ -1903,9 +1903,10 @@ impl TextLayout {
             let prev = self.move_cursor_left(current);
             let char_at_prev = self.text[prev..current].chars().next();
             if let Some(c) = char_at_prev
-                && c.is_alphanumeric() {
-                    break;
-                }
+                && c.is_alphanumeric()
+            {
+                break;
+            }
             current = prev;
         }
 
@@ -1927,9 +1928,10 @@ impl TextLayout {
         while current < self.text.len() {
             let char_at = self.text[current..].chars().next();
             if let Some(c) = char_at
-                && c.is_alphanumeric() {
-                    break;
-                }
+                && c.is_alphanumeric()
+            {
+                break;
+            }
             current = self.move_cursor_right(current);
         }
 
@@ -2081,6 +2083,7 @@ impl TextLayout {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::text::FontSystemConfig;

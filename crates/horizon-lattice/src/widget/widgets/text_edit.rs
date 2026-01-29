@@ -242,9 +242,10 @@ impl UndoStack {
         // Try to merge with the last command if merging is enabled
         if self.merge_enabled
             && let Some(last) = self.commands.last_mut()
-                && last.try_merge(&command) {
-                    return;
-                }
+            && last.try_merge(&command)
+        {
+            return;
+        }
 
         self.commands.push(command);
         self.index = self.commands.len();
@@ -2402,9 +2403,10 @@ impl TextEdit {
         }
 
         if let Ok(mut clipboard) = Clipboard::new()
-            && let Ok(text) = clipboard.get_text() {
-                self.insert_text(&text);
-            }
+            && let Ok(text) = clipboard.get_text()
+        {
+            self.insert_text(&text);
+        }
     }
 
     /// Insert content from a StyledDocument at the current cursor position.
@@ -2746,9 +2748,11 @@ impl TextEdit {
 
         // Check if cached layout is still valid
         if let Some(ref c) = *cached
-            && c.text == self.text && c.width == max_width {
-                return;
-            }
+            && c.text == self.text
+            && c.width == max_width
+        {
+            return;
+        }
 
         // Create new layout
         let options = TextLayoutOptions::default()
@@ -2845,9 +2849,10 @@ impl TextEdit {
     fn line_start(&self, line: usize) -> usize {
         let cached = self.cached_layout.read();
         if let Some(ref c) = *cached
-            && line < c.line_starts.len() {
-                return c.line_starts[line];
-            }
+            && line < c.line_starts.len()
+        {
+            return c.line_starts[line];
+        }
         // Fall back to computing it
         let mut current_line = 0;
         for (i, c) in self.text.char_indices() {
@@ -3730,10 +3735,11 @@ impl TextEdit {
                         &layout,
                         Point::new(0.0, 0.0),
                         self.placeholder_color,
-                    ) {
-                        // Note: Actual glyph rendering requires integration with the
-                        // application's render pass system.
-                    }
+                    )
+                {
+                    // Note: Actual glyph rendering requires integration with the
+                    // application's render pass system.
+                }
             }
         } else if self.has_formatting() || self.has_block_formatting() {
             // Rich text rendering: use styled spans (also used when there's block formatting)
@@ -3834,10 +3840,11 @@ impl TextEdit {
                     &layout,
                     Point::new(0.0, 0.0),
                     self.text_color,
-                ) {
-                    // Note: Actual glyph rendering requires integration with the
-                    // application's render pass system.
-                }
+                )
+            {
+                // Note: Actual glyph rendering requires integration with the
+                // application's render pass system.
+            }
         } else {
             // Plain text rendering: use cached layout
             self.ensure_layout(font_system);
@@ -3850,10 +3857,11 @@ impl TextEdit {
                         &c.layout,
                         Point::new(0.0, 0.0),
                         self.text_color,
-                    ) {
-                        // Note: Actual glyph rendering requires integration with the
-                        // application's render pass system.
-                    }
+                    )
+                {
+                    // Note: Actual glyph rendering requires integration with the
+                    // application's render pass system.
+                }
             }
         }
 
@@ -4004,10 +4012,11 @@ impl TextEdit {
                     &layout,
                     Point::new(marker_x, para_y),
                     self.text_color,
-                ) {
-                    // Note: Actual glyph rendering requires integration with the
-                    // application's render pass system.
-                }
+                )
+            {
+                // Note: Actual glyph rendering requires integration with the
+                // application's render pass system.
+            }
         }
     }
 

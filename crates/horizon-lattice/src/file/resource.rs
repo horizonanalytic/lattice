@@ -536,9 +536,10 @@ impl ResourceManager {
         if parsed.is_embedded {
             let embedded = self.embedded.read();
             if let Some(dir) = embedded.get(parsed.prefix.as_ref())
-                && let Some(data) = dir.get_file(&parsed.path) {
-                    return Ok(data.to_vec());
-                }
+                && let Some(data) = dir.get_file(&parsed.path)
+            {
+                return Ok(data.to_vec());
+            }
             // Fall through to filesystem roots
             let roots = self.filesystem_roots.read();
             if let Some(root) = roots.get(parsed.prefix.as_ref()) {
@@ -559,9 +560,10 @@ impl ResourceManager {
         if parsed.is_embedded {
             let embedded = self.embedded.read();
             if let Some(dir) = embedded.get(parsed.prefix.as_ref())
-                && let Some(text) = dir.get_text(&parsed.path) {
-                    return Ok(text.to_string());
-                }
+                && let Some(text) = dir.get_text(&parsed.path)
+            {
+                return Ok(text.to_string());
+            }
             // Fall through to filesystem roots
             let roots = self.filesystem_roots.read();
             if let Some(root) = roots.get(parsed.prefix.as_ref()) {

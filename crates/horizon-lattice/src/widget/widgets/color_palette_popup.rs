@@ -339,9 +339,10 @@ impl ColorPalettePopup {
     fn swatch_at_point(&self, point: Point) -> Option<usize> {
         for i in 0..self.colors.len() {
             if let Some(rect) = self.swatch_rect(i)
-                && rect.contains(point) {
-                    return Some(i);
-                }
+                && rect.contains(point)
+            {
+                return Some(i);
+            }
         }
         None
     }
@@ -374,9 +375,10 @@ impl ColorPalettePopup {
 
         // Check action click
         if let Some(action_rect) = self.action_rect()
-            && action_rect.contains(pos) {
-                return true;
-            }
+            && action_rect.contains(pos)
+        {
+            return true;
+        }
 
         false
     }
@@ -390,19 +392,21 @@ impl ColorPalettePopup {
 
         // Check swatch release
         if let Some(index) = self.swatch_at_point(pos)
-            && let Some(&color) = self.colors.get(index) {
-                self.color_selected.emit(color);
-                self.close();
-                return true;
-            }
+            && let Some(&color) = self.colors.get(index)
+        {
+            self.color_selected.emit(color);
+            self.close();
+            return true;
+        }
 
         // Check action release
         if let Some(action_rect) = self.action_rect()
-            && action_rect.contains(pos) {
-                self.more_colors_requested.emit(());
-                self.close();
-                return true;
-            }
+            && action_rect.contains(pos)
+        {
+            self.more_colors_requested.emit(());
+            self.close();
+            return true;
+        }
 
         false
     }
@@ -415,11 +419,12 @@ impl ColorPalettePopup {
             }
             Key::Enter | Key::Space => {
                 if let Some(index) = self.selected_index
-                    && let Some(&color) = self.colors.get(index) {
-                        self.color_selected.emit(color);
-                        self.close();
-                        return true;
-                    }
+                    && let Some(&color) = self.colors.get(index)
+                {
+                    self.color_selected.emit(color);
+                    self.close();
+                    return true;
+                }
                 false
             }
             Key::ArrowLeft => self.move_selection(-1, 0),

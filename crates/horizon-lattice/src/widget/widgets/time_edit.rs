@@ -769,33 +769,37 @@ impl TimeEdit {
             }
             _ => {
                 // Handle A/P for AM/PM toggle
-                if self.is_12_hour() && self.current_section == EditSection::AmPm
-                    && let Some(ch) = event.text.chars().next() {
-                        let ch_lower = ch.to_ascii_lowercase();
-                        if ch_lower == 'a' {
-                            // Set to AM
-                            if self.time.hour() >= 12
-                                && let Some(t) = NaiveTime::from_hms_opt(
-                                    self.time.hour() - 12,
-                                    self.time.minute(),
-                                    self.time.second(),
-                                ) {
-                                    self.set_time(t);
-                                }
-                            return true;
-                        } else if ch_lower == 'p' {
-                            // Set to PM
-                            if self.time.hour() < 12
-                                && let Some(t) = NaiveTime::from_hms_opt(
-                                    self.time.hour() + 12,
-                                    self.time.minute(),
-                                    self.time.second(),
-                                ) {
-                                    self.set_time(t);
-                                }
-                            return true;
+                if self.is_12_hour()
+                    && self.current_section == EditSection::AmPm
+                    && let Some(ch) = event.text.chars().next()
+                {
+                    let ch_lower = ch.to_ascii_lowercase();
+                    if ch_lower == 'a' {
+                        // Set to AM
+                        if self.time.hour() >= 12
+                            && let Some(t) = NaiveTime::from_hms_opt(
+                                self.time.hour() - 12,
+                                self.time.minute(),
+                                self.time.second(),
+                            )
+                        {
+                            self.set_time(t);
                         }
+                        return true;
+                    } else if ch_lower == 'p' {
+                        // Set to PM
+                        if self.time.hour() < 12
+                            && let Some(t) = NaiveTime::from_hms_opt(
+                                self.time.hour() + 12,
+                                self.time.minute(),
+                                self.time.second(),
+                            )
+                        {
+                            self.set_time(t);
+                        }
+                        return true;
                     }
+                }
             }
         }
         false
@@ -970,7 +974,11 @@ impl Widget for TimeEdit {
     fn size_hint(&self) -> SizeHint {
         let text_width = if self.is_12_hour() {
             if self.seconds_shown() { 100.0 } else { 80.0 }
-        } else if self.seconds_shown() { 75.0 } else { 55.0 };
+        } else if self.seconds_shown() {
+            75.0
+        } else {
+            55.0
+        };
         let width = text_width + self.button_width + 16.0;
         let height = 28.0;
 

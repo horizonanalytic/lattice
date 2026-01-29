@@ -662,9 +662,10 @@ impl WidgetBase {
             }
             // Check this ancestor's visibility via registry
             if let Ok(Some(state)) = registry.widget_state(id)
-                && !state.visible {
-                    return false;
-                }
+                && !state.visible
+            {
+                return false;
+            }
             current = registry.parent(id).ok().flatten();
         }
 
@@ -897,16 +898,17 @@ impl WidgetBase {
 
         // Otherwise, try to inherit from parent
         if let Some(parent_id) = self.parent_id()
-            && let Ok(registry) = global_registry() {
-                // Walk up the parent chain to find an explicit cursor
-                let mut current = Some(parent_id);
-                while let Some(id) = current {
-                    // We don't have direct access to parent cursors from here,
-                    // so we return the default. The actual cursor resolution
-                    // is handled by the event system when walking the widget tree.
-                    current = registry.parent(id).ok().flatten();
-                }
+            && let Ok(registry) = global_registry()
+        {
+            // Walk up the parent chain to find an explicit cursor
+            let mut current = Some(parent_id);
+            while let Some(id) = current {
+                // We don't have direct access to parent cursors from here,
+                // so we return the default. The actual cursor resolution
+                // is handled by the event system when walking the widget tree.
+                current = registry.parent(id).ok().flatten();
             }
+        }
 
         // Default to arrow cursor
         CursorShape::Arrow

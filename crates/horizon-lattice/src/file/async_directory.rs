@@ -515,9 +515,10 @@ impl AsyncWalkDir {
 
         // Check glob pattern
         if let Some(ref regex) = self.glob_regex
-            && !regex.is_match(&entry.name()) {
-                return false;
-            }
+            && !regex.is_match(&entry.name())
+        {
+            return false;
+        }
 
         true
     }
@@ -526,9 +527,10 @@ impl AsyncWalkDir {
     fn should_descend(&self, entry: &AsyncWalkEntry, depth: usize) -> bool {
         // Check depth limit
         if let Some(max_depth) = self.options.max_depth
-            && depth >= max_depth {
-                return false;
-            }
+            && depth >= max_depth
+        {
+            return false;
+        }
 
         // Check if it's a directory
         if !entry.is_dir() {
@@ -640,9 +642,10 @@ pub async fn dir_size_async(path: impl AsRef<Path>) -> FileResult<u64> {
 
     while let Some(result) = walker.next().await {
         if let Ok(entry) = result
-            && let Ok(size) = entry.size().await {
-                total += size;
-            }
+            && let Ok(size) = entry.size().await
+        {
+            total += size;
+        }
     }
 
     Ok(total)

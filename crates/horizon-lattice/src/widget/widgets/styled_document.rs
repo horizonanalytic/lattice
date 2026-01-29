@@ -237,8 +237,7 @@ impl LineSpacing {
 ///
 /// Modeled after Qt's QTextListFormat::Style, with negative values
 /// for bullets and positive values for numbered lists.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ListStyle {
     // Bullet styles (unordered lists)
     /// Filled circle bullet (•)
@@ -394,7 +393,6 @@ impl ListStyle {
         }
     }
 }
-
 
 /// List formatting information for a paragraph.
 ///
@@ -1576,20 +1574,21 @@ impl StyledDocument {
         for para_idx in range {
             let existing = self.block_format_at(para_idx);
             if let Some(mut list_format) = existing.list_format.clone()
-                && list_format.indent_level > 0 {
-                    list_format.indent_level -= 1;
-                    // Update the style for the new indent level
-                    if list_format.style.is_bullet() {
-                        list_format.style = ListStyle::bullet_for_level(list_format.indent_level);
-                    } else {
-                        list_format.style = ListStyle::number_for_level(list_format.indent_level);
-                    }
-                    let new_format = BlockFormat {
-                        list_format: Some(list_format),
-                        ..existing
-                    };
-                    self.set_block_format(para_idx..para_idx + 1, new_format);
+                && list_format.indent_level > 0
+            {
+                list_format.indent_level -= 1;
+                // Update the style for the new indent level
+                if list_format.style.is_bullet() {
+                    list_format.style = ListStyle::bullet_for_level(list_format.indent_level);
+                } else {
+                    list_format.style = ListStyle::number_for_level(list_format.indent_level);
                 }
+                let new_format = BlockFormat {
+                    list_format: Some(list_format),
+                    ..existing
+                };
+                self.set_block_format(para_idx..para_idx + 1, new_format);
+            }
         }
     }
 
@@ -1773,13 +1772,15 @@ impl StyledDocument {
 
                 // Check if we need to change list type at current level
                 if let Some(&(stack_ordered, stack_level)) = list_stack.last()
-                    && stack_level == indent_level && stack_ordered != is_ordered {
-                        // Close and reopen with different type
-                        let (was_ordered, _) = list_stack.pop().unwrap();
-                        html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
-                        html.push_str(if is_ordered { "<ol>" } else { "<ul>" });
-                        list_stack.push((is_ordered, indent_level));
-                    }
+                    && stack_level == indent_level
+                    && stack_ordered != is_ordered
+                {
+                    // Close and reopen with different type
+                    let (was_ordered, _) = list_stack.pop().unwrap();
+                    html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
+                    html.push_str(if is_ordered { "<ol>" } else { "<ul>" });
+                    list_stack.push((is_ordered, indent_level));
+                }
 
                 // Open new lists as needed
                 while list_stack.len() <= indent_level {
@@ -2104,12 +2105,14 @@ impl StyledDocument {
 
                 // Check if we need to change list type at current level
                 if let Some(&(stack_ordered, stack_level)) = list_stack.last()
-                    && stack_level == indent_level && stack_ordered != is_ordered {
-                        let (was_ordered, _) = list_stack.pop().unwrap();
-                        html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
-                        html.push_str(if is_ordered { "<ol>" } else { "<ul>" });
-                        list_stack.push((is_ordered, indent_level));
-                    }
+                    && stack_level == indent_level
+                    && stack_ordered != is_ordered
+                {
+                    let (was_ordered, _) = list_stack.pop().unwrap();
+                    html.push_str(if was_ordered { "</ol>" } else { "</ul>" });
+                    html.push_str(if is_ordered { "<ol>" } else { "<ul>" });
+                    list_stack.push((is_ordered, indent_level));
+                }
 
                 // Open new lists as needed
                 while list_stack.len() <= indent_level {
@@ -2648,21 +2651,24 @@ impl HtmlDocumentParser {
                 // Inline styles
                 "color" => {
                     if let Some(color) = parse_css_color(value)
-                        && let Some(f) = self.format_stack.last_mut() {
-                            f.foreground_color = Some(color);
-                        }
+                        && let Some(f) = self.format_stack.last_mut()
+                    {
+                        f.foreground_color = Some(color);
+                    }
                 }
                 "background-color" => {
                     if let Some(color) = parse_css_color(value)
-                        && let Some(f) = self.format_stack.last_mut() {
-                            f.background_color = Some(color);
-                        }
+                        && let Some(f) = self.format_stack.last_mut()
+                    {
+                        f.background_color = Some(color);
+                    }
                 }
                 "font-size" => {
                     if let Some(px) = parse_px_value(value)
-                        && let Some(f) = self.format_stack.last_mut() {
-                            f.font_size = Some(px);
-                        }
+                        && let Some(f) = self.format_stack.last_mut()
+                    {
+                        f.font_size = Some(px);
+                    }
                 }
                 "font-weight" => {
                     if let Some(f) = self.format_stack.last_mut() {
@@ -2675,9 +2681,10 @@ impl HtmlDocumentParser {
                 }
                 "font-style" => {
                     if let Some(f) = self.format_stack.last_mut()
-                        && (value == "italic" || value == "oblique") {
-                            f.italic = true;
-                        }
+                        && (value == "italic" || value == "oblique")
+                    {
+                        f.italic = true;
+                    }
                 }
                 "text-decoration" => {
                     if let Some(f) = self.format_stack.last_mut() {
@@ -2796,13 +2803,15 @@ fn decode_html_entity(entity: &str) -> String {
             if let Some(hex) = entity.strip_prefix('#') {
                 if let Some(hex_val) = hex.strip_prefix('x').or_else(|| hex.strip_prefix('X')) {
                     if let Ok(code_point) = u32::from_str_radix(hex_val, 16)
-                        && let Some(c) = char::from_u32(code_point) {
-                            return c.to_string();
-                        }
-                } else if let Ok(code_point) = hex.parse::<u32>()
-                    && let Some(c) = char::from_u32(code_point) {
+                        && let Some(c) = char::from_u32(code_point)
+                    {
                         return c.to_string();
                     }
+                } else if let Ok(code_point) = hex.parse::<u32>()
+                    && let Some(c) = char::from_u32(code_point)
+                {
+                    return c.to_string();
+                }
             }
             format!("&{};", entity)
         }

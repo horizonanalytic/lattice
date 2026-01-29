@@ -475,9 +475,10 @@ fn parse_property_value<'i>(
         }
         "border-style" => {
             if let Ok(Token::Ident(s)) = parser.next()
-                && let Some(style) = BorderStyle::from_css(s) {
-                    props.border_style = StyleValue::Set(style);
-                }
+                && let Some(style) = BorderStyle::from_css(s)
+            {
+                props.border_style = StyleValue::Set(style);
+            }
         }
         "border-radius" => {
             props.border_radius = StyleValue::Set(parse_border_radius(parser)?);
@@ -510,9 +511,10 @@ fn parse_property_value<'i>(
         }
         "text-align" => {
             if let Ok(Token::Ident(s)) = parser.next()
-                && let Some(align) = TextAlign::from_css(s) {
-                    props.text_align = StyleValue::Set(align);
-                }
+                && let Some(align) = TextAlign::from_css(s)
+            {
+                props.text_align = StyleValue::Set(align);
+            }
         }
         "line-height" => {
             if let Ok(Token::Number { value, .. }) = parser.next() {
@@ -535,9 +537,10 @@ fn parse_property_value<'i>(
         // === Interaction ===
         "cursor" => {
             if let Ok(Token::Ident(s)) = parser.next()
-                && let Some(cursor) = Cursor::from_css(s) {
-                    props.cursor = StyleValue::Set(cursor);
-                }
+                && let Some(cursor) = Cursor::from_css(s)
+            {
+                props.cursor = StyleValue::Set(cursor);
+            }
         }
         "pointer-events" => {
             if let Ok(Token::Ident(s)) = parser.next() {
@@ -897,9 +900,10 @@ fn parse_box_shadow<'i>(
     // Check for "none"
     let state = parser.state();
     if let Ok(Token::Ident(name)) = parser.next()
-        && name.eq_ignore_ascii_case("none") {
-            return Err(parser.new_custom_error(())); // No shadow
-        }
+        && name.eq_ignore_ascii_case("none")
+    {
+        return Err(parser.new_custom_error(())); // No shadow
+    }
     parser.reset(&state);
 
     let mut offset_x = 0.0;
@@ -949,10 +953,11 @@ fn parse_box_shadow<'i>(
 
         // Try to parse "inset"
         if let Ok(Token::Ident(name)) = parser.next()
-            && name.eq_ignore_ascii_case("inset") {
-                inset = true;
-                continue;
-            }
+            && name.eq_ignore_ascii_case("inset")
+        {
+            inset = true;
+            continue;
+        }
 
         break;
     }

@@ -362,9 +362,10 @@ impl WindowConfig {
 
         // Icon
         if let Some(ref icon) = self.icon
-            && let Ok(winit_icon) = icon.to_winit_icon() {
-                attrs = attrs.with_window_icon(Some(winit_icon));
-            }
+            && let Ok(winit_icon) = icon.to_winit_icon()
+        {
+            attrs = attrs.with_window_icon(Some(winit_icon));
+        }
 
         attrs
     }

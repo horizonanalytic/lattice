@@ -957,11 +957,12 @@ impl Label {
 
         // Clear selection if it's empty (single click)
         if let Some(anchor) = self.selection_anchor
-            && anchor == self.cursor_pos {
-                self.selection_anchor = None;
-                self.selection_changed.emit(());
-                self.copy_available.emit(false);
-            }
+            && anchor == self.cursor_pos
+        {
+            self.selection_anchor = None;
+            self.selection_changed.emit(());
+            self.copy_available.emit(false);
+        }
 
         true
     }
@@ -1160,11 +1161,12 @@ impl Label {
         if let Some(pressed_link) = pending_link {
             // Check if we're still on the same link
             if let Some(current_link) = &self.current_hovered_link
-                && current_link == &pressed_link {
-                    // Complete click - emit link_activated
-                    self.link_activated.emit(pressed_link);
-                    return true;
-                }
+                && current_link == &pressed_link
+            {
+                // Complete click - emit link_activated
+                self.link_activated.emit(pressed_link);
+                return true;
+            }
         }
 
         false
@@ -1438,10 +1440,10 @@ impl Label {
         // Check if we can reuse the cached layout
         if let Some(ref cache) = *cached
             && cache.width_constraint == width_constraint
-                && cache.show_mnemonic_underline == show_mnemonic_underline
-            {
-                return cache.layout.clone();
-            }
+            && cache.show_mnemonic_underline == show_mnemonic_underline
+        {
+            return cache.layout.clone();
+        }
 
         // Build new layout
         let options = self.build_layout_options(width_constraint);
@@ -1794,36 +1796,38 @@ impl Widget for Label {
         let position = Point::new(rect.origin.x + x_offset, rect.origin.y + y_offset);
 
         // Draw selection background if we have a selection and label is selectable
-        if self.selectable && self.has_selection()
-            && let Some((start, end)) = self.selection_range() {
-                let selection_rects = layout.selection_rects(start, end);
-                for sel_rect in selection_rects {
-                    ctx.renderer().fill_rect(
-                        Rect::new(
-                            position.x + sel_rect.x,
-                            position.y + sel_rect.y,
-                            sel_rect.width,
-                            sel_rect.height,
-                        ),
-                        self.selection_color,
-                    );
-                }
+        if self.selectable
+            && self.has_selection()
+            && let Some((start, end)) = self.selection_range()
+        {
+            let selection_rects = layout.selection_rects(start, end);
+            for sel_rect in selection_rects {
+                ctx.renderer().fill_rect(
+                    Rect::new(
+                        position.x + sel_rect.x,
+                        position.y + sel_rect.y,
+                        sel_rect.width,
+                        sel_rect.height,
+                    ),
+                    self.selection_color,
+                );
             }
+        }
 
         // Create text renderer and prepare glyphs
         if let Ok(mut text_renderer) = TextRenderer::new()
             && let Ok(prepared_glyphs) =
                 text_renderer.prepare_layout(&mut font_system, &layout, position, self.text_color)
-            {
-                // In a full implementation, we would render the prepared glyphs
-                // through the text render pass. For now, we draw background rectangles
-                // for the text bounds to show the label area.
-                let _glyphs = prepared_glyphs;
+        {
+            // In a full implementation, we would render the prepared glyphs
+            // through the text render pass. For now, we draw background rectangles
+            // for the text bounds to show the label area.
+            let _glyphs = prepared_glyphs;
 
-                // Note: Actual glyph rendering requires integration with the
-                // application's render pass system. The prepared_glyphs would be
-                // submitted to a TextRenderPass during the frame render.
-            }
+            // Note: Actual glyph rendering requires integration with the
+            // application's render pass system. The prepared_glyphs would be
+            // submitted to a TextRenderPass during the frame render.
+        }
     }
 
     fn event(&mut self, event: &mut WidgetEvent) -> bool {

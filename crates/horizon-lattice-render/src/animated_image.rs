@@ -97,8 +97,7 @@ impl std::fmt::Debug for AnimationFrame {
 }
 
 /// Loop behavior for animations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LoopCount {
     /// Loop indefinitely.
     #[default]
@@ -106,7 +105,6 @@ pub enum LoopCount {
     /// Loop a specific number of times.
     Finite(u32),
 }
-
 
 /// An animated image containing multiple frames.
 ///

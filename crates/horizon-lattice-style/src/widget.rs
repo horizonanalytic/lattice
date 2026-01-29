@@ -311,6 +311,7 @@ pub fn margin_rect(border_rect: Rect, style: &ComputedStyle) -> Rect {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
 

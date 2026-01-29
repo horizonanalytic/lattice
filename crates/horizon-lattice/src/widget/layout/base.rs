@@ -432,9 +432,10 @@ impl LayoutBase {
         geometry: Rect,
     ) {
         if let LayoutItem::Widget(id) = item
-            && let Some(widget) = storage.get_widget_mut(*id) {
-                widget.set_geometry(geometry);
-            }
+            && let Some(widget) = storage.get_widget_mut(*id)
+        {
+            widget.set_geometry(geometry);
+        }
     }
 
     /// Distribute space among items based on their policies and stretch factors.

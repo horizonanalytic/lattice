@@ -206,7 +206,7 @@ impl StylesheetWatcher {
 mod tests {
     use super::*;
     use std::fs;
-    
+
     use tempfile::tempdir;
 
     #[test]

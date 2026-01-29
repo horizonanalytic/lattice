@@ -283,19 +283,21 @@ impl MenuBar {
     /// Set visibility of a menu item.
     pub fn set_menu_visible(&mut self, index: usize, visible: bool) {
         if let Some(item) = self.items.get_mut(index)
-            && item.visible != visible {
-                item.visible = visible;
-                self.base.update();
-            }
+            && item.visible != visible
+        {
+            item.visible = visible;
+            self.base.update();
+        }
     }
 
     /// Set enabled state of a menu item.
     pub fn set_menu_enabled(&mut self, index: usize, enabled: bool) {
         if let Some(item) = self.items.get_mut(index)
-            && item.enabled != enabled {
-                item.enabled = enabled;
-                self.base.update();
-            }
+            && item.enabled != enabled
+        {
+            item.enabled = enabled;
+            self.base.update();
+        }
     }
 
     // =========================================================================
@@ -441,9 +443,10 @@ impl MenuBar {
 
             // If a menu is open, switch to the newly highlighted menu
             if self.menu_open
-                && let Some(idx) = index {
-                    self.open_menu(idx);
-                }
+                && let Some(idx) = index
+            {
+                self.open_menu(idx);
+            }
 
             self.base.update();
         }
@@ -527,9 +530,10 @@ impl MenuBar {
             }
 
             if let Some(mnemonic) = item.mnemonic
-                && mnemonic == target_char {
-                    return Some(i);
-                }
+                && mnemonic == target_char
+            {
+                return Some(i);
+            }
         }
 
         None
@@ -569,10 +573,11 @@ impl MenuBar {
         let pos = event.local_pos;
 
         if let Some(index) = self.item_at_position(pos)
-            && self.is_item_highlightable(index) {
-                self.set_highlighted_index(Some(index));
-                return true;
-            }
+            && self.is_item_highlightable(index)
+        {
+            self.set_highlighted_index(Some(index));
+            return true;
+        }
 
         false
     }
@@ -644,10 +649,11 @@ impl MenuBar {
             _ => {
                 // Check for mnemonic key (with Alt held or when mnemonics are visible)
                 if (event.modifiers.alt || self.mnemonics_visible)
-                    && let Some(index) = self.find_mnemonic_item(event.key) {
-                        self.open_menu(index);
-                        return true;
-                    }
+                    && let Some(index) = self.find_mnemonic_item(event.key)
+                {
+                    self.open_menu(index);
+                    return true;
+                }
             }
         }
 
@@ -725,9 +731,10 @@ impl MenuBar {
 
         // Draw mnemonic underline if visible
         if (self.mnemonics_visible || ctx.is_alt_held())
-            && let Some(mnemonic_index) = item.mnemonic_index {
-                self.paint_mnemonic_underline(ctx, mnemonic_index, text_x, text_y, text_color);
-            }
+            && let Some(mnemonic_index) = item.mnemonic_index
+        {
+            self.paint_mnemonic_underline(ctx, mnemonic_index, text_x, text_y, text_color);
+        }
     }
 
     fn paint_text(&self, _ctx: &mut PaintContext<'_>, text: &str, x: f32, y: f32, color: Color) {

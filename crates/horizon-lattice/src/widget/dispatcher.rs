@@ -133,9 +133,10 @@ impl EventDispatcher {
         // Step 1: Invoke event filters (in reverse order - most recent first)
         for filter_id in filters.iter().rev() {
             if let Some(filter_widget) = storage.get_widget_mut(*filter_id)
-                && filter_widget.event_filter(event, target_id) {
-                    return DispatchResult::Filtered;
-                }
+                && filter_widget.event_filter(event, target_id)
+            {
+                return DispatchResult::Filtered;
+            }
         }
 
         // Step 2: Send to the target widget
@@ -152,9 +153,10 @@ impl EventDispatcher {
 
         // Step 3: Propagate to parent if the event supports it
         if event.should_propagate()
-            && let Some(parent_id) = parent_id {
-                return Self::send_event(storage, parent_id, event);
-            }
+            && let Some(parent_id) = parent_id
+        {
+            return Self::send_event(storage, parent_id, event);
+        }
 
         DispatchResult::Ignored
     }
@@ -182,9 +184,10 @@ impl EventDispatcher {
         // Invoke event filters (in reverse order)
         for filter_id in filters.iter().rev() {
             if let Some(filter_widget) = storage.get_widget_mut(*filter_id)
-                && filter_widget.event_filter(event, target_id) {
-                    return DispatchResult::Filtered;
-                }
+                && filter_widget.event_filter(event, target_id)
+            {
+                return DispatchResult::Filtered;
+            }
         }
 
         // Send to the target widget

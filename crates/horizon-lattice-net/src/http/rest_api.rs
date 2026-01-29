@@ -777,9 +777,10 @@ impl RestApiRequestBuilder {
             && let (Ok(name), Ok(val)) = (
                 http::HeaderName::try_from(header.as_str()),
                 http::HeaderValue::try_from(value.as_str()),
-            ) {
-                headers.insert(name, val);
-            }
+            )
+        {
+            headers.insert(name, val);
+        }
 
         HttpRequest {
             method: self.method,
@@ -818,7 +819,6 @@ impl RestApiRequestBuilder {
             Self::execute_with_retry(&inner.http_client, request, &inner.retry_config).await;
 
         // Transform error if needed
-        
 
         match result {
             Ok(response) => {

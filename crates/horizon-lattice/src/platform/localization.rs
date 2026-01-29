@@ -163,8 +163,7 @@ impl std::error::Error for LocalizationError {}
 // ============================================================================
 
 /// Text direction for bidirectional text support.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum TextDirection {
     /// Left-to-right (e.g., English, French, German)
     #[default]
@@ -234,7 +233,6 @@ impl TextDirection {
         matches!(self, TextDirection::Rtl)
     }
 }
-
 
 // ============================================================================
 // Locale Information

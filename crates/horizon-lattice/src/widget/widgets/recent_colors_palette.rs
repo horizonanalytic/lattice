@@ -389,9 +389,10 @@ impl RecentColorsPalette {
     pub fn swatch_at_point(&self, point: Point) -> Option<usize> {
         for i in 0..self.colors.len() {
             if let Some(rect) = self.swatch_rect(i)
-                && rect.contains(point) {
-                    return Some(i);
-                }
+                && rect.contains(point)
+            {
+                return Some(i);
+            }
         }
         None
     }
@@ -409,11 +410,12 @@ impl RecentColorsPalette {
 
         // Check action area
         if let Some(action_rect) = self.action_rect()
-            && action_rect.contains(pos) {
-                self.action_pressed = true;
-                self.base.update();
-                return true;
-            }
+            && action_rect.contains(pos)
+        {
+            self.action_pressed = true;
+            self.base.update();
+            return true;
+        }
 
         // Check swatches
         if let Some(index) = self.swatch_at_point(pos) {
@@ -436,21 +438,23 @@ impl RecentColorsPalette {
         if self.action_pressed {
             self.action_pressed = false;
             if let Some(action_rect) = self.action_rect()
-                && action_rect.contains(pos) {
-                    self.more_colors_requested.emit(());
-                    self.base.update();
-                    return true;
-                }
+                && action_rect.contains(pos)
+            {
+                self.more_colors_requested.emit(());
+                self.base.update();
+                return true;
+            }
             self.base.update();
             return true;
         }
 
         // Check swatch release (emit color_selected)
         if let Some(index) = self.swatch_at_point(pos)
-            && let Some(&color) = self.colors.get(index) {
-                self.color_selected.emit(color);
-                return true;
-            }
+            && let Some(&color) = self.colors.get(index)
+        {
+            self.color_selected.emit(color);
+            return true;
+        }
 
         false
     }

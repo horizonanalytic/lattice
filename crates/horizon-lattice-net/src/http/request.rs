@@ -59,8 +59,7 @@ impl std::fmt::Display for HttpMethod {
 }
 
 /// The body of an HTTP request.
-#[derive(Clone, Debug)]
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub enum RequestBody {
     /// No body.
     #[default]
@@ -74,7 +73,6 @@ pub enum RequestBody {
     /// Raw binary body.
     Bytes(Bytes),
 }
-
 
 /// A built HTTP request ready to be sent.
 #[derive(Debug)]

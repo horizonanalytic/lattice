@@ -43,8 +43,7 @@ use horizon_lattice_render::{
 use crate::widget::{FocusPolicy, PaintContext, SizeHint, Widget, WidgetBase};
 
 /// The content source for an ImageWidget.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub enum ImageSource {
     /// No image set.
     #[default]
@@ -58,10 +57,8 @@ pub enum ImageSource {
     Url(String),
 }
 
-
 /// The current state of the ImageWidget.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum ImageWidgetState {
     /// No image source set.
     #[default]
@@ -73,7 +70,6 @@ pub enum ImageWidgetState {
     /// Image failed to load.
     Error(String),
 }
-
 
 /// Internal image content storage.
 #[derive(Default)]
@@ -91,7 +87,6 @@ enum ImageContent {
         gpu_frames: Vec<Option<Image>>,
     },
 }
-
 
 /// A widget for displaying images.
 ///
@@ -673,26 +668,27 @@ impl ImageWidget {
         _image_manager: &mut ImageManager,
     ) -> bool {
         if let Some(handle) = &self.async_handle
-            && let Some(state) = async_loader.state(handle) {
-                match state {
-                    LoadingState::Loading => return false,
-                    LoadingState::Ready(image) => {
-                        self.content = ImageContent::Static(image.clone());
-                        self.async_handle = None;
-                        self.set_state(ImageWidgetState::Ready);
-                        self.loaded.emit(());
-                        self.base.update();
-                        return true;
-                    }
-                    LoadingState::Failed(err) => {
-                        self.async_handle = None;
-                        self.set_state(ImageWidgetState::Error(err.clone()));
-                        self.error.emit(err.clone());
-                        self.base.update();
-                        return true;
-                    }
+            && let Some(state) = async_loader.state(handle)
+        {
+            match state {
+                LoadingState::Loading => return false,
+                LoadingState::Ready(image) => {
+                    self.content = ImageContent::Static(image.clone());
+                    self.async_handle = None;
+                    self.set_state(ImageWidgetState::Ready);
+                    self.loaded.emit(());
+                    self.base.update();
+                    return true;
+                }
+                LoadingState::Failed(err) => {
+                    self.async_handle = None;
+                    self.set_state(ImageWidgetState::Error(err.clone()));
+                    self.error.emit(err.clone());
+                    self.base.update();
+                    return true;
                 }
             }
+        }
         false
     }
 

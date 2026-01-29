@@ -80,20 +80,21 @@ impl IconThemeLoader {
                 // Check for index.theme
                 let index_path = path.join("index.theme");
                 if index_path.exists()
-                    && let Ok(info) = self.parse_theme(&path) {
-                        let id = info.id.clone();
-                        // Merge base paths if theme already exists
-                        if let Some(existing) = self.themes.get_mut(&id) {
-                            for bp in &info.base_paths {
-                                if !existing.base_paths.contains(bp) {
-                                    existing.base_paths.push(bp.clone());
-                                }
+                    && let Ok(info) = self.parse_theme(&path)
+                {
+                    let id = info.id.clone();
+                    // Merge base paths if theme already exists
+                    if let Some(existing) = self.themes.get_mut(&id) {
+                        for bp in &info.base_paths {
+                            if !existing.base_paths.contains(bp) {
+                                existing.base_paths.push(bp.clone());
                             }
-                        } else {
-                            self.themes.insert(id, info);
-                            count += 1;
                         }
+                    } else {
+                        self.themes.insert(id, info);
+                        count += 1;
                     }
+                }
             }
         }
 
@@ -205,9 +206,10 @@ impl IconThemeLoader {
         // Parse directory sections
         for dir_path in directories_list {
             if let Some(section) = directory_sections.get(&dir_path)
-                && let Some(dir) = self.parse_directory_section(&dir_path, section) {
-                    info.directories.push(dir);
-                }
+                && let Some(dir) = self.parse_directory_section(&dir_path, section)
+            {
+                info.directories.push(dir);
+            }
         }
 
         // Use theme ID as name if name wasn't set
@@ -232,9 +234,7 @@ impl IconThemeLoader {
             .and_then(|s| s.parse().ok())
             .unwrap_or(1);
 
-        let context = section
-            .get("Context")
-            .and_then(|s| IconContext::parse(s));
+        let context = section.get("Context").and_then(|s| IconContext::parse(s));
 
         let size_type = section
             .get("Type")
@@ -309,9 +309,10 @@ impl IconThemeLoader {
 
         // If running from a bundle, check Resources
         if let Ok(exe) = std::env::current_exe()
-            && let Some(bundle) = exe.parent().and_then(|p| p.parent()) {
-                paths.push(bundle.join("Resources/icons"));
-            }
+            && let Some(bundle) = exe.parent().and_then(|p| p.parent())
+        {
+            paths.push(bundle.join("Resources/icons"));
+        }
 
         paths
     }

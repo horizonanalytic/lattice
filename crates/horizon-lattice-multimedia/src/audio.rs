@@ -54,8 +54,7 @@ pub enum PlaybackState {
 }
 
 /// Metadata about a loaded audio file.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct AudioMetadata {
     /// Duration of the audio in seconds, if known.
     pub duration: Option<Duration>,
@@ -64,7 +63,6 @@ pub struct AudioMetadata {
     /// Number of audio channels.
     pub channels: Option<u16>,
 }
-
 
 /// Internal state shared between the player and the monitoring thread.
 struct PlayerState {
@@ -409,12 +407,13 @@ impl AudioPlayer {
             if let Some(ref data) = state.source_data {
                 let cursor = Cursor::new(data.clone());
                 if let Ok(source) = Decoder::new(cursor)
-                    && let Ok(new_sink) = Sink::try_new(&self.stream_handle) {
-                        new_sink.append(source);
-                        new_sink.play();
-                        state.sink = new_sink;
-                        state.state = PlaybackState::Playing;
-                    }
+                    && let Ok(new_sink) = Sink::try_new(&self.stream_handle)
+                {
+                    new_sink.append(source);
+                    new_sink.play();
+                    state.sink = new_sink;
+                    state.state = PlaybackState::Playing;
+                }
             }
         } else if state.state == PlaybackState::Paused {
             state.sink.play();

@@ -490,9 +490,10 @@ impl FontDialog {
 
         if self.selected_family != old_family {
             if let Some(&family_idx) = self.filtered_families.get(display_index)
-                && let Some(family) = self.all_families.get(family_idx).cloned() {
-                    self.load_styles_for_family(&family);
-                }
+                && let Some(family) = self.all_families.get(family_idx).cloned()
+            {
+                self.load_styles_for_family(&family);
+            }
             self.emit_font_changed();
         }
     }
@@ -614,23 +615,24 @@ impl FontDialog {
                     .get(idx)
                     .map(|f| f.eq_ignore_ascii_case(name))
                     .unwrap_or(false)
-            }) {
-                self.select_family(pos);
-                self.ensure_family_visible(pos);
+            })
+        {
+            self.select_family(pos);
+            self.ensure_family_visible(pos);
 
-                // Select matching style
-                let target_weight = font.weight();
-                let target_style = font.style();
+            // Select matching style
+            let target_weight = font.weight();
+            let target_style = font.style();
 
-                if let Some(style_pos) = self
-                    .available_styles
-                    .iter()
-                    .position(|s| s.weight == target_weight && s.style == target_style)
-                {
-                    self.selected_style = style_pos as i32;
-                    self.ensure_style_visible(style_pos);
-                }
+            if let Some(style_pos) = self
+                .available_styles
+                .iter()
+                .position(|s| s.weight == target_weight && s.style == target_style)
+            {
+                self.selected_style = style_pos as i32;
+                self.ensure_style_visible(style_pos);
             }
+        }
 
         // Scroll size list to show current size
         self.scroll_size_to_current();

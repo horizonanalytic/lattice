@@ -63,7 +63,7 @@ impl StyleRule {
 mod tests {
     use super::*;
     use crate::style::Style;
-    
+
     use horizon_lattice_render::Color;
 
     #[test]

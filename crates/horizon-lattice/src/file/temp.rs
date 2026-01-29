@@ -96,8 +96,7 @@ impl TempFile {
     ///
     /// Returns an error if the temp file cannot be created.
     pub fn new() -> FileResult<Self> {
-        let inner =
-            tempfile::NamedTempFile::new().map_err(|e| FileError::from(e))?;
+        let inner = tempfile::NamedTempFile::new().map_err(|e| FileError::from(e))?;
         Ok(Self { inner })
     }
 
@@ -293,9 +292,7 @@ impl TempFileBuilder {
                 .tempfile_in(dir)
                 .map_err(|e| FileError::from_io(e, dir))?
         } else {
-            builder
-                .tempfile()
-                .map_err(|e| FileError::from(e))?
+            builder.tempfile().map_err(|e| FileError::from(e))?
         };
 
         Ok(TempFile { inner })
@@ -490,9 +487,7 @@ impl TempDirectoryBuilder {
                 .tempdir_in(dir)
                 .map_err(|e| FileError::from_io(e, dir))?
         } else {
-            builder
-                .tempdir()
-                .map_err(|e| FileError::from(e))?
+            builder.tempdir().map_err(|e| FileError::from(e))?
         };
 
         Ok(TempDirectory { inner })

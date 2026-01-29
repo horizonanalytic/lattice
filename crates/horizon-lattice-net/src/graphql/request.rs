@@ -145,9 +145,10 @@ impl GraphQLRequest {
             .variables
             .get_or_insert_with(|| Value::Object(Default::default()));
         if let Value::Object(map) = variables
-            && let Ok(value) = serde_json::to_value(value) {
-                map.insert(name.into(), value);
-            }
+            && let Ok(value) = serde_json::to_value(value)
+        {
+            map.insert(name.into(), value);
+        }
         self
     }
 

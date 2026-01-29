@@ -949,14 +949,16 @@ impl ScrollArea {
 
         // Check if in scrollbar area
         if let Some(h_rect) = self.horizontal_scrollbar_rect()
-            && h_rect.contains(event.local_pos) {
-                // Let scrollbar handle it (would need embedded scrollbar)
-                return self.handle_scrollbar_click(event.local_pos, true);
-            }
+            && h_rect.contains(event.local_pos)
+        {
+            // Let scrollbar handle it (would need embedded scrollbar)
+            return self.handle_scrollbar_click(event.local_pos, true);
+        }
         if let Some(v_rect) = self.vertical_scrollbar_rect()
-            && v_rect.contains(event.local_pos) {
-                return self.handle_scrollbar_click(event.local_pos, false);
-            }
+            && v_rect.contains(event.local_pos)
+        {
+            return self.handle_scrollbar_click(event.local_pos, false);
+        }
 
         // In viewport - start kinetic scrolling if enabled
         if self.kinetic_scrolling && self.is_in_viewport(event.local_pos) {
@@ -1037,10 +1039,11 @@ impl ScrollArea {
 
     fn handle_mouse_move(&mut self, event: &MouseMoveEvent) -> bool {
         if self.scroller.is_dragging()
-            && let Some((new_x, new_y)) = self.scroller.drag(event.local_pos.x, event.local_pos.y) {
-                self.scroll_to(new_x, new_y);
-                return true;
-            }
+            && let Some((new_x, new_y)) = self.scroller.drag(event.local_pos.x, event.local_pos.y)
+        {
+            self.scroll_to(new_x, new_y);
+            return true;
+        }
         false
     }
 

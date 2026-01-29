@@ -189,9 +189,10 @@ impl UndoStack {
         // Try to merge with the last command if merging is enabled
         if self.merge_enabled
             && let Some(last) = self.commands.last_mut()
-                && last.try_merge(&command) {
-                    return;
-                }
+            && last.try_merge(&command)
+        {
+            return;
+        }
 
         // Add the new command
         self.commands.push(command);
@@ -537,9 +538,10 @@ impl LineEdit {
 
             // Truncate to max_length if set
             if let Some(max) = self.max_length
-                && new_text.chars().count() > max {
-                    new_text = new_text.chars().take(max).collect();
-                }
+                && new_text.chars().count() > max
+            {
+                new_text = new_text.chars().take(max).collect();
+            }
 
             if self.text != new_text {
                 self.text = new_text.clone();
@@ -695,10 +697,11 @@ impl LineEdit {
         self.max_length = max;
         // Truncate if necessary
         if let Some(max) = max
-            && self.text_length() > max {
-                let truncated: String = self.text.chars().take(max).collect();
-                self.set_text(truncated);
-            }
+            && self.text_length() > max
+        {
+            let truncated: String = self.text.chars().take(max).collect();
+            self.set_text(truncated);
+        }
     }
 
     /// Set max length using builder pattern.
@@ -832,10 +835,11 @@ impl LineEdit {
     /// Hide the completer popup.
     fn hide_completer_popup(&mut self) {
         if let Some(ref mut completer) = self.completer
-            && completer.is_popup_visible() {
-                completer.hide_popup();
-                self.base.update();
-            }
+            && completer.is_popup_visible()
+        {
+            completer.hide_popup();
+            self.base.update();
+        }
     }
 
     /// Accept the currently selected completion.
@@ -843,11 +847,12 @@ impl LineEdit {
     /// Returns true if a completion was accepted.
     fn accept_completion(&mut self) -> bool {
         if let Some(ref mut completer) = self.completer
-            && let Some(text) = completer.complete() {
-                self.set_text(text);
-                self.base.update();
-                return true;
-            }
+            && let Some(text) = completer.complete()
+        {
+            self.set_text(text);
+            self.base.update();
+            return true;
+        }
         false
     }
 
@@ -1335,28 +1340,29 @@ impl LineEdit {
 
             // Check if this character is valid for this position
             if let Some(element) = mask.element_at(editable_pos)
-                && element.accepts(ch) {
-                    let transformed = element.transform(ch);
+                && element.accepts(ch)
+            {
+                let transformed = element.transform(ch);
 
-                    // Calculate the input position for this display position
-                    let input_pos = mask.display_pos_to_input_pos(editable_pos);
+                // Calculate the input position for this display position
+                let input_pos = mask.display_pos_to_input_pos(editable_pos);
 
-                    // Insert or replace the character in mask_input
-                    if input_pos < self.mask_input.chars().count() {
-                        // Replace existing character
-                        let mut chars: Vec<char> = self.mask_input.chars().collect();
-                        chars[input_pos] = transformed;
-                        self.mask_input = chars.into_iter().collect();
-                    } else {
-                        // Append new character
-                        self.mask_input.push(transformed);
-                    }
-
-                    inserted_chars.push(transformed);
-
-                    // Move to next position after this editable one
-                    display_pos = editable_pos + 1;
+                // Insert or replace the character in mask_input
+                if input_pos < self.mask_input.chars().count() {
+                    // Replace existing character
+                    let mut chars: Vec<char> = self.mask_input.chars().collect();
+                    chars[input_pos] = transformed;
+                    self.mask_input = chars.into_iter().collect();
+                } else {
+                    // Append new character
+                    self.mask_input.push(transformed);
                 }
+
+                inserted_chars.push(transformed);
+
+                // Move to next position after this editable one
+                display_pos = editable_pos + 1;
+            }
         }
 
         if !inserted_chars.is_empty() {
@@ -1856,10 +1862,11 @@ impl LineEdit {
         }
 
         if let Ok(mut clipboard) = Clipboard::new()
-            && clipboard.set_text(&selected).is_ok() {
-                self.delete_selection();
-                return true;
-            }
+            && clipboard.set_text(&selected).is_ok()
+        {
+            self.delete_selection();
+            return true;
+        }
         false
     }
 
@@ -1882,18 +1889,19 @@ impl LineEdit {
         }
 
         if let Ok(mut clipboard) = Clipboard::new()
-            && let Ok(text) = clipboard.get_text() {
-                // Filter out newlines and other control characters
-                let filtered: String = text
-                    .chars()
-                    .filter(|c| !c.is_control() || *c == '\t')
-                    .collect();
+            && let Ok(text) = clipboard.get_text()
+        {
+            // Filter out newlines and other control characters
+            let filtered: String = text
+                .chars()
+                .filter(|c| !c.is_control() || *c == '\t')
+                .collect();
 
-                if !filtered.is_empty() {
-                    self.insert_text(&filtered);
-                    return true;
-                }
+            if !filtered.is_empty() {
+                self.insert_text(&filtered);
+                return true;
             }
+        }
         false
     }
 
@@ -2481,9 +2489,10 @@ impl LineEdit {
         let display_text = self.display_text();
 
         if let Some(ref cache) = *cached
-            && cache.display_text == display_text {
-                return cache.layout.clone();
-            }
+            && cache.display_text == display_text
+        {
+            return cache.layout.clone();
+        }
 
         let options = TextLayoutOptions::new();
         let layout = TextLayout::with_options(font_system, &display_text, &self.font, options);
@@ -2679,9 +2688,10 @@ impl LineEdit {
                 // Try to fixup if we have a validator and input is not acceptable
                 if !self.has_acceptable_input()
                     && let Some(ref validator) = self.validator
-                        && let Some(fixed) = validator.fixup(&self.text) {
-                            self.set_text(fixed);
-                        }
+                    && let Some(fixed) = validator.fixup(&self.text)
+                {
+                    self.set_text(fixed);
+                }
 
                 // Only emit signals if input is acceptable (or no validator)
                 if self.has_acceptable_input() {
@@ -2762,12 +2772,13 @@ impl LineEdit {
         let widget_size = self.base.size();
         let local_rect = Rect::new(0.0, 0.0, widget_size.width, widget_size.height);
         if let Some(btn_rect) = self.clear_button_rect(local_rect)
-            && btn_rect.contains(event.local_pos) {
-                // Clear the text
-                self.clear();
-                self.cleared.emit(());
-                return true;
-            }
+            && btn_rect.contains(event.local_pos)
+        {
+            // Clear the text
+            self.clear();
+            self.cleared.emit(());
+            return true;
+        }
 
         // Calculate cursor position from click
         let mut font_system = FontSystem::new();
@@ -2805,9 +2816,10 @@ impl LineEdit {
 
         // Clear selection if it's empty (single click)
         if let Some(anchor) = self.selection_anchor
-            && anchor == self.cursor_pos {
-                self.selection_anchor = None;
-            }
+            && anchor == self.cursor_pos
+        {
+            self.selection_anchor = None;
+        }
 
         true
     }
@@ -2869,9 +2881,10 @@ impl LineEdit {
         // Try to fixup if we have a validator and input is not acceptable
         if !self.has_acceptable_input()
             && let Some(ref validator) = self.validator
-                && let Some(fixed) = validator.fixup(&self.text) {
-                    self.set_text(fixed);
-                }
+            && let Some(fixed) = validator.fixup(&self.text)
+        {
+            self.set_text(fixed);
+        }
 
         // Only emit editing_finished if input is acceptable (or no validator)
         if self.has_acceptable_input() {
@@ -3019,37 +3032,39 @@ impl Widget for LineEdit {
             let x = text_rect.origin.x - self.scroll_offset;
 
             // Draw selection background if we have a selection and are focused
-            if self.has_selection() && self.base.has_focus()
-                && let Some((start, end)) = self.selection_range() {
-                    // Convert to display positions
-                    let display_start = match self.echo_mode {
-                        EchoMode::Normal => start,
-                        EchoMode::Password => {
-                            self.text[..start].chars().count() * self.password_char.len_utf8()
-                        }
-                        EchoMode::NoEcho => 0,
-                    };
-                    let display_end = match self.echo_mode {
-                        EchoMode::Normal => end,
-                        EchoMode::Password => {
-                            self.text[..end].chars().count() * self.password_char.len_utf8()
-                        }
-                        EchoMode::NoEcho => 0,
-                    };
-
-                    let selection_rects = layout.selection_rects(display_start, display_end);
-                    for sel_rect in selection_rects {
-                        ctx.renderer().fill_rect(
-                            Rect::new(
-                                x + sel_rect.x,
-                                y + sel_rect.y,
-                                sel_rect.width,
-                                sel_rect.height,
-                            ),
-                            self.selection_color,
-                        );
+            if self.has_selection()
+                && self.base.has_focus()
+                && let Some((start, end)) = self.selection_range()
+            {
+                // Convert to display positions
+                let display_start = match self.echo_mode {
+                    EchoMode::Normal => start,
+                    EchoMode::Password => {
+                        self.text[..start].chars().count() * self.password_char.len_utf8()
                     }
+                    EchoMode::NoEcho => 0,
+                };
+                let display_end = match self.echo_mode {
+                    EchoMode::Normal => end,
+                    EchoMode::Password => {
+                        self.text[..end].chars().count() * self.password_char.len_utf8()
+                    }
+                    EchoMode::NoEcho => 0,
+                };
+
+                let selection_rects = layout.selection_rects(display_start, display_end);
+                for sel_rect in selection_rects {
+                    ctx.renderer().fill_rect(
+                        Rect::new(
+                            x + sel_rect.x,
+                            y + sel_rect.y,
+                            sel_rect.width,
+                            sel_rect.height,
+                        ),
+                        self.selection_color,
+                    );
                 }
+            }
 
             // Draw text
             if let Ok(mut text_renderer) = TextRenderer::new() {

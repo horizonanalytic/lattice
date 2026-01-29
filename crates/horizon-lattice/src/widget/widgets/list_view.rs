@@ -1052,13 +1052,15 @@ impl ListView {
 
         // Check scrollbar clicks
         if let Some(rect) = self.vertical_scrollbar_rect()
-            && rect.contains(event.local_pos) {
-                return self.handle_scrollbar_click(event.local_pos, false);
-            }
+            && rect.contains(event.local_pos)
+        {
+            return self.handle_scrollbar_click(event.local_pos, false);
+        }
         if let Some(rect) = self.horizontal_scrollbar_rect()
-            && rect.contains(event.local_pos) {
-                return self.handle_scrollbar_click(event.local_pos, true);
-            }
+            && rect.contains(event.local_pos)
+        {
+            return self.handle_scrollbar_click(event.local_pos, true);
+        }
 
         // Check item click
         self.ensure_layout();
@@ -1124,25 +1126,27 @@ impl ListView {
         // Emit clicked signal
         if let Some(row) = pressed
             && let Some(click_index) = self.index_at(event.local_pos)
-                && click_index.row() == row {
-                    let index = ModelIndex::new(row, 0, ModelIndex::invalid());
-                    self.clicked.emit(index.clone());
+            && click_index.row() == row
+        {
+            let index = ModelIndex::new(row, 0, ModelIndex::invalid());
+            self.clicked.emit(index.clone());
 
-                    // Check for double-click
-                    let now = Instant::now();
-                    if let (Some(last_time), Some(last_row)) =
-                        (self.last_click_time, self.last_click_row)
-                        && last_row == row && now.duration_since(last_time).as_millis() < 500 {
-                            self.double_clicked.emit(index.clone());
-                            self.activated.emit(index);
-                            self.last_click_time = None;
-                            self.last_click_row = None;
-                            return true;
-                        }
+            // Check for double-click
+            let now = Instant::now();
+            if let (Some(last_time), Some(last_row)) = (self.last_click_time, self.last_click_row)
+                && last_row == row
+                && now.duration_since(last_time).as_millis() < 500
+            {
+                self.double_clicked.emit(index.clone());
+                self.activated.emit(index);
+                self.last_click_time = None;
+                self.last_click_row = None;
+                return true;
+            }
 
-                    self.last_click_time = Some(now);
-                    self.last_click_row = Some(row);
-                }
+            self.last_click_time = Some(now);
+            self.last_click_row = Some(row);
+        }
 
         true
     }

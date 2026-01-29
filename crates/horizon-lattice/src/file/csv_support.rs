@@ -845,13 +845,9 @@ where
         .flush()
         .map_err(|e| FileError::new(FileErrorKind::Other, None, Some(e)))?;
 
-    let bytes = writer.into_inner().map_err(|e| {
-        FileError::new(
-            FileErrorKind::Other,
-            None,
-            Some(std::io::Error::other(e)),
-        )
-    })?;
+    let bytes = writer
+        .into_inner()
+        .map_err(|e| FileError::new(FileErrorKind::Other, None, Some(std::io::Error::other(e))))?;
 
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }

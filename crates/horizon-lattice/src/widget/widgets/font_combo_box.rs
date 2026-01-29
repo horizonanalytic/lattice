@@ -366,11 +366,13 @@ impl FontComboBox {
             self.current_index = new_index;
 
             // Update edit text for editable mode
-            if self.editable && new_index >= 0
-                && let Some(family) = self.font_family(new_index as usize) {
-                    self.edit_text = family.to_string();
-                    self.cursor_pos = self.edit_text.len();
-                }
+            if self.editable
+                && new_index >= 0
+                && let Some(family) = self.font_family(new_index as usize)
+            {
+                self.edit_text = family.to_string();
+                self.cursor_pos = self.edit_text.len();
+            }
 
             self.base.update();
 
@@ -471,11 +473,13 @@ impl FontComboBox {
             self.editable = editable;
 
             // Initialize edit text from current selection
-            if editable && self.current_index >= 0
-                && let Some(family) = self.font_family(self.current_index as usize) {
-                    self.edit_text = family.to_string();
-                    self.cursor_pos = self.edit_text.len();
-                }
+            if editable
+                && self.current_index >= 0
+                && let Some(family) = self.font_family(self.current_index as usize)
+            {
+                self.edit_text = family.to_string();
+                self.cursor_pos = self.edit_text.len();
+            }
 
             self.base.update();
         }
@@ -1039,24 +1043,25 @@ impl FontComboBox {
         // Handle character input for editable mode
         if self.editable
             && let Some(ch) = event.text.chars().next()
-                && !ch.is_control() {
-                    // Insert character at cursor
-                    self.edit_text.insert(self.cursor_pos, ch);
-                    self.cursor_pos += ch.len_utf8();
+            && !ch.is_control()
+        {
+            // Insert character at cursor
+            self.edit_text.insert(self.cursor_pos, ch);
+            self.cursor_pos += ch.len_utf8();
 
-                    self.update_text_filter();
+            self.update_text_filter();
 
-                    // Show popup if we have matches
-                    if !self.text_filter_indices.is_empty() && !self.popup_visible {
-                        self.show_popup();
-                    } else if self.popup_visible {
-                        self.highlighted_index = 0;
-                        self.scroll_offset = 0;
-                    }
+            // Show popup if we have matches
+            if !self.text_filter_indices.is_empty() && !self.popup_visible {
+                self.show_popup();
+            } else if self.popup_visible {
+                self.highlighted_index = 0;
+                self.scroll_offset = 0;
+            }
 
-                    self.base.update();
-                    return true;
-                }
+            self.base.update();
+            return true;
+        }
 
         false
     }

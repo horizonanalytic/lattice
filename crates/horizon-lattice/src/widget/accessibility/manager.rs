@@ -207,9 +207,10 @@ struct ActionHandlerImpl {
 impl ActionHandler for ActionHandlerImpl {
     fn do_action(&mut self, request: ActionRequest) {
         if let Some(object_id) = node_id_to_object_id(request.target)
-            && let Some(ref callback) = *self.action_callback.lock() {
-                callback(object_id, request);
-            }
+            && let Some(ref callback) = *self.action_callback.lock()
+        {
+            callback(object_id, request);
+        }
     }
 }
 

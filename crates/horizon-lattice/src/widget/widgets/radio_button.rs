@@ -171,10 +171,11 @@ impl RadioButton {
             // In exclusive mode, unchecking might be prevented
             if let Some(group_weak) = &self.group
                 && let Some(group) = group_weak.upgrade()
-                    && let Ok(group_guard) = group.read()
-                        && group_guard.should_prevent_uncheck(self.object_id()) {
-                            return;
-                        }
+                && let Ok(group_guard) = group.read()
+                && group_guard.should_prevent_uncheck(self.object_id())
+            {
+                return;
+            }
             self.inner.set_checked(false);
         }
     }
@@ -202,15 +203,17 @@ impl RadioButton {
         // Remove from old group
         if let Some(old_weak) = &self.group
             && let Some(old_group) = old_weak.upgrade()
-                && let Ok(mut old_guard) = old_group.write() {
-                    old_guard.remove_button(self.object_id());
-                }
+            && let Ok(mut old_guard) = old_group.write()
+        {
+            old_guard.remove_button(self.object_id());
+        }
 
         // Add to new group
         if let Some(new_group) = &group
-            && let Ok(mut new_guard) = new_group.write() {
-                new_guard.add_button(self.object_id());
-            }
+            && let Ok(mut new_guard) = new_group.write()
+        {
+            new_guard.add_button(self.object_id());
+        }
 
         self.group = group.map(|g| Arc::downgrade(&g));
     }
@@ -332,19 +335,20 @@ impl RadioButton {
         // If in a group, notify the group
         if let Some(group_weak) = &self.group {
             if let Some(group) = group_weak.upgrade()
-                && let Ok(mut group_guard) = group.write() {
-                    let buttons_to_uncheck = group_guard.button_toggled(my_id, true);
-                    // Note: The actual unchecking of other buttons needs to be handled
-                    // by the application or a parent coordinator, since we don't have
-                    // mutable access to sibling widgets.
-                    drop(group_guard);
+                && let Ok(mut group_guard) = group.write()
+            {
+                let buttons_to_uncheck = group_guard.button_toggled(my_id, true);
+                // Note: The actual unchecking of other buttons needs to be handled
+                // by the application or a parent coordinator, since we don't have
+                // mutable access to sibling widgets.
+                drop(group_guard);
 
-                    // Emit signals for each button that should be unchecked
-                    // Other radio buttons should connect to this signal
-                    for _ in buttons_to_uncheck {
-                        self.exclusive_toggle.emit(my_id);
-                    }
+                // Emit signals for each button that should be unchecked
+                // Other radio buttons should connect to this signal
+                for _ in buttons_to_uncheck {
+                    self.exclusive_toggle.emit(my_id);
                 }
+            }
         } else if self.auto_exclusive {
             // Auto-exclusive: emit signal for siblings to uncheck
             self.exclusive_toggle.emit(my_id);
@@ -365,12 +369,13 @@ impl RadioButton {
             // Check if unchecking is prevented
             if let Some(group_weak) = &self.group
                 && let Some(group) = group_weak.upgrade()
-                    && let Ok(group_guard) = group.read()
-                        && group_guard.should_prevent_uncheck(self.object_id()) {
-                            // Just emit clicked, don't change state
-                            self.inner.clicked.emit(true);
-                            return;
-                        }
+                && let Ok(group_guard) = group.read()
+                && group_guard.should_prevent_uncheck(self.object_id())
+            {
+                // Just emit clicked, don't change state
+                self.inner.clicked.emit(true);
+                return;
+            }
         }
 
         // Toggle state (usually check, since radio buttons are rarely unchecked directly)

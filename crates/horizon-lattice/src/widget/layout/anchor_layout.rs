@@ -563,9 +563,10 @@ impl Layout for AnchorLayout {
                     index: ref mut sib_idx,
                     ..
                 } = anchor.target
-                    && *sib_idx >= index {
-                        *sib_idx += 1;
-                    }
+                    && *sib_idx >= index
+                {
+                    *sib_idx += 1;
+                }
             }
         }
     }

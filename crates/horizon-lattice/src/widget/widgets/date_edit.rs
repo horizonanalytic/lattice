@@ -674,9 +674,10 @@ impl DateEdit {
             return DateEditPart::DownButton;
         }
         if let Some(cal_rect) = self.calendar_button_rect()
-            && cal_rect.contains(pos) {
-                return DateEditPart::CalendarButton;
-            }
+            && cal_rect.contains(pos)
+        {
+            return DateEditPart::CalendarButton;
+        }
 
         let text_rect = self.text_field_rect();
         if text_rect.contains(pos) {
@@ -743,9 +744,10 @@ impl DateEdit {
                 // For simplicity, clicking in the popup area selects the date and closes popup
                 // A full implementation would do proper hit-testing within the calendar
                 if let Some(selected) = self.calendar.selected_date()
-                    && selected != self.date {
-                        self.set_date(selected);
-                    }
+                    && selected != self.date
+                {
+                    self.set_date(selected);
+                }
                 self.hide_popup();
                 self.base.update();
                 true

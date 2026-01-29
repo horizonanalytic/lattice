@@ -73,8 +73,7 @@ pub mod targets {
 }
 
 /// Style options for object tree visualization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TreeStyle {
     /// ASCII characters for tree branches.
     Ascii,
@@ -84,7 +83,6 @@ pub enum TreeStyle {
     /// Compact single-line representation.
     Compact,
 }
-
 
 /// Configuration for object tree debug output.
 #[derive(Debug, Clone)]
@@ -199,9 +197,10 @@ impl ObjectTreeDebug {
     ) -> ObjectResult<()> {
         // Check max depth
         if let Some(max) = self.options.max_depth
-            && depth > max {
-                return Ok(());
-            }
+            && depth > max
+        {
+            return Ok(());
+        }
 
         let registry = global_registry()?;
         let name = registry.object_name(id)?;

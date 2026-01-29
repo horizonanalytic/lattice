@@ -372,11 +372,12 @@ fn parse_signal_field(field: &Field) -> syn::Result<Option<SignalInfo>> {
 fn extract_inner_type(ty: &Type) -> (Type, bool) {
     if let Type::Path(type_path) = ty
         && let Some(segment) = type_path.path.segments.last()
-            && segment.ident == "Property"
-                && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
-                    && let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                        return (inner.clone(), true);
-                    }
+        && segment.ident == "Property"
+        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+    {
+        return (inner.clone(), true);
+    }
     (ty.clone(), false)
 }
 
@@ -384,12 +385,13 @@ fn extract_inner_type(ty: &Type) -> (Type, bool) {
 fn extract_signal_args(ty: &Type) -> syn::Result<(Type, Vec<String>)> {
     if let Type::Path(type_path) = ty
         && let Some(segment) = type_path.path.segments.last()
-            && segment.ident == "Signal"
-                && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
-                    && let Some(syn::GenericArgument::Type(args_type)) = args.args.first() {
-                        let param_names = extract_param_type_names(args_type);
-                        return Ok((args_type.clone(), param_names));
-                    }
+        && segment.ident == "Signal"
+        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(syn::GenericArgument::Type(args_type)) = args.args.first()
+    {
+        let param_names = extract_param_type_names(args_type);
+        return Ok((args_type.clone(), param_names));
+    }
 
     // Default to unit type if we can't parse
     let unit_type: Type = syn::parse_quote!(());

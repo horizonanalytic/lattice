@@ -224,9 +224,7 @@ impl FileWatcher {
             FileError::new(
                 FileErrorKind::Other,
                 None,
-                Some(std::io::Error::other(
-                    e.to_string(),
-                )),
+                Some(std::io::Error::other(e.to_string())),
             )
         })?;
 
@@ -273,9 +271,7 @@ impl FileWatcher {
             FileError::new(
                 FileErrorKind::Other,
                 Some(canonical.clone()),
-                Some(std::io::Error::other(
-                    e.to_string(),
-                )),
+                Some(std::io::Error::other(e.to_string())),
             )
         })?;
 

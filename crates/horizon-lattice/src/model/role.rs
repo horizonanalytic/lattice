@@ -272,8 +272,7 @@ impl CheckState {
 /// let data = ItemData::new(42u32);
 /// assert_eq!(data.downcast::<u32>(), Some(&42));
 /// ```
-#[derive(Debug)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub enum ItemData {
     /// No data.
     #[default]
@@ -301,7 +300,6 @@ pub enum ItemData {
     /// Custom data (type-erased).
     Custom(Box<dyn std::any::Any + Send + Sync>),
 }
-
 
 impl Clone for ItemData {
     fn clone(&self) -> Self {

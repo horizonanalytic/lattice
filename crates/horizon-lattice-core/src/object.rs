@@ -203,9 +203,10 @@ impl ObjectRegistry {
         // Remove from parent's children list.
         if let Some(data) = self.objects.get(id)
             && let Some(parent_id) = data.parent
-                && let Some(parent_data) = self.objects.get_mut(parent_id) {
-                    parent_data.children.retain(|&child| child != id);
-                }
+            && let Some(parent_data) = self.objects.get_mut(parent_id)
+        {
+            parent_data.children.retain(|&child| child != id);
+        }
 
         // Destroy all descendants (children first, then self).
         for child_id in children_to_destroy {
@@ -265,9 +266,10 @@ impl ObjectRegistry {
         // Remove from old parent.
         let old_parent = self.objects.get(id).and_then(|d| d.parent);
         if let Some(old_parent_id) = old_parent
-            && let Some(parent_data) = self.objects.get_mut(old_parent_id) {
-                parent_data.children.retain(|&child| child != id);
-            }
+            && let Some(parent_data) = self.objects.get_mut(old_parent_id)
+        {
+            parent_data.children.retain(|&child| child != id);
+        }
 
         // Update the object's parent reference.
         if let Some(data) = self.objects.get_mut(id) {
@@ -276,9 +278,10 @@ impl ObjectRegistry {
 
         // Add to new parent's children.
         if let Some(parent_id) = new_parent
-            && let Some(parent_data) = self.objects.get_mut(parent_id) {
-                parent_data.children.push(id);
-            }
+            && let Some(parent_data) = self.objects.get_mut(parent_id)
+        {
+            parent_data.children.push(id);
+        }
 
         Ok(())
     }
@@ -348,9 +351,10 @@ impl ObjectRegistry {
         let children = self.children(id)?;
         for &child_id in children {
             if let Some(data) = self.objects.get(child_id)
-                && data.name == name {
-                    return Ok(Some(child_id));
-                }
+                && data.name == name
+            {
+                return Ok(Some(child_id));
+            }
         }
         Ok(None)
     }
@@ -365,9 +369,11 @@ impl ObjectRegistry {
         let children = self.children(id)?;
         for &child_id in children {
             if let Some(data) = self.objects.get(child_id)
-                && data.name == name && data.type_id == target_type {
-                    return Ok(Some(child_id));
-                }
+                && data.name == name
+                && data.type_id == target_type
+            {
+                return Ok(Some(child_id));
+            }
         }
         Ok(None)
     }
@@ -407,9 +413,10 @@ impl ObjectRegistry {
         let children = self.children(id)?;
         for &child_id in children {
             if let Some(data) = self.objects.get(child_id)
-                && data.name == name {
-                    result.push(child_id);
-                }
+                && data.name == name
+            {
+                result.push(child_id);
+            }
             self.find_descendants_by_name_recursive(child_id, name, result)?;
         }
         Ok(())
@@ -541,9 +548,10 @@ impl ObjectRegistry {
         while let Some(current_id) = current {
             if let Some(ancestor_data) = self.objects.get(current_id) {
                 if let Some(ancestor_state) = ancestor_data.widget_state
-                    && !ancestor_state.visible {
-                        return Ok(Some(false));
-                    }
+                    && !ancestor_state.visible
+                {
+                    return Ok(Some(false));
+                }
                 current = ancestor_data.parent;
             } else {
                 break;
@@ -577,9 +585,10 @@ impl ObjectRegistry {
         while let Some(current_id) = current {
             if let Some(ancestor_data) = self.objects.get(current_id) {
                 if let Some(ancestor_state) = ancestor_data.widget_state
-                    && !ancestor_state.enabled {
-                        return Ok(Some(false));
-                    }
+                    && !ancestor_state.enabled
+                {
+                    return Ok(Some(false));
+                }
                 current = ancestor_data.parent;
             } else {
                 break;
@@ -635,9 +644,10 @@ impl ObjectRegistry {
                 .ok_or(ObjectError::InvalidObjectId)?;
 
             if let Some(pos) = parent_data.children.iter().position(|&child| child == id)
-                && pos + 1 < parent_data.children.len() {
-                    return Ok(Some(parent_data.children[pos + 1]));
-                }
+                && pos + 1 < parent_data.children.len()
+            {
+                return Ok(Some(parent_data.children[pos + 1]));
+            }
         }
         Ok(None)
     }
@@ -653,9 +663,10 @@ impl ObjectRegistry {
                 .ok_or(ObjectError::InvalidObjectId)?;
 
             if let Some(pos) = parent_data.children.iter().position(|&child| child == id)
-                && pos > 0 {
-                    return Ok(Some(parent_data.children[pos - 1]));
-                }
+                && pos > 0
+            {
+                return Ok(Some(parent_data.children[pos - 1]));
+            }
         }
         Ok(None)
     }

@@ -65,6 +65,7 @@ struct SavedGeometry {
 }
 
 impl WindowState {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         event_loop: &ActiveEventLoop,
         title: &str,
@@ -642,11 +643,12 @@ impl ApplicationHandler for WindowManagementApp {
                     }
                     Key::Character("r") | Key::Character("R") => {
                         if let Some(state) = self.windows.get(&window_id)
-                            && let Ok(pos) = state.window.outer_position() {
-                                let new_pos = PhysicalPosition::new(pos.x + 50, pos.y);
-                                state.window.set_outer_position(new_pos);
-                                println!("Moved window right to ({}, {})", new_pos.x, new_pos.y);
-                            }
+                            && let Ok(pos) = state.window.outer_position()
+                        {
+                            let new_pos = PhysicalPosition::new(pos.x + 50, pos.y);
+                            state.window.set_outer_position(new_pos);
+                            println!("Moved window right to ({}, {})", new_pos.x, new_pos.y);
+                        }
                     }
                     Key::Character("g") | Key::Character("G") => {
                         if let Some(state) = self.windows.get(&window_id) {

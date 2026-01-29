@@ -35,8 +35,7 @@ use std::fmt;
 use std::sync::Arc;
 
 /// The result of validating input text.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum ValidationState {
     /// The input is clearly invalid and cannot be made valid by further editing.
     Invalid,
@@ -47,7 +46,6 @@ pub enum ValidationState {
     #[default]
     Acceptable,
 }
-
 
 impl fmt::Display for ValidationState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -434,7 +432,9 @@ impl Validator for DoubleValidator {
                         has_dot = true;
                         true
                     }
-                } else { i == 0 && (c == '-' || c == '+') }
+                } else {
+                    i == 0 && (c == '-' || c == '+')
+                }
             }) && (has_digit || has_dot)
         };
 
@@ -481,15 +481,16 @@ impl Validator for DoubleValidator {
         let normalized = trimmed.trim_end_matches('.');
 
         if let Ok(value) = normalized.parse::<f64>()
-            && value.is_finite() {
-                let clamped = value.clamp(self.minimum, self.maximum);
-                let was_clamped = (clamped - value).abs() > f64::EPSILON;
+            && value.is_finite()
+        {
+            let clamped = value.clamp(self.minimum, self.maximum);
+            let was_clamped = (clamped - value).abs() > f64::EPSILON;
 
-                // Return fixed value if clamped OR if we needed to normalize trailing decimal
-                if was_clamped || needs_normalization {
-                    return Some(format!("{:.prec$}", clamped, prec = self.decimals as usize));
-                }
+            // Return fixed value if clamped OR if we needed to normalize trailing decimal
+            if was_clamped || needs_normalization {
+                return Some(format!("{:.prec$}", clamped, prec = self.decimals as usize));
             }
+        }
 
         None
     }

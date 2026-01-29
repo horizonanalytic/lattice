@@ -316,9 +316,10 @@ impl UndoStack {
         // Try to merge with the last command if merging is enabled
         if self.merge_enabled
             && let Some(last) = self.commands.last_mut()
-                && last.try_merge(&command) {
-                    return;
-                }
+            && last.try_merge(&command)
+        {
+            return;
+        }
 
         // Add new command
         self.commands.push(command);
@@ -730,9 +731,10 @@ impl PlainTextEdit {
     /// Notify the highlighter of text changes.
     fn notify_highlighter(&mut self) {
         if let Some(ref highlighter) = self.highlighter
-            && let Some(mut hl) = highlighter.try_write() {
-                hl.on_text_changed(&self.rope);
-            }
+            && let Some(mut hl) = highlighter.try_write()
+        {
+            hl.on_text_changed(&self.rope);
+        }
     }
 
     // =========================================================================
@@ -1094,9 +1096,10 @@ impl PlainTextEdit {
         if self.has_selection() {
             let text = self.selected_text();
             if !text.is_empty()
-                && let Ok(mut clipboard) = Clipboard::new() {
-                    let _ = clipboard.set_text(&text);
-                }
+                && let Ok(mut clipboard) = Clipboard::new()
+            {
+                let _ = clipboard.set_text(&text);
+            }
         }
     }
 
@@ -1115,9 +1118,10 @@ impl PlainTextEdit {
         }
 
         if let Ok(mut clipboard) = Clipboard::new()
-            && let Ok(text) = clipboard.get_text() {
-                self.insert_text(&text);
-            }
+            && let Ok(text) = clipboard.get_text()
+        {
+            self.insert_text(&text);
+        }
     }
 
     // =========================================================================

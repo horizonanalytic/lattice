@@ -155,13 +155,12 @@ impl ImageFormat {
         }
 
         // AVIF/HEIF: check for ftyp box with avif/heic brands
-        if data.len() >= 12
-            && &data[4..8] == b"ftyp" {
-                let brand = &data[8..12];
-                if brand == b"avif" || brand == b"avis" || brand == b"mif1" {
-                    return ImageFormat::Avif;
-                }
+        if data.len() >= 12 && &data[4..8] == b"ftyp" {
+            let brand = &data[8..12];
+            if brand == b"avif" || brand == b"avis" || brand == b"mif1" {
+                return ImageFormat::Avif;
             }
+        }
 
         // PNM formats
         if data.len() >= 2 && data[0] == b'P' {

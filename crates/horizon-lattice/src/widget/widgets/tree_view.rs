@@ -629,17 +629,18 @@ impl TreeView {
     fn drop_position_for_point(&self, point: Point) -> (Option<usize>, DropPosition) {
         if let Some(index) = self.index_at(point)
             && let Some(row_idx) = self.find_flattened_row(&index)
-                && let Some(row) = self.flattened_rows.get(row_idx) {
-                    // Determine if in upper or lower half (for row-based drop)
-                    let viewport = self.viewport_rect();
-                    let visual_y = row.rect.origin.y - self.scroll_y as f32 + viewport.origin.y;
-                    let mid_y = visual_y + row.rect.height() / 2.0;
-                    if point.y < mid_y {
-                        return (Some(row_idx), DropPosition::AboveItem);
-                    } else {
-                        return (Some(row_idx), DropPosition::BelowItem);
-                    }
-                }
+            && let Some(row) = self.flattened_rows.get(row_idx)
+        {
+            // Determine if in upper or lower half (for row-based drop)
+            let viewport = self.viewport_rect();
+            let visual_y = row.rect.origin.y - self.scroll_y as f32 + viewport.origin.y;
+            let mid_y = visual_y + row.rect.height() / 2.0;
+            if point.y < mid_y {
+                return (Some(row_idx), DropPosition::AboveItem);
+            } else {
+                return (Some(row_idx), DropPosition::BelowItem);
+            }
+        }
 
         // After last row
         if !self.flattened_rows.is_empty() {
@@ -1178,13 +1179,15 @@ impl TreeView {
 
         // Check scrollbar clicks
         if let Some(rect) = self.vertical_scrollbar_rect()
-            && rect.contains(event.local_pos) {
-                return self.handle_scrollbar_click(event.local_pos, false);
-            }
+            && rect.contains(event.local_pos)
+        {
+            return self.handle_scrollbar_click(event.local_pos, false);
+        }
         if let Some(rect) = self.horizontal_scrollbar_rect()
-            && rect.contains(event.local_pos) {
-                return self.handle_scrollbar_click(event.local_pos, true);
-            }
+            && rect.contains(event.local_pos)
+        {
+            return self.handle_scrollbar_click(event.local_pos, true);
+        }
 
         // Check item click
         self.ensure_layout();
@@ -1275,36 +1278,38 @@ impl TreeView {
             let content_y = event.local_pos.y + self.scroll_y as f32;
             if let Some(click_row) = self.flattened_rows.iter().position(|r| {
                 content_y >= r.rect.origin.y && content_y < r.rect.origin.y + r.rect.height()
-            })
-                && click_row == row_idx {
-                    let index = self.flattened_rows[row_idx].index.clone();
-                    self.clicked.emit(index.clone());
+            }) && click_row == row_idx
+            {
+                let index = self.flattened_rows[row_idx].index.clone();
+                self.clicked.emit(index.clone());
 
-                    // Check for double-click
-                    let now = Instant::now();
-                    if let (Some(last_time), Some(last_row)) =
-                        (self.last_click_time, self.last_click_row)
-                        && last_row == row_idx && now.duration_since(last_time).as_millis() < 500 {
-                            self.double_clicked.emit(index.clone());
+                // Check for double-click
+                let now = Instant::now();
+                if let (Some(last_time), Some(last_row)) =
+                    (self.last_click_time, self.last_click_row)
+                    && last_row == row_idx
+                    && now.duration_since(last_time).as_millis() < 500
+                {
+                    self.double_clicked.emit(index.clone());
 
-                            // Expand on double-click if enabled
-                            if self.expand_on_double_click
-                                && self.items_expandable
-                                && self.flattened_rows[row_idx].has_children
-                            {
-                                self.toggle_expanded(&index);
-                            } else {
-                                self.activated.emit(index);
-                            }
+                    // Expand on double-click if enabled
+                    if self.expand_on_double_click
+                        && self.items_expandable
+                        && self.flattened_rows[row_idx].has_children
+                    {
+                        self.toggle_expanded(&index);
+                    } else {
+                        self.activated.emit(index);
+                    }
 
-                            self.last_click_time = None;
-                            self.last_click_row = None;
-                            return true;
-                        }
-
-                    self.last_click_time = Some(now);
-                    self.last_click_row = Some(row_idx);
+                    self.last_click_time = None;
+                    self.last_click_row = None;
+                    return true;
                 }
+
+                self.last_click_time = Some(now);
+                self.last_click_row = Some(row_idx);
+            }
         }
 
         true
@@ -1378,9 +1383,10 @@ impl TreeView {
                         if let Some(model) = &self.model {
                             let parent = model.parent(&row.index);
                             if parent.is_valid()
-                                && let Some(parent_row) = self.find_flattened_row(&parent) {
-                                    self.move_to_row(parent_row, &event.modifiers);
-                                }
+                                && let Some(parent_row) = self.find_flattened_row(&parent)
+                            {
+                                self.move_to_row(parent_row, &event.modifiers);
+                            }
                         }
                     }
                 }

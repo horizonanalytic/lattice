@@ -631,9 +631,10 @@ impl DateTimeEdit {
             self.timezone = tz;
             // Sync combo selection
             if let Some(tz) = tz
-                && let Some(idx) = self.timezone_combo.find_text(tz.name()) {
-                    self.timezone_combo.set_current_index(idx as i32);
-                }
+                && let Some(idx) = self.timezone_combo.find_text(tz.name())
+            {
+                self.timezone_combo.set_current_index(idx as i32);
+            }
             self.base.update();
             self.timezone_changed.emit(tz);
         }
@@ -1228,13 +1229,15 @@ impl DateTimeEdit {
             return DateTimeEditPart::DownButton;
         }
         if let Some(cal_rect) = self.calendar_button_rect()
-            && cal_rect.contains(pos) {
-                return DateTimeEditPart::CalendarButton;
-            }
+            && cal_rect.contains(pos)
+        {
+            return DateTimeEditPart::CalendarButton;
+        }
         if let Some(tz_rect) = self.timezone_button_rect()
-            && tz_rect.contains(pos) {
-                return DateTimeEditPart::TimezoneButton;
-            }
+            && tz_rect.contains(pos)
+        {
+            return DateTimeEditPart::TimezoneButton;
+        }
 
         let text_rect = self.text_field_rect();
         if text_rect.contains(pos) {
@@ -1486,30 +1489,32 @@ impl DateTimeEdit {
             }
             _ => {
                 // Handle A/P for AM/PM toggle
-                if self.is_12_hour() && self.current_section == EditSection::AmPm
-                    && let Some(ch) = event.text.chars().next() {
-                        let ch_lower = ch.to_ascii_lowercase();
-                        let hour = self.datetime.time().hour();
-                        if ch_lower == 'a' && hour >= 12 {
-                            if let Some(t) = NaiveTime::from_hms_opt(
-                                hour - 12,
-                                self.datetime.time().minute(),
-                                self.datetime.time().second(),
-                            ) {
-                                self.set_time(t);
-                            }
-                            return true;
-                        } else if ch_lower == 'p' && hour < 12 {
-                            if let Some(t) = NaiveTime::from_hms_opt(
-                                hour + 12,
-                                self.datetime.time().minute(),
-                                self.datetime.time().second(),
-                            ) {
-                                self.set_time(t);
-                            }
-                            return true;
+                if self.is_12_hour()
+                    && self.current_section == EditSection::AmPm
+                    && let Some(ch) = event.text.chars().next()
+                {
+                    let ch_lower = ch.to_ascii_lowercase();
+                    let hour = self.datetime.time().hour();
+                    if ch_lower == 'a' && hour >= 12 {
+                        if let Some(t) = NaiveTime::from_hms_opt(
+                            hour - 12,
+                            self.datetime.time().minute(),
+                            self.datetime.time().second(),
+                        ) {
+                            self.set_time(t);
                         }
+                        return true;
+                    } else if ch_lower == 'p' && hour < 12 {
+                        if let Some(t) = NaiveTime::from_hms_opt(
+                            hour + 12,
+                            self.datetime.time().minute(),
+                            self.datetime.time().second(),
+                        ) {
+                            self.set_time(t);
+                        }
+                        return true;
                     }
+                }
             }
         }
         false
@@ -1751,7 +1756,11 @@ impl Widget for DateTimeEdit {
         let date_width = 85.0;
         let time_width = if self.is_12_hour() {
             if self.seconds_shown() { 100.0 } else { 80.0 }
-        } else if self.seconds_shown() { 75.0 } else { 55.0 };
+        } else if self.seconds_shown() {
+            75.0
+        } else {
+            55.0
+        };
         let width = date_width + time_width + self.right_buttons_width() + 20.0;
         let height = 28.0;
 

@@ -1,8 +1,7 @@
 //! WebSocket message types and connection state.
 
 /// Current state of a WebSocket connection.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum WebSocketState {
     /// Not connected to any server.
     #[default]
@@ -15,10 +14,8 @@ pub enum WebSocketState {
     Reconnecting,
 }
 
-
 /// Standard WebSocket close codes as defined in RFC 6455.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum CloseCode {
     /// Normal closure; the connection successfully completed.
     #[default]
@@ -92,7 +89,6 @@ impl CloseCode {
         }
     }
 }
-
 
 /// Reason for closing a WebSocket connection.
 #[derive(Clone, Debug, Default)]

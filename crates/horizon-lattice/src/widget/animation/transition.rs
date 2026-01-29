@@ -21,8 +21,7 @@ pub enum TransitionType {
 }
 
 /// Current state of a transition.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum TransitionState {
     /// No transition in progress.
     #[default]
@@ -37,7 +36,6 @@ pub enum TransitionState {
         to_index: usize,
     },
 }
-
 
 impl TransitionState {
     /// Check if a transition is currently in progress.

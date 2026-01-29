@@ -503,16 +503,17 @@ impl WebSocketClient {
 
                 // Check max attempts
                 if let Some(max) = reconnect_config.max_attempts
-                    && reconnect_attempt >= max {
-                        emit_error(NetworkError::Connection(format!(
-                            "Max reconnection attempts ({}) reached",
-                            max
-                        )));
-                        inner.lock().state = WebSocketState::Disconnected;
-                        emit_disconnected();
-                        is_running.store(false, Ordering::SeqCst);
-                        return;
-                    }
+                    && reconnect_attempt >= max
+                {
+                    emit_error(NetworkError::Connection(format!(
+                        "Max reconnection attempts ({}) reached",
+                        max
+                    )));
+                    inner.lock().state = WebSocketState::Disconnected;
+                    emit_disconnected();
+                    is_running.store(false, Ordering::SeqCst);
+                    return;
+                }
 
                 // Wait before reconnecting
                 let delay = reconnect_config.delay_for_attempt(reconnect_attempt);

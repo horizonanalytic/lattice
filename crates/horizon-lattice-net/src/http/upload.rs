@@ -269,9 +269,10 @@ impl UploadManager {
         // Add filename to metadata if not present
         let mut metadata = metadata;
         if !metadata.contains_key("filename")
-            && let Some(name) = file_path.file_name() {
-                metadata.insert("filename".to_string(), name.to_string_lossy().to_string());
-            }
+            && let Some(name) = file_path.file_name()
+        {
+            metadata.insert("filename".to_string(), name.to_string_lossy().to_string());
+        }
 
         let task = UploadTask {
             file_path: file_path.clone(),
@@ -337,16 +338,17 @@ impl UploadManager {
     pub fn pause(&self, id: UploadId) -> bool {
         let mut uploads = self.uploads.lock();
         if let Some(task) = uploads.get_mut(&id)
-            && matches!(task.state, UploadState::Creating | UploadState::Uploading) {
-                // Send cancel signal to stop the current upload
-                if let Some(tx) = task.cancel_tx.take() {
-                    let _ = tx.send(());
-                }
-                task.state = UploadState::Paused;
-                drop(uploads);
-                self.event.emit(UploadEvent::Paused { id });
-                return true;
+            && matches!(task.state, UploadState::Creating | UploadState::Uploading)
+        {
+            // Send cancel signal to stop the current upload
+            if let Some(tx) = task.cancel_tx.take() {
+                let _ = tx.send(());
             }
+            task.state = UploadState::Paused;
+            drop(uploads);
+            self.event.emit(UploadEvent::Paused { id });
+            return true;
+        }
         false
     }
 
@@ -356,17 +358,18 @@ impl UploadManager {
     pub fn resume(&self, id: UploadId) -> bool {
         let mut uploads = self.uploads.lock();
         if let Some(task) = uploads.get_mut(&id)
-            && task.state == UploadState::Paused {
-                let (cancel_tx, cancel_rx) = oneshot::channel();
-                task.cancel_tx = Some(cancel_tx);
-                task.state = UploadState::Pending;
+            && task.state == UploadState::Paused
+        {
+            let (cancel_tx, cancel_rx) = oneshot::channel();
+            task.cancel_tx = Some(cancel_tx);
+            task.state = UploadState::Pending;
 
-                drop(uploads);
+            drop(uploads);
 
-                self.event.emit(UploadEvent::Resumed { id });
-                self.spawn_upload_task(id, cancel_rx);
-                return true;
-            }
+            self.event.emit(UploadEvent::Resumed { id });
+            self.spawn_upload_task(id, cancel_rx);
+            return true;
+        }
         false
     }
 
@@ -382,16 +385,17 @@ impl UploadManager {
                     | UploadState::Creating
                     | UploadState::Uploading
                     | UploadState::Paused
-            ) {
-                // Send cancel signal
-                if let Some(tx) = task.cancel_tx.take() {
-                    let _ = tx.send(());
-                }
-                task.state = UploadState::Cancelled;
-                drop(uploads);
-                self.event.emit(UploadEvent::Cancelled { id });
-                return true;
+            )
+        {
+            // Send cancel signal
+            if let Some(tx) = task.cancel_tx.take() {
+                let _ = tx.send(());
             }
+            task.state = UploadState::Cancelled;
+            drop(uploads);
+            self.event.emit(UploadEvent::Cancelled { id });
+            return true;
+        }
         false
     }
 
@@ -425,10 +429,11 @@ impl UploadManager {
             && matches!(
                 task.state,
                 UploadState::Completed | UploadState::Failed | UploadState::Cancelled
-            ) {
-                uploads.remove(&id);
-                return true;
-            }
+            )
+        {
+            uploads.remove(&id);
+            return true;
+        }
         false
     }
 

@@ -344,10 +344,11 @@ impl ToolBox {
     /// Set the text for an item.
     pub fn set_item_text(&mut self, index: i32, text: impl Into<String>) {
         if index >= 0
-            && let Some(page) = self.pages.get_mut(index as usize) {
-                page.item.text = text.into();
-                self.base.update();
-            }
+            && let Some(page) = self.pages.get_mut(index as usize)
+        {
+            page.item.text = text.into();
+            self.base.update();
+        }
     }
 
     /// Get the icon path for an item.
@@ -364,10 +365,11 @@ impl ToolBox {
     /// Set the icon path for an item.
     pub fn set_item_icon(&mut self, index: i32, icon_path: Option<String>) {
         if index >= 0
-            && let Some(page) = self.pages.get_mut(index as usize) {
-                page.item.icon_path = icon_path;
-                self.base.update();
-            }
+            && let Some(page) = self.pages.get_mut(index as usize)
+        {
+            page.item.icon_path = icon_path;
+            self.base.update();
+        }
     }
 
     /// Check if an item is enabled.
@@ -385,10 +387,11 @@ impl ToolBox {
     /// Set whether an item is enabled.
     pub fn set_item_enabled(&mut self, index: i32, enabled: bool) {
         if index >= 0
-            && let Some(page) = self.pages.get_mut(index as usize) {
-                page.item.enabled = enabled;
-                self.base.update();
-            }
+            && let Some(page) = self.pages.get_mut(index as usize)
+        {
+            page.item.enabled = enabled;
+            self.base.update();
+        }
     }
 
     /// Get the tooltip for an item.
@@ -405,9 +408,10 @@ impl ToolBox {
     /// Set the tooltip for an item.
     pub fn set_item_tool_tip(&mut self, index: i32, tool_tip: Option<String>) {
         if index >= 0
-            && let Some(page) = self.pages.get_mut(index as usize) {
-                page.item.tool_tip = tool_tip;
-            }
+            && let Some(page) = self.pages.get_mut(index as usize)
+        {
+            page.item.tool_tip = tool_tip;
+        }
     }
 
     // =========================================================================
@@ -569,9 +573,10 @@ impl ToolBox {
     fn header_at(&self, pos: Point) -> i32 {
         for i in 0..self.pages.len() as i32 {
             if let Some(rect) = self.header_rect(i)
-                && rect.contains(pos) {
-                    return i;
-                }
+                && rect.contains(pos)
+            {
+                return i;
+            }
         }
         -1
     }
@@ -756,10 +761,9 @@ impl Widget for ToolBox {
             WidgetEvent::MousePress(e) => {
                 if e.button == MouseButton::Left {
                     let header_index = self.header_at(e.local_pos);
-                    if header_index >= 0
-                        && self.set_current_index(header_index) {
-                            return true;
-                        }
+                    if header_index >= 0 && self.set_current_index(header_index) {
+                        return true;
+                    }
                 }
                 false
             }

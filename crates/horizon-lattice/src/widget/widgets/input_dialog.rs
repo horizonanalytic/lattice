@@ -1113,19 +1113,21 @@ impl InputDialog {
 
     fn handle_key_press(&mut self, event: &KeyPressEvent) -> bool {
         // Handle Enter for accept
-        if event.key == Key::Enter && !event.is_repeat
-            && (self.mode != InputMode::MultilineText || event.modifiers.control) {
-                if self.dropdown_open {
-                    if self.selected_item >= 0 {
-                        self.select_dropdown_item(self.selected_item as usize);
-                    } else {
-                        self.dropdown_open = false;
-                    }
+        if event.key == Key::Enter
+            && !event.is_repeat
+            && (self.mode != InputMode::MultilineText || event.modifiers.control)
+        {
+            if self.dropdown_open {
+                if self.selected_item >= 0 {
+                    self.select_dropdown_item(self.selected_item as usize);
                 } else {
-                    self.accept();
+                    self.dropdown_open = false;
                 }
-                return true;
+            } else {
+                self.accept();
             }
+            return true;
+        }
 
         // Handle Escape
         if event.key == Key::Escape {

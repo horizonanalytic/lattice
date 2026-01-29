@@ -302,15 +302,16 @@ impl TextureAtlas {
 
         // Allocate from best fitting shelf
         if let Some(idx) = best_shelf_idx
-            && let Some((x, y)) = state.shelves[idx].try_allocate(width, height, self.size) {
-                return Some(AtlasAllocation {
-                    x,
-                    y,
-                    width,
-                    height,
-                    atlas_size: self.size,
-                });
-            }
+            && let Some((x, y)) = state.shelves[idx].try_allocate(width, height, self.size)
+        {
+            return Some(AtlasAllocation {
+                x,
+                y,
+                width,
+                height,
+                atlas_size: self.size,
+            });
+        }
 
         // Create a new shelf if there's room
         if state.next_shelf_y + padded_height <= self.size {
@@ -477,16 +478,18 @@ impl ImageManager {
         // Try to load @2x variant (optional)
         if let Some(path_2x) = scaled_path(path, 2)
             && path_2x.exists()
-                && let Ok(image_2x) = self.load_file(path_2x.as_path()) {
-                    scalable.add_variant(2, image_2x);
-                }
+            && let Ok(image_2x) = self.load_file(path_2x.as_path())
+        {
+            scalable.add_variant(2, image_2x);
+        }
 
         // Try to load @3x variant (optional)
         if let Some(path_3x) = scaled_path(path, 3)
             && path_3x.exists()
-                && let Ok(image_3x) = self.load_file(path_3x.as_path()) {
-                    scalable.add_variant(3, image_3x);
-                }
+            && let Ok(image_3x) = self.load_file(path_3x.as_path())
+        {
+            scalable.add_variant(3, image_3x);
+        }
 
         Ok(scalable)
     }

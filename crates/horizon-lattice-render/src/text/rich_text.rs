@@ -541,15 +541,17 @@ fn decode_entity(entity: &str) -> String {
                 if let Some(hex_val) = hex.strip_prefix('x').or_else(|| hex.strip_prefix('X')) {
                     // Hex entity like &#x1F600;
                     if let Ok(code_point) = u32::from_str_radix(hex_val, 16)
-                        && let Some(c) = char::from_u32(code_point) {
-                            return c.to_string();
-                        }
+                        && let Some(c) = char::from_u32(code_point)
+                    {
+                        return c.to_string();
+                    }
                 } else {
                     // Decimal entity like &#128512;
                     if let Ok(code_point) = hex.parse::<u32>()
-                        && let Some(c) = char::from_u32(code_point) {
-                            return c.to_string();
-                        }
+                        && let Some(c) = char::from_u32(code_point)
+                    {
+                        return c.to_string();
+                    }
                 }
             }
             // Unknown entity - return as-is with ampersand

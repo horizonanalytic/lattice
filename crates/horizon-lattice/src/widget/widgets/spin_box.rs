@@ -651,9 +651,10 @@ impl SpinBox {
     /// Get the display text for the current value.
     fn display_text(&self) -> String {
         if self.value == self.minimum
-            && let Some(ref special) = self.special_value_text {
-                return special.clone();
-            }
+            && let Some(ref special) = self.special_value_text
+        {
+            return special.clone();
+        }
         format!("{}{}{}", self.prefix, self.value, self.suffix)
     }
 
@@ -986,13 +987,14 @@ impl SpinBox {
                 // Start editing if a digit or minus is pressed
                 if !self.read_only
                     && let Some(ch) = event.text.chars().next()
-                        && (ch.is_ascii_digit() || ch == '-' || ch == '+') {
-                            self.start_editing();
-                            self.edit_text.clear();
-                            self.cursor_pos = 0;
-                            self.selection_start = None;
-                            return self.handle_edit_key(event);
-                        }
+                    && (ch.is_ascii_digit() || ch == '-' || ch == '+')
+                {
+                    self.start_editing();
+                    self.edit_text.clear();
+                    self.cursor_pos = 0;
+                    self.selection_start = None;
+                    return self.handle_edit_key(event);
+                }
             }
         }
         false
@@ -1191,20 +1193,21 @@ impl SpinBox {
 
         // Draw selection background if editing with selection
         if self.editing
-            && let Some(sel_start) = self.selection_start {
-                let (start, end) = if sel_start < self.cursor_pos {
-                    (sel_start, self.cursor_pos)
-                } else {
-                    (self.cursor_pos, sel_start)
-                };
-                if start != end {
-                    // Draw selection highlight
-                    let selection_color = Color::from_rgba8(66, 133, 244, 100);
-                    // Approximate selection rect (simplified)
-                    let sel_rect = Rect::new(text_x, text_y, layout.width(), layout.height());
-                    ctx.renderer().fill_rect(sel_rect, selection_color);
-                }
+            && let Some(sel_start) = self.selection_start
+        {
+            let (start, end) = if sel_start < self.cursor_pos {
+                (sel_start, self.cursor_pos)
+            } else {
+                (self.cursor_pos, sel_start)
+            };
+            if start != end {
+                // Draw selection highlight
+                let selection_color = Color::from_rgba8(66, 133, 244, 100);
+                // Approximate selection rect (simplified)
+                let sel_rect = Rect::new(text_x, text_y, layout.width(), layout.height());
+                ctx.renderer().fill_rect(sel_rect, selection_color);
             }
+        }
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
             let _ =

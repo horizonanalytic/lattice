@@ -183,8 +183,7 @@ impl std::error::Error for PowerManagementError {}
 // ============================================================================
 
 /// The current power source for the system.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum PowerSource {
     /// Running on AC power (plugged in).
     Ac,
@@ -194,7 +193,6 @@ pub enum PowerSource {
     #[default]
     Unknown,
 }
-
 
 // ============================================================================
 // Battery State

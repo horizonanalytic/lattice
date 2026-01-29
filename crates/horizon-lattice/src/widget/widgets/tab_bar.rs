@@ -823,27 +823,30 @@ impl TabBar {
     fn hit_test(&self, pos: Point) -> TabBarPart {
         // Check scroll buttons first
         if let Some(rect) = self.scroll_decrease_rect()
-            && rect.contains(pos) {
-                return TabBarPart::ScrollDecrease;
-            }
+            && rect.contains(pos)
+        {
+            return TabBarPart::ScrollDecrease;
+        }
         if let Some(rect) = self.scroll_increase_rect()
-            && rect.contains(pos) {
-                return TabBarPart::ScrollIncrease;
-            }
+            && rect.contains(pos)
+        {
+            return TabBarPart::ScrollIncrease;
+        }
 
         // Check tabs
         for i in 0..self.tabs.len() {
             if let Some(tab_rect) = self.tab_rect(i)
-                && tab_rect.contains(pos) {
-                    // Check close button
-                    if self.tabs[i].closable {
-                        let close_rect = self.close_button_rect(&tab_rect);
-                        if close_rect.contains(pos) {
-                            return TabBarPart::CloseButton(i);
-                        }
+                && tab_rect.contains(pos)
+            {
+                // Check close button
+                if self.tabs[i].closable {
+                    let close_rect = self.close_button_rect(&tab_rect);
+                    if close_rect.contains(pos) {
+                        return TabBarPart::CloseButton(i);
                     }
-                    return TabBarPart::Tab(i);
                 }
+                return TabBarPart::Tab(i);
+            }
         }
 
         TabBarPart::None
@@ -995,11 +998,12 @@ impl TabBar {
 
         // Handle drag end
         if let Some(drag) = self.dragging.take()
-            && drag.active {
-                // Drag finished - tab was already moved during drag
-                self.base.update();
-                return true;
-            }
+            && drag.active
+        {
+            // Drag finished - tab was already moved during drag
+            self.base.update();
+            return true;
+        }
 
         // Handle click
         if self.pressed_part == part {
@@ -1056,14 +1060,15 @@ impl TabBar {
             // Perform reordering (self is no longer borrowed)
             if is_active
                 && let Some(new_index) = self.tab_index_at_drag_pos(event.local_pos)
-                    && new_index != current_tab_index {
-                        self.move_tab(current_tab_index as i32, new_index as i32);
+                && new_index != current_tab_index
+            {
+                self.move_tab(current_tab_index as i32, new_index as i32);
 
-                        // Update drag state with new index
-                        if let Some(ref mut drag) = self.dragging {
-                            drag.tab_index = new_index;
-                        }
-                    }
+                // Update drag state with new index
+                if let Some(ref mut drag) = self.dragging {
+                    drag.tab_index = new_index;
+                }
+            }
 
             self.base.update();
             return true;

@@ -47,8 +47,7 @@ use horizon_lattice_render::CornerRadii;
 /// let resolved = initial.resolve(Some(&42), &0);
 /// assert_eq!(resolved, 0); // Uses initial, not inherited
 /// ```
-#[derive(Debug, Clone, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum StyleValue<T> {
     /// An explicit value.
     Set(T),
@@ -60,7 +59,6 @@ pub enum StyleValue<T> {
     /// Unset - acts as Inherit for inherited properties, Initial otherwise.
     Unset,
 }
-
 
 impl<T: Clone> StyleValue<T> {
     /// Resolve the value given inherited and initial values.

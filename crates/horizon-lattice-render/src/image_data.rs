@@ -273,9 +273,10 @@ impl ImageMetadata {
     /// Returns (width, height) after applying orientation correction.
     pub fn corrected_dimensions(&self) -> (u32, u32) {
         if let Some(ref exif) = self.exif
-            && exif.orientation.swaps_dimensions() {
-                return (self.height, self.width);
-            }
+            && exif.orientation.swaps_dimensions()
+        {
+            return (self.height, self.width);
+        }
         (self.width, self.height)
     }
 }
@@ -506,14 +507,15 @@ fn parse_gps_coordinate(
 
     // Parse degrees, minutes, seconds
     if let exif::Value::Rational(ref rationals) = coord_field.value
-        && rationals.len() >= 3 {
-            let degrees = rationals[0].num as f64 / rationals[0].denom as f64;
-            let minutes = rationals[1].num as f64 / rationals[1].denom as f64;
-            let seconds = rationals[2].num as f64 / rationals[2].denom as f64;
+        && rationals.len() >= 3
+    {
+        let degrees = rationals[0].num as f64 / rationals[0].denom as f64;
+        let minutes = rationals[1].num as f64 / rationals[1].denom as f64;
+        let seconds = rationals[2].num as f64 / rationals[2].denom as f64;
 
-            let decimal = degrees + minutes / 60.0 + seconds / 3600.0;
-            return Some(if is_negative { -decimal } else { decimal });
-        }
+        let decimal = degrees + minutes / 60.0 + seconds / 3600.0;
+        return Some(if is_negative { -decimal } else { decimal });
+    }
 
     None
 }

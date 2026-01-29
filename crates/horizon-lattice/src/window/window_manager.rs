@@ -351,9 +351,10 @@ impl WindowManager {
     pub fn set_parent(&self, child: NativeWindowId, parent: Option<NativeWindowId>) {
         // First, remove any existing parent relationship
         if let Some(old_parent) = self.parent_map.write().remove(&child)
-            && let Some(siblings) = self.children_map.write().get_mut(&old_parent) {
-                siblings.retain(|&id| id != child);
-            }
+            && let Some(siblings) = self.children_map.write().get_mut(&old_parent)
+        {
+            siblings.retain(|&id| id != child);
+        }
 
         // Set up new parent relationship
         if let Some(parent_id) = parent {

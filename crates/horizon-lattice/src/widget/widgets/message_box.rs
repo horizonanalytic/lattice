@@ -856,12 +856,14 @@ impl MessageBox {
         let rect = self.dialog.widget_base().rect();
 
         // Position below the detail button, above the button row
-        self.detail_button_rect().map(|button_rect| Rect::new(
+        self.detail_button_rect().map(|button_rect| {
+            Rect::new(
                 self.content_padding,
                 button_rect.origin.y + button_rect.height() + 8.0,
                 rect.width() - self.content_padding * 2.0,
                 self.detail_section_height,
-            ))
+            )
+        })
     }
 
     // =========================================================================
@@ -875,11 +877,12 @@ impl MessageBox {
 
         // Check detail button click
         if let Some(detail_rect) = self.detail_button_rect()
-            && detail_rect.contains(event.local_pos) {
-                self.detail_button_state.pressed = true;
-                self.dialog.widget_base_mut().update();
-                return true;
-            }
+            && detail_rect.contains(event.local_pos)
+        {
+            self.detail_button_state.pressed = true;
+            self.dialog.widget_base_mut().update();
+            return true;
+        }
 
         false
     }
@@ -894,10 +897,11 @@ impl MessageBox {
             self.detail_button_state.pressed = false;
 
             if let Some(detail_rect) = self.detail_button_rect()
-                && detail_rect.contains(event.local_pos) {
-                    self.detail_button_state.expanded = !self.detail_button_state.expanded;
-                    self.update_size();
-                }
+                && detail_rect.contains(event.local_pos)
+            {
+                self.detail_button_state.expanded = !self.detail_button_state.expanded;
+                self.update_size();
+            }
             self.dialog.widget_base_mut().update();
             return true;
         }
@@ -921,18 +925,19 @@ impl MessageBox {
 
     fn handle_key_press(&mut self, event: &KeyPressEvent) -> bool {
         // Enter to activate default button
-        if event.key == Key::Enter && !event.is_repeat
-            && self.default_button != StandardButton::NONE {
-                self.handle_button_click(self.default_button);
-                return true;
-            }
+        if event.key == Key::Enter
+            && !event.is_repeat
+            && self.default_button != StandardButton::NONE
+        {
+            self.handle_button_click(self.default_button);
+            return true;
+        }
 
         // Escape to activate escape button
-        if event.key == Key::Escape
-            && self.escape_button != StandardButton::NONE {
-                self.handle_button_click(self.escape_button);
-                return true;
-            }
+        if event.key == Key::Escape && self.escape_button != StandardButton::NONE {
+            self.handle_button_click(self.escape_button);
+            return true;
+        }
 
         false
     }

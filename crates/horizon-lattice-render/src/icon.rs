@@ -141,7 +141,6 @@ impl IconSize {
     }
 }
 
-
 impl From<IconSize> for Size {
     fn from(size: IconSize) -> Self {
         let px = size.as_f32();
@@ -266,9 +265,10 @@ impl SizedIconSet {
 
         // Try exact match first
         if let Some(size) = IconSize::from_pixels(target)
-            && let Some(source) = self.variants.get(&size) {
-                return Some((size, source));
-            }
+            && let Some(source) = self.variants.get(&size)
+        {
+            return Some((size, source));
+        }
 
         // Find smallest size >= target (prefer scaling down)
         for (&size, source) in &self.variants {
@@ -675,9 +675,7 @@ impl Icon {
 
     /// Check if this icon has size variants.
     pub fn has_size_variants(&self) -> bool {
-        self.sized_variants
-            .as_ref()
-            .is_some_and(|s| !s.is_empty())
+        self.sized_variants.as_ref().is_some_and(|s| !s.is_empty())
     }
 
     /// Get the best image for a target pixel size.
@@ -687,9 +685,10 @@ impl Icon {
     pub fn image_for_size(&self, target_pixels: u32) -> Option<&Image> {
         // Try sized variants first
         if let Some(set) = &self.sized_variants
-            && let Some((_size, source)) = set.best_for_pixels(target_pixels) {
-                return source.image();
-            }
+            && let Some((_size, source)) = set.best_for_pixels(target_pixels)
+        {
+            return source.image();
+        }
         // Fall back to primary image
         self.image()
     }

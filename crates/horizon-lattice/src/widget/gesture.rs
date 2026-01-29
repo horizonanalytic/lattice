@@ -429,20 +429,20 @@ impl GestureArena {
                     // Cancel lower or equal priority conflicting gestures
                     for &conflict_id in &conflicting {
                         if let Some(conflict) = self.entries.get_mut(&conflict_id)
-                            && conflict.priority <= priority {
-                                conflict.state = GestureArenaState::Rejected;
-                                cancelled.push(conflict_id);
-                            }
+                            && conflict.priority <= priority
+                        {
+                            conflict.state = GestureArenaState::Rejected;
+                            cancelled.push(conflict_id);
+                        }
                     }
                     true
                 }
             }
         };
 
-        if should_accept
-            && let Some(entry) = self.entries.get_mut(&id) {
-                entry.state = GestureArenaState::Accepted;
-            }
+        if should_accept && let Some(entry) = self.entries.get_mut(&id) {
+            entry.state = GestureArenaState::Accepted;
+        }
 
         // Check if any pending gestures can now become active
         self.promote_pending_gestures();

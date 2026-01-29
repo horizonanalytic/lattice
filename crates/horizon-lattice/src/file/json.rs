@@ -390,9 +390,10 @@ impl JsonValue {
     /// Does nothing if this is not an array or if the index is out of bounds.
     pub fn insert_at<V: Into<JsonValue>>(&mut self, index: usize, value: V) {
         if let Some(arr) = self.0.as_array_mut()
-            && index <= arr.len() {
-                arr.insert(index, value.into().0);
-            }
+            && index <= arr.len()
+        {
+            arr.insert(index, value.into().0);
+        }
     }
 
     /// Removes and returns the value at the specified index.

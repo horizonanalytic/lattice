@@ -312,21 +312,21 @@ impl PopupPlacement {
             PopupPlacement::Above
                 | PopupPlacement::AboveAlignLeft
                 | PopupPlacement::AboveAlignRight
-        )
-            && popup_rect.origin.y < bounds.origin.y {
-                // Flip to below
-                result.y = anchor_rect.origin.y + anchor_rect.size.height;
-            }
+        ) && popup_rect.origin.y < bounds.origin.y
+        {
+            // Flip to below
+            result.y = anchor_rect.origin.y + anchor_rect.size.height;
+        }
 
         // Flip horizontally if needed
         if matches!(placement, PopupPlacement::Left) {
             if popup_rect.origin.x < bounds.origin.x {
                 result.x = anchor_rect.origin.x + anchor_rect.size.width;
             }
-        } else if matches!(placement, PopupPlacement::Right)
-            && popup_rect.right() > bounds.right() {
-                result.x = anchor_rect.origin.x - popup_size.width;
-            }
+        } else if matches!(placement, PopupPlacement::Right) && popup_rect.right() > bounds.right()
+        {
+            result.x = anchor_rect.origin.x - popup_size.width;
+        }
 
         // Shift to stay within bounds (after flipping)
         if result.x < bounds.origin.x {
@@ -791,11 +791,12 @@ impl Popup {
 
         // Check close button
         if let Some(button_rect) = self.close_button_rect()
-            && button_rect.contains(pos) {
-                self.close_button_state.pressed = true;
-                self.base.update();
-                return true;
-            }
+            && button_rect.contains(pos)
+        {
+            self.close_button_state.pressed = true;
+            self.base.update();
+            return true;
+        }
 
         false
     }
@@ -811,10 +812,11 @@ impl Popup {
         if self.close_button_state.pressed {
             self.close_button_state.pressed = false;
             if let Some(button_rect) = self.close_button_rect()
-                && button_rect.contains(pos) {
-                    self.close();
-                    return true;
-                }
+                && button_rect.contains(pos)
+            {
+                self.close();
+                return true;
+            }
             self.base.update();
             return true;
         }

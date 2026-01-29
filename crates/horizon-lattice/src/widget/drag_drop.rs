@@ -1129,13 +1129,14 @@ impl DropIndicatorState {
 
         // After last item
         if let Some((item_idx, rect)) = item_rects.last()
-            && pos.y > rect.bottom() {
-                return Some(
-                    DropIndicator::horizontal_line(rect.bottom(), rect.left(), list_width)
-                        .with_item_index(*item_idx)
-                        .with_position(DropPosition::BelowItem),
-                );
-            }
+            && pos.y > rect.bottom()
+        {
+            return Some(
+                DropIndicator::horizontal_line(rect.bottom(), rect.left(), list_width)
+                    .with_item_index(*item_idx)
+                    .with_position(DropPosition::BelowItem),
+            );
+        }
 
         None
     }
@@ -1182,13 +1183,14 @@ impl DropIndicatorState {
 
         // After last item
         if let Some((item_idx, rect)) = item_rects.last()
-            && pos.x > rect.right() {
-                return Some(
-                    DropIndicator::vertical_line(rect.right(), rect.top(), list_height)
-                        .with_item_index(*item_idx)
-                        .with_position(DropPosition::BelowItem),
-                );
-            }
+            && pos.x > rect.right()
+        {
+            return Some(
+                DropIndicator::vertical_line(rect.right(), rect.top(), list_height)
+                    .with_item_index(*item_idx)
+                    .with_position(DropPosition::BelowItem),
+            );
+        }
 
         None
     }

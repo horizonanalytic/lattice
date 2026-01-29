@@ -227,18 +227,20 @@ impl Clipboard {
     pub fn get(&mut self) -> ClipboardData {
         // Try text first (most common)
         if let Ok(text) = self.inner.get_text()
-            && !text.is_empty() {
-                return ClipboardData::Text(text);
-            }
+            && !text.is_empty()
+        {
+            return ClipboardData::Text(text);
+        }
 
         // Try HTML
         if let Ok(html) = self.inner.get().html()
-            && !html.is_empty() {
-                return ClipboardData::Html {
-                    html,
-                    alt_text: self.inner.get_text().ok(),
-                };
-            }
+            && !html.is_empty()
+        {
+            return ClipboardData::Html {
+                html,
+                alt_text: self.inner.get_text().ok(),
+            };
+        }
 
         // Try image
         if let Ok(img) = self.inner.get_image() {
@@ -1105,10 +1107,11 @@ fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
                 // The object should be an NSURL - cast it via pointer
                 let url: &NSURL = unsafe { &*(&*obj as *const _ as *const NSURL) };
                 if url.isFileURL()
-                    && let Some(path_str) = url.path() {
-                        let path_string: String = path_str.to_string();
-                        paths.push(PathBuf::from(path_string));
-                    }
+                    && let Some(path_str) = url.path()
+                {
+                    let path_string: String = path_str.to_string();
+                    paths.push(PathBuf::from(path_string));
+                }
             }
             if paths.is_empty() {
                 Err(ClipboardError::new("No file URLs in clipboard"))

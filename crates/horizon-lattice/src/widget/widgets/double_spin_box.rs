@@ -833,9 +833,10 @@ impl DoubleSpinBox {
     /// Get the display text for the current value.
     fn display_text(&self) -> String {
         if (self.value - self.minimum).abs() < f64::EPSILON
-            && let Some(ref special) = self.special_value_text {
-                return special.clone();
-            }
+            && let Some(ref special) = self.special_value_text
+        {
+            return special.clone();
+        }
 
         let formatted_value = if self.should_use_scientific() {
             self.format_scientific(self.value)
@@ -948,9 +949,10 @@ impl DoubleSpinBox {
 
         // Try to parse the edit text as a value
         if let Ok(parsed) = self.edit_text.trim().parse::<f64>()
-            && parsed.is_finite() {
-                self.set_value(parsed);
-            }
+            && parsed.is_finite()
+        {
+            self.set_value(parsed);
+        }
 
         self.edit_text.clear();
         self.cursor_pos = 0;
@@ -1264,13 +1266,14 @@ impl DoubleSpinBox {
                 // Start editing if a digit, minus, or decimal point is pressed
                 if !self.read_only
                     && let Some(ch) = event.text.chars().next()
-                        && (ch.is_ascii_digit() || ch == '-' || ch == '+' || ch == '.') {
-                            self.start_editing();
-                            self.edit_text.clear();
-                            self.cursor_pos = 0;
-                            self.selection_start = None;
-                            return self.handle_edit_key(event);
-                        }
+                    && (ch.is_ascii_digit() || ch == '-' || ch == '+' || ch == '.')
+                {
+                    self.start_editing();
+                    self.edit_text.clear();
+                    self.cursor_pos = 0;
+                    self.selection_start = None;
+                    return self.handle_edit_key(event);
+                }
             }
         }
         false
@@ -1462,18 +1465,19 @@ impl DoubleSpinBox {
 
         // Draw selection background if editing with selection
         if self.editing
-            && let Some(sel_start) = self.selection_start {
-                let (start, end) = if sel_start < self.cursor_pos {
-                    (sel_start, self.cursor_pos)
-                } else {
-                    (self.cursor_pos, sel_start)
-                };
-                if start != end {
-                    let selection_color = Color::from_rgba8(66, 133, 244, 100);
-                    let sel_rect = Rect::new(text_x, text_y, layout.width(), layout.height());
-                    ctx.renderer().fill_rect(sel_rect, selection_color);
-                }
+            && let Some(sel_start) = self.selection_start
+        {
+            let (start, end) = if sel_start < self.cursor_pos {
+                (sel_start, self.cursor_pos)
+            } else {
+                (self.cursor_pos, sel_start)
+            };
+            if start != end {
+                let selection_color = Color::from_rgba8(66, 133, 244, 100);
+                let sel_rect = Rect::new(text_x, text_y, layout.width(), layout.height());
+                ctx.renderer().fill_rect(sel_rect, selection_color);
             }
+        }
 
         if let Ok(mut text_renderer) = TextRenderer::new() {
             let _ =

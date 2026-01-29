@@ -1103,10 +1103,11 @@ impl Dialog {
 
         // Handle Alt+key mnemonic activation
         if event.modifiers.alt
-            && let Some(key_char) = event.key.to_ascii_char() {
-                self.mnemonic_key_pressed.emit(key_char);
-                return true;
-            }
+            && let Some(key_char) = event.key.to_ascii_char()
+        {
+            self.mnemonic_key_pressed.emit(key_char);
+            return true;
+        }
 
         false
     }

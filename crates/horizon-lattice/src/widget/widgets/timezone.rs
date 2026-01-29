@@ -280,9 +280,10 @@ pub fn get_timezone_abbreviation(tz: Tz) -> String {
 pub fn local_timezone() -> Option<Tz> {
     // Try to get from environment variable
     if let Ok(tz_name) = std::env::var("TZ")
-        && let Ok(tz) = tz_name.parse::<Tz>() {
-            return Some(tz);
-        }
+        && let Ok(tz) = tz_name.parse::<Tz>()
+    {
+        return Some(tz);
+    }
 
     // Try to read from /etc/localtime symlink on Unix
     #[cfg(unix)]

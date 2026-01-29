@@ -79,11 +79,12 @@ pub fn open_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
     }
 
     if let Some(dir) = &options.directory
-        && let Some(dir_str) = dir.to_str() {
-            let ns_path = NSString::from_str(dir_str);
-            let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
-            panel.setDirectoryURL(Some(&url));
-        }
+        && let Some(dir_str) = dir.to_str()
+    {
+        let ns_path = NSString::from_str(dir_str);
+        let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
+        panel.setDirectoryURL(Some(&url));
+    }
 
     setup_file_types(&panel, &options.filters);
 
@@ -113,11 +114,12 @@ pub fn open_files(options: NativeFileDialogOptions) -> Option<Vec<PathBuf>> {
     }
 
     if let Some(dir) = &options.directory
-        && let Some(dir_str) = dir.to_str() {
-            let ns_path = NSString::from_str(dir_str);
-            let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
-            panel.setDirectoryURL(Some(&url));
-        }
+        && let Some(dir_str) = dir.to_str()
+    {
+        let ns_path = NSString::from_str(dir_str);
+        let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
+        panel.setDirectoryURL(Some(&url));
+    }
 
     setup_file_types(&panel, &options.filters);
 
@@ -148,11 +150,12 @@ pub fn save_file(options: NativeFileDialogOptions) -> Option<PathBuf> {
     }
 
     if let Some(dir) = &options.directory
-        && let Some(dir_str) = dir.to_str() {
-            let ns_path = NSString::from_str(dir_str);
-            let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
-            panel.setDirectoryURL(Some(&url));
-        }
+        && let Some(dir_str) = dir.to_str()
+    {
+        let ns_path = NSString::from_str(dir_str);
+        let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
+        panel.setDirectoryURL(Some(&url));
+    }
 
     if let Some(name) = &options.default_name {
         let ns_name = NSString::from_str(name);
@@ -187,11 +190,12 @@ pub fn select_directory(options: NativeFileDialogOptions) -> Option<PathBuf> {
     }
 
     if let Some(dir) = &options.directory
-        && let Some(dir_str) = dir.to_str() {
-            let ns_path = NSString::from_str(dir_str);
-            let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
-            panel.setDirectoryURL(Some(&url));
-        }
+        && let Some(dir_str) = dir.to_str()
+    {
+        let ns_path = NSString::from_str(dir_str);
+        let url = objc2_foundation::NSURL::fileURLWithPath(&ns_path);
+        panel.setDirectoryURL(Some(&url));
+    }
 
     let response = panel.runModal();
     if response == NSModalResponseOK {

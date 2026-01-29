@@ -345,13 +345,14 @@ impl ColorPicker {
         self.hex_validation_state = self.hex_validator.validate(&self.hex_text);
 
         if self.hex_validation_state == ValidationState::Acceptable
-            && let Some((r, g, b, a)) = HexColorValidator::parse_hex(&self.hex_text) {
-                let color = Color::from_rgba8(r, g, b, a);
-                self.updating_from_hex = true;
-                self.set_color(color);
-                self.updating_from_hex = false;
-                self.color_changed.emit(self.color());
-            }
+            && let Some((r, g, b, a)) = HexColorValidator::parse_hex(&self.hex_text)
+        {
+            let color = Color::from_rgba8(r, g, b, a);
+            self.updating_from_hex = true;
+            self.set_color(color);
+            self.updating_from_hex = false;
+            self.color_changed.emit(self.color());
+        }
     }
 
     // =========================================================================

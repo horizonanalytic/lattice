@@ -440,6 +440,7 @@ impl SessionInhibitorGuard {
 
             windows::Win32::UI::WindowsAndMessaging::RegisterClassW(&wc);
 
+            let desktop_hwnd = GetDesktopWindow();
             let hwnd = CreateWindowExW(
                 WINDOW_EX_STYLE::default(),
                 PCWSTR(class_name.as_ptr()),
@@ -449,7 +450,7 @@ impl SessionInhibitorGuard {
                 CW_USEDEFAULT,
                 0,
                 0,
-                GetDesktopWindow(),
+                desktop_hwnd,
                 None,
                 None,
                 None,
@@ -1076,8 +1077,8 @@ fn windows_session_event_loop(
 
         let mut msg = MSG::default();
         while inner.running.load(Ordering::SeqCst) {
-            if PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_NOREMOVE).as_bool() {
-                if !GetMessageW(&mut msg, Some(hwnd), 0, 0).as_bool() {
+            if PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_NOREMOVE).is_ok() {
+                if GetMessageW(&mut msg, Some(hwnd), 0, 0).is_err() {
                     break;
                 }
                 let _ = TranslateMessage(&msg);

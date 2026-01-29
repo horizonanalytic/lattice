@@ -535,7 +535,7 @@ impl ClipboardWatcher {
             RegisterClassW(&wc);
 
             // Create message-only window
-            let hwnd = CreateWindowExW(
+            let hwnd = match CreateWindowExW(
                 Default::default(),
                 class_name_ptr,
                 PCWSTR::null(),
@@ -548,11 +548,10 @@ impl ClipboardWatcher {
                 HMENU::default(),
                 wc.hInstance,
                 None,
-            );
-
-            if hwnd == HWND::default() {
-                return;
-            }
+            ) {
+                Ok(hwnd) => hwnd,
+                Err(_) => return,
+            };
 
             // Register for clipboard notifications
             if AddClipboardFormatListener(hwnd).is_err() {
@@ -563,7 +562,7 @@ impl ClipboardWatcher {
             let mut msg = MSG::default();
             while running.load(Ordering::SeqCst) {
                 // Use PeekMessage with a small sleep to allow checking the running flag
-                if PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool() {
+                if PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).is_ok() {
                     if msg.message == WM_CLIPBOARDUPDATE {
                         // Clipboard changed, emit signal
                         if let Ok(mut clipboard) = Clipboard::new() {
@@ -934,7 +933,7 @@ fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
 
         let result = (|| -> Result<Vec<PathBuf>, ClipboardError> {
             // Check if CF_HDROP is available
-            if !IsClipboardFormatAvailable(CF_HDROP.0 as u32).as_bool() {
+            if !IsClipboardFormatAvailable(CF_HDROP.0 as u32).is_ok() {
                 return Err(ClipboardError::new("Clipboard does not contain file URLs"));
             }
 
@@ -1077,7 +1076,7 @@ fn has_file_urls_impl() -> bool {
     use windows::Win32::System::DataExchange::IsClipboardFormatAvailable;
     use windows::Win32::System::Ole::CF_HDROP;
 
-    unsafe { IsClipboardFormatAvailable(CF_HDROP.0 as u32).as_bool() }
+    unsafe { IsClipboardFormatAvailable(CF_HDROP.0 as u32).is_ok() }
 }
 
 // macOS implementation using NSPasteboard

@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+documentation.workspace = true
+categories = ["gui"]
+keywords = ["css", "styling", "themes", "ui", "design"]
 
 [features]
 default = []

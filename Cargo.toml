@@ -16,6 +16,7 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/horizon-analytic-studios/horizon-lattice"
 authors = ["Horizon Analytic Studios, LLC"]
+documentation = "https://github.com/horizon-analytic-studios/horizon-lattice/tree/main/docs"
 
 [workspace.dependencies]
 # Core dependencies

@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+documentation.workspace = true
+categories = ["development-tools::procedural-macro-helpers"]
+keywords = ["derive", "macro", "proc-macro", "code-generation", "gui"]
 
 [lib]
 proc-macro = true

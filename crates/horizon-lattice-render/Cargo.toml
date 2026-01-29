@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+documentation.workspace = true
+categories = ["rendering::engine", "graphics"]
+keywords = ["rendering", "wgpu", "graphics", "2d", "gpu"]
 
 [features]
 default = []

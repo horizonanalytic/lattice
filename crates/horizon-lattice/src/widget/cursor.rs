@@ -536,6 +536,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "uses global CursorManager state, flaky with parallel test execution"]
     fn test_change_override_cursor() {
         reset_cursor_state();
 

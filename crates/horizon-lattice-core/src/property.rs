@@ -362,7 +362,7 @@ pub struct PropertyMeta {
 
 impl PropertyMeta {
     /// Create metadata for a property.
-    pub const fn new<T: 'static>(
+    pub fn new<T: 'static>(
         name: &'static str,
         type_name: &'static str,
         read_only: bool,

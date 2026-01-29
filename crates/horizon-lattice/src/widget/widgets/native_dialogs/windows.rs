@@ -361,7 +361,7 @@ pub fn pick_color(options: NativeColorOptions) -> Option<Color> {
             lpTemplateName: PCWSTR::null(),
         };
 
-        if ChooseColorW(&mut cc).is_ok() {
+        if ChooseColorW(&mut cc).as_bool() {
             let rgb = cc.rgbResult.0;
             let r = (rgb & 0xFF) as f32 / 255.0;
             let g = ((rgb >> 8) & 0xFF) as f32 / 255.0;
@@ -427,7 +427,7 @@ pub fn pick_font(options: NativeFontOptions) -> Option<NativeFontDesc> {
             nSizeMax: 0,
         };
 
-        if ChooseFontW(&mut cf).is_ok() {
+        if ChooseFontW(&mut cf).as_bool() {
             // Extract the font family name
             let family_end = lf.lfFaceName.iter().position(|&c| c == 0).unwrap_or(32);
             let family = String::from_utf16_lossy(&lf.lfFaceName[..family_end]);

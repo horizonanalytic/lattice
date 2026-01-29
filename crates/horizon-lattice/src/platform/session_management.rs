@@ -1077,8 +1077,8 @@ fn windows_session_event_loop(
 
         let mut msg = MSG::default();
         while inner.running.load(Ordering::SeqCst) {
-            if PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_NOREMOVE).is_ok() {
-                if GetMessageW(&mut msg, Some(hwnd), 0, 0).is_err() {
+            if PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_NOREMOVE).as_bool() {
+                if !GetMessageW(&mut msg, Some(hwnd), 0, 0).as_bool() {
                     break;
                 }
                 let _ = TranslateMessage(&msg);

@@ -473,7 +473,7 @@ mod platform {
         let mut info: MONITORINFOEXW = mem::zeroed();
         info.monitorInfo.cbSize = mem::size_of::<MONITORINFOEXW>() as u32;
 
-        if GetMonitorInfoW(hmonitor, &mut info.monitorInfo).is_ok() {
+        if GetMonitorInfoW(hmonitor, &mut info.monitorInfo).as_bool() {
             let rc = info.monitorInfo.rcMonitor;
             let work = info.monitorInfo.rcWork;
 

@@ -33,8 +33,9 @@ impl HighContrast {
 
     #[cfg(target_os = "windows")]
     fn is_enabled_platform() -> bool {
-        use windows::Win32::UI::Accessibility::{
-            HIGHCONTRASTW, SPI_GETHIGHCONTRAST, SystemParametersInfoW,
+        use windows::Win32::UI::Accessibility::HIGHCONTRASTW;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SPI_GETHIGHCONTRAST, SystemParametersInfoW,
         };
 
         // SAFETY: SystemParametersInfoW is a Windows API call that requires:

@@ -562,7 +562,7 @@ impl ClipboardWatcher {
             let mut msg = MSG::default();
             while running.load(Ordering::SeqCst) {
                 // Use PeekMessage with a small sleep to allow checking the running flag
-                if PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).is_ok() {
+                if PeekMessageW(&mut msg, hwnd, 0, 0, PM_REMOVE).as_bool() {
                     if msg.message == WM_CLIPBOARDUPDATE {
                         // Clipboard changed, emit signal
                         if let Ok(mut clipboard) = Clipboard::new() {
@@ -933,7 +933,7 @@ fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
 
         let result = (|| -> Result<Vec<PathBuf>, ClipboardError> {
             // Check if CF_HDROP is available
-            if !IsClipboardFormatAvailable(CF_HDROP.0 as u32).is_ok() {
+            if !IsClipboardFormatAvailable(CF_HDROP.0 as u32).as_bool() {
                 return Err(ClipboardError::new("Clipboard does not contain file URLs"));
             }
 
@@ -1076,7 +1076,7 @@ fn has_file_urls_impl() -> bool {
     use windows::Win32::System::DataExchange::IsClipboardFormatAvailable;
     use windows::Win32::System::Ole::CF_HDROP;
 
-    unsafe { IsClipboardFormatAvailable(CF_HDROP.0 as u32).is_ok() }
+    unsafe { IsClipboardFormatAvailable(CF_HDROP.0 as u32).as_bool() }
 }
 
 // macOS implementation using NSPasteboard

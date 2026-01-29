@@ -143,7 +143,7 @@ windows = { version = "0.58", features = [
 x11-clipboard = "0.9"
 
 # Native dialog dependencies (Linux)
-ashpd = "0.10"
+ashpd = "0.11"
 zbus = "5"
 futures-util = "0.3"
 tokio-stream = "0.1"

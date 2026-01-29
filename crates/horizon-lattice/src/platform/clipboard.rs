@@ -933,7 +933,7 @@ fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
 
         let result = (|| -> Result<Vec<PathBuf>, ClipboardError> {
             // Check if CF_HDROP is available
-            if !IsClipboardFormatAvailable(CF_HDROP.0 as u32).as_bool() {
+            if IsClipboardFormatAvailable(CF_HDROP.0 as u32).is_err() {
                 return Err(ClipboardError::new("Clipboard does not contain file URLs"));
             }
 
@@ -981,7 +981,7 @@ fn get_file_urls_impl() -> Result<Vec<std::path::PathBuf>, ClipboardError> {
 fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError> {
     use std::mem;
     use std::os::windows::ffi::OsStrExt;
-    use windows::Win32::Foundation::{GlobalFree, HGLOBAL, HWND};
+    use windows::Win32::Foundation::{GlobalFree, HANDLE, HGLOBAL, HWND};
     use windows::Win32::System::DataExchange::{
         CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
     };
@@ -1059,7 +1059,7 @@ fn set_file_urls_impl(paths: &[std::path::PathBuf]) -> Result<(), ClipboardError
             let _ = GlobalUnlock(hglobal);
 
             // Set clipboard data
-            SetClipboardData(CF_HDROP.0 as u32, HGLOBAL(hglobal.0 as *mut _).0)
+            SetClipboardData(CF_HDROP.0 as u32, Some(HANDLE(hglobal.0)))
                 .map_err(|e| ClipboardError::new(format!("Failed to set clipboard data: {}", e)))?;
 
             Ok(())
@@ -1076,7 +1076,7 @@ fn has_file_urls_impl() -> bool {
     use windows::Win32::System::DataExchange::IsClipboardFormatAvailable;
     use windows::Win32::System::Ole::CF_HDROP;
 
-    unsafe { IsClipboardFormatAvailable(CF_HDROP.0 as u32).as_bool() }
+    unsafe { IsClipboardFormatAvailable(CF_HDROP.0 as u32).is_ok() }
 }
 
 // macOS implementation using NSPasteboard

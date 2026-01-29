@@ -769,7 +769,7 @@ async fn linux_power_event_loop(
 fn windows_power_event_loop(inner: &PowerEventWatcherInner) -> Result<(), PowerManagementError> {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
-    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows::Win32::UI::WindowsAndMessaging::{
         CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow,
@@ -858,7 +858,7 @@ fn windows_power_event_loop(inner: &PowerEventWatcherInner) -> Result<(), PowerM
             CW_USEDEFAULT,
             None,
             None,
-            Some(hinstance.into()),
+            HINSTANCE(hinstance.0),
             None,
         )
         .map_err(|e| PowerManagementError::power_events(e.to_string()))?;
@@ -866,8 +866,8 @@ fn windows_power_event_loop(inner: &PowerEventWatcherInner) -> Result<(), PowerM
         let mut msg = MSG::default();
         while inner.running.load(Ordering::SeqCst) {
             // Use PeekMessage to avoid blocking indefinitely
-            if PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_NOREMOVE).as_bool() {
-                if !GetMessageW(&mut msg, Some(hwnd), 0, 0).as_bool() {
+            if PeekMessageW(&mut msg, hwnd, 0, 0, PM_NOREMOVE).as_bool() {
+                if !GetMessageW(&mut msg, hwnd, 0, 0).as_bool() {
                     break;
                 }
                 let _ = TranslateMessage(&msg);

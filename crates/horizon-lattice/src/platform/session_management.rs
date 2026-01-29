@@ -408,11 +408,11 @@ impl SessionInhibitorGuard {
     ) -> Result<Self, SessionManagementError> {
         use std::ffi::OsStr;
         use std::os::windows::ffi::OsStrExt;
-        use windows::Win32::Foundation::HWND;
+        use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
         use windows::Win32::System::Shutdown::ShutdownBlockReasonCreate;
         use windows::Win32::UI::WindowsAndMessaging::{
-            CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, CreateWindowExW, GetDesktopWindow,
-            WINDOW_EX_STYLE, WNDCLASSW, WS_OVERLAPPED,
+            CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, CreateWindowExW, DefWindowProcW,
+            GetDesktopWindow, WINDOW_EX_STYLE, WNDCLASSW, WS_OVERLAPPED,
         };
         use windows::core::PCWSTR;
 
@@ -427,13 +427,23 @@ impl SessionInhibitorGuard {
                 .collect()
         }
 
+        // Wrapper for DefWindowProcW with correct calling convention
+        unsafe extern "system" fn default_wnd_proc(
+            hwnd: HWND,
+            msg: u32,
+            wparam: WPARAM,
+            lparam: LPARAM,
+        ) -> LRESULT {
+            DefWindowProcW(hwnd, msg, wparam, lparam)
+        }
+
         unsafe {
             let class_name = to_wide("HorizonLatticeSessionInhibitor");
 
             // Create a message-only window for the shutdown block
             let wc = WNDCLASSW {
                 style: CS_HREDRAW | CS_VREDRAW,
-                lpfnWndProc: Some(windows::Win32::UI::WindowsAndMessaging::DefWindowProcW),
+                lpfnWndProc: Some(default_wnd_proc),
                 lpszClassName: PCWSTR(class_name.as_ptr()),
                 ..Default::default()
             };
@@ -980,7 +990,7 @@ fn windows_session_event_loop(
 ) -> Result<(), SessionManagementError> {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
-    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows::Win32::UI::WindowsAndMessaging::{
         CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow,
@@ -1070,15 +1080,15 @@ fn windows_session_event_loop(
             CW_USEDEFAULT,
             None,
             None,
-            Some(hinstance.into()),
+            HINSTANCE(hinstance.0),
             None,
         )
         .map_err(|e| SessionManagementError::session_events(e.to_string()))?;
 
         let mut msg = MSG::default();
         while inner.running.load(Ordering::SeqCst) {
-            if PeekMessageW(&mut msg, Some(hwnd), 0, 0, PM_NOREMOVE).as_bool() {
-                if !GetMessageW(&mut msg, Some(hwnd), 0, 0).as_bool() {
+            if PeekMessageW(&mut msg, hwnd, 0, 0, PM_NOREMOVE).as_bool() {
+                if !GetMessageW(&mut msg, hwnd, 0, 0).as_bool() {
                     break;
                 }
                 let _ = TranslateMessage(&msg);

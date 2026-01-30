@@ -655,6 +655,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(target_os = "windows", ignore = "audio tests crash on Windows CI")]
     fn test_audio_player_creation() {
         // This test may fail in CI environments without audio hardware
         if let Ok(player) = AudioPlayer::new() {
@@ -680,6 +681,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(target_os = "windows", ignore = "audio tests crash on Windows CI")]
     fn test_volume_clamping() {
         if let Ok(player) = AudioPlayer::new() {
             player.set_volume(-1.0);
@@ -694,6 +696,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(target_os = "windows", ignore = "audio tests crash on Windows CI")]
     fn test_looping_toggle() {
         if let Ok(player) = AudioPlayer::new() {
             assert!(!player.is_looping());
@@ -705,6 +708,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(target_os = "windows", ignore = "audio tests crash on Windows CI")]
     fn test_speed_setting() {
         if let Ok(player) = AudioPlayer::new() {
             assert_eq!(player.speed(), 1.0);

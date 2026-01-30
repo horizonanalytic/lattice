@@ -121,6 +121,6 @@ at your option.
 
 ## Acknowledgments
 
-Horizon Lattice is developed by [Horizon Analytic Studios, LLC](https://github.com/horizon-analytic-studios).
+Horizon Lattice is developed by [Horizon Analytic Studios, LLC](https://horizonanalytic.com).
 
 This project draws inspiration from Qt's design philosophy while reimagining its concepts for Rust's unique strengths.

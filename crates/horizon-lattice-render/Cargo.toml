@@ -1,6 +1,7 @@
 [package]
 name = "horizon-lattice-render"
 description = "Graphics rendering backend for Horizon Lattice using wgpu"
+readme = "../../README.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

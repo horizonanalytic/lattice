@@ -27,6 +27,19 @@ Breaking changes will only occur in major version bumps (e.g., 1.x to 2.x).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-01-30
+
+### Fixed
+
+- Added README.md to all crate packages for crates.io display
+- Fixed repository URLs in documentation (book.toml)
+- Increased crates.io publish delays to avoid rate limiting
+
+### Added
+
+- GitHub Pages deployment script (`scripts/deploy-docs.sh`)
+- Makefile targets for documentation: `book`, `book-serve`, `book-deploy`
+
 ## [1.0.0] - 2026-01-28
 
 ### Added
@@ -44,5 +57,6 @@ Breaking changes will only occur in major version bumps (e.g., 1.x to 2.x).
 - Accessibility support via accesskit
 - Documentation with tutorials and examples
 
-[Unreleased]: https://github.com/horizon-analytic-studios/horizon-lattice/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/horizon-analytic-studios/horizon-lattice/releases/tag/v1.0.0
+[Unreleased]: https://github.com/horizonanalytic/lattice/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/horizonanalytic/lattice/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/horizonanalytic/lattice/releases/tag/v1.0.0

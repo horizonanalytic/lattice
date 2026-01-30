@@ -11,13 +11,13 @@ members = [
 ]
 
 [workspace.package]
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 rust-version = "1.89.0"  # MSRV: Updated for dependency compatibility
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/horizon-analytic-studios/horizon-lattice"
+repository = "https://github.com/horizonanalytic/lattice"
 authors = ["Horizon Analytic Studios, LLC"]
-documentation = "https://github.com/horizon-analytic-studios/horizon-lattice/tree/main/docs"
+documentation = "https://horizonanalytic.github.io/lattice/"
 
 [workspace.dependencies]
 # Core dependencies

@@ -2962,7 +2962,7 @@ dependencies = [
 
 [[package]]
 name = "horizon-lattice"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -3032,7 +3032,7 @@ dependencies = [
 
 [[package]]
 name = "horizon-lattice-core"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "crossbeam-channel",
  "horizon-lattice-macros",
@@ -3047,7 +3047,7 @@ dependencies = [
 
 [[package]]
 name = "horizon-lattice-macros"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3056,7 +3056,7 @@ dependencies = [
 
 [[package]]
 name = "horizon-lattice-multimedia"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "horizon-lattice-core",
  "parking_lot",
@@ -3069,7 +3069,7 @@ dependencies = [
 
 [[package]]
 name = "horizon-lattice-net"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "base64",
  "bytes",
@@ -3104,7 +3104,7 @@ dependencies = [
 
 [[package]]
 name = "horizon-lattice-render"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3133,7 +3133,7 @@ dependencies = [
 
 [[package]]
 name = "horizon-lattice-style"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cssparser",
  "dirs 5.0.1",

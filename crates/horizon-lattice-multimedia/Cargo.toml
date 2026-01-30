@@ -1,6 +1,7 @@
 [package]
 name = "horizon-lattice-multimedia"
 description = "Multimedia module for Horizon Lattice: audio playback, sound effects"
+readme = "../../README.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

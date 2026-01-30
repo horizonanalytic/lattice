@@ -1,0 +1,914 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Theming and Dark Mode - Horizon Lattice Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="A comprehensive guide to the Horizon Lattice GUI framework">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-2459343d.css">
+        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "coal";
+            window.path_to_searchindex_js = "../searchindex-2ddae7e5.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-b89355f2.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Horizon Lattice Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/horizonanalytic/lattice" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/horizonanalytic/lattice/edit/main/docs/src/tutorials/theming.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <span class=fa-svg id="git-edit-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M421.7 220.3l-11.3 11.3-22.6 22.6-205 205c-6.6 6.6-14.8 11.5-23.8 14.1L30.8 511c-8.4 2.5-17.5 .2-23.7-6.1S-1.5 489.7 1 481.2L38.7 353.1c2.6-9 7.5-17.2 14.1-23.8l205-205 22.6-22.6 11.3-11.3 33.9 33.9 62.1 62.1 33.9 33.9zM96 353.9l-9.3 9.3c-.9 .9-1.6 2.1-2 3.4l-25.3 86 86-25.3c1.3-.4 2.5-1.1 3.4-2l9.3-9.3H112c-8.8 0-16-7.2-16-16V353.9zM453.3 19.3l39.4 39.4c25 25 25 65.5 0 90.5l-14.5 14.5-22.6 22.6-11.3 11.3-33.9-33.9-62.1-62.1L314.3 67.7l11.3-11.3 22.6-22.6 14.5-14.5c25-25 65.5-25 90.5 0z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="tutorial-theming"><a class="header" href="#tutorial-theming">Tutorial: Theming</a></h1>
+<p>Learn to style your application with themes and switch between light and dark modes.</p>
+<h2 id="what-youll-learn"><a class="header" href="#what-youll-learn">What You’ll Learn</a></h2>
+<ul>
+<li>Understanding the theme system</li>
+<li>Applying built-in themes</li>
+<li>Creating custom themes</li>
+<li>Switching themes at runtime</li>
+<li>Detecting and following system dark mode</li>
+<li>Styling individual widgets</li>
+</ul>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<ul>
+<li>Completed the <a href="./custom-widget.html">Custom Widgets</a> tutorial</li>
+<li>Understanding of the Widget system</li>
+<li>Familiarity with the <a href="../guides/styling.html">Styling Guide</a></li>
+</ul>
+<h2 id="the-theme-system"><a class="header" href="#the-theme-system">The Theme System</a></h2>
+<p>Horizon Lattice uses a comprehensive theming system inspired by Material Design:</p>
+<ul>
+<li><strong>Theme</strong> - Defines colors, typography, and widget defaults</li>
+<li><strong>ColorPalette</strong> - The color scheme (primary, secondary, background, etc.)</li>
+<li><strong>StyleEngine</strong> - Resolves and applies styles to widgets</li>
+<li><strong>ThemeMode</strong> - Light, Dark, or High Contrast</li>
+</ul>
+<h2 id="step-1-built-in-themes"><a class="header" href="#step-1-built-in-themes">Step 1: Built-in Themes</a></h2>
+<p>Horizon Lattice provides three built-in themes:</p>
+<pre><code class="language-rust ignore">use horizon_lattice_style::{Theme, ThemeMode};
+
+// Light theme (default)
+let light = Theme::light();
+
+// Dark theme
+let dark = Theme::dark();
+
+// High contrast theme (accessibility)
+let high_contrast = Theme::high_contrast();</code></pre>
+<h3 id="using-a-theme-with-styleengine"><a class="header" href="#using-a-theme-with-styleengine">Using a Theme with StyleEngine</a></h3>
+<pre><code class="language-rust ignore">use horizon_lattice::Application;
+use horizon_lattice::widget::widgets::{Label, PushButton, Container, Window};
+use horizon_lattice::widget::layout::{VBoxLayout, LayoutKind};
+use horizon_lattice_style::{StyleEngine, Theme};
+
+fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let app = Application::new()?;
+
+    // Create style engine with dark theme
+    let style_engine = StyleEngine::dark();
+    app.set_style_engine(style_engine);
+
+    let mut window = Window::new("Dark Theme App")
+        .with_size(400.0, 300.0);
+
+    let label = Label::new("Welcome to the dark side!");
+    let button = PushButton::new("Click me");
+
+    let mut layout = VBoxLayout::new();
+    layout.add_widget(label.object_id());
+    layout.add_widget(button.object_id());
+
+    let mut container = Container::new();
+    container.set_layout(LayoutKind::from(layout));
+
+    window.set_content_widget(container.object_id());
+    window.show();
+
+    app.run()
+}</code></pre>
+<h2 id="step-2-understanding-colorpalette"><a class="header" href="#step-2-understanding-colorpalette">Step 2: Understanding ColorPalette</a></h2>
+<p>The <code>ColorPalette</code> defines all colors used throughout the theme:</p>
+<pre><code class="language-rust ignore">use horizon_lattice_style::ColorPalette;
+use horizon_lattice::render::Color;
+
+// Get the light palette
+let palette = ColorPalette::light();
+
+// Access specific colors
+let primary = palette.primary;           // Main brand color
+let background = palette.background;     // App background
+let text = palette.text_primary;         // Primary text color
+let error = palette.error;               // Error/danger color</code></pre>
+<h3 id="color-categories"><a class="header" href="#color-categories">Color Categories</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Category</th><th>Colors</th><th>Purpose</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Primary</strong></td><td><code>primary</code>, <code>primary_light</code>, <code>primary_dark</code>, <code>on_primary</code></td><td>Brand/accent colors</td></tr>
+<tr><td><strong>Secondary</strong></td><td><code>secondary</code>, <code>secondary_light</code>, <code>secondary_dark</code>, <code>on_secondary</code></td><td>Complementary accent</td></tr>
+<tr><td><strong>Background</strong></td><td><code>background</code>, <code>surface</code>, <code>surface_variant</code></td><td>Container backgrounds</td></tr>
+<tr><td><strong>Text</strong></td><td><code>text_primary</code>, <code>text_secondary</code>, <code>text_disabled</code></td><td>Text colors</td></tr>
+<tr><td><strong>Semantic</strong></td><td><code>error</code>, <code>warning</code>, <code>success</code>, <code>info</code></td><td>Status indicators</td></tr>
+<tr><td><strong>Borders</strong></td><td><code>border</code>, <code>border_light</code>, <code>divider</code></td><td>Lines and separators</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="light-vs-dark-palette-colors"><a class="header" href="#light-vs-dark-palette-colors">Light vs Dark Palette Colors</a></h3>
+<pre><code class="language-rust ignore">// Light palette
+let light = ColorPalette::light();
+assert_eq!(light.background, Color::from_rgb8(255, 255, 255)); // White
+assert_eq!(light.text_primary, Color::from_rgb8(33, 33, 33));  // Near black
+
+// Dark palette
+let dark = ColorPalette::dark();
+assert_eq!(dark.background, Color::from_rgb8(18, 18, 18));     // Near black
+assert_eq!(dark.text_primary, Color::from_rgb8(255, 255, 255)); // White</code></pre>
+<h2 id="step-3-creating-custom-themes"><a class="header" href="#step-3-creating-custom-themes">Step 3: Creating Custom Themes</a></h2>
+<p>Create a custom theme with your own color palette:</p>
+<pre><code class="language-rust ignore">use horizon_lattice_style::{Theme, ThemeMode, ColorPalette};
+use horizon_lattice::render::Color;
+
+// Start with a base palette and customize
+fn create_brand_theme() -&gt; Theme {
+    let mut palette = ColorPalette::light();
+
+    // Set brand colors
+    palette.primary = Color::from_hex("#6200EE").unwrap();       // Purple
+    palette.primary_light = Color::from_hex("#9D46FF").unwrap();
+    palette.primary_dark = Color::from_hex("#3700B3").unwrap();
+    palette.on_primary = Color::WHITE;
+
+    palette.secondary = Color::from_hex("#03DAC6").unwrap();     // Teal
+    palette.secondary_light = Color::from_hex("#66FFF8").unwrap();
+    palette.secondary_dark = Color::from_hex("#00A896").unwrap();
+    palette.on_secondary = Color::BLACK;
+
+    // Create theme from custom palette
+    Theme::custom(ThemeMode::Light, palette)
+}
+
+fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let app = Application::new()?;
+
+    let brand_theme = create_brand_theme();
+    let style_engine = StyleEngine::new(brand_theme);
+    app.set_style_engine(style_engine);
+
+    // ... rest of app setup
+    Ok(())
+}</code></pre>
+<h3 id="creating-a-complete-dark-brand-theme"><a class="header" href="#creating-a-complete-dark-brand-theme">Creating a Complete Dark Brand Theme</a></h3>
+<pre><code class="language-rust ignore">fn create_dark_brand_theme() -&gt; Theme {
+    let mut palette = ColorPalette::dark();
+
+    // Adjust primary for dark backgrounds
+    palette.primary = Color::from_hex("#BB86FC").unwrap();       // Light purple
+    palette.primary_light = Color::from_hex("#E4B8FF").unwrap();
+    palette.primary_dark = Color::from_hex("#8858C8").unwrap();
+    palette.on_primary = Color::BLACK;
+
+    palette.secondary = Color::from_hex("#03DAC6").unwrap();     // Teal
+    palette.on_secondary = Color::BLACK;
+
+    // Adjust backgrounds for OLED-friendly dark
+    palette.background = Color::from_rgb8(0, 0, 0);              // Pure black
+    palette.surface = Color::from_rgb8(30, 30, 30);
+    palette.surface_variant = Color::from_rgb8(45, 45, 45);
+
+    Theme::custom(ThemeMode::Dark, palette)
+}</code></pre>
+<h2 id="step-4-switching-themes-at-runtime"><a class="header" href="#step-4-switching-themes-at-runtime">Step 4: Switching Themes at Runtime</a></h2>
+<p>Switch between themes dynamically:</p>
+<pre><code class="language-rust ignore">use horizon_lattice::Application;
+use horizon_lattice::widget::widgets::{
+    PushButton, Label, Container, Window, ButtonVariant
+};
+use horizon_lattice::widget::layout::{VBoxLayout, HBoxLayout, LayoutKind};
+use horizon_lattice_style::{StyleEngine, Theme};
+use std::sync::{Arc, RwLock};
+
+fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let app = Application::new()?;
+
+    // Wrap style engine for shared access
+    let style_engine = Arc::new(RwLock::new(StyleEngine::light()));
+    app.set_shared_style_engine(style_engine.clone());
+
+    let mut window = Window::new("Theme Switcher")
+        .with_size(400.0, 300.0);
+
+    let label = Label::new("Current theme: Light");
+
+    // Theme buttons
+    let light_btn = PushButton::new("Light Theme");
+    let dark_btn = PushButton::new("Dark Theme")
+        .with_variant(ButtonVariant::Secondary);
+    let contrast_btn = PushButton::new("High Contrast")
+        .with_variant(ButtonVariant::Outlined);
+
+    // Light theme button
+    let engine = style_engine.clone();
+    let label_clone = label.clone();
+    light_btn.clicked().connect(move |_| {
+        let mut eng = engine.write().unwrap();
+        eng.set_theme(Theme::light());
+        eng.invalidate_all(); // Refresh all widget styles
+        label_clone.set_text("Current theme: Light");
+    });
+
+    // Dark theme button
+    let engine = style_engine.clone();
+    let label_clone = label.clone();
+    dark_btn.clicked().connect(move |_| {
+        let mut eng = engine.write().unwrap();
+        eng.set_theme(Theme::dark());
+        eng.invalidate_all();
+        label_clone.set_text("Current theme: Dark");
+    });
+
+    // High contrast button
+    let engine = style_engine.clone();
+    let label_clone = label.clone();
+    contrast_btn.clicked().connect(move |_| {
+        let mut eng = engine.write().unwrap();
+        eng.set_theme(Theme::high_contrast());
+        eng.invalidate_all();
+        label_clone.set_text("Current theme: High Contrast");
+    });
+
+    // Button row
+    let mut button_row = HBoxLayout::new();
+    button_row.set_spacing(8.0);
+    button_row.add_widget(light_btn.object_id());
+    button_row.add_widget(dark_btn.object_id());
+    button_row.add_widget(contrast_btn.object_id());
+
+    let mut button_container = Container::new();
+    button_container.set_layout(LayoutKind::from(button_row));
+
+    // Main layout
+    let mut layout = VBoxLayout::new();
+    layout.set_spacing(20.0);
+    layout.add_widget(label.object_id());
+    layout.add_widget(button_container.object_id());
+
+    let mut container = Container::new();
+    container.set_layout(LayoutKind::from(layout));
+
+    window.set_content_widget(container.object_id());
+    window.show();
+
+    app.run()
+}</code></pre>
+<h2 id="step-5-following-system-dark-mode"><a class="header" href="#step-5-following-system-dark-mode">Step 5: Following System Dark Mode</a></h2>
+<p>Automatically follow the system’s dark mode setting:</p>
+<pre><code class="language-rust ignore">use horizon_lattice::Application;
+use horizon_lattice::platform::{SystemTheme, ColorScheme, ThemeWatcher, ThemeAutoUpdater};
+use horizon_lattice_style::{StyleEngine, Theme};
+use std::sync::{Arc, RwLock};
+
+fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let app = Application::new()?;
+
+    // Detect initial system theme
+    let initial_theme = match SystemTheme::color_scheme() {
+        ColorScheme::Dark =&gt; Theme::dark(),
+        _ =&gt; Theme::light(),
+    };
+
+    let style_engine = Arc::new(RwLock::new(StyleEngine::new(initial_theme)));
+    app.set_shared_style_engine(style_engine.clone());
+
+    // Set up automatic theme updates
+    let watcher = ThemeWatcher::new()?;
+    let auto_updater = ThemeAutoUpdater::new(watcher, style_engine.clone());
+    auto_updater.start()?;
+
+    // ... rest of app setup
+
+    app.run()
+}</code></pre>
+<h3 id="manual-theme-watching"><a class="header" href="#manual-theme-watching">Manual Theme Watching</a></h3>
+<p>For more control, handle theme changes manually:</p>
+<pre><code class="language-rust ignore">use horizon_lattice::platform::{ThemeWatcher, ColorScheme};
+use horizon_lattice_style::{StyleEngine, Theme};
+use std::sync::{Arc, RwLock};
+
+fn setup_theme_watcher(
+    style_engine: Arc&lt;RwLock&lt;StyleEngine&gt;&gt;,
+) -&gt; Result&lt;ThemeWatcher, Box&lt;dyn std::error::Error&gt;&gt; {
+    let watcher = ThemeWatcher::new()?;
+
+    // Connect to color scheme changes
+    let engine = style_engine.clone();
+    watcher.color_scheme_changed().connect(move |&amp;scheme| {
+        let mut eng = engine.write().unwrap();
+        match scheme {
+            ColorScheme::Dark =&gt; {
+                eng.set_theme(Theme::dark());
+                println!("Switched to dark theme");
+            }
+            ColorScheme::Light | ColorScheme::Unknown =&gt; {
+                eng.set_theme(Theme::light());
+                println!("Switched to light theme");
+            }
+        }
+        eng.invalidate_all();
+    });
+
+    // Connect to high contrast changes
+    let engine = style_engine.clone();
+    watcher.high_contrast_changed().connect(move |&amp;enabled| {
+        if enabled {
+            let mut eng = engine.write().unwrap();
+            eng.set_theme(Theme::high_contrast());
+            eng.invalidate_all();
+            println!("Switched to high contrast theme");
+        }
+    });
+
+    watcher.start()?;
+    Ok(watcher)
+}</code></pre>
+<h3 id="checking-system-settings"><a class="header" href="#checking-system-settings">Checking System Settings</a></h3>
+<pre><code class="language-rust ignore">use horizon_lattice::platform::{SystemTheme, ColorScheme};
+
+fn check_system_theme() {
+    // Get current color scheme
+    let scheme = SystemTheme::color_scheme();
+    match scheme {
+        ColorScheme::Light =&gt; println!("System is in light mode"),
+        ColorScheme::Dark =&gt; println!("System is in dark mode"),
+        ColorScheme::Unknown =&gt; println!("Could not detect system theme"),
+    }
+
+    // Check high contrast
+    if SystemTheme::is_high_contrast() {
+        println!("High contrast is enabled");
+    }
+
+    // Get system accent color (if available)
+    if let Some(accent) = SystemTheme::accent_color() {
+        println!("System accent color: {:?}", accent.color);
+    }
+}</code></pre>
+<h2 id="step-6-styling-individual-widgets"><a class="header" href="#step-6-styling-individual-widgets">Step 6: Styling Individual Widgets</a></h2>
+<p>Apply custom styles to specific widgets:</p>
+<h3 id="inline-styles"><a class="header" href="#inline-styles">Inline Styles</a></h3>
+<pre><code class="language-rust ignore">use horizon_lattice::widget::widgets::{Label, PushButton};
+use horizon_lattice_style::{Style, LengthValue};
+use horizon_lattice::render::Color;
+
+// Style a label
+let mut label = Label::new("Styled Label");
+label.set_style(
+    Style::new()
+        .color(Color::from_hex("#6200EE").unwrap())
+        .font_size(LengthValue::Px(24.0))
+        .font_weight(horizon_lattice_style::FontWeight::Bold)
+        .build()
+);
+
+// Style a button
+let mut button = PushButton::new("Custom Button");
+button.set_style(
+    Style::new()
+        .background_color(Color::from_hex("#03DAC6").unwrap())
+        .color(Color::BLACK)
+        .padding_all(LengthValue::Px(16.0))
+        .border_radius_all(8.0)
+        .build()
+);</code></pre>
+<h3 id="widget-classes"><a class="header" href="#widget-classes">Widget Classes</a></h3>
+<p>Use CSS-like classes for reusable styles:</p>
+<pre><code class="language-rust ignore">use horizon_lattice::widget::widgets::{Label, PushButton, Container};
+use horizon_lattice_style::{StyleSheet, StylePriority, Selector, Style};
+use horizon_lattice::render::Color;
+
+// Create a stylesheet with class rules
+let mut stylesheet = StyleSheet::application();
+
+// Add a "highlight" class
+stylesheet.add_rule(
+    Selector::class("highlight"),
+    Style::new()
+        .background_color(Color::from_rgba(255, 235, 59, 0.3)) // Yellow tint
+        .border_width_all(LengthValue::Px(2.0))
+        .border_color(Color::from_rgb8(255, 235, 59))
+        .border_radius_all(4.0)
+        .build()
+);
+
+// Add a "large-text" class
+stylesheet.add_rule(
+    Selector::class("large-text"),
+    Style::new()
+        .font_size(LengthValue::Px(20.0))
+        .line_height(1.6)
+        .build()
+);
+
+// Register stylesheet with engine
+style_engine.add_stylesheet(stylesheet);
+
+// Apply classes to widgets
+let mut label = Label::new("Highlighted text");
+label.add_class("highlight");
+label.add_class("large-text");</code></pre>
+<h3 id="state-based-styling"><a class="header" href="#state-based-styling">State-based Styling</a></h3>
+<p>Style widgets differently based on state:</p>
+<pre><code class="language-rust ignore">use horizon_lattice_style::{Selector, SelectorState};
+
+// Style for hovered buttons
+stylesheet.add_rule(
+    Selector::widget("Button").with_state(SelectorState::Hovered),
+    Style::new()
+        .background_color(Color::from_hex("#7C4DFF").unwrap())
+        .build()
+);
+
+// Style for pressed buttons
+stylesheet.add_rule(
+    Selector::widget("Button").with_state(SelectorState::Pressed),
+    Style::new()
+        .background_color(Color::from_hex("#5E35B1").unwrap())
+        .build()
+);
+
+// Style for focused inputs
+stylesheet.add_rule(
+    Selector::widget("LineEdit").with_state(SelectorState::Focused),
+    Style::new()
+        .border_color(Color::from_hex("#6200EE").unwrap())
+        .border_width_all(LengthValue::Px(2.0))
+        .build()
+);
+
+// Style for disabled widgets
+stylesheet.add_rule(
+    Selector::any().with_state(SelectorState::Disabled),
+    Style::new()
+        .opacity(0.5)
+        .build()
+);</code></pre>
+<h2 id="complete-example-theme-aware-app"><a class="header" href="#complete-example-theme-aware-app">Complete Example: Theme-Aware App</a></h2>
+<pre><code class="language-rust ignore">use horizon_lattice::Application;
+use horizon_lattice::widget::widgets::{
+    Label, PushButton, CheckBox, LineEdit, Container, Window, ButtonVariant
+};
+use horizon_lattice::widget::layout::{VBoxLayout, HBoxLayout, ContentMargins, LayoutKind};
+use horizon_lattice::platform::{SystemTheme, ColorScheme, ThemeWatcher};
+use horizon_lattice_style::{StyleEngine, Theme, ColorPalette, ThemeMode, Style, LengthValue};
+use horizon_lattice::render::Color;
+use std::sync::{Arc, RwLock};
+
+fn create_custom_light_theme() -&gt; Theme {
+    let mut palette = ColorPalette::light();
+    palette.primary = Color::from_hex("#1976D2").unwrap();     // Blue
+    palette.secondary = Color::from_hex("#FF5722").unwrap();   // Orange
+    Theme::custom(ThemeMode::Light, palette)
+}
+
+fn create_custom_dark_theme() -&gt; Theme {
+    let mut palette = ColorPalette::dark();
+    palette.primary = Color::from_hex("#90CAF9").unwrap();     // Light blue
+    palette.secondary = Color::from_hex("#FFAB91").unwrap();   // Light orange
+    palette.background = Color::from_rgb8(18, 18, 18);
+    Theme::custom(ThemeMode::Dark, palette)
+}
+
+fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let app = Application::new()?;
+
+    // Initialize with system theme preference
+    let initial_theme = match SystemTheme::color_scheme() {
+        ColorScheme::Dark =&gt; create_custom_dark_theme(),
+        _ =&gt; create_custom_light_theme(),
+    };
+
+    let style_engine = Arc::new(RwLock::new(StyleEngine::new(initial_theme)));
+    app.set_shared_style_engine(style_engine.clone());
+
+    let mut window = Window::new("Theme-Aware App")
+        .with_size(500.0, 400.0);
+
+    // Title
+    let mut title = Label::new("Settings");
+    title.set_style(
+        Style::new()
+            .font_size(LengthValue::Px(24.0))
+            .font_weight(horizon_lattice_style::FontWeight::Bold)
+            .build()
+    );
+
+    // Theme selection
+    let theme_label = Label::new("Theme:");
+
+    let follow_system = CheckBox::new("Follow system theme");
+    follow_system.set_checked(true);
+
+    let light_btn = PushButton::new("Light");
+    let dark_btn = PushButton::new("Dark")
+        .with_variant(ButtonVariant::Secondary);
+
+    // Name input
+    let name_label = Label::new("Display name:");
+    let name_input = LineEdit::new();
+    name_input.set_placeholder("Enter your name...");
+
+    // Save button
+    let save_btn = PushButton::new("Save Settings")
+        .with_default(true);
+
+    // Track if following system
+    let following_system = Arc::new(std::sync::atomic::AtomicBool::new(true));
+
+    // Follow system checkbox
+    let following = following_system.clone();
+    let engine = style_engine.clone();
+    follow_system.toggled().connect(move |&amp;checked| {
+        following.store(checked, std::sync::atomic::Ordering::SeqCst);
+        if checked {
+            // Switch to current system theme
+            let mut eng = engine.write().unwrap();
+            match SystemTheme::color_scheme() {
+                ColorScheme::Dark =&gt; eng.set_theme(create_custom_dark_theme()),
+                _ =&gt; eng.set_theme(create_custom_light_theme()),
+            }
+            eng.invalidate_all();
+        }
+    });
+
+    // Light button
+    let following = following_system.clone();
+    let engine = style_engine.clone();
+    let checkbox = follow_system.clone();
+    light_btn.clicked().connect(move |_| {
+        checkbox.set_checked(false);
+        following.store(false, std::sync::atomic::Ordering::SeqCst);
+        let mut eng = engine.write().unwrap();
+        eng.set_theme(create_custom_light_theme());
+        eng.invalidate_all();
+    });
+
+    // Dark button
+    let following = following_system.clone();
+    let engine = style_engine.clone();
+    let checkbox = follow_system.clone();
+    dark_btn.clicked().connect(move |_| {
+        checkbox.set_checked(false);
+        following.store(false, std::sync::atomic::Ordering::SeqCst);
+        let mut eng = engine.write().unwrap();
+        eng.set_theme(create_custom_dark_theme());
+        eng.invalidate_all();
+    });
+
+    // Set up system theme watcher
+    let watcher = ThemeWatcher::new()?;
+    let engine = style_engine.clone();
+    let following = following_system.clone();
+    watcher.color_scheme_changed().connect(move |&amp;scheme| {
+        if following.load(std::sync::atomic::Ordering::SeqCst) {
+            let mut eng = engine.write().unwrap();
+            match scheme {
+                ColorScheme::Dark =&gt; eng.set_theme(create_custom_dark_theme()),
+                _ =&gt; eng.set_theme(create_custom_light_theme()),
+            }
+            eng.invalidate_all();
+        }
+    });
+    watcher.start()?;
+
+    // Save button action
+    let input = name_input.clone();
+    save_btn.clicked().connect(move |_| {
+        let name = input.text();
+        println!("Saved settings for: {}", name);
+    });
+
+    // Theme buttons row
+    let mut theme_buttons = HBoxLayout::new();
+    theme_buttons.set_spacing(8.0);
+    theme_buttons.add_widget(light_btn.object_id());
+    theme_buttons.add_widget(dark_btn.object_id());
+
+    let mut theme_btn_container = Container::new();
+    theme_btn_container.set_layout(LayoutKind::from(theme_buttons));
+
+    // Main layout
+    let mut layout = VBoxLayout::new();
+    layout.set_content_margins(ContentMargins::uniform(24.0));
+    layout.set_spacing(16.0);
+    layout.add_widget(title.object_id());
+    layout.add_widget(theme_label.object_id());
+    layout.add_widget(follow_system.object_id());
+    layout.add_widget(theme_btn_container.object_id());
+    layout.add_stretch(1);
+    layout.add_widget(name_label.object_id());
+    layout.add_widget(name_input.object_id());
+    layout.add_stretch(1);
+    layout.add_widget(save_btn.object_id());
+
+    let mut container = Container::new();
+    container.set_layout(LayoutKind::from(layout));
+
+    window.set_content_widget(container.object_id());
+    window.show();
+
+    app.run()
+}</code></pre>
+<h2 id="theme-variables"><a class="header" href="#theme-variables">Theme Variables</a></h2>
+<p>Themes expose CSS-like variables for consistent styling:</p>
+<pre><code class="language-rust ignore">use horizon_lattice_style::ThemeVariables;
+
+// Variables automatically created from palette
+// --primary-color, --primary-light, --primary-dark
+// --secondary-color, --secondary-light, --secondary-dark
+// --background, --surface, --surface-variant
+// --text-primary, --text-secondary, --text-disabled
+// --error, --warning, --success, --info
+// --border, --border-light, --divider
+
+// Spacing variables
+// --spacing-xs (4px), --spacing-sm (8px), --spacing-md (16px)
+// --spacing-lg (24px), --spacing-xl (32px)
+
+// Border radius variables
+// --radius-sm, --radius-md, --radius-lg, --radius-full
+
+// Font size variables
+// --font-size-xs through --font-size-2xl</code></pre>
+<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<h3 id="1-always-support-both-light-and-dark"><a class="header" href="#1-always-support-both-light-and-dark">1. Always Support Both Light and Dark</a></h3>
+<p>Design your custom themes in pairs:</p>
+<pre><code class="language-rust ignore">fn get_theme(dark: bool) -&gt; Theme {
+    if dark {
+        create_custom_dark_theme()
+    } else {
+        create_custom_light_theme()
+    }
+}</code></pre>
+<h3 id="2-use-semantic-colors"><a class="header" href="#2-use-semantic-colors">2. Use Semantic Colors</a></h3>
+<p>Use palette colors by meaning, not by value:</p>
+<pre><code class="language-rust ignore">// Good - uses semantic meaning
+let bg = palette.surface;
+let text = palette.text_primary;
+let accent = palette.primary;
+
+// Bad - hardcoded colors that won't adapt
+let bg = Color::WHITE;
+let text = Color::BLACK;</code></pre>
+<h3 id="3-invalidate-after-theme-changes"><a class="header" href="#3-invalidate-after-theme-changes">3. Invalidate After Theme Changes</a></h3>
+<p>Always call <code>invalidate_all()</code> after changing themes:</p>
+<pre><code class="language-rust ignore">engine.set_theme(new_theme);
+engine.invalidate_all(); // Don't forget this!</code></pre>
+<h3 id="4-respect-system-preferences"><a class="header" href="#4-respect-system-preferences">4. Respect System Preferences</a></h3>
+<p>Default to following system theme, with manual override option:</p>
+<pre><code class="language-rust ignore">// Good UX: follow system by default
+let initial = match SystemTheme::color_scheme() {
+    ColorScheme::Dark =&gt; Theme::dark(),
+    _ =&gt; Theme::light(),
+};
+
+// Let users override manually if they want</code></pre>
+<h3 id="5-test-high-contrast-mode"><a class="header" href="#5-test-high-contrast-mode">5. Test High Contrast Mode</a></h3>
+<p>Always test your app with high contrast theme for accessibility:</p>
+<pre><code class="language-rust ignore">// Ensure text is readable in high contrast
+let hc_theme = Theme::high_contrast();
+// Minimum 4.5:1 contrast ratio for text</code></pre>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><a href="./file-operations.html">File Operations</a> - Save and load theme preferences</li>
+<li><a href="../guides/styling.html">Styling Guide</a> - Deep dive into the style system</li>
+<li><a href="../guides/architecture.html">Architecture Guide</a> - How theming integrates with the framework</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../tutorials/custom-widget.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../tutorials/file-operations.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../tutorials/custom-widget.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../tutorials/file-operations.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+        <script>
+            window.playground_line_numbers = true;
+        </script>
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+        <script src="../ace-2a3cd908.js"></script>
+        <script src="../mode-rust-2c9d5c9a.js"></script>
+        <script src="../editor-16ca416c.js"></script>
+        <script src="../theme-dawn-4493f9c8.js"></script>
+        <script src="../theme-tomorrow_night-9dbe62a9.js"></script>
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-c2a407aa.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

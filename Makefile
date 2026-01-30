@@ -164,17 +164,24 @@ publish-dry-run:
 
 # Publish all crates to crates.io
 # IMPORTANT: Crates must be published in dependency order with delays for index updates
+# Note: 60s delays to avoid crates.io rate limiting for new publishers
 publish:
 	@echo "Publishing to crates.io..."
 	@echo "WARNING: This will publish all crates. Press Ctrl+C to cancel."
 	@echo "Publishing order: macros -> core -> net -> multimedia -> render -> style -> main"
 	@read -p "Continue? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
 	cd crates/horizon-lattice-macros && cargo publish
-	@echo "Waiting for crates.io index update..."; sleep 30
+	@echo "Waiting for crates.io index update..."; sleep 60
 	cd crates/horizon-lattice-core && cargo publish
-	@echo "Waiting for crates.io index update..."; sleep 30
+	@echo "Waiting for crates.io index update..."; sleep 60
+	cd crates/horizon-lattice-net && cargo publish
+	@echo "Waiting for crates.io index update..."; sleep 60
+	cd crates/horizon-lattice-multimedia && cargo publish
+	@echo "Waiting for crates.io index update..."; sleep 60
+	cd crates/horizon-lattice-render && cargo publish
+	@echo "Waiting for crates.io index update..."; sleep 60
 	cd crates/horizon-lattice-style && cargo publish
-	@echo "Waiting for crates.io index update..."; sleep 30
+	@echo "Waiting for crates.io index update..."; sleep 60
 	cd crates/horizon-lattice && cargo publish
 	@echo ""
 	@echo "All crates published successfully!"

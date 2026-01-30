@@ -5,7 +5,8 @@
 
 .PHONY: help check build test clippy fmt fmt-check audit doc clean \
         release-check publish-dry-run publish version-check msrv-check \
-        all quality pre-commit size-check bloat license-check
+        all quality pre-commit size-check bloat license-check \
+        book book-serve book-deploy
 
 # Default target
 all: quality test
@@ -31,8 +32,13 @@ help:
 	@echo "  make build-release - Build all crates in release mode"
 	@echo "  make test        - Run all tests"
 	@echo "  make test-doc    - Run documentation tests only"
-	@echo "  make doc         - Build documentation"
-	@echo "  make doc-open    - Build and open documentation"
+	@echo "  make doc         - Build API documentation (rustdoc)"
+	@echo "  make doc-open    - Build and open API documentation"
+	@echo ""
+	@echo "Guide (mdBook):"
+	@echo "  make book        - Build the mdBook guide"
+	@echo "  make book-serve  - Serve guide locally with hot reload"
+	@echo "  make book-deploy - Deploy guide to gh-pages branch"
 	@echo ""
 	@echo "Release Process:"
 	@echo "  make version-check   - Verify versions are consistent across crates"
@@ -99,6 +105,22 @@ doc:
 
 doc-open:
 	cargo doc --workspace --all-features --no-deps --open
+
+#------------------------------------------------------------------------------
+# Guide (mdBook)
+#------------------------------------------------------------------------------
+
+book:
+	@command -v mdbook >/dev/null 2>&1 || { echo "Installing mdbook..."; cargo install mdbook; }
+	cd docs && mdbook build
+
+book-serve:
+	@command -v mdbook >/dev/null 2>&1 || { echo "Installing mdbook..."; cargo install mdbook; }
+	cd docs && mdbook serve --open
+
+book-deploy:
+	@command -v mdbook >/dev/null 2>&1 || { echo "Installing mdbook..."; cargo install mdbook; }
+	./scripts/deploy-docs.sh
 
 #------------------------------------------------------------------------------
 # Release Process

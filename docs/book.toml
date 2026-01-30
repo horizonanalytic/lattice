@@ -12,9 +12,9 @@ create-missing = false
 [output.html]
 default-theme = "rust"
 preferred-dark-theme = "coal"
-git-repository-url = "https://github.com/horizon-analytic-studios/horizon-lattice"
-edit-url-template = "https://github.com/horizon-analytic-studios/horizon-lattice/edit/main/docs/{path}"
-site-url = "/horizon-lattice/"
+git-repository-url = "https://github.com/horizonanalytic/lattice"
+edit-url-template = "https://github.com/horizonanalytic/lattice/edit/main/docs/{path}"
+site-url = "/lattice/"
 cname = ""
 input-404 = "404.md"
 

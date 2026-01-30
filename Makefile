@@ -148,15 +148,16 @@ release-check: quality test version-check
 	@echo "Release check passed! Ready for publish-dry-run."
 
 # Dry run publish to crates.io (validates package metadata)
+# Note: First-time dry-run may fail on optional cross-crate deps not yet on crates.io
 publish-dry-run:
 	@echo "Running publish dry-run for all crates..."
-	@echo "Publishing order: macros -> core -> render -> style -> net -> multimedia -> main"
+	@echo "Publishing order: macros -> core -> net -> multimedia -> render -> style -> main"
 	cd crates/horizon-lattice-macros && cargo publish --dry-run
 	cd crates/horizon-lattice-core && cargo publish --dry-run
-	cd crates/horizon-lattice-render && cargo publish --dry-run
-	cd crates/horizon-lattice-style && cargo publish --dry-run
 	cd crates/horizon-lattice-net && cargo publish --dry-run
 	cd crates/horizon-lattice-multimedia && cargo publish --dry-run
+	cd crates/horizon-lattice-render && cargo publish --dry-run
+	cd crates/horizon-lattice-style && cargo publish --dry-run
 	cd crates/horizon-lattice && cargo publish --dry-run
 	@echo ""
 	@echo "Dry run successful! Ready for actual publish."
@@ -166,19 +167,13 @@ publish-dry-run:
 publish:
 	@echo "Publishing to crates.io..."
 	@echo "WARNING: This will publish all crates. Press Ctrl+C to cancel."
-	@echo "Publishing order: macros -> core -> render -> style -> net -> multimedia -> main"
+	@echo "Publishing order: macros -> core -> net -> multimedia -> render -> style -> main"
 	@read -p "Continue? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
 	cd crates/horizon-lattice-macros && cargo publish
 	@echo "Waiting for crates.io index update..."; sleep 30
 	cd crates/horizon-lattice-core && cargo publish
 	@echo "Waiting for crates.io index update..."; sleep 30
-	cd crates/horizon-lattice-render && cargo publish
-	@echo "Waiting for crates.io index update..."; sleep 30
 	cd crates/horizon-lattice-style && cargo publish
-	@echo "Waiting for crates.io index update..."; sleep 30
-	cd crates/horizon-lattice-net && cargo publish
-	@echo "Waiting for crates.io index update..."; sleep 30
-	cd crates/horizon-lattice-multimedia && cargo publish
 	@echo "Waiting for crates.io index update..."; sleep 30
 	cd crates/horizon-lattice && cargo publish
 	@echo ""

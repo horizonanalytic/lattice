@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "rust";
             const default_dark_theme = "coal";
-            window.path_to_searchindex_js = "searchindex-39c21381.js";
+            window.path_to_searchindex_js = "searchindex-3b13cfa8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-b89355f2.js"></script>
@@ -218,19 +218,18 @@
 <h2 id="quick-example"><a class="header" href="#quick-example">Quick Example</a></h2>
 <pre><code class="language-rust ignore">use horizon_lattice::prelude::*;
 
-fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+fn main() -&gt; Result&lt;(), horizon_lattice::LatticeError&gt; {
     let app = Application::new()?;
 
-    let mut window = Window::new();
-    window.set_title("Hello, Horizon Lattice!");
-    window.set_size(400, 300);
+    let mut window = Window::new("Hello, Horizon Lattice!")
+        .with_size(400.0, 300.0);
 
-    let button = Button::new("Click me!");
-    button.clicked().connect(|_| {
+    let button = PushButton::new("Click me!");
+    button.clicked().connect(|_checked| {
         println!("Button clicked!");
     });
 
-    window.set_central_widget(button);
+    window.set_content_widget(button.object_id());
     window.show();
 
     app.run()
@@ -238,7 +237,7 @@ fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
 <h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
 <ul>
 <li><strong>API Documentation</strong>: <a href="https://docs.rs/horizon-lattice">docs.rs/horizon-lattice</a></li>
-<li><strong>GitHub</strong>: <a href="https://github.com/horizon-analytic-studios/horizon-lattice">github.com/horizon-analytic-studios/horizon-lattice</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/horizonanalytic/lattice">github.com/horizonanalytic/lattice</a></li>
 <li><strong>Issues</strong>: Report bugs or request features on GitHub</li>
 </ul>
 <h2 id="license"><a class="header" href="#license">License</a></h2>

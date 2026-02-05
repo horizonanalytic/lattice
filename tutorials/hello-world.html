@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "rust";
             const default_dark_theme = "coal";
-            window.path_to_searchindex_js = "../searchindex-2ddae7e5.js";
+            window.path_to_searchindex_js = "../searchindex-39c21381.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-b89355f2.js"></script>
@@ -191,7 +191,7 @@
 </ul>
 <h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
 <ul>
-<li>Rust installed (1.75+)</li>
+<li>Rust installed (1.89+)</li>
 <li>A new Cargo project</li>
 </ul>
 <h2 id="project-setup"><a class="header" href="#project-setup">Project Setup</a></h2>
@@ -201,19 +201,19 @@ cd hello-lattice
 </code></pre>
 <p>Add Horizon Lattice to <code>Cargo.toml</code>:</p>
 <pre><code class="language-toml">[dependencies]
-horizon-lattice = "0.1"
+horizon-lattice = "1.0"
 </code></pre>
 <h2 id="step-1-the-minimal-application"><a class="header" href="#step-1-the-minimal-application">Step 1: The Minimal Application</a></h2>
 <p>Every Horizon Lattice application starts with creating an <code>Application</code>. This initializes the event loop, graphics context, and platform integration.</p>
 <p>Replace <code>src/main.rs</code> with:</p>
 <pre><code class="language-rust ignore">use horizon_lattice::Application;
 
-fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+fn main() -&gt; Result&lt;(), horizon_lattice::LatticeError&gt; {
     // Initialize the application (must be first)
     let app = Application::new()?;
 
     // Run the event loop (blocks until quit)
-    Ok(app.run()?)
+    app.run()
 }</code></pre>
 <p>This compiles and runs, but does nothing visible because there’s no window.</p>
 <h2 id="step-2-create-a-window"><a class="header" href="#step-2-create-a-window">Step 2: Create a Window</a></h2>
@@ -221,10 +221,10 @@ fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
 <pre><code class="language-rust ignore">use horizon_lattice::Application;
 use horizon_lattice::widget::widgets::Window;
 
-fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+fn main() -&gt; Result&lt;(), horizon_lattice::LatticeError&gt; {
     let app = Application::new()?;
 
-    // Create a window
+    // Create a window with title and size
     let mut window = Window::new("Hello, World!")
         .with_size(400.0, 300.0);
 
@@ -235,18 +235,19 @@ fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
 }</code></pre>
 <p>Now when you run the application, you’ll see an empty window titled “Hello, World!” that’s 400x300 pixels.</p>
 <h3 id="window-properties"><a class="header" href="#window-properties">Window Properties</a></h3>
-<p>Windows support many properties:</p>
-<pre><code class="language-rust ignore">let mut window = Window::new("My App")
-    .with_size(800.0, 600.0)         // Width x Height
-    .with_position(100.0, 100.0)     // X, Y position
-    .with_minimum_size(320.0, 240.0) // Minimum allowed size
+<p>Windows support many properties via the builder pattern:</p>
+<pre><code class="language-rust ignore">use horizon_lattice::widget::widgets::WindowFlags;
+
+let mut window = Window::new("My App")
+    .with_size(800.0, 600.0)           // Width x Height
+    .with_position(100.0, 100.0)       // X, Y position
+    .with_minimum_size(320.0, 240.0)   // Minimum allowed size
     .with_flags(WindowFlags::DEFAULT);</code></pre>
 <h2 id="step-3-add-a-label"><a class="header" href="#step-3-add-a-label">Step 3: Add a Label</a></h2>
 <p>Labels display text. Let’s add one to our window:</p>
-<pre><code class="language-rust ignore">use horizon_lattice::Application;
-use horizon_lattice::widget::widgets::{Label, Window};
+<pre><code class="language-rust ignore">use horizon_lattice::prelude::*;
 
-fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+fn main() -&gt; Result&lt;(), horizon_lattice::LatticeError&gt; {
     let app = Application::new()?;
 
     // Create a window
@@ -265,11 +266,10 @@ fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
 <p>Run this and you’ll see “Hello, World!” displayed in the window.</p>
 <h2 id="step-4-style-the-label"><a class="header" href="#step-4-style-the-label">Step 4: Style the Label</a></h2>
 <p>Labels support various styling options:</p>
-<pre><code class="language-rust ignore">use horizon_lattice::Application;
-use horizon_lattice::widget::widgets::{Label, Window};
-use horizon_lattice::render::{Color, HorizontalAlign, VerticalAlign};
+<pre><code class="language-rust ignore">use horizon_lattice::prelude::*;
+use horizon_lattice::render::HorizontalAlign;
 
-fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+fn main() -&gt; Result&lt;(), horizon_lattice::LatticeError&gt; {
     let app = Application::new()?;
 
     let mut window = Window::new("Hello, World!")
@@ -278,7 +278,6 @@ fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
     // Create a styled label
     let label = Label::new("Hello, World!")
         .with_horizontal_align(HorizontalAlign::Center)
-        .with_vertical_align(VerticalAlign::Center)
         .with_text_color(Color::from_rgb8(50, 100, 200));
 
     window.set_content_widget(label.object_id());
@@ -289,13 +288,13 @@ fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
 <p>Now the text is centered and colored blue.</p>
 <h3 id="label-options"><a class="header" href="#label-options">Label Options</a></h3>
 <p>Labels support many display options:</p>
-<pre><code class="language-rust ignore">// Word wrapping for long text
+<pre><code class="language-rust ignore">use horizon_lattice::widget::widgets::{Label, ElideMode};
+
+// Word wrapping for long text
 let wrapped = Label::new("This is a very long text that will wrap to multiple lines")
     .with_word_wrap(true);
 
 // Text elision (truncation with "...")
-use horizon_lattice::widget::widgets::ElideMode;
-
 let elided = Label::new("very_long_filename_that_doesnt_fit.txt")
     .with_elide_mode(ElideMode::Right);  // Shows "very_long_filen..."
 
@@ -303,11 +302,10 @@ let elided = Label::new("very_long_filename_that_doesnt_fit.txt")
 let rich = Label::from_html("Hello &lt;b&gt;bold&lt;/b&gt; and &lt;i&gt;italic&lt;/i&gt;!");</code></pre>
 <h2 id="complete-example"><a class="header" href="#complete-example">Complete Example</a></h2>
 <p>Here’s the complete Hello World application:</p>
-<pre><code class="language-rust ignore">use horizon_lattice::Application;
-use horizon_lattice::widget::widgets::{Label, Window};
-use horizon_lattice::render::{Color, HorizontalAlign, VerticalAlign};
+<pre><code class="language-rust ignore">use horizon_lattice::prelude::*;
+use horizon_lattice::render::HorizontalAlign;
 
-fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+fn main() -&gt; Result&lt;(), horizon_lattice::LatticeError&gt; {
     // Initialize the application
     let app = Application::new()?;
 
@@ -318,7 +316,6 @@ fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
     // Create a centered, styled label
     let label = Label::new("Hello, Horizon Lattice!")
         .with_horizontal_align(HorizontalAlign::Center)
-        .with_vertical_align(VerticalAlign::Center)
         .with_text_color(Color::from_rgb8(50, 100, 200));
 
     // Set up the window
@@ -345,7 +342,7 @@ window.show();</code></pre>
 <p>Windows are created hidden by default. Call <code>show()</code> to make them visible. The builder pattern (<code>with_*</code> methods) allows fluent configuration.</p>
 <h3 id="content-widget"><a class="header" href="#content-widget">Content Widget</a></h3>
 <pre><code class="language-rust ignore">window.set_content_widget(label.object_id());</code></pre>
-<p>Each window has a content widget that fills its content area. You pass the widget’s <code>ObjectId</code> (obtained via <code>object_id()</code>). For more complex UIs, you’ll set a Container with a layout as the content widget.</p>
+<p>Each window has a content widget that fills its content area. You pass the widget’s <code>ObjectId</code> (obtained via <code>object_id()</code>). For more complex UIs, you’ll set a ContainerWidget with a layout as the content widget.</p>
 <h3 id="event-loop"><a class="header" href="#event-loop">Event Loop</a></h3>
 <pre><code class="language-rust ignore">app.run()</code></pre>
 <p>This starts the event loop, which:</p>
@@ -355,7 +352,7 @@ window.show();</code></pre>
 <li>Redraws widgets as needed</li>
 <li>Handles window management</li>
 </ul>
-<p>The function blocks until all windows are closed (or <code>app.quit()</code> is called).</p>
+<p>The function blocks until all windows are closed (or <code>Application::quit()</code> is called).</p>
 <h2 id="run-it"><a class="header" href="#run-it">Run It</a></h2>
 <pre><code class="language-bash">cargo run
 </code></pre>

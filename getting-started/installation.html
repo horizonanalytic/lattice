@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "rust";
             const default_dark_theme = "coal";
-            window.path_to_searchindex_js = "../searchindex-2ddae7e5.js";
+            window.path_to_searchindex_js = "../searchindex-39c21381.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-b89355f2.js"></script>
@@ -184,7 +184,7 @@
 <p>This guide covers how to add Horizon Lattice to your Rust project.</p>
 <h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
 <ul>
-<li><strong>Rust</strong>: 1.75 or later (for async features)</li>
+<li><strong>Rust</strong>: 1.89 or later (Edition 2024)</li>
 <li><strong>Platform</strong>: Windows 10+, macOS 11+, or Linux with X11/Wayland</li>
 </ul>
 <h3 id="platform-specific-dependencies"><a class="header" href="#platform-specific-dependencies">Platform-Specific Dependencies</a></h3>
@@ -208,12 +208,12 @@ sudo pacman -S libxkbcommon wayland
 <h2 id="adding-to-your-project"><a class="header" href="#adding-to-your-project">Adding to Your Project</a></h2>
 <p>Add Horizon Lattice to your <code>Cargo.toml</code>:</p>
 <pre><code class="language-toml">[dependencies]
-horizon-lattice = "0.1"
+horizon-lattice = "1.0"
 </code></pre>
 <h3 id="optional-features"><a class="header" href="#optional-features">Optional Features</a></h3>
 <p>Horizon Lattice provides several optional features:</p>
 <pre><code class="language-toml">[dependencies]
-horizon-lattice = { version = "0.1", features = ["multimedia", "network"] }
+horizon-lattice = { version = "1.0", features = ["multimedia", "networking"] }
 </code></pre>
 <div class="table-wrapper">
 <table>
@@ -222,7 +222,7 @@ horizon-lattice = { version = "0.1", features = ["multimedia", "network"] }
 </thead>
 <tbody>
 <tr><td><code>multimedia</code></td><td>Audio/video playback support</td></tr>
-<tr><td><code>network</code></td><td>HTTP client, WebSocket, TCP/UDP</td></tr>
+<tr><td><code>networking</code></td><td>HTTP client, WebSocket, TCP/UDP</td></tr>
 <tr><td><code>accessibility</code></td><td>Screen reader support</td></tr>
 </tbody>
 </table>
@@ -232,12 +232,11 @@ horizon-lattice = { version = "0.1", features = ["multimedia", "network"] }
 <pre><code class="language-rust ignore">// src/main.rs
 use horizon_lattice::prelude::*;
 
-fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+fn main() -&gt; Result&lt;(), horizon_lattice::LatticeError&gt; {
     let app = Application::new()?;
 
-    let mut window = Window::new();
-    window.set_title("Installation Test");
-    window.set_size(300, 200);
+    let mut window = Window::new("Installation Test")
+        .with_size(300.0, 200.0);
     window.show();
 
     app.run()

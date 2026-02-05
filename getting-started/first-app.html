@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "rust";
             const default_dark_theme = "coal";
-            window.path_to_searchindex_js = "../searchindex-2ddae7e5.js";
+            window.path_to_searchindex_js = "../searchindex-39c21381.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-b89355f2.js"></script>
@@ -189,7 +189,7 @@ cd counter-app
 </code></pre>
 <p>Add Horizon Lattice to <code>Cargo.toml</code>:</p>
 <pre><code class="language-toml">[dependencies]
-horizon-lattice = "0.1"
+horizon-lattice = "1.0"
 </code></pre>
 <h2 id="the-counter-app"><a class="header" href="#the-counter-app">The Counter App</a></h2>
 <p>Replace <code>src/main.rs</code> with:</p>
@@ -197,48 +197,52 @@ horizon-lattice = "0.1"
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 
-fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+fn main() -&gt; Result&lt;(), horizon_lattice::LatticeError&gt; {
     // Initialize the application
     let app = Application::new()?;
 
     // Create the main window
-    let mut window = Window::new();
-    window.set_title("Counter");
-    window.set_size(300, 150);
+    let mut window = Window::new("Counter")
+        .with_size(300.0, 150.0);
 
     // Shared counter state
     let count = Arc::new(AtomicI32::new(0));
 
     // Create widgets
     let label = Label::new("Count: 0");
-    let increment_btn = Button::new("+");
-    let decrement_btn = Button::new("-");
+    let label_id = label.object_id();
+
+    let increment_btn = PushButton::new("+");
+    let decrement_btn = PushButton::new("-");
 
     // Connect signals
-    let label_clone = label.clone();
-    let count_clone = count.clone();
-    increment_btn.clicked().connect(move |_| {
-        let new_value = count_clone.fetch_add(1, Ordering::SeqCst) + 1;
-        label_clone.set_text(&amp;format!("Count: {}", new_value));
+    let count_inc = count.clone();
+    increment_btn.clicked().connect(move |_checked| {
+        let new_value = count_inc.fetch_add(1, Ordering::SeqCst) + 1;
+        println!("Count: {}", new_value);
+        // Note: To update the label, you would use the widget dispatcher
+        // or a property binding system in a full application
     });
 
-    let label_clone = label.clone();
-    let count_clone = count.clone();
-    decrement_btn.clicked().connect(move |_| {
-        let new_value = count_clone.fetch_sub(1, Ordering::SeqCst) - 1;
-        label_clone.set_text(&amp;format!("Count: {}", new_value));
+    let count_dec = count.clone();
+    decrement_btn.clicked().connect(move |_checked| {
+        let new_value = count_dec.fetch_sub(1, Ordering::SeqCst) - 1;
+        println!("Count: {}", new_value);
     });
 
-    // Layout
-    let mut layout = HBoxLayout::new();
-    layout.add_widget(decrement_btn);
-    layout.add_widget(label);
-    layout.add_widget(increment_btn);
+    // Create layout
+    let mut layout = BoxLayout::horizontal();
+    layout.set_spacing(10.0);
+    layout.add_widget(decrement_btn.object_id());
+    layout.add_widget(label_id);
+    layout.add_widget(increment_btn.object_id());
 
-    let mut container = Container::new();
-    container.set_layout(layout);
+    // Create container with layout
+    let mut container = ContainerWidget::new();
+    container.set_layout(LayoutKind::from(layout));
 
-    window.set_central_widget(container);
+    // Set up window
+    window.set_content_widget(container.object_id());
     window.show();
 
     app.run()
@@ -248,36 +252,44 @@ fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
 <pre><code class="language-rust ignore">let app = Application::new()?;</code></pre>
 <p>Every Horizon Lattice application starts with <code>Application::new()</code>. This initializes the event loop, graphics context, and platform integration. There can only be one <code>Application</code> per process.</p>
 <h3 id="creating-windows"><a class="header" href="#creating-windows">Creating Windows</a></h3>
-<pre><code class="language-rust ignore">let mut window = Window::new();
-window.set_title("Counter");
-window.set_size(300, 150);</code></pre>
-<p>Windows are top-level containers for your UI. Set properties like title, size, and position before calling <code>show()</code>.</p>
+<pre><code class="language-rust ignore">let mut window = Window::new("Counter")
+    .with_size(300.0, 150.0);</code></pre>
+<p>Windows are created with a title and can be configured using the builder pattern. Set properties like size and position before calling <code>show()</code>.</p>
 <h3 id="widgets"><a class="header" href="#widgets">Widgets</a></h3>
 <pre><code class="language-rust ignore">let label = Label::new("Count: 0");
-let increment_btn = Button::new("+");</code></pre>
+let increment_btn = PushButton::new("+");</code></pre>
 <p>Widgets are the building blocks of your UI. Common widgets include:</p>
 <ul>
 <li><code>Label</code> - Display text</li>
-<li><code>Button</code> - Clickable button</li>
-<li><code>TextEdit</code> - Text input</li>
-<li><code>Container</code> - Group other widgets</li>
+<li><code>PushButton</code> - Clickable button</li>
+<li><code>LineEdit</code> - Single-line text input</li>
+<li><code>ContainerWidget</code> - Group other widgets</li>
 </ul>
+<h3 id="object-ids"><a class="header" href="#object-ids">Object IDs</a></h3>
+<pre><code class="language-rust ignore">let label_id = label.object_id();</code></pre>
+<p>Each widget has a unique <code>ObjectId</code>. This is used when adding widgets to layouts or containers, and for referencing widgets elsewhere in your code.</p>
 <h3 id="signals-and-slots"><a class="header" href="#signals-and-slots">Signals and Slots</a></h3>
-<pre><code class="language-rust ignore">increment_btn.clicked().connect(move |_| {
+<pre><code class="language-rust ignore">increment_btn.clicked().connect(move |_checked| {
     // Handle click
 });</code></pre>
-<p>Signals are the Qt-inspired way to handle events. When a button is clicked, it emits a <code>clicked</code> signal. You connect a closure (slot) to respond to it.</p>
+<p>Signals are the Qt-inspired way to handle events. When a button is clicked, it emits a <code>clicked</code> signal with a boolean indicating if the button is checked (for toggle buttons). You connect a closure (slot) to respond to it.</p>
 <h3 id="layouts"><a class="header" href="#layouts">Layouts</a></h3>
-<pre><code class="language-rust ignore">let mut layout = HBoxLayout::new();
-layout.add_widget(decrement_btn);
-layout.add_widget(label);
-layout.add_widget(increment_btn);</code></pre>
-<p>Layouts automatically arrange widgets. <code>HBoxLayout</code> arranges them horizontally. Other layouts include:</p>
+<pre><code class="language-rust ignore">let mut layout = BoxLayout::horizontal();
+layout.set_spacing(10.0);
+layout.add_widget(decrement_btn.object_id());
+layout.add_widget(label.object_id());
+layout.add_widget(increment_btn.object_id());</code></pre>
+<p>Layouts automatically arrange widgets. <code>BoxLayout::horizontal()</code> arranges them in a row. Other layouts include:</p>
 <ul>
-<li><code>VBoxLayout</code> - Vertical arrangement</li>
+<li><code>BoxLayout::vertical()</code> - Vertical arrangement</li>
 <li><code>GridLayout</code> - Grid arrangement</li>
 <li><code>FormLayout</code> - Label/field pairs</li>
+<li><code>FlowLayout</code> - Flowing arrangement that wraps</li>
 </ul>
+<h3 id="containers"><a class="header" href="#containers">Containers</a></h3>
+<pre><code class="language-rust ignore">let mut container = ContainerWidget::new();
+container.set_layout(LayoutKind::from(layout));</code></pre>
+<p>Containers hold child widgets and can apply layouts to position them. Use <code>LayoutKind::from()</code> to convert a specific layout type.</p>
 <h3 id="running-the-event-loop"><a class="header" href="#running-the-event-loop">Running the Event Loop</a></h3>
 <pre><code class="language-rust ignore">app.run()</code></pre>
 <p>This starts the event loop, which:</p>
@@ -290,7 +302,7 @@ layout.add_widget(increment_btn);</code></pre>
 <h2 id="run-it"><a class="header" href="#run-it">Run It</a></h2>
 <pre><code class="language-bash">cargo run
 </code></pre>
-<p>You should see a window with - and + buttons around a “Count: 0” label. Clicking the buttons updates the counter.</p>
+<p>You should see a window with - and + buttons around a “Count: 0” label. Clicking the buttons will print the counter value to the console.</p>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <p>Continue to <a href="./basic-concepts.html">Basic Concepts</a> to learn more about the widget system, signals, and layouts.</p>
 

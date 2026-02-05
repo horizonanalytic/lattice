@@ -26,7 +26,7 @@
 //! # Guide
 //!
 //! For a comprehensive guide on the object system, see the
-//! [Architecture Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/architecture.html).
+//! [Architecture Guide](https://horizonanalytic.github.io/lattice/guides/architecture.html).
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;

@@ -39,19 +39,18 @@ Horizon Lattice uses modern graphics APIs through wgpu:
 ```rust,ignore
 use horizon_lattice::prelude::*;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), horizon_lattice::LatticeError> {
     let app = Application::new()?;
 
-    let mut window = Window::new();
-    window.set_title("Hello, Horizon Lattice!");
-    window.set_size(400, 300);
+    let mut window = Window::new("Hello, Horizon Lattice!")
+        .with_size(400.0, 300.0);
 
-    let button = Button::new("Click me!");
-    button.clicked().connect(|_| {
+    let button = PushButton::new("Click me!");
+    button.clicked().connect(|_checked| {
         println!("Button clicked!");
     });
 
-    window.set_central_widget(button);
+    window.set_content_widget(button.object_id());
     window.show();
 
     app.run()
@@ -61,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Getting Help
 
 - **API Documentation**: [docs.rs/horizon-lattice](https://docs.rs/horizon-lattice)
-- **GitHub**: [github.com/horizon-analytic-studios/horizon-lattice](https://github.com/horizon-analytic-studios/horizon-lattice)
+- **GitHub**: [github.com/horizonanalytic/lattice](https://github.com/horizonanalytic/lattice)
 - **Issues**: Report bugs or request features on GitHub
 
 ## License

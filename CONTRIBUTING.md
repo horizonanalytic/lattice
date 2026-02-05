@@ -6,11 +6,11 @@ Thank you for your interest in contributing to Horizon Lattice.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/horizon-analytic-studios/horizon-lattice.git
-   cd horizon-lattice
+   git clone https://github.com/horizonanalytic/lattice.git
+   cd lattice
    ```
 
-2. Ensure you have Rust 1.85.0 or later installed:
+2. Ensure you have Rust 1.89.0 or later installed:
    ```bash
    rustup update stable
    ```

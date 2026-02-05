@@ -59,7 +59,7 @@
 //! # Guide
 //!
 //! For a comprehensive guide on the signal/slot pattern, see the
-//! [Signals Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/signals.html).
+//! [Signals Guide](https://horizonanalytic.github.io/lattice/guides/signals.html).
 
 use std::any::Any;
 use std::sync::Arc;

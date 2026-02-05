@@ -267,10 +267,16 @@ impl ModalManager {
 mod tests {
     use super::*;
     use horizon_lattice_core::init_global_registry;
+    use std::sync::Mutex;
 
-    fn setup() {
+    // Mutex to serialize modal tests since they share global state (MODAL_STACK)
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
+
+    fn setup() -> std::sync::MutexGuard<'static, ()> {
+        let guard = TEST_MUTEX.lock().unwrap();
         init_global_registry();
         ModalManager::clear();
+        guard
     }
 
     fn make_id(n: u64) -> ObjectId {
@@ -282,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_no_modal_nothing_blocked() {
-        setup();
+        let _guard = setup();
 
         let window = make_id(1);
         assert!(!ModalManager::is_blocked(window));
@@ -291,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_application_modal_blocks_all() {
-        setup();
+        let _guard = setup();
 
         let dialog = make_id(1);
         let window1 = make_id(2);
@@ -312,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_window_modal_blocks_parent_only() {
-        setup();
+        let _guard = setup();
 
         let parent = make_id(1);
         let dialog = make_id(2);
@@ -332,7 +338,7 @@ mod tests {
 
     #[test]
     fn test_pop_modal() {
-        setup();
+        let _guard = setup();
 
         let dialog = make_id(1);
         let window = make_id(2);
@@ -347,7 +353,7 @@ mod tests {
 
     #[test]
     fn test_modal_stack_order() {
-        setup();
+        let _guard = setup();
 
         let dialog1 = make_id(1);
         let dialog2 = make_id(2);
@@ -374,7 +380,7 @@ mod tests {
 
     #[test]
     fn test_non_modal_not_tracked() {
-        setup();
+        let _guard = setup();
 
         let dialog = make_id(1);
         let window = make_id(2);
@@ -388,7 +394,7 @@ mod tests {
 
     #[test]
     fn test_duplicate_push_ignored() {
-        setup();
+        let _guard = setup();
 
         let dialog = make_id(1);
 

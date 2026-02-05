@@ -66,7 +66,7 @@
 //! # Guide
 //!
 //! For a comprehensive guide on the layout system, see the
-//! [Layout Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/layouts.html).
+//! [Layout Guide](https://horizonanalytic.github.io/lattice/guides/layouts.html).
 
 mod anchor_layout;
 mod base;

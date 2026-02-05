@@ -122,4 +122,4 @@ unknown-git = "deny"
 
 # Allow git sources from specific GitHub organizations
 [sources.allow-org]
-github = ["horizon-analytic-studios"]
+github = ["horizonanalytic"]

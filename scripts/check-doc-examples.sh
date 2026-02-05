@@ -34,6 +34,7 @@ EOF
 
 # Files to check (high-priority getting-started and tutorial docs)
 DOC_FILES=(
+    "docs/src/introduction.md"
     "docs/src/getting-started/installation.md"
     "docs/src/getting-started/first-app.md"
     "docs/src/tutorials/hello-world.md"

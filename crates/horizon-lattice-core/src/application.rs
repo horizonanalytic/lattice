@@ -21,7 +21,7 @@
 //! # Guide
 //!
 //! For a comprehensive guide on threading and the event loop, see the
-//! [Threading Guide](https://horizonanalyticstudios.github.io/horizon-lattice/guides/threading.html).
+//! [Threading Guide](https://horizonanalytic.github.io/lattice/guides/threading.html).
 
 use std::collections::BinaryHeap;
 use std::sync::OnceLock;

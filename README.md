@@ -75,8 +75,8 @@ fn main() {
 ## Documentation
 
 - [API Documentation](https://docs.rs/horizon-lattice)
-- [User Guide](https://github.com/horizon-analytic-studios/horizon-lattice/tree/main/docs)
-- [Examples](https://github.com/horizon-analytic-studios/horizon-lattice/tree/main/examples)
+- [User Guide](https://github.com/horizonanalytic/lattice/tree/main/docs)
+- [Examples](https://github.com/horizonanalytic/lattice/tree/main/crates/horizon-lattice/examples)
 
 ## Crate Structure
 

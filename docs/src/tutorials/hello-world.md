@@ -11,7 +11,7 @@ Build your first Horizon Lattice application.
 
 ## Prerequisites
 
-- Rust installed (1.75+)
+- Rust installed (1.89+)
 - A new Cargo project
 
 ## Project Setup
@@ -27,7 +27,7 @@ Add Horizon Lattice to `Cargo.toml`:
 
 ```toml
 [dependencies]
-horizon-lattice = "0.1"
+horizon-lattice = "1.0"
 ```
 
 ## Step 1: The Minimal Application
@@ -39,12 +39,12 @@ Replace `src/main.rs` with:
 ```rust,ignore
 use horizon_lattice::Application;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), horizon_lattice::LatticeError> {
     // Initialize the application (must be first)
     let app = Application::new()?;
 
     // Run the event loop (blocks until quit)
-    Ok(app.run()?)
+    app.run()
 }
 ```
 
@@ -58,10 +58,10 @@ Windows are top-level containers for your UI. Import the Window widget and creat
 use horizon_lattice::Application;
 use horizon_lattice::widget::widgets::Window;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), horizon_lattice::LatticeError> {
     let app = Application::new()?;
 
-    // Create a window
+    // Create a window with title and size
     let mut window = Window::new("Hello, World!")
         .with_size(400.0, 300.0);
 
@@ -76,13 +76,15 @@ Now when you run the application, you'll see an empty window titled "Hello, Worl
 
 ### Window Properties
 
-Windows support many properties:
+Windows support many properties via the builder pattern:
 
 ```rust,ignore
+use horizon_lattice::widget::widgets::WindowFlags;
+
 let mut window = Window::new("My App")
-    .with_size(800.0, 600.0)         // Width x Height
-    .with_position(100.0, 100.0)     // X, Y position
-    .with_minimum_size(320.0, 240.0) // Minimum allowed size
+    .with_size(800.0, 600.0)           // Width x Height
+    .with_position(100.0, 100.0)       // X, Y position
+    .with_minimum_size(320.0, 240.0)   // Minimum allowed size
     .with_flags(WindowFlags::DEFAULT);
 ```
 
@@ -91,10 +93,9 @@ let mut window = Window::new("My App")
 Labels display text. Let's add one to our window:
 
 ```rust,ignore
-use horizon_lattice::Application;
-use horizon_lattice::widget::widgets::{Label, Window};
+use horizon_lattice::prelude::*;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), horizon_lattice::LatticeError> {
     let app = Application::new()?;
 
     // Create a window
@@ -119,11 +120,10 @@ Run this and you'll see "Hello, World!" displayed in the window.
 Labels support various styling options:
 
 ```rust,ignore
-use horizon_lattice::Application;
-use horizon_lattice::widget::widgets::{Label, Window};
-use horizon_lattice::render::{Color, HorizontalAlign, VerticalAlign};
+use horizon_lattice::prelude::*;
+use horizon_lattice::render::HorizontalAlign;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), horizon_lattice::LatticeError> {
     let app = Application::new()?;
 
     let mut window = Window::new("Hello, World!")
@@ -132,7 +132,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a styled label
     let label = Label::new("Hello, World!")
         .with_horizontal_align(HorizontalAlign::Center)
-        .with_vertical_align(VerticalAlign::Center)
         .with_text_color(Color::from_rgb8(50, 100, 200));
 
     window.set_content_widget(label.object_id());
@@ -149,13 +148,13 @@ Now the text is centered and colored blue.
 Labels support many display options:
 
 ```rust,ignore
+use horizon_lattice::widget::widgets::{Label, ElideMode};
+
 // Word wrapping for long text
 let wrapped = Label::new("This is a very long text that will wrap to multiple lines")
     .with_word_wrap(true);
 
 // Text elision (truncation with "...")
-use horizon_lattice::widget::widgets::ElideMode;
-
 let elided = Label::new("very_long_filename_that_doesnt_fit.txt")
     .with_elide_mode(ElideMode::Right);  // Shows "very_long_filen..."
 
@@ -168,11 +167,10 @@ let rich = Label::from_html("Hello <b>bold</b> and <i>italic</i>!");
 Here's the complete Hello World application:
 
 ```rust,ignore
-use horizon_lattice::Application;
-use horizon_lattice::widget::widgets::{Label, Window};
-use horizon_lattice::render::{Color, HorizontalAlign, VerticalAlign};
+use horizon_lattice::prelude::*;
+use horizon_lattice::render::HorizontalAlign;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), horizon_lattice::LatticeError> {
     // Initialize the application
     let app = Application::new()?;
 
@@ -183,7 +181,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a centered, styled label
     let label = Label::new("Hello, Horizon Lattice!")
         .with_horizontal_align(HorizontalAlign::Center)
-        .with_vertical_align(VerticalAlign::Center)
         .with_text_color(Color::from_rgb8(50, 100, 200));
 
     // Set up the window
@@ -225,7 +222,7 @@ Windows are created hidden by default. Call `show()` to make them visible. The b
 window.set_content_widget(label.object_id());
 ```
 
-Each window has a content widget that fills its content area. You pass the widget's `ObjectId` (obtained via `object_id()`). For more complex UIs, you'll set a Container with a layout as the content widget.
+Each window has a content widget that fills its content area. You pass the widget's `ObjectId` (obtained via `object_id()`). For more complex UIs, you'll set a ContainerWidget with a layout as the content widget.
 
 ### Event Loop
 
@@ -239,7 +236,7 @@ This starts the event loop, which:
 - Redraws widgets as needed
 - Handles window management
 
-The function blocks until all windows are closed (or `app.quit()` is called).
+The function blocks until all windows are closed (or `Application::quit()` is called).
 
 ## Run It
 

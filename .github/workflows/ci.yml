@@ -99,6 +99,21 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  # Check that documentation examples compile
+  doc-examples:
+    name: Doc Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libglib2.0-dev libdbus-1-dev libasound2-dev libxdo-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check doc examples compile
+        run: ./scripts/check-doc-examples.sh
+
   # Dependency audit for security vulnerabilities
   audit:
     name: Security Audit

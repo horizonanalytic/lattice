@@ -4,7 +4,7 @@ This guide covers how to add Horizon Lattice to your Rust project.
 
 ## Requirements
 
-- **Rust**: 1.75 or later (for async features)
+- **Rust**: 1.89 or later (Edition 2024)
 - **Platform**: Windows 10+, macOS 11+, or Linux with X11/Wayland
 
 ### Platform-Specific Dependencies
@@ -42,7 +42,7 @@ Add Horizon Lattice to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-horizon-lattice = "0.1"
+horizon-lattice = "1.0"
 ```
 
 ### Optional Features
@@ -51,13 +51,13 @@ Horizon Lattice provides several optional features:
 
 ```toml
 [dependencies]
-horizon-lattice = { version = "0.1", features = ["multimedia", "network"] }
+horizon-lattice = { version = "1.0", features = ["multimedia", "networking"] }
 ```
 
 | Feature | Description |
 |---------|-------------|
 | `multimedia` | Audio/video playback support |
-| `network` | HTTP client, WebSocket, TCP/UDP |
+| `networking` | HTTP client, WebSocket, TCP/UDP |
 | `accessibility` | Screen reader support |
 
 ## Verifying Installation
@@ -68,12 +68,11 @@ Create a simple test application:
 // src/main.rs
 use horizon_lattice::prelude::*;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), horizon_lattice::LatticeError> {
     let app = Application::new()?;
 
-    let mut window = Window::new();
-    window.set_title("Installation Test");
-    window.set_size(300, 200);
+    let mut window = Window::new("Installation Test")
+        .with_size(300.0, 200.0);
     window.show();
 
     app.run()
